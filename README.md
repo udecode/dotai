@@ -1,4 +1,4 @@
-# @.ai Folder
+# Dotai
 
 This folder contains AI-assisted development tools for improving code quality and consistency.
 
