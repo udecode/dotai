@@ -1,6 +1,12 @@
-# Dotai
+# .ai
 
 This folder contains AI-assisted development tools for improving code quality and consistency.
+
+## How to use?
+
+- Click on the "Use this template" button
+- Create a `.ai` folder in your repository
+- Move the content of this template into the `.ai` folder
 
 ## Codex
 
