@@ -80,4 +80,4 @@ This is an open-source template. Contributions are welcome! Please add a changel
 
 ## Note
 
-This system is designed for AI consumption. Entries should prioritize precision and relevance over human readability.
+This system is designed for AI consumption. Entries should prioritize precision and relevance over human readability
