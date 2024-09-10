@@ -7,7 +7,7 @@ Process:
 1. Analyze current session for error and learning indicators
 2. Extract contextual information
 3. Format new entries
-4. Edit .ai/codex/codex.md (Append to relevant section)
+4. Edit `.ai/codex/codex.md` (Append to relevant section)
 5. Report updates
 
 Error identification:
@@ -32,11 +32,28 @@ Entry format:
 
 Absolute path usage: Enforce '/path/from/root' format for all file references
 
-1. CRITICAL: Edit .ai/codex/codex.md
+1. CRITICAL: Edit `.ai/codex/codex.md`
 
 - Append new entries to the relevant section (Errors or Learnings)
 - Maintain descending order (newest first)
 - Ensure unique, incremental IDs
 - Cross-reference related entries
 
-CRITICAL: This process is for AI optimization. Prioritize precision and relevance over human readability. Always edit .ai/codex/codex.md directly.
+Exclusions:
+
+- CI/CD configuration errors
+- Linting and code style issues (e.g., ESLint, Prettier)
+- TypeScript configuration problems (tsconfig.json)
+- Build tool configuration (e.g., webpack, Vite)
+- Environment setup issues (e.g., .env files)
+
+Focus on:
+
+- Functional errors in application code
+- Architectural and design pattern insights
+- State management and data flow learnings
+- Performance optimizations
+- User experience improvements
+- API integration and data handling
+
+CRITICAL: This process is for AI optimization. Prioritize precision and relevance over human readability. Always edit `.ai/codex/codex.md` directly.

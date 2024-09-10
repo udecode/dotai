@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.1
+
+- codex: add exclusions and focus. Cursor captures many TS and ESLint errors that we should ignore.
+
 ## 1.1.0
 
 - New folder [session](session):
