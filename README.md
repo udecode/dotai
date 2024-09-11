@@ -74,6 +74,10 @@ Blueprints are comprehensive guides for implementing specific technical architec
 - [v0.dev](https://v0.dev/) is a tool for generating React components from screenshots and chat. Currently, they don't have a Cursor plugin, so you can use [v0](v0/v0.md) bridging prompt.
 - [v0.md](v0/v0.md): Guide for using v0.dev to generate component ideas and prompts
 
+## Rules of AI
+
+[Rules](rules) contains rules for default AI behavior and interaction. These rules are meant to be added to the global "Rules of AI" setting.
+
 ## Contributing
 
 This is an open-source template. Contributions are welcome! Please add a changelog entry with your contribution.

@@ -1,5 +1,10 @@
 # Changelog
 
+## rules@1.2.0
+
+- New rule [mckay.md](rules/mckay.md) by @mckaywrigley
+- New rule [code-tutor.md](rules/code-tutor.md) by @mckaywrigley
+
 ## codex@1.1.1
 
 - [learn.md](codex/learn.md): add exclusions and focus. Cursor captures many TS and ESLint errors that we should ignore.
