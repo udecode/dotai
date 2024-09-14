@@ -8,6 +8,14 @@ This folder contains AI-assisted development tools for improving code quality an
 - Create a `.ai` folder in your repository
 - Move the content of this template into the `.ai` folder
 
+### Or just use it on an existing one!
+
+- You can quick import this project and keep watching the community adding a submodule.
+- the command create a submodule and also the `.ai` folder.
+- ```bash
+  git submodule add git@github.com:udecode/dotai.git .ai
+  ```
+
 ## Codex
 
 ### Files
