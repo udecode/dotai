@@ -36,6 +36,12 @@ The [Codex](codex/codex.md) is divided into two main sections:
 
 Each entry includes context, description, correction/application, and related entries.
 
+## Snippets
+
+Snippets include code templates that AI can use to generate or refactor code. They help in writing shorter prompts for better results.
+
+- [create-snippet.md](snippets/create-snippet.md): Prompt for creating new snippets
+
 ## Session
 
 - [start-session.md](session/start-session.md): Initiates a new AI session

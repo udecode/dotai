@@ -1,5 +1,11 @@
 # Changelog
 
+## snippets@1.3.0
+
+Introducing Snippets. Snippets include code templates that AI can use to generate or refactor code. They help in writing shorter prompts for better results.
+
+- [create-snippet.md](snippets/create-snippet.md)
+
 ## rules@1.2.0
 
 - New rule [mckay.md](rules/mckay.md) by @mckaywrigley
