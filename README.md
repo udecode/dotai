@@ -12,19 +12,25 @@ A project template that combines three powerful AI development tools:
 
 ## Getting Started
 
+### Prerequisites
+
+**Install [Flashbacker](https://github.com/agentsea/flashbacker)** (once per machine):
+
+```bash
+bash .claude/flashback/scripts/install-flashbacker.sh && source ~/.zshrc
+```
+
+Note: The SessionStart hook is already configured in `.claude/settings.json` for automatic session restoration.
+
+### Quick Start
+
 1. **Launch Claude Code**
 
    ```bash
    claude
    ```
 
-2. **Open Task Studio** (optional web interface)
-
-   ```bash
-   npx task-studio@latest
-   ```
-
-3. **Follow the workflow:**
+2. **Follow the workflow:**
    - `/create-app-design` - Explain your app
    - `/create-tech-stack` - Choose technologies
    - `/create-prd-interactive` - Write feature requirements
@@ -50,35 +56,35 @@ You don't need to memorize commands. Simply ask Claude to:
 
 ### Quick Reference
 
-| Command                        | Description                                                              | Category      |
-| ------------------------------ | ------------------------------------------------------------------------ | ------------- |
-| `/create-app-design`           | Generate comprehensive app design document with project stage assessment | Docs          |
-| `/update-app-design`           | Update existing app design document based on codebase changes            | Docs          |
-| `/create-tech-stack`           | Generate comprehensive technical stack documentation from codebase analysis | Docs       |
-| `/update-tech-stack`           | Update tech stack documentation based on dependency changes              | Docs          |
-| `/create-prd-interactive`      | Generate a PRD interactively with clarifying questions for complex features | Docs       |
-| `/create-prd`                  | Generate a PRD directly without questions for simple, well-defined features | Docs       |
-| `/parse-prd`                   | Parse a PRD into Task Master tasks with optional tag creation           | Docs          |
-| `/create-rule`                 | Create a new Cursor rule file with proper structure and conventions      | Docs          |
-| `/update-rule`                 | Update existing Cursor rules based on new patterns or codebase evolution | Docs          |
-| `/update-project-structure`    | Update project structure documentation by running tree script            | Docs          |
-| `/next`                        | Get next task and start implementing it immediately                      | Tasks         |
-| `/done`                        | Mark task as complete and optionally get next task                      | Tasks         |
-| `/show`                        | Show specific task details                                               | Tasks         |
-| `/list`                        | List all tasks in current tag                                            | Tasks         |
-| `/add`                         | Add one or more tasks to the current tag                                | Tasks         |
-| `/add-interactive`             | Add tasks interactively with clarifying questions                       | Tasks         |
-| `/update-task`                 | Update tasks based on implementation changes                             | Tasks         |
-| `/update-task-interactive`     | Update tasks interactively with clarifying questions                    | Tasks         |
-| `/expand`                      | Break down tasks into subtasks                                           | Tasks         |
-| `/move`                        | Reorganize task structure                                                | Tasks         |
-| `/research`                    | Research best practices and update tasks                                 | Tasks         |
-| `/task`                        | Research best practices and update tasks                                 | Research      |
-| `/tech`                        | Research technologies, frameworks, and tools                             | Research      |
-| `/security`                    | Research security best practices and vulnerabilities                     | Research      |
-| `/architecture`                | Research architectural patterns and best practices                       | Research      |
-| `/create-snippet`              | Create a reusable code snippet                                           | Snippets      |
-| `/debug`                       | Systematic debugging process for complex issues                          | Support       |
+| Command                     | Description                                                                 | Category |
+| --------------------------- | --------------------------------------------------------------------------- | -------- |
+| `/create-app-design`        | Generate comprehensive app design document with project stage assessment    | Docs     |
+| `/update-app-design`        | Update existing app design document based on codebase changes               | Docs     |
+| `/create-tech-stack`        | Generate comprehensive technical stack documentation from codebase analysis | Docs     |
+| `/update-tech-stack`        | Update tech stack documentation based on dependency changes                 | Docs     |
+| `/create-prd-interactive`   | Generate a PRD interactively with clarifying questions for complex features | Docs     |
+| `/create-prd`               | Generate a PRD directly without questions for simple, well-defined features | Docs     |
+| `/parse-prd`                | Parse a PRD into Task Master tasks with optional tag creation               | Docs     |
+| `/create-rule`              | Create a new Cursor rule file with proper structure and conventions         | Docs     |
+| `/update-rule`              | Update existing Cursor rules based on new patterns or codebase evolution    | Docs     |
+| `/update-project-structure` | Update project structure documentation by running tree script               | Docs     |
+| `/next`                     | Get next task and start implementing it immediately                         | Tasks    |
+| `/done`                     | Mark task as complete and optionally get next task                          | Tasks    |
+| `/show`                     | Show specific task details                                                  | Tasks    |
+| `/list`                     | List all tasks in current tag                                               | Tasks    |
+| `/add`                      | Add one or more tasks to the current tag                                    | Tasks    |
+| `/add-interactive`          | Add tasks interactively with clarifying questions                           | Tasks    |
+| `/update-task`              | Update tasks based on implementation changes                                | Tasks    |
+| `/update-task-interactive`  | Update tasks interactively with clarifying questions                        | Tasks    |
+| `/expand`                   | Break down tasks into subtasks                                              | Tasks    |
+| `/move`                     | Reorganize task structure                                                   | Tasks    |
+| `/research`                 | Research best practices and update tasks                                    | Tasks    |
+| `/task`                     | Research best practices and update tasks                                    | Research |
+| `/tech`                     | Research technologies, frameworks, and tools                                | Research |
+| `/security`                 | Research security best practices and vulnerabilities                        | Research |
+| `/architecture`             | Research architectural patterns and best practices                          | Research |
+| `/create-snippet`           | Create a reusable code snippet                                              | Snippets |
+| `/debug`                    | Systematic debugging process for complex issues                             | Support  |
 
 ### Command Details
 
@@ -233,6 +239,67 @@ project/
 ├── .mcp.json            # MCP configuration
 └── CLAUDE.md            # Project context
 ```
+
+## Flashbacker Integration
+
+Minimal session continuity for Claude Code - no amnesia after auto-compacts.
+
+### How You Actually Use It
+
+After auto-compact wipes your context, Flashbacker brings it back:
+
+```bash
+# Session Management (What You'll Use Daily)
+/fb:working-plan                    # Update development priorities with AI
+/fb:save-session                    # Capture insights before breaks
+/fb:how "implement auth"            # Validate Claude understands before coding
+
+# Code Quality Analysis
+/fb:debt-hunter                     # Hunt TODOs, FIXMEs, duplicate functions
+/fb:hallucination-hunter            # Detect broken AI-generated code
+```
+
+### What Happens Automatically
+
+**SessionStart Hook**: When you open the project OR after auto-compaction:
+
+1. Loads `WORKING_PLAN.md` into context
+2. Claude remembers what you were working on
+3. No manual reloading needed
+
+### Your Daily Flow
+
+```bash
+1. Open project - Auto-loads plan (SessionStart hook)
+2. Work normally...
+3. Update progress - /fb:working-plan
+4. Context fills - Auto-compact - Auto-reloads plan
+5. Before break - /fb:save-session
+```
+
+### Available Commands
+
+**Session Continuity:**
+
+- `/fb:working-plan` - AI analyzes progress, updates development roadmap
+- `/fb:save-session` - Extracts key insights from current session
+- `/fb:session-start` - Manual reload (rarely needed, hook handles it)
+
+**Code Quality:**
+
+- `/fb:how "request"` - Get implementation plan BEFORE Claude codes
+- `/fb:debt-hunter` - CLI scans for technical debt across 6 languages
+- `/fb:hallucination-hunter` - AI validates generated code actually works
+
+### Behind the Scenes
+
+When you run `/fb:working-plan`:
+
+1. **CLI gathers context**: Loads current plan + conversation history
+2. **AI analyzes progress**: Updates priorities based on what you've done
+3. **You get**: Updated roadmap that survives compactions
+
+**The Magic**: Computer handles files, AI handles intelligence
 
 ## License
 
