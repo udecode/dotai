@@ -17,7 +17,7 @@ if [ -d ~/.claude/flashbacker ]; then
     git pull --quiet
 else
     echo "📦 Cloning Flashbacker repository..."
-    git clone https://github.com/agentsea/flashbacker.git ~/.claude/flashbacker
+    git clone https://github.com/zbeyens/flashbacker.git ~/.claude/flashbacker
     cd ~/.claude/flashbacker
 fi
 

@@ -29,10 +29,10 @@ fi
 FULL_IGNORE=".git|*.bak|$CUSTOM_IGNORE$TSCONFIG_IGNORE"
 
 # Output file
-OUTPUT=".taskmaster/docs/project-structure.md"
+OUTPUT=".claude/docs/project-structure.md"
 
 # Create directory if it doesn't exist
-mkdir -p .taskmaster/docs
+mkdir -p .claude/docs
 
 # Header
 cat > "$OUTPUT" << 'EOF'

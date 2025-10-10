@@ -7,16 +7,25 @@
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Use nvm default node version
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm use default &> /dev/null
+
 # Find the flashback binary
 FLASHBACK_BIN=""
 
 # Try different locations
 if command -v flashback &> /dev/null; then
     FLASHBACK_BIN="flashback"
-elif [ -f "${SCRIPT_DIR}/../../bin/flashback" ]; then
-    FLASHBACK_BIN="${SCRIPT_DIR}/../../bin/flashback"
-elif [ -f "${SCRIPT_DIR}/../../lib/cli.js" ]; then
-    FLASHBACK_BIN="node ${SCRIPT_DIR}/../../lib/cli.js"
+elif [ -f "$HOME/.claude/flashbacker/lib/cli.js" ]; then
+    # Try to use node directly without nvm
+    if command -v node &> /dev/null; then
+        FLASHBACK_BIN="node $HOME/.claude/flashbacker/lib/cli.js"
+    else
+        echo "Error: Node.js not found in PATH" >&2
+        exit 1
+    fi
 else
     echo "Error: Could not find flashback binary" >&2
     exit 1

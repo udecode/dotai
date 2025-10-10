@@ -1,5 +1,5 @@
 ---
-allowed-tools: Bash, Read, Write, Glob, Grep, Task, TodoWrite, mcp__taskmaster-ai__parse_prd
+allowed-tools: Bash, Read, Write, Glob, Grep, Task, TodoWrite
 description: Generate a PRD directly without questions for simple, well-defined features
 ---
 
@@ -9,11 +9,11 @@ description: Generate a PRD directly without questions for simple, well-defined 
 
 - **User Request:** $ARGUMENTS
 - **Project Root:** !`pwd`
-- **Existing PRDs:** !`ls -la .taskmaster/docs/prd-*.md 2>/dev/null || echo "No existing PRDs found"`
+- **Existing PRDs:** !`ls -la .claude/docs/prd-*.md 2>/dev/null || echo "No existing PRDs found"`
 - **Project Status:** @CLAUDE.md#project-status
 - **Project Structure:** !`bash .claude/scripts/tree.sh`
-- **Tech Stack:** @.taskmaster/docs/tech-stack.md
-- **PRD Template:** @.taskmaster/templates/example_prd.md
+- **Tech Stack:** @.claude/docs/tech-stack.md
+- **PRD Template:** @.claude/docs/example_prd.md
 
 ## Goal
 
@@ -42,12 +42,12 @@ To quickly create a Product Requirements Document (PRD) without asking clarifyin
    - Document assumptions clearly in the PRD
 
 4. **Save and Next Steps:**
-   - Save as `prd-[feature-name].md` in `.taskmaster/docs/`
-   - Suggest running Task Master parse command
+   - Save as `prd-[feature-name].md` in `.claude/docs/`
+   - Suggest running parse command
 
 ## PRD Structure Requirements
 
-The PRD must follow the exact structure from @.taskmaster/templates/example_prd.md:
+The PRD must follow the exact structure from @.claude/docs/example_prd.md:
 
 ### `<context>` Section
 
@@ -78,8 +78,8 @@ When using quick mode, include an "Assumptions" section at the beginning of the 
 2. **Do NOT ask questions** - proceed directly to PRD generation
 3. **Document assumptions** clearly in the PRD
 4. **Generate complete PRD** following the template structure exactly
-5. **Save the PRD** to `.taskmaster/docs/prd-[feature-name].md`
-6. **Suggest next step:** "Use `/parse` or `task-master parse-prd .taskmaster/docs/prd-[feature-name].md` to convert this PRD into Task Master tasks"
+5. **Save the PRD** to `.claude/docs/prd-[feature-name].md`
+6. **Suggest next step:** "Use `/parse-prd [feature-name]` to convert this PRD into tasks"
 
 ## Example Usage
 

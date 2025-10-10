@@ -1,3 +1,5 @@
+- **User Request:** $ARGUMENTS
+
 1. Reflect on 5-7 different possible sources of the problem
 2. Distill those down to 1-2 most likely sources
 3. Add additional logs to validate your assumptions and track the transformation of data structures throughout the application control flow before we move onto implementing the actual code fix

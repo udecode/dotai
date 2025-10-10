@@ -1,0 +1,24 @@
+{
+  "name": "dotai",
+  "version": "1.0.0",
+  "description": "AI-powered development template with Claude Code, Codex (AGENTS.md), and Cursor integration",
+  "license": "MIT",
+  "scripts": {
+    "ctx": "tsx .claude/scripts/generate-agents.ts",
+    "typecheck": "tsc --noEmit",
+    "app:log": "echo 'Configure app:log command for your project'",
+    "backend:log": "echo 'Configure backend:log command for your project'"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "prompts": "^2.4.2",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/prompts": "^2.4.9",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  },
+  "packageManager": "pnpm@10.15.0"
+}

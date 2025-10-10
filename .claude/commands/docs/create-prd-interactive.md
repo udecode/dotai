@@ -1,5 +1,5 @@
 ---
-allowed-tools: Bash, Read, Write, Glob, Grep, Task, TodoWrite, mcp__taskmaster-ai__parse_prd
+allowed-tools: Bash, Read, Write, Glob, Grep, Task, TodoWrite
 description: Generate a PRD interactively with clarifying questions for complex features
 ---
 
@@ -9,11 +9,11 @@ description: Generate a PRD interactively with clarifying questions for complex 
 
 - **User Request:** $ARGUMENTS
 - **Project Root:** !`pwd`
-- **Existing PRDs:** !`ls -la .taskmaster/docs/prd-*.md 2>/dev/null || echo "No existing PRDs found"`
+- **Existing PRDs:** !`ls -la .claude/docs/prd-*.md 2>/dev/null || echo "No existing PRDs found"`
 - **Project Status:** @CLAUDE.md#project-status
-- **Tech Stack:** @.taskmaster/docs/tech-stack.md
+- **Tech Stack:** @.claude/docs/tech-stack.md
 - **Project Structure:** !`bash .claude/scripts/tree.sh`
-- **PRD Template:** @.taskmaster/templates/example_prd.md
+- **PRD Template:** @.claude/docs/example_prd.md
 
 ## Goal
 
@@ -43,8 +43,8 @@ To create a detailed Product Requirements Document (PRD) in Markdown format. The
    - Ensure clarity for junior developers
 
 5. **Save and Next Steps:**
-   - Save as `prd-[feature-name].md` in `.taskmaster/docs/`
-   - Suggest running Task Master parse command
+   - Save as `prd-[feature-name].md` in `.claude/docs/`
+   - Suggest running parse command
 
 ## Clarifying Questions Framework
 
@@ -66,7 +66,7 @@ Adapt questions based on the specific feature request provided above. Consider t
 
 ## PRD Structure Requirements
 
-The PRD must follow the exact structure from @.taskmaster/templates/example_prd.md:
+The PRD must follow the exact structure from @.claude/docs/example_prd.md:
 
 ### `<context>` Section
 
@@ -90,7 +90,7 @@ Assume the primary reader of the PRD is a **junior developer**. Therefore, requi
 ## Output
 
 - **Format:** Markdown (`.md`)
-- **Location:** `.taskmaster/docs/`
+- **Location:** `.claude/docs/`
 - **Filename:** `prd-[feature-name].md`
 
 ## Final Instructions
@@ -99,8 +99,8 @@ Assume the primary reader of the PRD is a **junior developer**. Therefore, requi
 2. **Do NOT start implementing** - only create the PRD document
 3. **Ask clarifying questions** with lettered/numbered options
 4. **Generate complete PRD** following the template structure exactly
-5. **Save the PRD** to `.taskmaster/docs/prd-[feature-name].md`
-6. **Suggest next step:** "Use `/parse` or `task-master parse-prd .taskmaster/docs/prd-[feature-name].md` to convert this PRD into Task Master tasks"
+5. **Save the PRD** to `.claude/docs/prd-[feature-name].md`
+6. **Suggest next step:** "Use `/parse-prd [feature-name]` to convert this PRD into tasks"
 
 ## Example Usage
 

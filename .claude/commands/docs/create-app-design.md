@@ -11,7 +11,7 @@ description: Generate comprehensive app design document with project stage asses
 
 - Project root: !`pwd`
 - Package.json: @package.json
-- Existing design docs: !`ls -la .taskmaster/docs/ 2>/dev/null || echo "No .taskmaster/docs directory yet"`
+- Existing design docs: !`ls -la .claude/docs/ 2>/dev/null || echo "No .claude/docs directory yet"`
 
 ## Goal
 
@@ -23,7 +23,7 @@ Create a comprehensive Application Design Document based on deep codebase analys
 
 - Analyze project structure and existing codebase
 - Review package.json for project name and dependencies
-- Check for existing documentation in .taskmaster/docs/
+- Check for existing documentation in .claude/docs/
 - Identify key application features and patterns
 - **Think deeply** about the application's purpose and architecture
 
@@ -64,7 +64,7 @@ Create comprehensive app design document following the standard structure
 
 ### 6. Save and Organize
 
-- Create `.taskmaster/docs/` directory if needed
+- Create `.claude/docs/` directory if needed
 - Save as `app-design-document.md`
 - Suggest next steps (tech stack doc, PRD, etc.)
 
@@ -231,7 +231,7 @@ The language should be clear, business-focused, and avoid technical implementati
 ## Output
 
 - **Format:** Markdown (`.md`)
-- **Location:** `.taskmaster/docs/`
+- **Location:** `.claude/docs/`
 - **Filename:** `app-design-document.md`
 
 ## Execution Steps
@@ -277,6 +277,6 @@ The language should be clear, business-focused, and avoid technical implementati
 
 ### 5. Save and Next Steps
 
-- Create directory: `mkdir -p .taskmaster/docs`
-- Save document: `.taskmaster/docs/app-design-document.md`
+- Create directory: `mkdir -p .claude/docs`
+- Save document: `.claude/docs/app-design-document.md`
 - Suggest: "Would you like me to create a technical stack document next?"

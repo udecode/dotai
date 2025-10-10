@@ -11,9 +11,9 @@ description: Update tech stack documentation based on dependency changes and tec
 
 - Project root: !`pwd`
 - Package.json: @package.json
-- Current tech doc: @.taskmaster/docs/tech-stack.md
+- Current tech doc: @.claude/docs/tech-stack.md
 - **Project Structure:** !`bash .claude/scripts/tree.sh`
-- Last modified: !`stat -f "%Sm" .taskmaster/docs/tech-stack.md 2>/dev/null || echo "No existing document"`
+- Last modified: !`stat -f "%Sm" .claude/docs/tech-stack.md 2>/dev/null || echo "No existing document"`
 - Recent package changes: !`git diff HEAD~10 HEAD -- package.json 2>/dev/null | grep -E "^[+-]" | head -20 || echo "No recent changes"`
 
 ## Goal
@@ -227,13 +227,13 @@ When adding major new tools:
 ```bash
 # Check current dependencies vs documented
 diff <(jq -r '.dependencies | keys[]' package.json | sort) \
-     <(grep -E '^\*\*.*:' .taskmaster/docs/tech-stack.md | cut -d: -f1 | sed 's/\*//g' | sort)
+     <(grep -E '^\*\*.*:' .claude/docs/tech-stack.md | cut -d: -f1 | sed 's/\*//g' | sort)
 
 # Review recent dependency commits
 git log --oneline --grep="dep" --since="30 days ago"
 
 # Check for new config files
-find . -name "*.config.*" -newer .taskmaster/docs/tech-stack.md 2>/dev/null
+find . -name "*.config.*" -newer .claude/docs/tech-stack.md 2>/dev/null
 ```
 
 **Think deeply about:** "What technical decisions drove these changes? How do version updates affect the overall architecture? What new capabilities do these tools enable?"
@@ -282,10 +282,10 @@ Update CLAUDE.md if new scripts discovered:
 
 ```bash
 # Optional backup
-cp .taskmaster/docs/tech-stack.md .taskmaster/docs/tech-stack.backup.md
+cp .claude/docs/tech-stack.md .claude/docs/tech-stack.backup.md
 
 # Save updated document
-# Overwrite .taskmaster/docs/tech-stack.md
+# Overwrite .claude/docs/tech-stack.md
 ```
 
 ## Key Principles
@@ -309,7 +309,7 @@ cp .taskmaster/docs/tech-stack.md .taskmaster/docs/tech-stack.backup.md
 ## Output
 
 - **Format:** Markdown (`.md`)
-- **Location:** `.taskmaster/docs/`
+- **Location:** `.claude/docs/`
 - **Filename:** `tech-stack.md` (overwrites)
 - **Backup:** Suggest for major changes
 

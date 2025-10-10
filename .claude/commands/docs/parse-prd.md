@@ -1,181 +1,296 @@
 ---
-allowed-tools: TodoWrite, mcp__taskmaster-ai__parse_prd, mcp__taskmaster-ai__add_tag, mcp__taskmaster-ai__use_tag, mcp__taskmaster-ai__list_tags, mcp__taskmaster-ai__get_tasks
-description: Parse a PRD into Task Master tasks with optional tag creation
+allowed-tools: Read, Write, Bash, Glob, Grep, TodoWrite
+description: Parse a PRD into a structured implementation checklist
 ---
 
-# Parse PRD into Task Master Tasks
+# Parse PRD into Implementation Checklist
 
 ## Context
 
 - **User Request:** $ARGUMENTS
-- Current directory: !`pwd`
-- Task Master state: !`cat .taskmaster/state.json 2>/dev/null || echo "No state file yet"`
-- Current tag: !`jq -r '.currentTag // "master"' .taskmaster/state.json 2>/dev/null || echo "master"`
-- Available tags: !`jq -r '.tags | keys | join(", ")' .taskmaster/tasks/tasks.json 2>/dev/null || echo "No tags yet"`
-- PRD files: !`ls -la .taskmaster/docs/prd*.md 2>/dev/null | tail -5 || echo "No PRD files found"`
+- **Current directory:** !`pwd`
+- **PRD files:** !`ls -la .claude/docs/prd*.md 2>/dev/null || echo "No PRD files found"`
+- **PRD Template:** @.claude/docs/example_prd.md
 
 ## Goal
 
-Parse a Product Requirements Document (PRD) into structured Task Master tasks. This command handles tag creation, context switching, and PRD parsing in a streamlined workflow.
+Parse a Product Requirements Document (PRD) into a structured markdown implementation checklist. This creates an actionable task list that developers can follow and check off as they build the feature.
 
 ## Process
 
 ### 1. Determine PRD Location
 
-**Think about which PRD file the user wants to parse.**
+**Identify which PRD file to parse:**
 
 Check for:
+- Explicit PRD path in `$ARGUMENTS`
+- Tag-specific PRD: `.claude/docs/prd-[feature-name].md`
+- Default PRD location: `.claude/docs/prd.md`
 
-- Explicit PRD path in
-- Default PRD location: `.taskmaster/docs/prd.txt` or `.taskmaster/docs/prd.md`
-- Tag-specific PRD: `.taskmaster/docs/prd-[tag-name].md`
+### 2. Read and Analyze PRD
 
-### 2. Tag Context Decision
+Read the PRD file and extract:
+- Core features and requirements
+- Technical architecture components
+- Development roadmap phases
+- Logical dependency chain
+- Key implementation details
 
-Determine if we need a new tag:
+### 3. Generate Implementation Checklist
 
-- If PRD is for a specific feature → Create new tag
-- If updating existing work → Use current tag
-- If starting fresh → Consider new tag
+Create a structured markdown file with:
 
-### 3. Execute Parse Workflow
+```markdown
+# [Feature Name] Implementation Checklist
 
-Based on context:
+Generated from: [PRD filename]
+Date: [Current date]
 
-1. Create new tag if needed
-2. Switch to appropriate tag
-3. Parse the PRD
-4. Generate tasks with proper numbering
-5. Suggest next steps
+## Overview
+[Brief summary from PRD]
+
+## Prerequisites
+- [ ] Requirement 1
+- [ ] Requirement 2
+
+## Phase 1: Foundation
+### Task Group 1
+- [ ] Subtask 1.1
+- [ ] Subtask 1.2
+
+### Task Group 2
+- [ ] Subtask 2.1
+- [ ] Subtask 2.2
+
+## Phase 2: Core Features
+[Continue with implementation steps...]
+
+## Phase 3: Polish & Testing
+- [ ] Testing tasks
+- [ ] Documentation tasks
+
+## Notes
+- Key technical decisions
+- Important considerations
+- Risk mitigations
+```
+
+### 4. Save Checklist
+
+Save the generated checklist to:
+- `.claude/docs/checklist-[feature-name].md`
 
 ## Execution Steps
 
-### Scenario 1: Parse with New Tag Creation
-
-If the user wants to parse a feature-specific PRD:
+### Step 1: Read the PRD
 
 ```markdown
-1. **Create a new tag** for this feature:
-   Using: add_tag with name and description
+1. **Locate the PRD file**
+   - Use provided path or search for PRD files
+   - Verify file exists
 
-2. **Switch to the new tag**:
-   Using: use_tag to set context
-
-3. **Parse the PRD**:
-   Using: parse_prd with the PRD path
-
-4. **Confirm success**:
-   Show task count and suggest next steps
+2. **Read PRD content**
+   - Extract all sections
+   - Note key requirements and dependencies
 ```
 
-### Scenario 2: Parse in Current Context
-
-If parsing into the current tag:
+### Step 2: Extract Implementation Tasks
 
 ```markdown
-1. **Confirm current tag** is appropriate
-   Show current tag context
+1. **Analyze Development Roadmap section**
+   - Break down into phases (MVP, enhancements, etc.)
+   - Identify atomic tasks
 
-2. **Parse the PRD directly**:
-   Using: parse_prd with the PRD path
+2. **Review Logical Dependency Chain**
+   - Order tasks by dependencies
+   - Group related tasks
 
-3. **Show results**:
-   Display generated tasks summary
+3. **Process Technical Architecture**
+   - Extract component implementation tasks
+   - Note data model requirements
+   - Identify API/integration work
 ```
 
-### Scenario 3: Parse Default PRD
-
-If no specific PRD mentioned:
+### Step 3: Structure the Checklist
 
 ```markdown
-1. **Check for default PRD**:
-   Look for .taskmaster/docs/prd.txt or prd.md
+1. **Create hierarchical task structure**
+   - Use phases/groups for organization
+   - Add checkbox format for tracking
+   - Include context/notes where helpful
 
-2. **Confirm with user** if found
-3. **Parse the default PRD**:
-   Using: parse_prd
+2. **Add metadata**
+   - Source PRD reference
+   - Generation date
+   - Feature overview
 ```
 
-## Interactive Flow
+### Step 4: Generate and Save
 
-Based on User Request, determine the appropriate flow:
+```markdown
+1. **Write checklist file**
+   - Save to `.claude/docs/checklist-[name].md`
+   - Use clean markdown formatting
 
-### If arguments include a tag name:
+2. **Confirm success**
+   - Show file location
+   - Display summary of task count
+   - Suggest next steps
+```
 
-1. Create the tag
-2. Switch to it
-3. Parse the corresponding PRD
+## Output Format
 
-### If arguments include a PRD path:
+The generated checklist should follow this structure:
 
-1. Ask if a new tag is needed
-2. Parse the specified PRD
+```markdown
+# [Feature Name] Implementation Checklist
 
-### If no arguments:
+**Source PRD:** `.claude/docs/prd-[feature-name].md`
+**Generated:** [Date]
+**Status:** Not Started
 
-1. Check current tag context
-2. Look for default PRD
-3. Proceed with parsing
+## 📋 Overview
+
+[Brief description of the feature and its goals]
+
+## ✅ Prerequisites
+
+Essential setup before starting implementation:
+- [ ] Review project structure
+- [ ] Understand existing patterns
+- [ ] Set up development environment
+- [ ] [Other prerequisites from PRD]
+
+## 🏗️ Phase 1: Foundation
+
+### Database & Models
+- [ ] Define data models
+- [ ] Create database schema
+- [ ] Set up migrations
+- [ ] [Other data tasks]
+
+### Core Infrastructure
+- [ ] Set up API routes
+- [ ] Configure authentication
+- [ ] [Other infrastructure]
+
+## 🎨 Phase 2: Core Features
+
+### Feature Component 1
+- [ ] Implement UI components
+- [ ] Add business logic
+- [ ] Connect to APIs
+- [ ] [Other tasks]
+
+### Feature Component 2
+- [ ] [Implementation tasks]
+
+## 🔍 Phase 3: Testing & Polish
+
+### Testing
+- [ ] Manual testing scenarios
+- [ ] Edge case validation
+- [ ] Security review
+- [ ] [Other testing]
+
+### Documentation
+- [ ] Update README if needed
+- [ ] Add inline code comments
+- [ ] Document API changes
+- [ ] [Other docs]
+
+## 📝 Notes
+
+### Technical Decisions
+- [Key architectural choices]
+- [Library selections]
+
+### Risks & Mitigations
+- [Known risks from PRD]
+- [Mitigation strategies]
+
+### Future Enhancements
+- [Post-MVP features]
+- [Nice-to-have improvements]
+
+---
+
+**Progress:** 0/[total] tasks completed
+```
 
 ## Best Practices
 
 ### DO:
-
-- **Check tag context** before parsing
-- **Use descriptive tag names** for features
-- **Keep PRDs organized** by feature/tag
-- **Verify PRD exists** before parsing
-- **Show task summary** after parsing
+- **Extract all phases** from the PRD's Development Roadmap
+- **Respect dependency order** from Logical Dependency Chain
+- **Break down complex tasks** into smaller, actionable items
+- **Include context** from PRD where it helps clarity
+- **Use clear, action-oriented language** for each task
 
 ### DON'T:
-
-- **Parse into master tag** for feature work
-- **Overwrite existing tasks** without confirmation
-- **Mix unrelated features** in one tag
-- **Skip tag creation** for new features
+- **Create generic tasks** - be specific about what needs to be built
+- **Lose PRD context** - reference important decisions and rationale
+- **Ignore dependencies** - maintain logical implementation order
+- **Over-simplify** - include enough detail for implementation
 
 ## Example Usage
 
 ```bash
-# Parse default PRD in current context
-/project:parse
+# Parse specific PRD file
+/parse-prd prd-user-authentication.md
 
-# Parse specific PRD with new tag
-/project:parse user-auth feature
+# Parse with full path
+/parse-prd .claude/docs/prd-payments.md
 
-# Parse existing PRD file
-/project:parse .taskmaster/docs/prd-payments.md
+# Parse default PRD
+/parse-prd
 ```
 
 ## Natural Language Examples
 
-Since MCP supports natural language:
-
 ```
-"Please parse my PRD for the user authentication feature"
-"Create tasks from the payments PRD and put them in a new tag"
-"Parse the default PRD into the current tag context"
+"Parse my authentication PRD into a checklist"
+"Convert the payments PRD into implementation tasks"
+"Create a checklist from prd-dashboard.md"
 ```
 
 ## Next Steps
 
-After parsing, suggest:
+After generating the checklist:
 
-1. **View generated tasks**: Use `/next` to see the first task
-2. **Analyze complexity**: Run complexity analysis if many tasks
-3. **Expand tasks**: Break down complex tasks into subtasks
-4. **Start implementation**: Begin with the highest priority task
+1. **Review the checklist** - Open `.claude/docs/checklist-[name].md`
+2. **Refine if needed** - Add or adjust tasks based on your understanding
+3. **Start implementation** - Begin with Phase 1 tasks
+4. **Track progress** - Check off tasks as you complete them
+5. **Update as needed** - Adjust the checklist as implementation evolves
 
-## Task Tracking
+## Integration with Workflow
 
-Add parsed PRD to todo list for tracking:
+The generated checklist integrates with your development workflow:
 
-```typescript
-{
-  content: "Parse PRD: [filename]",
-  status: "completed",
-  priority: "high"
-}
+1. **PRD Creation** → Use `/create-prd` or `/create-prd-interactive`
+2. **PRD Parsing** → Use `/parse-prd` (this command)
+3. **Implementation** → Follow the generated checklist
+4. **Progress Tracking** → Check off tasks in the markdown file
+
+You can also copy relevant checklist items into Claude Code's todo list using the TodoWrite tool during active development sessions.
+
+## Example Output Summary
+
+After parsing, show:
+
 ```
+✅ Successfully parsed PRD: prd-user-authentication.md
 
-This helps track which PRDs have been processed and when.
+📄 Generated checklist: .claude/docs/checklist-user-authentication.md
+
+📊 Summary:
+   - 3 phases
+   - 15 task groups
+   - 47 total tasks
+
+🎯 Next Steps:
+   1. Review the checklist: .claude/docs/checklist-user-authentication.md
+   2. Start with Phase 1: Foundation tasks
+   3. Use `/create-snippet` for reusable code patterns
+```

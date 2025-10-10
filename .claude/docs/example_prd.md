@@ -5,8 +5,8 @@
 
 **Project Status: Pre-MVP**
 
-- Read this file: `.taskmaster/docs/app-design-document.md` - App design document
-- Read this file: `.taskmaster/docs/tech-stack.md` - Tech stack, architecture
+- Read this file: `.claude/docs/app-design-document.md` - App design document
+- Read this file: `.claude/docs/tech-stack.md` - Tech stack, architecture
 - DO NOT care about breaking changes. We didn't deploy yet.
 - DO NOT care about unit testing, accessibility, visual testing (Storybook), and performance optimization unless asked.
 - Care about security, zod validation, authorization, rate limiting, and other production-level concerns. In general, you can see how it's done in the other features.

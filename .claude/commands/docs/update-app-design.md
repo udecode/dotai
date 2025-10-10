@@ -11,8 +11,8 @@ description: Update existing app design document based on codebase changes and p
 
 - Project root: !`pwd`
 - Package.json: @package.json
-- Current design doc: @.taskmaster/docs/app-design-document.md
-- Last modified: !`stat -f "%Sm" .taskmaster/docs/app-design-document.md 2>/dev/null || echo "No existing document"`
+- Current design doc: @.claude/docs/app-design-document.md
+- Last modified: !`stat -f "%Sm" .claude/docs/app-design-document.md 2>/dev/null || echo "No existing document"`
 - Project status: @CLAUDE.md#project-status
 
 ## Goal
@@ -212,7 +212,7 @@ d) **Business Goal** - Partnerships, funding, market expansion
 
 ```bash
 # Check when document was last updated
-stat -f "%Sm" .taskmaster/docs/app-design-document.md
+stat -f "%Sm" .claude/docs/app-design-document.md
 
 # Review recent commits for feature changes
 git log --oneline --since="30 days ago" | head -20
@@ -260,10 +260,10 @@ If stage or priorities changed, update both:
 
 ```bash
 # Optional: Create backup
-cp .taskmaster/docs/app-design-document.md .taskmaster/docs/app-design-document.backup.md
+cp .claude/docs/app-design-document.md .claude/docs/app-design-document.backup.md
 
 # Save updated document
-# Overwrite .taskmaster/docs/app-design-document.md
+# Overwrite .claude/docs/app-design-document.md
 ```
 
 ## Key Principles
@@ -287,7 +287,7 @@ cp .taskmaster/docs/app-design-document.md .taskmaster/docs/app-design-document.
 ## Output
 
 - **Format:** Markdown (`.md`)
-- **Location:** `.taskmaster/docs/`
+- **Location:** `.claude/docs/`
 - **Filename:** `app-design-document.md` (overwrites)
 - **Backup:** Suggest if major changes
 

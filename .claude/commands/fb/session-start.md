@@ -5,14 +5,12 @@ Manual session recovery after compaction or when starting fresh. Uses the hybrid
 ## Task
 
 1. **Gather Context**: Run `flashback working-plan --context` to get:
-
    - Current working plan from WORKING_PLAN.md
    - **Previous session** conversation history (not empty current session)
    - Current session information
 
 2. **Load Context**: Use `flashback session-start --context` to get recent conversation transcript
 3. Understand what you work working on from the conversation transcript, and WORKING_PLAN.md:
-
    - What you were working on (from WORKING_PLAN.md)
    - What happened in the last session (from conversation log)
 
