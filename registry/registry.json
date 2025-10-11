@@ -108,11 +108,7 @@
       "type": "registry:item",
       "title": "Complete Project Setup",
       "description": "Install all dotai plugins",
-      "registryDependencies": [
-        "https://raw.githubusercontent.com/udecode/dotai/main/registry/dotai.json",
-        "https://raw.githubusercontent.com/udecode/dotai/main/registry/flashback.json",
-        "https://raw.githubusercontent.com/udecode/dotai/main/registry/ctx.json"
-      ],
+      "registryDependencies": [],
       "files": []
     }
   ]
