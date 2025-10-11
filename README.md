@@ -14,27 +14,6 @@ Then, restart `claude`.
 
 This installs all project files and configures Claude Code to auto-install the marketplace and plugins.
 
-**Note:** If you already have `.claude/settings.json`, manually add this configuration:
-
-```json
-{
-  "extraKnownMarketplaces": {
-    "dotai": {
-      "source": {
-        "source": "github",
-        "repo": "udecode/dotai"
-      }
-    }
-  },
-  "enabledPlugins": {
-    "ctx@dotai": true,
-    "dotai@dotai": true,
-    "fb@dotai": true,
-    "notification@dotai": true
-  }
-}
-```
-
 ### Configure Context Management
 
 Add this to your `package.json`:
@@ -166,14 +145,8 @@ macOS notifications for Claude Code events.
 ### 1. Initial Setup
 
 ```bash
-# Add marketplace
+# Add marketplace and install plugins (interactive)
 /plugin marketplace add udecode/dotai
-
-# Install plugins
-/plugin install dotai@dotai
-/plugin install notification@dotai
-/plugin install fb@dotai
-/plugin install ctx@dotai
 # restart claude
 
 # Install all project files (dotai + flashback + ctx)
