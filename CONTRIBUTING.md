@@ -14,6 +14,24 @@ dotai/
         └── docs/                # Published plugins
 ```
 
+## Architecture
+
+**Plugins** (.claude-plugin/plugins/):
+
+- Reusable, project-agnostic slash commands and agents
+- Installed via `/plugin install`
+- Provide workflows and automation
+
+**Registry Items** (registry/):
+
+- Installable file collections via shadcn CLI
+- Provide project setup and configuration files
+- Installed via commands or manual shadcn CLI
+
+**How They Work Together:**
+
+1. Plugins provide commands → 2. Commands install registry items → 3. Registry items provide files → 4. Plugins operate on those files
+
 ## Local Development Workflow
 
 ### Creating and Testing Plugins
