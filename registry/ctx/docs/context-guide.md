@@ -90,20 +90,20 @@ Solution: Use the smallest preset that covers your needs
 
 ### Rule Properties
 
-| Property      | Type       | Required | Description                                      |
-| ------------- | ---------- | -------- | ------------------------------------------------ |
-| `name`        | string     | ✅       | Unique identifier for the rule                   |
-| `path`        | string     | ✅       | Relative path to rule file                       |
-| `description` | string     | ✅       | Human-readable description                       |
-| `globs`       | string[]   | ❌       | File patterns that auto-trigger this rule        |
-| `alwaysApply` | boolean    | ❌       | Include in every context generation (default: false) |
+| Property      | Type     | Required | Description                                          |
+| ------------- | -------- | -------- | ---------------------------------------------------- |
+| `name`        | string   | ✅       | Unique identifier for the rule                       |
+| `path`        | string   | ✅       | Relative path to rule file                           |
+| `description` | string   | ✅       | Human-readable description                           |
+| `globs`       | string[] | ❌       | File patterns that auto-trigger this rule            |
+| `alwaysApply` | boolean  | ❌       | Include in every context generation (default: false) |
 
 ### Preset Properties
 
-| Property | Type     | Description                          |
-| -------- | -------- | ------------------------------------ |
-| `name`   | string   | Unique preset identifier             |
-| `rules`  | string[] | Array of rule names to include       |
+| Property | Type     | Description                    |
+| -------- | -------- | ------------------------------ |
+| `name`   | string   | Unique preset identifier       |
+| `rules`  | string[] | Array of rule names to include |
 
 ## Managing Rules
 
@@ -136,11 +136,11 @@ Solution: Use the smallest preset that covers your needs
 ```json
 {
   "globs": [
-    "*.tsx",                    // All TSX files
-    "src/components/**/*.tsx",  // Components only
-    "app/**/page.tsx",          // Next.js pages
-    "api/**",                   // All API files
-    "**/payments/**"            // Payment-related files
+    "*.tsx", // All TSX files
+    "src/components/**/*.tsx", // Components only
+    "app/**/page.tsx", // Next.js pages
+    "api/**", // All API files
+    "**/payments/**" // Payment-related files
   ]
 }
 ```
@@ -186,12 +186,14 @@ Use `alwaysApply: true` for foundational documentation:
 ### Preset Best Practices
 
 1. **Focused Presets** - Include only related rules
+
    ```json
    "ui": ["react", "styling", "components"]  // ✅ Good
    "ui": ["react", "database", "auth"]       // ❌ Too broad
    ```
 
 2. **Hierarchical Presets** - Can reference other presets
+
    ```json
    "frontend": ["react", "nextjs"],
    "fullstack": ["frontend", "api", "database"]
@@ -256,14 +258,14 @@ When user asks to add/modify context.json:
 
 When using `/ctx` in Claude Code, rules automatically apply based on file patterns:
 
-| Rule Type  | Globs Example             | Use Case                |
-| ---------- | ------------------------- | ----------------------- |
-| React      | `*.tsx`, `*.jsx`          | React components        |
-| Next.js    | `**/page.tsx`             | Next.js pages           |
-| API        | `api/**`, `**/route.ts`   | API endpoints           |
-| Database   | `**/schema.ts`, `db/**`   | Database schemas        |
-| Components | `components/**/*.tsx`     | Reusable components     |
-| Features   | `**/[feature-name]/**`    | Feature-specific files  |
+| Rule Type  | Globs Example           | Use Case               |
+| ---------- | ----------------------- | ---------------------- |
+| React      | `*.tsx`, `*.jsx`        | React components       |
+| Next.js    | `**/page.tsx`           | Next.js pages          |
+| API        | `api/**`, `**/route.ts` | API endpoints          |
+| Database   | `**/schema.ts`, `db/**` | Database schemas       |
+| Components | `components/**/*.tsx`   | Reusable components    |
+| Features   | `**/[feature-name]/**`  | Feature-specific files |
 
 ## Benefits
 
@@ -347,5 +349,5 @@ When using `/ctx` in Claude Code, rules automatically apply based on file patter
 
 **Rules:** `.claude/context.json`
 **AI Decision Logic:** `.claude/commands/ctx.md`
-**Generator Script:** `.claude/scripts/generate-agents.ts`
+**Generator Script:** `tsx .claude/scripts/generate-agents.ts`
 **This Guide:** `.claude/docs/context-guide.md`
