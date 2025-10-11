@@ -2,10 +2,29 @@
 
 Smart context management for Claude Code with task-specific rule selection and AGENTS.md generation.
 
+> **TL;DR**: Prevent context bloat by loading only relevant docs for your task
+
+## Quick Commands
+
+```bash
+# 🤖 AI-Powered (Claude Code only)
+/ctx                     # Type in Claude Code chat
+                         # Claude analyzes task + chooses preset
+                         # Example: "I need to build a modal component"
+
+# 📝 Manual Selection
+pnpm ctx                 # Interactive menu
+pnpm ctx ui              # UI work
+pnpm ctx backend         # Backend work
+pnpm ctx app             # Full-stack
+pnpm ctx --clear         # Remove generated files
+```
+
 ## Features
 
 ### 🎯 Task-Specific Context
-- **Intelligent Rule Selection** - Include only relevant rules for your task
+- **AI-Powered Selection** - `/ctx` command lets Claude analyze your task and choose optimal preset
+- **Manual Selection** - `pnpm ctx <preset>` for direct control
 - **Token Optimization** - Smaller context = faster AI responses
 - **Better Focus** - AI sees only patterns relevant to current work
 
@@ -99,14 +118,60 @@ pnpm ctx --init  # Create initial AGENTS.md with all rules
 
 ## How It Works
 
-### 1. Task Analysis
+### Context Generation Flow
 
-Before running `pnpm ctx`, analyze:
-- **Files you'll modify** - Match file globs in context.json
-- **Technologies involved** - React, TypeScript, database, etc.
-- **Features implementing** - Auth, UI, API endpoints, etc.
+```
+┌─────────────────────────────────────────────────────────┐
+│              Context Generation Flow                     │
+└─────────────────────────────────────────────────────────┘
 
-### 2. Rule Selection
+Option A: AI-Powered (Claude Code)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Developer: Types /ctx in Claude Code chat
+           "I need to build a modal component"
+    ↓
+Claude Code: Reads .claude/commands/ctx.md
+           Analyzes task + .claude/context.json
+    ↓
+Claude Code: Runs pnpm ctx ui
+    ↓
+AGENTS.md + CLAUDE.local.md generated
+    ↓
+AI has focused UI context
+
+Option B: Manual Selection
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Developer: pnpm ctx ui
+    ↓
+Script reads .claude/context.json
+    ↓
+Generates AGENTS.md + CLAUDE.local.md
+    ↓
+AI has focused UI context
+
+Files Generated:
+• AGENTS.md - Full docs for Codex (don't edit)
+• CLAUDE.local.md - File refs for Claude Code (don't edit)
+```
+
+### Decision Tree
+
+**Choose your approach:**
+
+```
+Are you using Claude Code?
+├─ YES → Type: /ctx
+│         Then describe your task
+│         Claude analyzes + chooses preset
+│
+└─ NO  → What are you working on?
+          ├─ UI/Components  → pnpm ctx frontend
+          ├─ API/Backend    → pnpm ctx backend
+          ├─ Both/Full      → pnpm ctx app
+          └─ Not sure       → pnpm ctx (interactive)
+```
+
+### Rule Selection
 
 Rules in `.claude/context.json` have:
 - `name` - Identifier (use in command)
@@ -121,13 +186,6 @@ Rules in `.claude/context.json` have:
 - ✅ Include rules with relevant tech/patterns
 - ❌ Exclude unrelated rules
 - ❌ Don't list individual rules when preset covers them
-
-### 3. Context Generation
-
-`pnpm ctx <rules>` → Generates `AGENTS.md` with:
-- Always-apply rules (global docs)
-- Selected rules from your command
-- Focused context for current task
 
 ## Configuration
 
@@ -170,6 +228,32 @@ pnpm ctx backend
 /clear  # Reload Claude with new context
 ```
 
+## Context Quality Impact
+
+Understanding why focused context matters:
+
+**Without Context System:**
+- ❌ All docs loaded every time
+- ❌ AI overwhelmed by unrelated patterns
+- ❌ Less accurate responses (too much noise)
+- ❌ AI confused by conflicting guidance
+
+**With Context System:**
+- ✅ Only relevant docs loaded
+- ✅ AI focused on task-specific patterns
+- ✅ More accurate responses (less noise)
+- ✅ Clear, consistent guidance
+
+**Quality by Preset:**
+
+| Preset     | Quality | Reason                        |
+| ---------- | ------- | ----------------------------- |
+| `frontend` | ⭐⭐⭐⭐⭐ | Focused frontend patterns only |
+| `backend`  | ⭐⭐⭐⭐⭐ | Focused backend patterns only  |
+| `app`      | ⭐⭐⭐   | All patterns (diluted focus)   |
+
+**Rule of thumb:** Use the smallest preset that covers your needs.
+
 ## Benefits
 
 - **Faster Responses** - Smaller context = faster processing
@@ -177,6 +261,7 @@ pnpm ctx backend
 - **Token Efficiency** - Include only necessary rules
 - **Task-Specific** - Custom context per task
 - **Always Include Essentials** - Global docs auto-included
+- **AI-Powered Option** - Claude Code analyzes and chooses for you
 
 ## Examples
 
@@ -228,6 +313,21 @@ pnpm ctx frontend payments
 
 ## Troubleshooting
 
+**AI giving unfocused/irrelevant suggestions?**
+- Context too broad - use more specific preset (`frontend` instead of `app`)
+- Try: `pnpm ctx <specific-preset>` then `/clear` in Claude
+
+**AI doesn't know about specific patterns?**
+- Regenerate with correct preset: `pnpm ctx <preset>`
+- Check if rule exists in `.claude/context.json`
+
+**AI seems confused by conflicting patterns?**
+- Too much context loaded - use narrower preset
+- Avoid `app` preset unless working on full-stack feature
+
+**Changes to rules not reflected?**
+- Regenerate: `pnpm ctx <preset>` then `/clear` in Claude
+
 **Command not found:**
 - Ensure plugin is installed: `/plugin list`
 - Check dependencies installed: `pnpm install`
@@ -239,6 +339,10 @@ pnpm ctx frontend payments
 **Rules not appearing:**
 - Verify rule paths in context.json
 - Check rule files exist at specified paths
+
+**Need help choosing preset?**
+- Use interactive: `pnpm ctx`
+- Or ask in Claude Code: `/ctx` then describe your task
 
 ## Version History
 
