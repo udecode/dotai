@@ -14,6 +14,19 @@ Then, restart `claude`.
 
 This installs all project files and configures Claude Code to auto-install the marketplace and plugins.
 
+**Important:** If files install to `src/` instead of project root, temporarily rename/remove `components.json` during installation, or run from a directory without existing shadcn configuration.
+
+### Manual Setup
+
+```bash
+# Add marketplace and install plugins (interactive)
+/plugin marketplace add udecode/dotai
+# restart claude
+
+# Install all project files (dotai + flashback + ctx)
+/dotai:install-all
+```
+
 ### Configure Context Management
 
 Add this to your `package.json`:
@@ -140,20 +153,13 @@ macOS notifications for Claude Code events.
 
 [Full Plugin Documentation →](./.claude-plugin/plugins/notification/README.md)
 
-## Complete Setup Workflow
+## Workflows
 
 ### 1. Initial Setup
 
+After Quick Start, create foundational docs:
+
 ```bash
-# Add marketplace and install plugins (interactive)
-/plugin marketplace add udecode/dotai
-# restart claude
-
-# Install all project files (dotai + flashback + ctx)
-/dotai:install-all
-
-# Add "ctx": "tsx .claude/scripts/generate-agents.ts" to package.json scripts
-
 # Generate initial context
 pnpm ctx --init
 
