@@ -9,43 +9,43 @@
       "path": "registry/dotai/CLAUDE.md",
       "content": "# CLAUDE.md\n\n## Project Overview\n\n[Describe your project here - what it does, who it's for, and what problem it solves]\n\n## Development\n\n### Critical Rules\n\n- Always run type checking before ending a task\n- Never git commit/push without approval\n\n### Commands\n\n- `pnpm typecheck` - Run TypeScript type checking (must pass without errors) on each task end. Do not run this unless you can't see it in Background Bash Shells.\n- `pnpm lint:fix` - Run ESLint and fix linting errors on precommit (not on each task end)\n- **NEVER make git commits unless explicitly asked by the user.**\n\nDO NOT run the following commands unless asked with `/c`. Read the output when checking app and typecheck errors:\n\n- `pnpm dev` - Start development server\n- `pnpm build` - Build for production\n- `pnpm app:log` - Watch App logs.\n- `pnpm backend:log` - Watch Backend logs.\n- `pnpm typecheck:watch` - Watch TypeScript type checking.\n",
       "type": "registry:file",
-      "target": "../CLAUDE.md"
+      "target": "~/CLAUDE.md"
     },
     {
       "path": "registry/dotai/settings.json",
       "content": "{\n  \"permissions\": {\n    \"allow\": [\"Bash\", \"Edit\"]\n  },\n  \"enableAllProjectMcpServers\": true,\n  \"extraKnownMarketplaces\": {\n    \"dotai\": {\n      \"source\": {\n        \"source\": \"github\",\n        \"path\": \"udecode/dotai\"\n      }\n    }\n  },\n  \"enabledPlugins\": {\n    \"ctx@dotai\": true,\n    \"dotai@dotai\": true,\n    \"fb@dotai\": true,\n    \"notification@dotai\": true\n  },\n  \"hooks\": {}\n}\n",
       "type": "registry:file",
-      "target": "../.claude/settings.json"
+      "target": "~/.claude/settings.json"
     },
     {
       "path": "registry/dotai/scripts/tree.sh",
       "content": "#!/bin/bash\n\n# Custom folders to ignore (in addition to .gitignore)\nCUSTOM_IGNORE=\"public|migrations\"\n\n# Parse tsconfig.json exclude patterns\nTSCONFIG_IGNORE=\"\"\nif [ -f \"tsconfig.json\" ]; then\n    # Extract exclude patterns from tsconfig.json\n    # Parse the JSON properly and handle wildcards\n    TSCONFIG_PATTERNS=$(node -e \"\n        const fs = require('fs');\n        const tsconfig = JSON.parse(fs.readFileSync('tsconfig.json', 'utf8'));\n        if (tsconfig.exclude) {\n            const patterns = tsconfig.exclude.map(p => {\n                // Remove leading **/ and trailing /*\n                return p.replace(/^\\*\\*\\//, '').replace(/\\/\\*$/, '').replace(/^\\*\\*/, '');\n            }).filter(p => p && !p.includes('*'));\n            console.log(patterns.join('|'));\n        }\n    \" 2>/dev/null || echo \"\")\n    \n    if [ -n \"$TSCONFIG_PATTERNS\" ]; then\n        TSCONFIG_IGNORE=\"|$TSCONFIG_PATTERNS\"\n    fi\nfi\n\n# Combine all ignore patterns\nFULL_IGNORE=\".git|*.bak|$CUSTOM_IGNORE$TSCONFIG_IGNORE\"\n\n# Output file\nOUTPUT=\".cursor/rules/project-structure.mdc\"\n\n# Create directory if it doesn't exist\nmkdir -p .cursor/rules\n\n# Header with Cursor rule frontmatter\ncat > \"$OUTPUT\" << 'EOF'\n---\ndescription: Project directory structure and file organization\nalwaysApply: true\n---\n# Project Structure\n\nEOF\n\necho \"_Last Updated: $(date +%Y-%m-%d)_\" >> \"$OUTPUT\"\necho \"\" >> \"$OUTPUT\"\necho '```' >> \"$OUTPUT\"\n\n# Backup original .gitignore\ncp .gitignore .gitignore.bak\n\n# Remove !.* line temporarily (both commented and uncommented versions)\ngrep -v '^!\\.\\*' .gitignore | grep -v '^# !\\.\\*' > .gitignore.tmp && mv .gitignore.tmp .gitignore\n\n# Use tree with gitignore (now without !.* line)\ntree --gitignore \\\n  -a \\\n  -I \"$FULL_IGNORE\" \\\n  --dirsfirst \\\n  >> \"$OUTPUT\"\n\n# Restore original .gitignore\nmv .gitignore.bak .gitignore\n\n# Close code block\necho '```' >> \"$OUTPUT\"\necho \"\" >> \"$OUTPUT\"\n\necho \"Project structure written to $OUTPUT\"\n\n# Output the contents to stdout as well\ncat \"$OUTPUT\"",
       "type": "registry:file",
-      "target": "../.claude/scripts/tree.sh"
+      "target": "~/.claude/scripts/tree.sh"
     },
     {
       "path": "registry/dotai/commands/c.md",
       "content": "To watch logs/errors, run `pnpm app:log` (Frontend), `pnpm backend:log` (Backend), then `pnpm typecheck:watch` (tsc).\n",
       "type": "registry:file",
-      "target": "../.claude/commands/c.md"
+      "target": "~/.claude/commands/c.md"
     },
     {
       "path": "registry/dotai/docs/app-design-document.mdc",
       "content": "---\ndescription:\nglobs:\nalwaysApply: true\n---\n\n# App Design Document\n",
       "type": "registry:file",
-      "target": "../.cursor/rules/app-design-document.mdc"
+      "target": "~/.cursor/rules/app-design-document.mdc"
     },
     {
       "path": "registry/dotai/docs/project-status.mdc",
       "content": "---\ndescription:\nalwaysApply: true\n---\n\n# Project Structure\n",
       "type": "registry:file",
-      "target": "../.cursor/rules/project-status.mdc"
+      "target": "~/.cursor/rules/project-status.mdc"
     },
     {
       "path": "registry/dotai/docs/tech-stack.mdc",
       "content": "---\ndescription:\nglobs:\nalwaysApply: true\n---\n\n# Tech Stack\n",
       "type": "registry:file",
-      "target": "../.cursor/rules/tech-stack.mdc"
+      "target": "~/.cursor/rules/tech-stack.mdc"
     }
   ]
 }
