@@ -12,7 +12,7 @@ description: Update tech stack documentation based on dependency changes and tec
 - Project root: !`pwd`
 - Package.json: @package.json
 - Current tech doc: @.cursor/rules/tech-stack.mdc
-- **Project Structure:** !`bash .claude/scripts/tree.sh`
+- **Project Structure:** !`bash ~/.claude/plugins/marketplaces/dotai/.claude-plugin/plugins/dotai/scripts/tree.sh`
 - Last modified: !`stat -f "%Sm" .cursor/rules/tech-stack.mdc 2>/dev/null || echo "No existing document"`
 - Recent package changes: !`git diff HEAD~10 HEAD -- package.json 2>/dev/null | grep -E "^[+-]" | head -20 || echo "No recent changes"`
 

@@ -12,7 +12,7 @@ description: Generate a PRD interactively with clarifying questions for complex 
 - **Existing PRDs:** !`ls -la .cursor/rules/ /prd-*.md 2>/dev/null || echo "No existing PRDs found"`
 - **Project Status:** @CLAUDE.md#project-status
 - **Tech Stack:** @.cursor/rules/tech-stack.mdc
-- **Project Structure:** !`bash .claude/scripts/tree.sh`
+- **Project Structure:** !`bash ~/.claude/plugins/marketplaces/dotai/.claude-plugin/plugins/dotai/scripts/tree.sh`
 
 ## Goal
 

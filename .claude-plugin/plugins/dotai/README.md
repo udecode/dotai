@@ -265,8 +265,6 @@ Quick command to start log monitoring.
 
 ## Troubleshooting
 
-**tree.sh Script Missing:** Ensure `.claude/scripts/tree.sh` exists and is executable (`chmod +x`)
-
 **Commands Not Appearing:** Restart Claude Code, verify with `/help`
 
 ## Development Workflow

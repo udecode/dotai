@@ -20,11 +20,6 @@
           "target": "~/.claude/settings.json"
         },
         {
-          "path": "registry/dotai/scripts/tree.sh",
-          "type": "registry:file",
-          "target": "~/.claude/scripts/tree.sh"
-        },
-        {
           "path": "registry/dotai/commands/c.md",
           "type": "registry:file",
           "target": "~/.claude/commands/c.md"

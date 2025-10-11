@@ -3,12 +3,8 @@ allowed-tools: Bash
 description: Update project structure documentation by running tree script
 ---
 
-# Update Project Structure
+This command is generating the project structure documentation:
 
-Run the tree script to update project structure documentation:
-
-```bash
-bash .claude/scripts/tree.sh
-```
+!`bash ~/.claude/plugins/marketplaces/dotai/.claude-plugin/plugins/dotai/scripts/tree.sh`
 
 Do not do anything else.

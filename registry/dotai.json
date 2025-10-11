@@ -18,12 +18,6 @@
       "target": "~/.claude/settings.json"
     },
     {
-      "path": "registry/dotai/scripts/tree.sh",
-      "content": "#!/bin/bash\n\n# Custom folders to ignore (in addition to .gitignore)\nCUSTOM_IGNORE=\"public|migrations\"\n\n# Parse tsconfig.json exclude patterns\nTSCONFIG_IGNORE=\"\"\nif [ -f \"tsconfig.json\" ]; then\n    # Extract exclude patterns from tsconfig.json\n    # Parse the JSON properly and handle wildcards\n    TSCONFIG_PATTERNS=$(node -e \"\n        const fs = require('fs');\n        const tsconfig = JSON.parse(fs.readFileSync('tsconfig.json', 'utf8'));\n        if (tsconfig.exclude) {\n            const patterns = tsconfig.exclude.map(p => {\n                // Remove leading **/ and trailing /*\n                return p.replace(/^\\*\\*\\//, '').replace(/\\/\\*$/, '').replace(/^\\*\\*/, '');\n            }).filter(p => p && !p.includes('*'));\n            console.log(patterns.join('|'));\n        }\n    \" 2>/dev/null || echo \"\")\n    \n    if [ -n \"$TSCONFIG_PATTERNS\" ]; then\n        TSCONFIG_IGNORE=\"|$TSCONFIG_PATTERNS\"\n    fi\nfi\n\n# Combine all ignore patterns\nFULL_IGNORE=\".git|*.bak|$CUSTOM_IGNORE$TSCONFIG_IGNORE\"\n\n# Output file\nOUTPUT=\".cursor/rules/project-structure.mdc\"\n\n# Create directory if it doesn't exist\nmkdir -p .cursor/rules\n\n# Header with Cursor rule frontmatter\ncat > \"$OUTPUT\" << 'EOF'\n---\ndescription: Project directory structure and file organization\nalwaysApply: true\n---\n# Project Structure\n\nEOF\n\necho \"_Last Updated: $(date +%Y-%m-%d)_\" >> \"$OUTPUT\"\necho \"\" >> \"$OUTPUT\"\necho '```' >> \"$OUTPUT\"\n\n# Backup original .gitignore\ncp .gitignore .gitignore.bak\n\n# Remove !.* line temporarily (both commented and uncommented versions)\ngrep -v '^!\\.\\*' .gitignore | grep -v '^# !\\.\\*' > .gitignore.tmp && mv .gitignore.tmp .gitignore\n\n# Use tree with gitignore (now without !.* line)\ntree --gitignore \\\n  -a \\\n  -I \"$FULL_IGNORE\" \\\n  --dirsfirst \\\n  >> \"$OUTPUT\"\n\n# Restore original .gitignore\nmv .gitignore.bak .gitignore\n\n# Close code block\necho '```' >> \"$OUTPUT\"\necho \"\" >> \"$OUTPUT\"\n\necho \"Project structure written to $OUTPUT\"\n\n# Output the contents to stdout as well\ncat \"$OUTPUT\"",
-      "type": "registry:file",
-      "target": "~/.claude/scripts/tree.sh"
-    },
-    {
       "path": "registry/dotai/commands/c.md",
       "content": "To watch logs/errors, run `pnpm app:log` (Frontend), `pnpm backend:log` (Backend), then `pnpm typecheck:watch` (tsc).\n",
       "type": "registry:file",

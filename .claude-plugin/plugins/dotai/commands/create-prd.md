@@ -11,7 +11,7 @@ description: Generate a PRD directly without questions for simple, well-defined 
 - **Project Root:** !`pwd`
 - **Existing PRDs:** !`ls -la .claude/docs/prd-*.md 2>/dev/null || echo "No existing PRDs found"`
 - **Project Status:** @CLAUDE.md#project-status
-- **Project Structure:** !`bash .claude/scripts/tree.sh`
+- **Project Structure:** !`bash ~/.claude/plugins/marketplaces/dotai/.claude-plugin/plugins/dotai/scripts/tree.sh`
 - **Tech Stack:** @.cursor/rules/tech-stack.mdc
 
 ## Goal
