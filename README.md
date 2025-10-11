@@ -83,9 +83,7 @@ Complete development toolkit - documentation, PRDs, debugging, PR workflows, and
 
 ### 🎯 ctx
 
-Context manager for Claude Code and Codex. Use the smallest preset that covers your needs.
-
-> **TL;DR**: Prevent context bloat by loading only relevant docs for your task
+Context manager for Claude Code and Codex. Prevent context bloat by loading only relevant docs for your task.
 
 **Installation:**
 
@@ -99,7 +97,8 @@ Context manager for Claude Code and Codex. Use the smallest preset that covers y
 
 - **AI-Powered** - `/ctx` in Claude Code analyzes your task and chooses preset
 - **Manual Control** - `pnpm ctx <preset>` for direct preset selection
-- **Quality Impact** - Focused presets (⭐⭐⭐⭐⭐) vs diluted all-presets (⭐⭐⭐)
+- **Quality Impact** - Focused presets vs diluted all-presets
+- **Single Source of Truth** - For both Claude Code and Codex
 
 **Quick Start:**
 
@@ -158,9 +157,7 @@ macOS notifications for Claude Code events.
 **Features:**
 
 - Get notified when Claude finishes responding
-- Alert before conversation history compaction
-- Shows conversation summary in notification
-- Custom sounds for different events
+- Ping on compact events
 
 [Full Plugin Documentation →](./.claude-plugin/plugins/notification/README.md)
 
@@ -296,8 +293,8 @@ pnpm ctx frontend  # or: backend, app, custom rules
 
 ### [Codex](https://developers.openai.com/codex/pricing) (ChatGPT)
 
-- **Plus** ($20/month) - Good for occasional use
-- **Pro** ($200/month) - For continuous development alongside Claude
+- **Plus** ($20/month)
+- **Pro** ($200/month)
 
 ### [Cursor](https://cursor.com/pricing)
 

@@ -9,7 +9,7 @@
 ### Critical Rules
 
 - Always run type checking before ending a task
-- Never commit directly to main branch without review
+- Never git commit/push without approval
 
 ### Commands
 
