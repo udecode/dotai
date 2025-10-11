@@ -97,9 +97,9 @@
           "target": "~/.claude/scripts/generate-agents.ts"
         },
         {
-          "path": "registry/ctx/docs/context-guide.md",
+          "path": "registry/ctx/docs/update-context.md",
           "type": "registry:file",
-          "target": "~/.claude/docs/context-guide.md"
+          "target": "~/.claude/docs/update-context.md"
         }
       ]
     },
