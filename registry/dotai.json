@@ -13,7 +13,7 @@
     },
     {
       "path": "registry/dotai/settings.json",
-      "content": "{\n  \"permissions\": {\n    \"allow\": [\"Bash\", \"Edit\"]\n  },\n  \"enableAllProjectMcpServers\": true,\n  \"extraKnownMarketplaces\": {\n    \"dotai\": {\n      \"source\": {\n        \"source\": \"github\",\n        \"path\": \"udecode/dotai\"\n      }\n    }\n  },\n  \"enabledPlugins\": {\n    \"ctx@dotai\": true,\n    \"dotai@dotai\": true,\n    \"fb@dotai\": true,\n    \"notification@dotai\": true\n  },\n  \"hooks\": {}\n}\n",
+      "content": "{\n  \"permissions\": {\n    \"allow\": [\"Bash\", \"Edit\"]\n  },\n  \"enableAllProjectMcpServers\": true,\n  \"extraKnownMarketplaces\": {\n    \"dotai\": {\n      \"source\": {\n        \"source\": \"github\",\n        \"repo\": \"udecode/dotai\"\n      }\n    }\n  },\n  \"enabledPlugins\": {\n    \"ctx@dotai\": true,\n    \"dotai@dotai\": true,\n    \"fb@dotai\": true,\n    \"notification@dotai\": true\n  },\n  \"hooks\": {}\n}\n",
       "type": "registry:file",
       "target": "~/.claude/settings.json"
     },

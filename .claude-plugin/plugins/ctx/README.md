@@ -344,6 +344,10 @@ pnpm ctx frontend payments
 - Use interactive: `pnpm ctx`
 - Or ask in Claude Code: `/ctx` then describe your task
 
+**Failed to install plugins?**
+- Remove `enabledPlugins` from `~/.claude/settings.json`
+- Restart Claude Code
+
 ## Version History
 
 ### 1.0.0

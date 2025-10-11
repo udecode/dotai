@@ -7,7 +7,7 @@
     "dotai": {
       "source": {
         "source": "github",
-        "path": "udecode/dotai"
+        "repo": "udecode/dotai"
       }
     }
   },

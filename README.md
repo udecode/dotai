@@ -22,7 +22,7 @@ This installs all project files and configures Claude Code to auto-install the m
     "dotai": {
       "source": {
         "source": "github",
-        "path": "udecode/dotai"
+        "repo": "udecode/dotai"
       }
     }
   },
