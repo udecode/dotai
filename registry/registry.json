@@ -5,7 +5,7 @@
   "items": [
     {
       "name": "dotai",
-      "type": "registry:block",
+      "type": "registry:item",
       "title": "Project Initialization",
       "description": "Initialize project with CLAUDE.md, settings, documentation templates, and tree script",
       "files": [
@@ -48,7 +48,7 @@
     },
     {
       "name": "flashback",
-      "type": "registry:block",
+      "type": "registry:item",
       "title": "Flashback Session Management",
       "description": "Session continuity system for Claude Code with automatic memory management and working plan tracking",
       "files": [
@@ -81,7 +81,7 @@
     },
     {
       "name": "ctx",
-      "type": "registry:block",
+      "type": "registry:item",
       "title": "Context-Aware AGENTS.md Generator",
       "description": "Smart context management for Claude Code with task-specific rule selection and AGENTS.md generation",
       "dependencies": ["commander", "prompts", "zod"],
@@ -105,7 +105,7 @@
     },
     {
       "name": "all",
-      "type": "registry:block",
+      "type": "registry:item",
       "title": "Complete Project Setup",
       "description": "Install all dotai plugins",
       "registryDependencies": [

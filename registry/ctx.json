@@ -1,7 +1,7 @@
 {
   "$schema": "https://ui.shadcn.com/schema/registry-item.json",
   "name": "ctx",
-  "type": "registry:block",
+  "type": "registry:item",
   "title": "Context-Aware AGENTS.md Generator",
   "description": "Smart context management for Claude Code with task-specific rule selection and AGENTS.md generation",
   "dependencies": [

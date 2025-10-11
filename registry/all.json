@@ -1,7 +1,7 @@
 {
   "$schema": "https://ui.shadcn.com/schema/registry-item.json",
   "name": "all",
-  "type": "registry:block",
+  "type": "registry:item",
   "title": "Complete Project Setup",
   "description": "Install all dotai plugins",
   "registryDependencies": [

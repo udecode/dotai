@@ -1,7 +1,7 @@
 {
   "$schema": "https://ui.shadcn.com/schema/registry-item.json",
   "name": "dotai",
-  "type": "registry:block",
+  "type": "registry:item",
   "title": "Project Initialization",
   "description": "Initialize project with CLAUDE.md, settings, documentation templates, and tree script",
   "files": [
