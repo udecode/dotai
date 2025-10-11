@@ -43,6 +43,30 @@ This creates:
 - `.claude/flashback/config/flashback.json` - Configuration
 - `.claude/flashback/memory/WORKING_PLAN.md` - Working plan tracker
 
+### 3. Configure Session Hook
+
+The session start hook should be configured in `.claude/settings.json` to automatically run `/fb:session-start` when Claude Code starts:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f \".claude/flashback/scripts/session-start.sh\" ] && bash \".claude/flashback/scripts/session-start.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+This hook is automatically included when installing via the dotai Quick Start.
+
 ## Commands
 
 ### `/fb:install`

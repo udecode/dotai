@@ -23,12 +23,14 @@ pnpm ctx --clear         # Remove generated files
 ## Features
 
 ### 🎯 Task-Specific Context
+
 - **AI-Powered Selection** - `/ctx` command lets Claude analyze your task and choose optimal preset
 - **Manual Selection** - `pnpm ctx <preset>` for direct control
 - **Token Optimization** - Smaller context = faster AI responses
 - **Better Focus** - AI sees only patterns relevant to current work
 
 ### 📋 AGENTS.md Generation
+
 - **Auto-generated Context** - Dynamically create AGENTS.md from rules
 - **Preset Support** - Use predefined rule combinations (frontend, backend, etc.)
 - **Always-Apply Rules** - Global docs automatically included
@@ -58,6 +60,7 @@ pnpm install
 ```
 
 This creates:
+
 - `.claude/context.json` - Rule definitions and presets
 - `.claude/scripts/generate-agents.ts` - Context generator script
 
@@ -74,8 +77,19 @@ Install ctx registry files and dependencies.
 ```
 
 This runs:
+
 1. `npx shadcn@latest add` - Installs context.json and generate-agents.ts
 2. `pnpm install` - Installs required dependencies (commander, prompts, zod)
+
+### `/ctx:update-context`
+
+View comprehensive guide for updating `.claude/context.json` rules and presets.
+
+```
+/ctx:update-context
+```
+
+Use this when you need to add new rules or presets
 
 ## Using `pnpm ctx`
 
@@ -92,26 +106,31 @@ pnpm ctx <rule1> <rule2> <rule3>
 #### Examples
 
 **Frontend work:**
+
 ```bash
 pnpm ctx frontend  # Uses frontend preset (react, styling, etc.)
 ```
 
 **Backend API:**
+
 ```bash
 pnpm ctx backend  # Uses backend preset (api, database, etc.)
 ```
 
 **Mixed work:**
+
 ```bash
 pnpm ctx frontend payments  # Preset + specific rule
 ```
 
 **Specific rules:**
+
 ```bash
 pnpm ctx react database auth  # Individual rules
 ```
 
 **Initialize context:**
+
 ```bash
 pnpm ctx --init  # Create initial AGENTS.md with all rules
 ```
@@ -174,6 +193,7 @@ Are you using Claude Code?
 ### Rule Selection
 
 Rules in `.claude/context.json` have:
+
 - `name` - Identifier (use in command)
 - `path` - File location
 - `description` - What the rule covers
@@ -181,6 +201,7 @@ Rules in `.claude/context.json` have:
 - `alwaysApply` - Auto-include in every context
 
 **Selection principles:**
+
 - ✅ Use presets when all preset rules are needed
 - ✅ Include rules matching file globs
 - ✅ Include rules with relevant tech/patterns
@@ -233,12 +254,14 @@ pnpm ctx backend
 Understanding why focused context matters:
 
 **Without Context System:**
+
 - ❌ All docs loaded every time
 - ❌ AI overwhelmed by unrelated patterns
 - ❌ Less accurate responses (too much noise)
 - ❌ AI confused by conflicting guidance
 
 **With Context System:**
+
 - ✅ Only relevant docs loaded
 - ✅ AI focused on task-specific patterns
 - ✅ More accurate responses (less noise)
@@ -246,11 +269,11 @@ Understanding why focused context matters:
 
 **Quality by Preset:**
 
-| Preset     | Quality | Reason                        |
-| ---------- | ------- | ----------------------------- |
+| Preset     | Quality    | Reason                         |
+| ---------- | ---------- | ------------------------------ |
 | `frontend` | ⭐⭐⭐⭐⭐ | Focused frontend patterns only |
 | `backend`  | ⭐⭐⭐⭐⭐ | Focused backend patterns only  |
-| `app`      | ⭐⭐⭐   | All patterns (diluted focus)   |
+| `app`      | ⭐⭐⭐     | All patterns (diluted focus)   |
 
 **Rule of thumb:** Use the smallest preset that covers your needs.
 
@@ -314,37 +337,46 @@ pnpm ctx frontend payments
 ## Troubleshooting
 
 **AI giving unfocused/irrelevant suggestions?**
+
 - Context too broad - use more specific preset (`frontend` instead of `app`)
 - Try: `pnpm ctx <specific-preset>` then `/clear` in Claude
 
 **AI doesn't know about specific patterns?**
+
 - Regenerate with correct preset: `pnpm ctx <preset>`
 - Check if rule exists in `.claude/context.json`
 
 **AI seems confused by conflicting patterns?**
+
 - Too much context loaded - use narrower preset
 - Avoid `app` preset unless working on full-stack feature
 
 **Changes to rules not reflected?**
+
 - Regenerate: `pnpm ctx <preset>` then `/clear` in Claude
 
 **Command not found:**
+
 - Ensure plugin is installed: `/plugin list`
 - Check dependencies installed: `pnpm install`
 
 **AGENTS.md not updating:**
+
 - Script must be executable: `chmod +x .claude/scripts/generate-agents.ts`
 - Check for errors: `pnpm ctx <rules>` (look for output)
 
 **Rules not appearing:**
+
 - Verify rule paths in context.json
 - Check rule files exist at specified paths
 
 **Need help choosing preset?**
+
 - Use interactive: `pnpm ctx`
 - Or ask in Claude Code: `/ctx` then describe your task
 
 **Failed to install plugins?**
+
 - Remove `enabledPlugins` from `~/.claude/settings.json`
 - Restart Claude Code
 

@@ -17,5 +17,17 @@
     "fb@dotai": true,
     "notification@dotai": true
   },
-  "hooks": {}
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f \".claude/flashback/scripts/session-start.sh\" ] && bash \".claude/flashback/scripts/session-start.sh\""
+          }
+        ]
+      }
+    ]
+  }
 }

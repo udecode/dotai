@@ -1,3 +1,8 @@
+---
+description: Guide for updating context.json rules and presets
+allowed-tools: Read, Edit
+---
+
 # Context System - Quick Reference
 
 > **TL;DR**: Prevent context bloat by loading only relevant docs for your task
@@ -350,4 +355,4 @@ When using `/ctx` in Claude Code, rules automatically apply based on file patter
 **Rules:** `.claude/context.json`
 **AI Decision Logic:** `.claude/commands/ctx.md`
 **Generator Script:** `tsx .claude/scripts/generate-agents.ts`
-**This Guide:** `.claude/docs/update-context.md`
+**This Guide:** Run `/ctx:update-context` command

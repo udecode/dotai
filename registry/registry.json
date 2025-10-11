@@ -90,11 +90,6 @@
           "path": "registry/ctx/scripts/generate-agents.ts",
           "type": "registry:file",
           "target": "~/.claude/scripts/generate-agents.ts"
-        },
-        {
-          "path": "registry/ctx/docs/update-context.md",
-          "type": "registry:file",
-          "target": "~/.claude/docs/update-context.md"
         }
       ]
     },
