@@ -95,6 +95,11 @@
           "path": "registry/ctx/scripts/generate-agents.ts",
           "type": "registry:file",
           "target": "~/.claude/scripts/generate-agents.ts"
+        },
+        {
+          "path": "registry/ctx/docs/context-guide.md",
+          "type": "registry:file",
+          "target": "~/.claude/docs/context-guide.md"
         }
       ]
     },
