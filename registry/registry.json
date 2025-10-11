@@ -1,0 +1,109 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "dotai",
+  "homepage": "https://github.com/udecode/dotai",
+  "items": [
+    {
+      "name": "dotai",
+      "type": "registry:block",
+      "title": "Project Initialization",
+      "description": "Initialize project with CLAUDE.md, settings, documentation templates, and tree script",
+      "files": [
+        {
+          "path": "registry/dotai/CLAUDE.md",
+          "type": "registry:file",
+          "target": "CLAUDE.md"
+        },
+        {
+          "path": "registry/dotai/settings.json",
+          "type": "registry:file",
+          "target": ".claude/settings.json"
+        },
+        {
+          "path": "registry/dotai/scripts/tree.sh",
+          "type": "registry:file",
+          "target": ".claude/scripts/tree.sh"
+        },
+        {
+          "path": "registry/dotai/docs/app-design-document.mdc",
+          "type": "registry:file",
+          "target": ".cursor/rules/app-design-document.mdc"
+        },
+        {
+          "path": "registry/dotai/docs/project-status.mdc",
+          "type": "registry:file",
+          "target": ".cursor/rules/project-status.mdc"
+        },
+        {
+          "path": "registry/dotai/docs/tech-stack.mdc",
+          "type": "registry:file",
+          "target": ".cursor/rules/tech-stack.mdc"
+        }
+      ]
+    },
+    {
+      "name": "flashback",
+      "type": "registry:block",
+      "title": "Flashback Session Management",
+      "description": "Session continuity system for Claude Code with automatic memory management and working plan tracking",
+      "files": [
+        {
+          "path": "registry/flashback/scripts/session-start.sh",
+          "type": "registry:file",
+          "target": ".claude/flashback/scripts/session-start.sh"
+        },
+        {
+          "path": "registry/flashback/prompts/session-summary.md",
+          "type": "registry:file",
+          "target": ".claude/flashback/prompts/session-summary.md"
+        },
+        {
+          "path": "registry/flashback/prompts/working-plan-update.md",
+          "type": "registry:file",
+          "target": ".claude/flashback/prompts/working-plan-update.md"
+        },
+        {
+          "path": "registry/flashback/config/flashback.json",
+          "type": "registry:file",
+          "target": ".claude/flashback/config/flashback.json"
+        },
+        {
+          "path": "registry/flashback/memory/WORKING_PLAN.md",
+          "type": "registry:file",
+          "target": ".claude/flashback/memory/WORKING_PLAN.md"
+        }
+      ]
+    },
+    {
+      "name": "ctx",
+      "type": "registry:block",
+      "title": "Context-Aware AGENTS.md Generator",
+      "description": "Smart context management for Claude Code with task-specific rule selection and AGENTS.md generation",
+      "dependencies": ["commander", "prompts", "zod"],
+      "files": [
+        {
+          "path": "registry/ctx/config/context.json",
+          "type": "registry:file",
+          "target": ".claude/context.json"
+        },
+        {
+          "path": "registry/ctx/scripts/generate-agents.ts",
+          "type": "registry:file",
+          "target": ".claude/scripts/generate-agents.ts"
+        }
+      ]
+    },
+    {
+      "name": "all",
+      "type": "registry:block",
+      "title": "Complete Project Setup",
+      "description": "Install all dotai plugins",
+      "registryDependencies": [
+        "https://raw.githubusercontent.com/udecode/dotai/main/registry/dotai.json",
+        "https://raw.githubusercontent.com/udecode/dotai/main/registry/flashback.json",
+        "https://raw.githubusercontent.com/udecode/dotai/main/registry/ctx.json"
+      ],
+      "files": []
+    }
+  ]
+}

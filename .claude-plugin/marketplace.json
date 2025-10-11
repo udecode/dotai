@@ -1,0 +1,33 @@
+{
+  "name": "dotai",
+  "owner": {
+    "name": "udecode",
+    "email": "zbeyens@udecode.dev"
+  },
+  "metadata": {
+    "description": "Claude Code plugins for AI-powered development workflows",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "dotai",
+      "source": "./.claude-plugin/plugins/dotai",
+      "description": "Complete development toolkit - documentation, PRDs, debugging, PR workflows, and planning"
+    },
+    {
+      "name": "notification",
+      "source": "./.claude-plugin/plugins/notification",
+      "description": "macOS notifications for Claude Code events"
+    },
+    {
+      "name": "fb",
+      "source": "./.claude-plugin/plugins/fb",
+      "description": "Session management and continuity with automatic memory tracking"
+    },
+    {
+      "name": "ctx",
+      "source": "./.claude-plugin/plugins/ctx",
+      "description": "Context-aware AGENTS.md generator for task-specific rule selection"
+    }
+  ]
+}

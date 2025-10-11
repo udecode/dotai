@@ -1,0 +1,13 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "all",
+  "type": "registry:block",
+  "title": "Complete Project Setup",
+  "description": "Install all dotai registry items (dotai, flashback, ctx) in one command",
+  "registryDependencies": [
+    "https://raw.githubusercontent.com/udecode/dotai/main/registry/dotai.json",
+    "https://raw.githubusercontent.com/udecode/dotai/main/registry/flashback.json",
+    "https://raw.githubusercontent.com/udecode/dotai/main/registry/ctx.json"
+  ],
+  "files": []
+}

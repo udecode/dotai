@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": ["Bash", "Edit"]
+  },
+  "enableAllProjectMcpServers": true,
+  "extraKnownMarketplaces": {
+    "dotai": {
+      "source": {
+        "source": "github",
+        "path": "udecode/dotai"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "commands@dotai": true,
+    "notification@dotai": true,
+    "fb@dotai": true
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \".claude/flashback/scripts/session-start.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}
