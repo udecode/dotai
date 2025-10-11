@@ -12,21 +12,10 @@
     }
   },
   "enabledPlugins": {
-    "commands@dotai": true,
-    "notification@dotai": true,
-    "fb@dotai": true
+    "ctx@dotai": true,
+    "dotai@dotai": true,
+    "fb@dotai": true,
+    "notification@dotai": true
   },
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \".claude/flashback/scripts/session-start.sh\""
-          }
-        ]
-      }
-    ]
-  }
+  "hooks": {}
 }

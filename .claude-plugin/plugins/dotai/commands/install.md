@@ -8,5 +8,5 @@ allowed-tools: Bash
 Initialize your project with dotai setup files using shadcn CLI:
 
 ```bash
-npx shadcn@latest add https://raw.githubusercontent.com/udecode/dotai/main/registry/init.json
+npx shadcn@latest add https://raw.githubusercontent.com/udecode/dotai/main/registry/dotai.json
 ```

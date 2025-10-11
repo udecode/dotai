@@ -4,27 +4,37 @@
 
 ## Quick Start
 
-### 1. Add Marketplace & Install Plugins
+### Fastest Setup
 
 ```bash
-/plugin marketplace add udecode/dotai
-/plugin install dotai@dotai
-/plugin install notification@dotai
-/plugin install fb@dotai
-/plugin install ctx@dotai
+npx shadcn@latest add https://raw.githubusercontent.com/udecode/dotai/main/registry/all.json
+# restart claude
 ```
 
-### 2. Restart Claude Code
+This installs all project files and configures Claude Code to auto-install the marketplace and plugins.
 
-After installing plugins, **restart Claude Code** to activate them.
+**Note:** If you already have `.claude/settings.json`, manually add this configuration:
 
-### 3. Initialize Project Files
-
-```bash
-/dotai:install-all  # Installs all project files (dotai + flashback + ctx)
+```json
+{
+  "extraKnownMarketplaces": {
+    "dotai": {
+      "source": {
+        "source": "github",
+        "path": "udecode/dotai"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "ctx@dotai": true,
+    "dotai@dotai": true,
+    "fb@dotai": true,
+    "notification@dotai": true
+  }
+}
 ```
 
-### 4. Configure Context Management
+### Configure Context Management
 
 Add this to your `package.json`:
 

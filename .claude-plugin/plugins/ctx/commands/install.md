@@ -11,14 +11,12 @@ Install the ctx registry files using shadcn CLI:
 npx shadcn@latest add https://raw.githubusercontent.com/udecode/dotai/main/registry/ctx.json
 ```
 
-Then install the required dependencies:
+After installation, add the ctx script to your `package.json`:
 
-```bash
-pnpm install
+```json
+{
+  "scripts": {
+    "ctx": "tsx .claude/scripts/generate-agents.ts"
+  }
+}
 ```
-
-This installs:
-- `.claude/context.json` - Rule definitions and presets
-- `.claude/scripts/generate-agents.ts` - Context generator script
-
-And adds dependencies: `commander`, `prompts`, `zod`
