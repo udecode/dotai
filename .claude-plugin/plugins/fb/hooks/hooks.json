@@ -1,13 +1,15 @@
 {
-  "SessionStart": [
-    {
-      "matcher": "",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "bash \".claude/flashback/scripts/session-start.sh\""
-        }
-      ]
-    }
-  ]
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \".claude/flashback/scripts/session-start.sh\""
+          }
+        ]
+      }
+    ]
+  }
 }
