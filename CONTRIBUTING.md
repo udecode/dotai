@@ -216,8 +216,54 @@ my-plugin/
 
 ### Dynamic Environment Variables (No Restart Required)
 
-To read environment variables from `.claude/settings.json` and `.claude/settings.local.json` dynamically (changes take effect immediately without restarting Claude Code):
+To read environment variables from `.claude/settings.json` and `.claude/settings.local.json` dynamically (changes take effect immediately without restarting Claude Code), create a helper script:
 
+**scripts/get-env.js:**
+```javascript
+#!/usr/bin/env node
+
+const fs = require('fs');
+const path = require('path');
+
+const varName = process.argv[2];
+const defaultValue = process.argv[3] || '';
+
+if (!varName) {
+  console.error('Usage: get-env.js <VAR_NAME> [default_value]');
+  process.exit(1);
+}
+
+const projectDir = process.env.CLAUDE_PROJECT_DIR;
+if (!projectDir) {
+  console.log(defaultValue);
+  process.exit(0);
+}
+
+const claudePath = path.join(projectDir, '.claude');
+let env = {};
+
+// Read settings.json
+try {
+  const settingsPath = path.join(claudePath, 'settings.json');
+  const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+  if (settings.env) {
+    env = { ...env, ...settings.env };
+  }
+} catch (e) {}
+
+// Read settings.local.json (overrides)
+try {
+  const localSettingsPath = path.join(claudePath, 'settings.local.json');
+  const localSettings = JSON.parse(fs.readFileSync(localSettingsPath, 'utf8'));
+  if (localSettings.env) {
+    env = { ...env, ...localSettings.env };
+  }
+} catch (e) {}
+
+console.log(env[varName] !== undefined ? env[varName] : defaultValue);
+```
+
+**Usage in hooks:**
 ```json
 {
   "hooks": {
@@ -226,7 +272,7 @@ To read environment variables from `.claude/settings.json` and `.claude/settings
         "hooks": [
           {
             "type": "command",
-            "command": "MY_VAR=$(node -e \"const fs=require('fs'); const path='${CLAUDE_PROJECT_DIR}/.claude'; let env={}; try { const s=JSON.parse(fs.readFileSync(path+'/settings.json','utf8')); env={...env,...(s.env||{})}; } catch(e) {} try { const l=JSON.parse(fs.readFileSync(path+'/settings.local.json','utf8')); env={...env,...(l.env||{})}; } catch(e) {} console.log(env.MY_VAR !== undefined ? env.MY_VAR : 'default');\" 2>/dev/null || echo 'default'); echo \"Value: $MY_VAR\""
+            "command": "MY_VAR=$(node ${CLAUDE_PLUGIN_ROOT}/scripts/get-env.js MY_VAR default 2>/dev/null || echo 'default'); echo \"Value: $MY_VAR\""
           }
         ]
       }
@@ -239,8 +285,9 @@ This approach:
 - Reads from `settings.json` first
 - Overlays `settings.local.json` (which overrides)
 - Falls back to a default value if neither file has the variable
-- **Important**: Uses `!== undefined` check instead of `||` to handle falsy values like `false` correctly
+- Handles falsy values like `false` correctly
 - Works immediately when settings change (no restart needed)
+- Much cleaner and reusable across multiple hooks
 
 ### hooks.json Format
 
