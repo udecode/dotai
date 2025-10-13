@@ -179,7 +179,9 @@ my-plugin/
   "name": "my-plugin",
   "version": "0.1.0",
   "description": "Brief description",
-  "author": "zbeyens",
+  "author": {
+    "name": "zbeyens"
+  },
   "env": {
     "MY_PLUGIN_SETTING": "default-value"
   }
