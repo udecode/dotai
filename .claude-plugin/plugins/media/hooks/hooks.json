@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "media-control play 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "AUTO_PAUSE=${CLAUDE_MEDIA_AUTO_PAUSE:-true}; if [ \"$AUTO_PAUSE\" = \"true\" ]; then media-control pause 2>/dev/null || true; fi"
+          }
+        ]
+      }
+    ]
+  }
+}

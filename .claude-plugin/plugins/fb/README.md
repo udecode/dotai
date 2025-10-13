@@ -37,7 +37,7 @@ npx shadcn@latest add https://raw.githubusercontent.com/udecode/dotai/main/regis
 ```
 
 This creates:
-- `.claude/flashback/scripts/session-start.sh` - Session initialization
+
 - `.claude/flashback/prompts/session-summary.md` - Summary template
 - `.claude/flashback/prompts/working-plan-update.md` - Plan update template
 - `.claude/flashback/config/flashback.json` - Configuration
@@ -45,7 +45,7 @@ This creates:
 
 ### 3. Configure Session Hook
 
-The session start hook should be configured in `.claude/settings.json` to automatically run `/fb:session-start` when Claude Code starts:
+Add this hook to your `.claude/settings.json` to automatically run session start:
 
 ```json
 {
@@ -56,7 +56,7 @@ The session start hook should be configured in `.claude/settings.json` to automa
         "hooks": [
           {
             "type": "command",
-            "command": "[ -f \".claude/flashback/scripts/session-start.sh\" ] && bash \".claude/flashback/scripts/session-start.sh\""
+            "command": "if command -v flashback &> /dev/null; then flashback session-start --context; elif [ -f \"$HOME/.claude/flashbacker/lib/cli.js\" ]; then node \"$HOME/.claude/flashbacker/lib/cli.js\" session-start --context; fi"
           }
         ]
       }
@@ -86,6 +86,7 @@ Initialize new session with context restoration from previous conversations.
 ```
 
 Gathers:
+
 - Project memory and key learnings
 - Current working plan
 - Previous conversation history
@@ -100,6 +101,7 @@ Create comprehensive session summary and update working plan.
 ```
 
 Produces:
+
 - Formatted session documentation
 - File change tracking
 - Tool usage analysis
@@ -115,6 +117,7 @@ Update development working plan based on conversation analysis.
 ```
 
 Updates:
+
 - Completed tasks
 - Current phase
 - Immediate priorities
@@ -130,6 +133,7 @@ Add important information to project long-term memory.
 ```
 
 Categorizes into:
+
 - Project overview
 - Architecture patterns
 - Development setup
@@ -168,8 +172,6 @@ After installation, flashback creates:
 
 ```
 .claude/flashback/
-├── scripts/
-│   └── session-start.sh       # Session initialization
 ├── prompts/
 │   ├── session-summary.md     # Summary template
 │   └── working-plan-update.md # Plan update template
@@ -195,6 +197,7 @@ After installation, flashback creates:
 ## Integration
 
 Flashback works with:
+
 - **Hooks** - Automatic session management via hooks.json
 - **CLI** - External flashback CLI for context gathering
 - **Registry** - Shadcn-installable file structure

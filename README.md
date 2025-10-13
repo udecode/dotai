@@ -161,6 +161,36 @@ macOS notifications for Claude Code events.
 
 [Full Plugin Documentation →](./.claude-plugin/plugins/notification/README.md)
 
+### 🎵 media
+
+Auto-play/pause media on prompt submit/stop.
+
+**Installation:**
+
+```bash
+brew install media-control  # Required
+/plugin install media@dotai
+# restart claude
+```
+
+**Features:**
+
+- Auto-play media when submitting prompts
+- Auto-pause media when stopping responses
+- Works with Spotify, Apple Music, YouTube, etc.
+
+**Configuration:**
+
+```json
+{
+  "env": {
+    "CLAUDE_MEDIA_AUTO_PAUSE": "false"  // Disable auto-pause
+  }
+}
+```
+
+[Full Plugin Documentation →](./.claude-plugin/plugins/media/README.md)
+
 ## Workflows
 
 ### 1. Initial Setup

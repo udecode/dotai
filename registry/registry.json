@@ -48,11 +48,6 @@
       "description": "Session continuity system for Claude Code with automatic memory management and working plan tracking",
       "files": [
         {
-          "path": "registry/flashback/scripts/session-start.sh",
-          "type": "registry:file",
-          "target": "~/.claude/flashback/scripts/session-start.sh"
-        },
-        {
           "path": "registry/flashback/prompts/session-summary.md",
           "type": "registry:file",
           "target": "~/.claude/flashback/prompts/session-summary.md"

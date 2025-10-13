@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "macOS notifications for Claude Code events",
   "author": {
-    "name": "dotai"
+    "name": "zbeyens"
   },
   "keywords": ["notifications", "hooks", "macos"],
   "category": "utilities"

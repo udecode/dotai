@@ -28,6 +28,11 @@
       "name": "ctx",
       "source": "./.claude-plugin/plugins/ctx",
       "description": "Context-aware AGENTS.md generator for task-specific rule selection"
+    },
+    {
+      "name": "media",
+      "source": "./.claude-plugin/plugins/media",
+      "description": "Auto-play/pause media on prompt submit/stop"
     }
   ]
 }

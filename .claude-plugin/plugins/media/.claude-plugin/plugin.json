@@ -1,0 +1,6 @@
+{
+  "name": "media",
+  "version": "1.0.0",
+  "description": "Auto-play/pause media on prompt submit/stop",
+  "author": "zbeyens"
+}

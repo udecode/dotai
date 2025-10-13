@@ -57,12 +57,13 @@ Develop and test plugins directly in `.claude-plugin/`:
 #      "enabledPlugins": {
 #        "my-plugin@dotai": true
 #      }
-#    - registry/dotai/settings.json (production/registry):
-#      "enabledPlugins": {
-#        "my-plugin@dotai": true
-#      }
 #
-# 4. Restart Claude Code to load the plugin
+# 4. Add to registry/dotai/settings.json (for production users):
+#    "enabledPlugins": {
+#      "my-plugin@dotai": true
+#    }
+#
+# 5. Restart Claude Code to load the plugin
 ```
 
 ### Development vs. Production Plugins
@@ -158,15 +159,62 @@ registry/
 ```
 my-plugin/
 ├── .claude-plugin/
-│   └── plugin.json          # Required
+│   └── plugin.json          # Required: metadata and env vars
 ├── commands/                 # Slash commands (optional)
 │   └── *.md
 ├── agents/                   # Subagents (optional)
 │   └── *.md
 ├── hooks/                    # Event handlers (optional)
-│   └── hooks.json
+│   └── hooks.json           # Hook definitions (NOT in plugin.json)
 ├── .mcp.json                # MCP servers (optional)
 └── README.md                # Plugin documentation
+```
+
+**Important**: Hooks must be defined in `hooks/hooks.json`, NOT in `.claude-plugin/plugin.json`. The plugin.json should only contain metadata and environment variables.
+
+### plugin.json Format
+
+```json
+{
+  "name": "my-plugin",
+  "version": "0.1.0",
+  "description": "Brief description",
+  "author": "zbeyens",
+  "env": {
+    "MY_PLUGIN_SETTING": "default-value"
+  }
+}
+```
+
+### hooks.json Format
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Prompt submitted'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Response stopped'"
+          }
+        ]
+      }
+    ]
+  }
+}
 ```
 
 ### Command Format

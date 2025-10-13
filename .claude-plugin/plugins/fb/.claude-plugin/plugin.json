@@ -2,9 +2,6 @@
   "name": "fb",
   "version": "1.0.0",
   "description": "Session management and continuity for Claude Code with automatic memory and working plan tracking",
-  "author": {
-    "name": "zbeyens"
-  },
   "keywords": ["session", "memory", "continuity", "flashback", "working-plan"],
   "category": "productivity"
 }
