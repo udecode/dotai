@@ -19,7 +19,7 @@
     },
     {
       "path": "registry/dotai/settings.local.json",
-      "content": "{\n  \"env\": {\n    \"CLAUDE_MEDIA_ENABLED\": \"true\",\n    \"CLAUDE_MEDIA_AUTO_START\": \"true\",\n    \"CLAUDE_MEDIA_AUTO_PAUSE\": \"true\"\n  }\n}\n",
+      "content": "{\n  \"env\": {\n    \"CLAUDE_MEDIA_DISABLED\": \"false\",\n    \"CLAUDE_MEDIA_AUTO_START\": \"true\",\n    \"CLAUDE_MEDIA_AUTO_PAUSE\": \"true\"\n  }\n}\n",
       "type": "registry:file",
       "target": "~/.claude/settings.local.json"
     },
