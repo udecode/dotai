@@ -56,7 +56,7 @@ Add this hook to your `.claude/settings.json` to automatically run session start
         "hooks": [
           {
             "type": "command",
-            "command": "if command -v flashback &> /dev/null; then flashback session-start --context; elif [ -f \"$HOME/.claude/flashbacker/lib/cli.js\" ]; then node \"$HOME/.claude/flashbacker/lib/cli.js\" session-start --context; fi"
+            "command": "if [ -d \".claude/flashback\" ]; then if command -v flashback &> /dev/null; then flashback session-start --context; elif [ -f \"$HOME/.claude/flashbacker/lib/cli.js\" ]; then node \"$HOME/.claude/flashbacker/lib/cli.js\" session-start --context; fi; fi"
           }
         ]
       }
