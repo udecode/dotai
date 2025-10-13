@@ -7,17 +7,21 @@ const path = require('path');
 const varName = process.argv[2];
 const defaultValue = process.argv[3] || '';
 
-// Enable debug logging with DEBUG=1 environment variable
-const debug = process.env.DEBUG === '1';
+// Log to file next to script
+const logFile = path.join(__dirname, 'get-env.log');
 
 function log(...args) {
-  if (debug) {
-    console.error('[get-env]', ...args);
+  const timestamp = new Date().toISOString();
+  const message = `[${timestamp}] ${args.join(' ')}\n`;
+  try {
+    fs.appendFileSync(logFile, message);
+  } catch (e) {
+    // Silently fail if can't write log
   }
 }
 
 if (!varName) {
-  console.error('Usage: get-env.js <VAR_NAME> [default_value]');
+  log('ERROR: No variable name provided');
   process.exit(1);
 }
 
@@ -43,7 +47,7 @@ try {
   const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
   if (settings.env) {
     env = { ...env, ...settings.env };
-    log(`Found env in settings.json:`, settings.env);
+    log(`Found env in settings.json: ${JSON.stringify(settings.env)}`);
   }
 } catch (e) {
   log(`Failed to read settings.json: ${e.message}`);
@@ -56,7 +60,7 @@ try {
   const localSettings = JSON.parse(fs.readFileSync(localSettingsPath, 'utf8'));
   if (localSettings.env) {
     env = { ...env, ...localSettings.env };
-    log(`Found env in settings.local.json (overrides):`, localSettings.env);
+    log(`Found env in settings.local.json (overrides): ${JSON.stringify(localSettings.env)}`);
   }
 } catch (e) {
   log(`Failed to read settings.local.json: ${e.message}`);
@@ -65,4 +69,5 @@ try {
 // Output the value
 const finalValue = env[varName] !== undefined ? env[varName] : defaultValue;
 log(`Final value for ${varName}: ${finalValue}`);
+log('---');
 console.log(finalValue);
