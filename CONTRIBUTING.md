@@ -188,6 +188,59 @@ my-plugin/
 }
 ```
 
+### Environment Variables
+
+**Available in plugin hooks and scripts:**
+
+- **`${CLAUDE_PLUGIN_ROOT}`**: Absolute path to the plugin directory
+- **`${CLAUDE_PROJECT_DIR}`**: Project root directory (same as for project hooks)
+
+**Example usage in hooks:**
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/process.sh ${CLAUDE_PROJECT_DIR}"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Dynamic Environment Variables (No Restart Required)
+
+To read environment variables from `.claude/settings.json` and `.claude/settings.local.json` dynamically (changes take effect immediately without restarting Claude Code):
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "MY_VAR=$(node -e \"const fs=require('fs'); const path='${CLAUDE_PROJECT_DIR}/.claude'; let env={}; try { const s=JSON.parse(fs.readFileSync(path+'/settings.json','utf8')); env={...env,...(s.env||{})}; } catch(e) {} try { const l=JSON.parse(fs.readFileSync(path+'/settings.local.json','utf8')); env={...env,...(l.env||{})}; } catch(e) {} console.log(env.MY_VAR||'default');\" 2>/dev/null || echo 'default'); echo \"Value: $MY_VAR\""
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+This approach:
+- Reads from `settings.json` first
+- Overlays `settings.local.json` (which overrides)
+- Falls back to a default value if neither file has the variable
+- Works immediately when settings change (no restart needed)
+
 ### hooks.json Format
 
 ```json

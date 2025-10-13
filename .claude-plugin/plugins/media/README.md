@@ -36,7 +36,7 @@ brew install media-control
 - `"true"`: Auto-pause media when stopping Claude's response
 - `"false"`: Don't pause media on stop
 
-Add to `.claude/settings.json`:
+Add to `.claude/settings.json` or `.claude/settings.local.json` (overrides):
 ```json
 {
   "env": {
@@ -44,6 +44,8 @@ Add to `.claude/settings.json`:
   }
 }
 ```
+
+**Note**: Changes take effect immediately without restarting Claude Code. Settings in `settings.local.json` override those in `settings.json`.
 
 ## How It Works
 
