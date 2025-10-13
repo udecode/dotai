@@ -28,13 +28,8 @@ if (!varName) {
 log(`Looking for env var: ${varName}`);
 log(`Default value: ${defaultValue}`);
 
-const projectDir = process.env.CLAUDE_PROJECT_DIR;
-if (!projectDir) {
-  log('CLAUDE_PROJECT_DIR not set, using default');
-  console.log(defaultValue);
-  process.exit(0);
-}
-
+// Use current working directory
+const projectDir = process.cwd();
 log(`Project directory: ${projectDir}`);
 
 const claudePath = path.join(projectDir, '.claude');
