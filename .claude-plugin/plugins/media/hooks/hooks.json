@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "media-control play 2>/dev/null || true"
+            "command": "DISABLED=$(node ${CLAUDE_PLUGIN_ROOT}/scripts/get-env.js CLAUDE_MEDIA_DISABLED false 2>/dev/null || echo 'false'); AUTO_START=$(node ${CLAUDE_PLUGIN_ROOT}/scripts/get-env.js CLAUDE_MEDIA_AUTO_START true 2>/dev/null || echo 'true'); if [ \"$DISABLED\" = \"false\" ] && [ \"$AUTO_START\" = \"true\" ]; then media-control play 2>/dev/null || true; fi"
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "AUTO_PAUSE=$(node ${CLAUDE_PLUGIN_ROOT}/scripts/get-env.js CLAUDE_MEDIA_AUTO_PAUSE true 2>/dev/null || echo 'true'); if [ \"$AUTO_PAUSE\" = \"true\" ]; then media-control pause 2>/dev/null || true; fi"
+            "command": "DISABLED=$(node ${CLAUDE_PLUGIN_ROOT}/scripts/get-env.js CLAUDE_MEDIA_DISABLED false 2>/dev/null || echo 'false'); AUTO_PAUSE=$(node ${CLAUDE_PLUGIN_ROOT}/scripts/get-env.js CLAUDE_MEDIA_AUTO_PAUSE true 2>/dev/null || echo 'true'); if [ \"$DISABLED\" = \"false\" ] && [ \"$AUTO_PAUSE\" = \"true\" ]; then media-control pause 2>/dev/null || true; fi"
           }
         ]
       }

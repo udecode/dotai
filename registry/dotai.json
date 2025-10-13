@@ -18,6 +18,12 @@
       "target": "~/.claude/settings.json"
     },
     {
+      "path": "registry/dotai/settings.local.json",
+      "content": "{\n  \"env\": {\n    \"CLAUDE_MEDIA_ENABLED\": \"true\",\n    \"CLAUDE_MEDIA_AUTO_START\": \"true\",\n    \"CLAUDE_MEDIA_AUTO_PAUSE\": \"true\"\n  }\n}\n",
+      "type": "registry:file",
+      "target": "~/.claude/settings.local.json"
+    },
+    {
       "path": "registry/dotai/commands/c.md",
       "content": "To watch logs/errors, run `pnpm app:log` (Frontend), `pnpm backend:log` (Backend), then `pnpm typecheck:watch` (tsc).\n",
       "type": "registry:file",

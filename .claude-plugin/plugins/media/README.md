@@ -32,6 +32,14 @@ brew install media-control
 
 ### Environment Variables
 
+**`CLAUDE_MEDIA_DISABLED`** (default: `"false"`)
+- `"false"`: Plugin is active
+- `"true"`: Completely disable the plugin (no play/pause on any events)
+
+**`CLAUDE_MEDIA_AUTO_START`** (default: `"true"`)
+- `"true"`: Auto-play media when submitting a prompt
+- `"false"`: Don't play media on prompt submit
+
 **`CLAUDE_MEDIA_AUTO_PAUSE`** (default: `"true"`)
 - `"true"`: Auto-pause media when stopping Claude's response
 - `"false"`: Don't pause media on stop
@@ -40,6 +48,8 @@ Add to `.claude/settings.json` or `.claude/settings.local.json` (overrides):
 ```json
 {
   "env": {
+    "CLAUDE_MEDIA_DISABLED": "false",
+    "CLAUDE_MEDIA_AUTO_START": "true",
     "CLAUDE_MEDIA_AUTO_PAUSE": "false"
   }
 }
@@ -56,20 +66,43 @@ The plugin works with any media player supported by macOS media controls (Spotif
 
 ## Examples
 
-**Default behavior** (auto-pause enabled):
+**Default behavior** (all features enabled):
 - Submit prompt → Music plays
 - Stop response → Music pauses
 
-**Disable auto-pause**:
+**Only pause, no auto-start**:
 ```json
 {
   "env": {
+    "CLAUDE_MEDIA_AUTO_START": "false",
+    "CLAUDE_MEDIA_AUTO_PAUSE": "true"
+  }
+}
+```
+- Submit prompt → Music keeps playing
+- Stop response → Music pauses
+
+**Only auto-start, no pause**:
+```json
+{
+  "env": {
+    "CLAUDE_MEDIA_AUTO_START": "true",
     "CLAUDE_MEDIA_AUTO_PAUSE": "false"
   }
 }
 ```
 - Submit prompt → Music plays
 - Stop response → Music keeps playing
+
+**Completely disable**:
+```json
+{
+  "env": {
+    "CLAUDE_MEDIA_DISABLED": "true"
+  }
+}
+```
+- No media control at all
 
 ## Troubleshooting
 

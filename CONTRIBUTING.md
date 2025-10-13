@@ -229,16 +229,11 @@ const varName = process.argv[2];
 const defaultValue = process.argv[3] || '';
 
 if (!varName) {
-  console.error('Usage: get-env.js <VAR_NAME> [default_value]');
   process.exit(1);
 }
 
-const projectDir = process.env.CLAUDE_PROJECT_DIR;
-if (!projectDir) {
-  console.log(defaultValue);
-  process.exit(0);
-}
-
+// Use current working directory
+const projectDir = process.cwd();
 const claudePath = path.join(projectDir, '.claude');
 let env = {};
 
@@ -249,7 +244,9 @@ try {
   if (settings.env) {
     env = { ...env, ...settings.env };
   }
-} catch (e) {}
+} catch (e) {
+  // Ignore if file doesn't exist or is invalid
+}
 
 // Read settings.local.json (overrides)
 try {
@@ -258,7 +255,9 @@ try {
   if (localSettings.env) {
     env = { ...env, ...localSettings.env };
   }
-} catch (e) {}
+} catch (e) {
+  // Ignore if file doesn't exist or is invalid
+}
 
 console.log(env[varName] !== undefined ? env[varName] : defaultValue);
 ```
@@ -285,6 +284,7 @@ This approach:
 - Reads from `settings.json` first
 - Overlays `settings.local.json` (which overrides)
 - Falls back to a default value if neither file has the variable
+- Uses `process.cwd()` to find the project directory
 - Handles falsy values like `false` correctly
 - Works immediately when settings change (no restart needed)
 - Much cleaner and reusable across multiple hooks

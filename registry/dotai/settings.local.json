@@ -1,0 +1,7 @@
+{
+  "env": {
+    "CLAUDE_MEDIA_DISABLED": "false",
+    "CLAUDE_MEDIA_AUTO_START": "true",
+    "CLAUDE_MEDIA_AUTO_PAUSE": "true"
+  }
+}
