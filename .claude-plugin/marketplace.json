@@ -33,6 +33,11 @@
       "name": "media",
       "source": "./.claude-plugin/plugins/media",
       "description": "Auto-play/pause media on prompt submit/stop"
+    },
+    {
+      "name": "codex",
+      "source": "./.claude-plugin/plugins/codex",
+      "description": "MCP servers for Codex integration"
     }
   ]
 }

@@ -1,0 +1,8 @@
+{
+  "name": "codex",
+  "version": "0.1.0",
+  "description": "MCP servers for Codex integration",
+  "author": {
+    "name": "zbeyens"
+  }
+}

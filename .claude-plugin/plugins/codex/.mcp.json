@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "gpt": {
+      "type": "stdio",
+      "command": "codex",
+      "args": ["-m", "gpt-5", "-c", "model_reasoning_effort=high", "mcp-server"],
+      "env": {}
+    },
+    "codex": {
+      "type": "stdio",
+      "command": "codex",
+      "args": ["-m", "gpt-5-codex", "-c", "model_reasoning_effort=high", "mcp-server"],
+      "env": {}
+    }
+  }
+}
