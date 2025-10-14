@@ -2,6 +2,5 @@
   "name": "fb",
   "version": "1.0.0",
   "description": "Session management and continuity for Claude Code with automatic memory and working plan tracking",
-  "keywords": ["session", "memory", "continuity", "flashback", "working-plan"],
-  "category": "productivity"
+  "keywords": ["session", "memory", "continuity", "flashback", "working-plan"]
 }

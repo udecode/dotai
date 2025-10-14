@@ -174,6 +174,8 @@ my-plugin/
 
 ### plugin.json Format
 
+**Valid Fields Only:**
+
 ```json
 {
   "name": "my-plugin",
@@ -182,11 +184,25 @@ my-plugin/
   "author": {
     "name": "zbeyens"
   },
+  "keywords": ["keyword1", "keyword2"],
   "env": {
     "MY_PLUGIN_SETTING": "default-value"
   }
 }
 ```
+
+**Supported Fields:**
+
+- `name` (required): Plugin identifier
+- `version` (required): Semantic version string
+- `description` (required): Brief plugin description
+- `author` (optional): Author information with `name` field
+- `keywords` (optional): Array of searchable keywords
+- `env` (optional): Default environment variables
+
+**Invalid Fields:**
+
+- Any other undocumented fields will cause validation errors
 
 ### Environment Variables
 
@@ -219,14 +235,15 @@ my-plugin/
 To read environment variables from `.claude/settings.json` and `.claude/settings.local.json` dynamically (changes take effect immediately without restarting Claude Code), create a helper script:
 
 **scripts/get-env.js:**
+
 ```javascript
 #!/usr/bin/env node
 
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs");
+const path = require("path");
 
 const varName = process.argv[2];
-const defaultValue = process.argv[3] || '';
+const defaultValue = process.argv[3] || "";
 
 if (!varName) {
   process.exit(1);
@@ -234,13 +251,13 @@ if (!varName) {
 
 // Use current working directory
 const projectDir = process.cwd();
-const claudePath = path.join(projectDir, '.claude');
+const claudePath = path.join(projectDir, ".claude");
 let env = {};
 
 // Read settings.json
 try {
-  const settingsPath = path.join(claudePath, 'settings.json');
-  const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+  const settingsPath = path.join(claudePath, "settings.json");
+  const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
   if (settings.env) {
     env = { ...env, ...settings.env };
   }
@@ -250,8 +267,8 @@ try {
 
 // Read settings.local.json (overrides)
 try {
-  const localSettingsPath = path.join(claudePath, 'settings.local.json');
-  const localSettings = JSON.parse(fs.readFileSync(localSettingsPath, 'utf8'));
+  const localSettingsPath = path.join(claudePath, "settings.local.json");
+  const localSettings = JSON.parse(fs.readFileSync(localSettingsPath, "utf8"));
   if (localSettings.env) {
     env = { ...env, ...localSettings.env };
   }
@@ -263,6 +280,7 @@ console.log(env[varName] !== undefined ? env[varName] : defaultValue);
 ```
 
 **Usage in hooks:**
+
 ```json
 {
   "hooks": {
@@ -281,6 +299,7 @@ console.log(env[varName] !== undefined ? env[varName] : defaultValue);
 ```
 
 This approach:
+
 - Reads from `settings.json` first
 - Overlays `settings.local.json` (which overrides)
 - Falls back to a default value if neither file has the variable
