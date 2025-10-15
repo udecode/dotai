@@ -19,8 +19,6 @@ Then, restart `claude`.
 
 This installs all project files and configures Claude Code to auto-install the marketplace and plugins.
 
-**Important:** If files install to `src/` instead of project root, temporarily rename/remove `components.json` during installation, or run from a directory without existing shadcn configuration.
-
 ### Manual Setup
 
 Add marketplace and plugins (interactive):
@@ -184,7 +182,7 @@ brew install media-control  # Required
 ```json
 {
   "env": {
-    "CLAUDE_MEDIA_AUTO_PAUSE": "false"  // Disable auto-pause
+    "CLAUDE_MEDIA_AUTO_PAUSE": "false" // Disable auto-pause
   }
 }
 ```
