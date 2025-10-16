@@ -103,13 +103,7 @@
         "https://raw.githubusercontent.com/udecode/dotai/main/registry/flashback.json",
         "https://raw.githubusercontent.com/udecode/dotai/main/registry/ctx.json"
       ],
-      "files": [
-        {
-          "path": "registry/dotai/settings.json",
-          "type": "registry:file",
-          "target": "~/.claude/settings.json"
-        }
-      ]
+      "files": []
     }
   ]
 }
