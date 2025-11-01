@@ -6,8 +6,15 @@ set -euo pipefail
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 PROMPT_FILE="$PROJECT_DIR/.claude/prompt.json"
 
+# Build debug log
+DEBUG_LOG="[prompt-plugin] CLAUDE_PROJECT_DIR=${CLAUDE_PROJECT_DIR:-(not set)}\n"
+DEBUG_LOG+="[prompt-plugin] CLAUDE_PLUGIN_ROOT=${CLAUDE_PLUGIN_ROOT:-(not set)}\n"
+DEBUG_LOG+="[prompt-plugin] Prompt file: $PROMPT_FILE\n"
+
 # Read and format prompt from JSON file (only if file exists)
 if [ -f "$PROMPT_FILE" ]; then
+  DEBUG_LOG+="[prompt-plugin] Found prompt.json, parsing...\n\n"
+
   # Use Node.js to parse JSON and format output
   FORMATTED_OUTPUT=$(node -e "
     try {
@@ -49,23 +56,30 @@ if [ -f "$PROMPT_FILE" ]; then
 
       console.log(output);
     } catch (error) {
-      // Silently fail on parse errors
+      console.error('Parse error:', error.message);
     }
   " 2>&1)
+
+  if [ -n "$FORMATTED_OUTPUT" ]; then
+    DEBUG_LOG+="[prompt-plugin] Successfully injected prompts\n\n"
+    CONTEXT="$DEBUG_LOG$FORMATTED_OUTPUT"
+  else
+    DEBUG_LOG+="[prompt-plugin] ERROR: Empty output from parser"
+    CONTEXT="$DEBUG_LOG"
+  fi
 else
-  FORMATTED_OUTPUT=""
+  DEBUG_LOG+="[prompt-plugin] Prompt file not found, skipping injection"
+  CONTEXT="$DEBUG_LOG"
 fi
 
-# Only output JSON if FORMATTED_OUTPUT is non-empty
-if [ -n "$FORMATTED_OUTPUT" ]; then
-  cat <<EOF
+# Always output JSON with context (debug logs or prompts)
+cat <<EOF
 {
   "hookSpecificOutput": {
     "hookEventName": "UserPromptSubmit",
-    "additionalContext": "$FORMATTED_OUTPUT"
+    "additionalContext": "$CONTEXT"
   }
 }
 EOF
-fi
 
 exit 0
