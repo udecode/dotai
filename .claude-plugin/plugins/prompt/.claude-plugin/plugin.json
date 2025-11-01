@@ -1,9 +1,0 @@
-{
-  "name": "prompt",
-  "version": "0.1.0",
-  "description": "Dynamic prompt injection system with before-start and before-complete checklists",
-  "author": {
-    "name": "zbeyens"
-  },
-  "keywords": ["prompt", "checklist", "verification", "workflow"]
-}

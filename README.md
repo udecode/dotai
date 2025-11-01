@@ -196,9 +196,27 @@ Dynamic prompt injection system with before-start and before-complete checklists
 **Installation:**
 
 ```bash
-/plugin install prompt@dotai
-# restart claude
+# Install config and script files
 npx shadcn@latest add https://raw.githubusercontent.com/udecode/dotai/main/registry/prompt.json
+```
+
+**Add hook to `.claude/settings.json`:**
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/scripts/user-prompt-submit.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
 ```
 
 **Features:**
@@ -233,8 +251,6 @@ Edit `.claude/prompt.json`:
   ]
 }
 ```
-
-[Full Plugin Documentation →](./.claude-plugin/plugins/prompt/README.md)
 
 ## Workflows
 

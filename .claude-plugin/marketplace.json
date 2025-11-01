@@ -38,11 +38,6 @@
       "name": "codex",
       "source": "./.claude-plugin/plugins/codex",
       "description": "MCP servers for Codex integration"
-    },
-    {
-      "name": "prompt",
-      "source": "./.claude-plugin/plugins/prompt",
-      "description": "Dynamic prompt injection system with before-start and before-complete checklists"
     }
   ]
 }
