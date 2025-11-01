@@ -16,8 +16,9 @@
     "dotai@dotai": true,
     "fb@dotai": true,
     "notification@dotai": true,
-    "media@dotai": true,
-    "codex@dotai": true
+    "media@dotai": false,
+    "codex@dotai": true,
+    "prompt@dotai": true
   },
   "hooks": {
     "SessionStart": [

@@ -189,6 +189,53 @@ brew install media-control  # Required
 
 [Full Plugin Documentation →](./.claude-plugin/plugins/media/README.md)
 
+### ✅ prompt
+
+Dynamic prompt injection system with before-start and before-complete checklists.
+
+**Installation:**
+
+```bash
+/plugin install prompt@dotai
+# restart claude
+npx shadcn@latest add https://raw.githubusercontent.com/udecode/dotai/main/registry/prompt.json
+```
+
+**Features:**
+
+- **Before-Start Checklists** - Enforce reminders before Claude responds
+- **Before-Complete Checklists** - Verification items before claiming completion
+- **Project-Specific** - Configure different prompts per project
+
+**Configuration:**
+
+Edit `.claude/prompt.json`:
+
+```json
+{
+  "beforeStart": [
+    {
+      "tag": "MANDATORY-FIRST-RESPONSE",
+      "items": [
+        "List available skills matching user request",
+        "If ANY skill matches: Use Skill tool FIRST"
+      ]
+    }
+  ],
+  "beforeComplete": [
+    {
+      "tag": "VERIFICATION-CHECKLIST",
+      "items": [
+        "NEVER use TypeScript `any`",
+        "NEVER make git commits unless explicitly asked"
+      ]
+    }
+  ]
+}
+```
+
+[Full Plugin Documentation →](./.claude-plugin/plugins/prompt/README.md)
+
 ## Workflows
 
 ### 1. Initial Setup

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "prompt",
+  "type": "registry:item",
+  "title": "Prompt Injection System",
+  "description": "Dynamic prompt checklists for before-start and before-complete workflows",
+  "files": [
+    {
+      "path": "registry/prompt/config/prompt.json",
+      "content": "{\n  \"beforeStart\": [\n    {\n      \"tag\": \"MANDATORY-FIRST-RESPONSE\",\n      \"items\": [\n        \"List available skills matching user request\",\n        \"If ANY skill matches: Use Skill tool FIRST, announce usage, then respond\",\n        \"No rationalizations: 'simple task', 'I know this', 'just checking files' = WRONG\"\n      ]\n    }\n  ],\n  \"beforeComplete\": [\n    {\n      \"tag\": \"VERIFICATION-CHECKLIST\",\n      \"items\": []\n    }\n  ]\n}\n",
+      "type": "registry:file",
+      "target": "~/.claude/prompt.json"
+    }
+  ]
+}

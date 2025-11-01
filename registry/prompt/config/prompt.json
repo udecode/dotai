@@ -1,0 +1,18 @@
+{
+  "beforeStart": [
+    {
+      "tag": "MANDATORY-FIRST-RESPONSE",
+      "items": [
+        "List available skills matching user request",
+        "If ANY skill matches: Use Skill tool FIRST, announce usage, then respond",
+        "No rationalizations: 'simple task', 'I know this', 'just checking files' = WRONG"
+      ]
+    }
+  ],
+  "beforeComplete": [
+    {
+      "tag": "VERIFICATION-CHECKLIST",
+      "items": []
+    }
+  ]
+}
