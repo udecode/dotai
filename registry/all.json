@@ -7,14 +7,8 @@
   "registryDependencies": [
     "https://raw.githubusercontent.com/udecode/dotai/main/registry/dotai.json",
     "https://raw.githubusercontent.com/udecode/dotai/main/registry/flashback.json",
-    "https://raw.githubusercontent.com/udecode/dotai/main/registry/ctx.json"
+    "https://raw.githubusercontent.com/udecode/dotai/main/registry/ctx.json",
+    "https://raw.githubusercontent.com/udecode/dotai/main/registry/prompt.json"
   ],
-  "files": [
-    {
-      "path": "registry/dotai/settings.json",
-      "content": "{\n  \"permissions\": {\n    \"allow\": [\"Bash\", \"Edit\"]\n  },\n  \"enableAllProjectMcpServers\": true,\n  \"extraKnownMarketplaces\": {\n    \"dotai\": {\n      \"source\": {\n        \"source\": \"github\",\n        \"repo\": \"udecode/dotai\"\n      }\n    }\n  },\n  \"enabledPlugins\": {\n    \"ctx@dotai\": true,\n    \"dotai@dotai\": true,\n    \"fb@dotai\": true,\n    \"notification@dotai\": true,\n    \"media@dotai\": true,\n    \"codex@dotai\": true\n  },\n  \"hooks\": {\n    \"SessionStart\": [\n      {\n        \"matcher\": \"\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"if [ -d \\\".claude/flashback\\\" ]; then if command -v flashback &> /dev/null; then flashback session-start --context; elif [ -f \\\"$HOME/.claude/flashbacker/lib/cli.js\\\" ]; then node \\\"$HOME/.claude/flashbacker/lib/cli.js\\\" session-start --context; fi; fi\"\n          }\n        ]\n      }\n    ]\n  }\n}\n",
-      "type": "registry:file",
-      "target": "~/.claude/settings.json"
-    }
-  ]
+  "files": []
 }

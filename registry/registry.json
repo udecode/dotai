@@ -101,9 +101,23 @@
       "registryDependencies": [
         "https://raw.githubusercontent.com/udecode/dotai/main/registry/dotai.json",
         "https://raw.githubusercontent.com/udecode/dotai/main/registry/flashback.json",
-        "https://raw.githubusercontent.com/udecode/dotai/main/registry/ctx.json"
+        "https://raw.githubusercontent.com/udecode/dotai/main/registry/ctx.json",
+        "https://raw.githubusercontent.com/udecode/dotai/main/registry/prompt.json"
       ],
       "files": []
+    },
+    {
+      "name": "prompt",
+      "type": "registry:item",
+      "title": "Prompt Injection System",
+      "description": "Dynamic prompt checklists for before-start and before-complete workflows",
+      "files": [
+        {
+          "path": "registry/prompt/config/prompt.json",
+          "type": "registry:file",
+          "target": "~/.claude/prompt.json"
+        }
+      ]
     }
   ]
 }
