@@ -7,13 +7,16 @@ PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
 PROMPT_FILE="$PROJECT_DIR/.claude/prompt.json"
 
 # Build debug log
-DEBUG_LOG="[prompt-plugin] CLAUDE_PROJECT_DIR=${CLAUDE_PROJECT_DIR:-(not set)}\n"
-DEBUG_LOG+="[prompt-plugin] CLAUDE_PLUGIN_ROOT=${CLAUDE_PLUGIN_ROOT:-(not set)}\n"
-DEBUG_LOG+="[prompt-plugin] Prompt file: $PROMPT_FILE\n"
+DEBUG_LOG="[prompt-plugin] CLAUDE_PROJECT_DIR=${CLAUDE_PROJECT_DIR:-(not set)}
+[prompt-plugin] CLAUDE_PLUGIN_ROOT=${CLAUDE_PLUGIN_ROOT:-(not set)}
+[prompt-plugin] Prompt file: $PROMPT_FILE
+"
 
 # Read and format prompt from JSON file (only if file exists)
 if [ -f "$PROMPT_FILE" ]; then
-  DEBUG_LOG+="[prompt-plugin] Found prompt.json, parsing...\n\n"
+  DEBUG_LOG+="[prompt-plugin] Found prompt.json, parsing...
+
+"
 
   # Use Node.js to parse JSON and format output
   FORMATTED_OUTPUT=$(node -e "
@@ -61,7 +64,9 @@ if [ -f "$PROMPT_FILE" ]; then
   " 2>&1)
 
   if [ -n "$FORMATTED_OUTPUT" ]; then
-    DEBUG_LOG+="[prompt-plugin] Successfully injected prompts\n\n"
+    DEBUG_LOG+="[prompt-plugin] Successfully injected prompts
+
+"
     CONTEXT="$DEBUG_LOG$FORMATTED_OUTPUT"
   else
     DEBUG_LOG+="[prompt-plugin] ERROR: Empty output from parser"
@@ -72,12 +77,15 @@ else
   CONTEXT="$DEBUG_LOG"
 fi
 
-# Always output JSON with context (debug logs or prompts)
+# Escape content for JSON (like superpowers plugin does)
+CONTEXT_ESCAPED=$(echo "$CONTEXT" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | awk '{printf "%s\\n", $0}')
+
+# Always output JSON with properly escaped context
 cat <<EOF
 {
   "hookSpecificOutput": {
     "hookEventName": "UserPromptSubmit",
-    "additionalContext": "$CONTEXT"
+    "additionalContext": "${CONTEXT_ESCAPED}"
   }
 }
 EOF
