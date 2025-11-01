@@ -116,6 +116,11 @@
           "path": "registry/prompt/config/prompt.json",
           "type": "registry:file",
           "target": "~/.claude/prompt.json"
+        },
+        {
+          "path": "registry/prompt/scripts/user-prompt-submit.sh",
+          "type": "registry:file",
+          "target": "~/.claude/scripts/user-prompt-submit.sh"
         }
       ]
     }

@@ -102,21 +102,39 @@ The plugin uses a `UserPromptSubmit` hook that:
 2. Formats checklist sections as XML tags
 3. Injects formatted prompts into Claude's context
 
-## Development
+## How It Works
 
-The plugin uses Node.js to parse JSON and format output in the hook script.
+The plugin provides a `UserPromptSubmit` hook that references a script installed in your project by the registry.
+
+**Plugin provides:**
+- Hook configuration in `hooks/hooks.json`
+- References `${CLAUDE_PROJECT_DIR}/.claude/scripts/user-prompt-submit.sh`
+
+**Registry installs:**
+- `.claude/prompt.json` - Configuration file
+- `.claude/scripts/user-prompt-submit.sh` - Hook script
+
+The script uses Node.js to parse JSON and format output.
 
 ### File Structure
 
+**Plugin** (`.claude-plugin/plugins/prompt/`):
 ```
 prompt/
 ├── .claude-plugin/
 │   └── plugin.json          # Plugin metadata
 ├── hooks/
-│   └── hooks.json           # UserPromptSubmit hook definition
-├── scripts/
-│   └── user-prompt-submit.sh # Hook script
+│   └── hooks.json           # Hook configuration
 └── README.md                # This file
+```
+
+**Registry** (`registry/prompt/`):
+```
+prompt/
+├── config/
+│   └── prompt.json          # Default config
+└── scripts/
+    └── user-prompt-submit.sh # Hook script
 ```
 
 ## License
