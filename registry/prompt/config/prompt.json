@@ -2,6 +2,7 @@
   "beforeStart": [
     {
       "tag": "MANDATORY-FIRST-RESPONSE",
+      "header": "BEFORE responding to ANY user message:",
       "rules": [
         "BEFORE doing anything else: Create TodoWrite with todos below as first items and mark first as in_progress",
         "Work through each todo: mark in_progress → complete the check → mark completed",
@@ -23,6 +24,7 @@
   "beforeComplete": [
     {
       "tag": "VERIFICATION-CHECKLIST",
+      "header": "Before claiming work is complete, fixed, or passing - NO completion claims without FRESH verification evidence:",
       "rules": [
         "BEFORE claiming work complete: Create TodoWrite with todos below and mark first as in_progress",
         "Work through EACH verification todo: mark in_progress → complete check → mark completed",

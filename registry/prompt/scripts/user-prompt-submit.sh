@@ -18,7 +18,11 @@ if [ -f "$PROMPT_FILE" ]; then
       if (data.beforeStart && Array.isArray(data.beforeStart) && data.beforeStart.length > 0) {
         data.beforeStart.forEach(section => {
           output += \`<\${section.tag}>\n\`;
-          output += \`BEFORE responding to ANY user message:\n\n\`;
+
+          // Add header if present
+          if (section.header) {
+            output += \`\${section.header}\n\n\`;
+          }
 
           // Format rules as instructions
           if (section.rules && Array.isArray(section.rules)) {
@@ -45,7 +49,11 @@ if [ -f "$PROMPT_FILE" ]; then
       if (data.beforeComplete && Array.isArray(data.beforeComplete) && data.beforeComplete.length > 0) {
         data.beforeComplete.forEach(section => {
           output += \`<\${section.tag}>\n\`;
-          output += \`Before claiming work is complete, fixed, or passing:\n\n\`;
+
+          // Add header if present
+          if (section.header) {
+            output += \`\${section.header}\n\n\`;
+          }
 
           // Format rules as instructions
           if (section.rules && Array.isArray(section.rules)) {
@@ -58,13 +66,12 @@ if [ -f "$PROMPT_FILE" ]; then
 
           // Format todos as checklist
           if (section.todos && Array.isArray(section.todos)) {
-            output += \`**TodoWrite Verification:**\n\`;
+            output += \`**TodoWrite Checklist:**\n\`;
             section.todos.forEach(todo => {
               output += \`- [ ] \${todo}\n\`;
             });
           }
 
-          output += \`\nNO completion claims without FRESH verification evidence.\`;
           output += \`</\${section.tag}>\`;
         });
       }
