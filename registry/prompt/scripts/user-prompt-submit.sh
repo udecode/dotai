@@ -20,9 +20,20 @@ if [ -f "$PROMPT_FILE" ]; then
           output += \`<\${section.tag}>\n\`;
           output += \`BEFORE responding to ANY user message:\n\n\`;
 
-          if (section.items && Array.isArray(section.items)) {
-            section.items.forEach(item => {
-              output += \`☐ \${item}\n\`;
+          // Format rules as instructions
+          if (section.rules && Array.isArray(section.rules)) {
+            output += \`**Protocol:**\n\`;
+            section.rules.forEach(rule => {
+              output += \`• \${rule}\n\`;
+            });
+            output += \`\n\`;
+          }
+
+          // Format todos as checklist
+          if (section.todos && Array.isArray(section.todos)) {
+            output += \`**Checklist:**\n\`;
+            section.todos.forEach(todo => {
+              output += \`☐ \${todo}\n\`;
             });
           }
 
@@ -36,9 +47,20 @@ if [ -f "$PROMPT_FILE" ]; then
           output += \`<\${section.tag}>\n\`;
           output += \`Before claiming work is complete, fixed, or passing:\n\n\`;
 
-          if (section.items && Array.isArray(section.items)) {
-            section.items.forEach(item => {
-              output += \`- [ ] \${item}\n\`;
+          // Format rules as instructions
+          if (section.rules && Array.isArray(section.rules)) {
+            output += \`**Protocol:**\n\`;
+            section.rules.forEach(rule => {
+              output += \`• \${rule}\n\`;
+            });
+            output += \`\n\`;
+          }
+
+          // Format todos as checklist
+          if (section.todos && Array.isArray(section.todos)) {
+            output += \`**Verification Checklist:**\n\`;
+            section.todos.forEach(todo => {
+              output += \`- [ ] \${todo}\n\`;
             });
           }
 

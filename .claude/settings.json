@@ -17,8 +17,7 @@
     "fb@dotai": true,
     "notification@dotai": true,
     "media@dotai": true,
-    "codex@dotai": true,
-    "prompt@dotai": true
+    "codex@dotai": true
   },
   "hooks": {
     "SessionStart": [
@@ -28,6 +27,16 @@
           {
             "type": "command",
             "command": "if [ -d \".claude/flashback\" ]; then if command -v flashback &> /dev/null; then flashback session-start --context; elif [ -f \"$HOME/.claude/flashbacker/lib/cli.js\" ]; then node \"$HOME/.claude/flashbacker/lib/cli.js\" session-start --context; fi; fi"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f \".claude/scripts/user-prompt-submit.sh\" ]; then .claude/scripts/user-prompt-submit.sh; fi"
           }
         ]
       }
