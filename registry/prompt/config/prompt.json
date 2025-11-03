@@ -27,11 +27,11 @@
         "Run `npm run typecheck` only when Background Bash Shells are not visible/running"
       ],
       "todos": [
-        "Check no TypeScript `any` used (pause and ask user if `any` seems required)",
-        "Read typecheck:watch output OR run `npm run typecheck` - verify passes",
-        "Run `npm run lint:fix` - verify passes",
-        "Verify no git commits made unless user explicitly asked",
-        "NEVER run `npm run dev` or `npm run build` unless explicitly asked"
+        "TypeScript check: Verify no `any` used (pause and ask user if `any` seems required)",
+        "Typecheck: Read typecheck:watch output OR run `npm run typecheck` - verify passes",
+        "Lint: Run `npm run lint:fix` - verify passes",
+        "Git check: Verify no git commits made unless user explicitly asked",
+        "Build check: NEVER run `npm run dev` or `npm run build` unless explicitly asked"
       ]
     }
   ]
