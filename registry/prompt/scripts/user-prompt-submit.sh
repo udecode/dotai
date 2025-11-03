@@ -24,11 +24,11 @@ if [ -f "$PROMPT_FILE" ]; then
             output += \`\${section.header}\n\n\`;
           }
 
-          // Format rules as instructions
-          if (section.rules && Array.isArray(section.rules)) {
-            output += \`**Protocol:**\n\`;
-            section.rules.forEach(rule => {
-              output += \`• \${rule}\n\`;
+          // Format instructions
+          if (section.instructions && Array.isArray(section.instructions)) {
+            output += \`**Instructions:**\n\`;
+            section.instructions.forEach(instruction => {
+              output += \`• \${instruction}\n\`;
             });
             output += \`\n\`;
           }
@@ -55,11 +55,11 @@ if [ -f "$PROMPT_FILE" ]; then
             output += \`\${section.header}\n\n\`;
           }
 
-          // Format rules as instructions
-          if (section.rules && Array.isArray(section.rules)) {
-            output += \`**Protocol:**\n\`;
-            section.rules.forEach(rule => {
-              output += \`• \${rule}\n\`;
+          // Format instructions
+          if (section.instructions && Array.isArray(section.instructions)) {
+            output += \`**Instructions:**\n\`;
+            section.instructions.forEach(instruction => {
+              output += \`• \${instruction}\n\`;
             });
             output += \`\n\`;
           }
