@@ -24,14 +24,14 @@
         "Work through EACH verification todo: mark in_progress → complete check → mark completed",
         "NEVER claim completion without completing ALL verification todos",
         "We manually start session with `npm run logs && npm run typecheck:watch` as Background Bash Shell - read output when checking errors",
-        "Run `npm run typecheck` only when Background Bash Shells are not visible/running"
+        "Run `npm run typecheck` only when Background Bash Shells are not visible/running",
+        "NEVER make git commits unless user explicitly asked",
+        "NEVER run `npm run dev` or `npm run build` unless explicitly asked"
       ],
       "todos": [
         "TypeScript check: Verify no `any` used (pause and ask user if `any` seems required)",
         "Typecheck: Read typecheck:watch output OR run `npm run typecheck` - verify passes",
-        "Lint: Run `npm run lint:fix` - verify passes",
-        "Git check: Verify no git commits made unless user explicitly asked",
-        "Build check: NEVER run `npm run dev` or `npm run build` unless explicitly asked"
+        "Lint: Run `npm run lint:fix` - verify passes"
       ]
     }
   ]
