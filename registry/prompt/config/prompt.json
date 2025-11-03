@@ -3,7 +3,7 @@
     {
       "tag": "MANDATORY-FIRST-RESPONSE",
       "header": "BEFORE responding to ANY user message:",
-      "rules": [
+      "instructions": [
         "BEFORE doing anything else: Create TodoWrite with todos below as first items and mark first as in_progress",
         "Work through each todo: mark in_progress → complete the check → mark completed",
         "If even 1% chance a skill applies, you ABSOLUTELY MUST read it with the Skill tool - this is not negotiable",
@@ -25,7 +25,7 @@
     {
       "tag": "VERIFICATION-CHECKLIST",
       "header": "Before claiming work is complete, fixed, or passing - NO completion claims without FRESH verification evidence:",
-      "rules": [
+      "instructions": [
         "BEFORE claiming work complete: Create TodoWrite with todos below and mark first as in_progress",
         "Work through EACH verification todo: mark in_progress → complete check → mark completed",
         "NEVER claim completion without completing ALL verification todos",
