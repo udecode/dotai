@@ -202,6 +202,7 @@ npx shadcn@latest add https://raw.githubusercontent.com/udecode/dotai/main/regis
 ```
 
 This installs:
+
 - `.claude/prompt.json` - Configuration file
 - `.claude/scripts/user-prompt-submit.sh` - Hook script
 
@@ -222,23 +223,41 @@ Edit `.claude/prompt.json`:
   "beforeStart": [
     {
       "tag": "MANDATORY-FIRST-RESPONSE",
-      "items": [
-        "List available skills matching user request",
-        "If ANY skill matches: Use Skill tool FIRST"
+      "header": "🚨 STOP - YOUR FIRST TOOL CALL MUST BE TodoWrite",
+      "instructions": [
+        "DO NOT analyze the task yet. DO NOT read files. DO NOT edit anything.",
+        "YOUR FIRST ACTION: Call TodoWrite with the todo below",
+        "Check if the todo's condition applies - if NO, mark completed immediately"
+      ],
+      "todos": [
+        "Skill analysis (SKIP if message contains 'quick'): (1) Check for rationalizations; (2) List ALL available skills; (3) Mark ✓/✗ for each; (4) Load matched skills; (5) Output result"
       ]
     }
   ],
   "beforeComplete": [
     {
       "tag": "VERIFICATION-CHECKLIST",
-      "items": [
-        "NEVER use TypeScript `any`",
-        "NEVER make git commits unless explicitly asked"
+      "header": "Before claiming work is complete - verify with FRESH evidence:",
+      "instructions": [
+        "Create TodoWrite with ALL todos below",
+        "For EACH todo: Check if condition applies",
+        "Work through every todo even if some don't apply"
+      ],
+      "todos": [
+        "TypeScript check (ONLY if updated ts files): Verify no `any` used",
+        "Typecheck (ONLY if updated ts files): Run typecheck and verify passes"
       ]
     }
   ]
 }
 ```
+
+**Structure:**
+
+- `tag` - Section identifier
+- `header` - Bold header shown at top of section
+- `instructions` - Operation guidelines (bulleted list)
+- `todos` - TodoWrite checklist items with conditional execution
 
 ## Workflows
 

@@ -30,8 +30,7 @@
       ],
       "todos": [
         "TypeScript check (ONLY if updated ts files): Verify no `any` used (pause and ask user if `any` seems required)",
-        "Typecheck (ONLY if updated ts files): Read typecheck:watch output OR run `npm run typecheck` - verify passes",
-        "Lint: Run `npm run lint:fix` - verify passes"
+        "Typecheck (ONLY if updated ts files): Read typecheck:watch output OR run `npm run typecheck` - verify passes"
       ]
     }
   ]
