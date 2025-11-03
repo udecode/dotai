@@ -31,7 +31,7 @@ if [ -f "$PROMPT_FILE" ]; then
 
           // Format todos as checklist
           if (section.todos && Array.isArray(section.todos)) {
-            output += \`**Checklist:**\n\`;
+            output += \`**TodoWrite Checklist:**\n\`;
             section.todos.forEach(todo => {
               output += \`☐ \${todo}\n\`;
             });
@@ -58,7 +58,7 @@ if [ -f "$PROMPT_FILE" ]; then
 
           // Format todos as checklist
           if (section.todos && Array.isArray(section.todos)) {
-            output += \`**Verification Checklist:**\n\`;
+            output += \`**TodoWrite Verification:**\n\`;
             section.todos.forEach(todo => {
               output += \`- [ ] \${todo}\n\`;
             });
