@@ -10,8 +10,8 @@
         "NEVER work through checklists mentally, skip creating todos, or batch multiple items"
       ],
       "todos": [
-        "Check for rationalizations ('simple question', 'just checking files', 'gather info first', 'don't need formal skill', 'I remember this', 'doesn't count as task', 'overkill', 'one thing first') → STOP if rationalizing → Analyze skills and announce: '[Skills checked: X available, Y match]' OR '[Using skill: name] to [purpose]'",
-        "If skill matches: Load with Skill tool (check if already loaded this session) and follow exactly - if even 1% chance skill applies you MUST use it or you will fail"
+        "Skill analysis: Check for rationalizations ('simple question', 'just checking files', 'gather info first', 'don't need formal skill', 'I remember this', 'doesn't count as task', 'overkill', 'one thing first') → STOP if rationalizing → Analyze skills and announce: '[Skills checked: X available, Y match]' OR '[Using skill: name] to [purpose]'",
+        "Execute skill: If skill matches, load with Skill tool (check if already loaded this session) and follow exactly - if even 1% chance skill applies you MUST use it or you will fail"
       ]
     }
   ],
