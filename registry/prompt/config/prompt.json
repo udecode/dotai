@@ -2,15 +2,16 @@
   "beforeStart": [
     {
       "tag": "MANDATORY-FIRST-RESPONSE",
-      "header": "BEFORE responding to ANY user message:",
+      "header": "🚨 STOP - YOUR FIRST TOOL CALL MUST BE TodoWrite",
       "instructions": [
-        "BEFORE doing anything else: Create TodoWrite with todos below as first items and mark first as in_progress",
-        "Work through each todo: mark in_progress → complete the check → mark completed",
-        "If a skill has a checklist, create TodoWrite todos for EACH item (one todo per checklist item)",
-        "NEVER work through checklists mentally, skip creating todos, or batch multiple items"
+        "DO NOT analyze the task yet. DO NOT read files. DO NOT edit anything. DO NOT load skills yet.",
+        "YOUR FIRST ACTION: Call TodoWrite with the todo below, marking it as in_progress",
+        "Check if the todo's condition applies - if NO, mark completed immediately and proceed with normal work",
+        "If condition applies: work through all steps → mark completed → proceed with normal work",
+        "If you skip TodoWrite or jump straight to file operations, you have FAILED to follow instructions"
       ],
       "todos": [
-        "Skill analysis: Check for rationalizations ('simple question', 'just checking files', 'gather info first', 'don't need formal skill', 'I remember this', 'doesn't count as task', 'overkill', 'one thing first') → STOP if rationalizing → Analyze available skills → If ANY match (even 1% chance): load with Skill tool (check if already loaded) and follow exactly (MUST use or fail) → Announce: '[Skills checked: X available, Y match]' OR '[Using skill: name] to [purpose]'"
+        "Skill analysis (SKIP if message contains 'quick'): (1) Check if rationalizing with thoughts like 'simple question', 'just checking files', 'don't need formal skill', 'overkill' - if YES to ANY, stop rationalizing; (2) List ALL available skills from context; (3) For EACH skill ask 'Does this task involve [skill topic]?' and mark ✓ or ✗; (4) Use Skill tool to load ALL marked ✓ (skip if already loaded); (5) Output '[Skills checked: X available, Y match]' OR '[Using skill: name1, name2] to [purpose]'. CRITICAL: If even 1% chance a skill applies, you MUST load it."
       ]
     }
   ],
@@ -19,17 +20,17 @@
       "tag": "VERIFICATION-CHECKLIST",
       "header": "Before claiming work is complete, fixed, or passing - NO completion claims without FRESH verification evidence:",
       "instructions": [
-        "BEFORE claiming work complete: Create TodoWrite with todos below and mark first as in_progress",
-        "Work through EACH verification todo: mark in_progress → complete check → mark completed",
-        "NEVER claim completion without completing ALL verification todos",
-        "We manually start session with `npm run logs && npm run typecheck:watch` as Background Bash Shell - read output when checking errors",
+        "Create TodoWrite with ALL todos below (each has its own condition)",
+        "For EACH todo: Check if its condition applies - if NO, mark completed immediately and skip to next",
+        "If condition applies: mark in_progress → complete the check → mark completed",
+        "Work through every todo even if some don't apply (conditions are per-todo, not global)",
         "Run `npm run typecheck` only when Background Bash Shells are not visible/running",
         "NEVER make git commits unless user explicitly asked",
         "NEVER run `npm run dev` or `npm run build` unless explicitly asked"
       ],
       "todos": [
-        "TypeScript check: Verify no `any` used (pause and ask user if `any` seems required)",
-        "Typecheck: Read typecheck:watch output OR run `npm run typecheck` - verify passes",
+        "TypeScript check (ONLY if updated ts files): Verify no `any` used (pause and ask user if `any` seems required)",
+        "Typecheck (ONLY if updated ts files): Read typecheck:watch output OR run `npm run typecheck` - verify passes",
         "Lint: Run `npm run lint:fix` - verify passes"
       ]
     }

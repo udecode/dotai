@@ -2,17 +2,37 @@
   "beforeStart": [
     {
       "tag": "MANDATORY-FIRST-RESPONSE",
-      "items": [
-        "List available skills matching user request",
-        "If ANY skill matches: Use Skill tool FIRST, announce usage, then respond",
-        "No rationalizations: 'simple task', 'I know this', 'just checking files' = WRONG"
+      "header": "🚨 STOP - YOUR FIRST TOOL CALL MUST BE TodoWrite",
+      "instructions": [
+        "DO NOT analyze the task yet. DO NOT read files. DO NOT edit anything. DO NOT load skills yet.",
+        "YOUR FIRST ACTION: Call TodoWrite with the todo below, marking it as in_progress",
+        "Check if the todo's condition applies - if NO, mark completed immediately and proceed with normal work",
+        "If condition applies: work through all steps → mark completed → proceed with normal work",
+        "If you skip TodoWrite or jump straight to file operations, you have FAILED to follow instructions"
+      ],
+      "todos": [
+        "Skill analysis (SKIP if message contains 'quick'): (1) Check if rationalizing with thoughts like 'simple question', 'just checking files', 'don't need formal skill', 'overkill' - if YES to ANY, stop rationalizing; (2) List ALL available skills from context; (3) For EACH skill ask 'Does this task involve [skill topic]?' and mark ✓ or ✗; (4) Use Skill tool to load ALL marked ✓ (skip if already loaded); (5) Output '[Skills checked: X available, Y match]' OR '[Using skill: name1, name2] to [purpose]'. CRITICAL: If even 1% chance a skill applies, you MUST load it."
       ]
     }
   ],
   "beforeComplete": [
     {
       "tag": "VERIFICATION-CHECKLIST",
-      "items": ["NEVER make git commits unless explicitly asked by the user"]
+      "header": "Before claiming work is complete, fixed, or passing - NO completion claims without FRESH verification evidence:",
+      "instructions": [
+        "Create TodoWrite with ALL todos below (each has its own condition)",
+        "For EACH todo: Check if its condition applies - if NO, mark completed immediately and skip to next",
+        "If condition applies: mark in_progress → complete the check → mark completed",
+        "Work through every todo even if some don't apply (conditions are per-todo, not global)",
+        "Run `npm run typecheck` only when Background Bash Shells are not visible/running",
+        "NEVER make git commits unless user explicitly asked",
+        "NEVER run `npm run dev` or `npm run build` unless explicitly asked"
+      ],
+      "todos": [
+        "TypeScript check (ONLY if updated ts files): Verify no `any` used (pause and ask user if `any` seems required)",
+        "Typecheck (ONLY if updated ts files): Read typecheck:watch output OR run `npm run typecheck` - verify passes",
+        "Lint: Run `npm run lint:fix` - verify passes"
+      ]
     }
   ]
 }
