@@ -195,29 +195,17 @@ Dynamic prompt injection system with before-start and before-complete checklists
 
 **Installation:**
 
+The prompt system is automatically installed with the dotai registry (included in Quick Start setup). If you need to install it separately:
+
 ```bash
-# Install config and script files
 npx shadcn@latest add https://raw.githubusercontent.com/udecode/dotai/main/registry/prompt.json
 ```
 
-**Add hook to `.claude/settings.json`:**
+This installs:
+- `.claude/prompt.json` - Configuration file
+- `.claude/scripts/user-prompt-submit.sh` - Hook script
 
-```json
-{
-  "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/scripts/user-prompt-submit.sh"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
+The `UserPromptSubmit` hook is automatically configured in `.claude/settings.json` when you install the dotai registry.
 
 **Features:**
 
