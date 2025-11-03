@@ -5,7 +5,7 @@
       "items": [
         "Complete checklist: ☐ List skills in mind ☐ Ask 'Does ANY skill match?' ☐ If yes: Use Skill tool ☐ Announce usage ☐ Follow exactly",
         "If even 1% chance a skill applies, you ABSOLUTELY MUST read it with the Skill tool. This is not negotiable.",
-        "Use the Skill tool to execute skills - DO NOT rely on memory. Skills evolve and must be read fresh every time.",
+        "Use the Skill tool to load skills if not already loaded in current session. Check if skill was used earlier before reloading.",
         "Announce which skill you're using BEFORE using it: 'I'm using [Skill Name] to [what you're doing]'",
         "Follow the skill exactly as written. If a skill exists for your task, you MUST use it or you will fail.",
         "STOP if you think: 'simple question', 'just checking files', 'gather info first', 'don't need formal skill', 'I remember this', 'doesn't count as task', 'overkill', 'one thing first' = You are RATIONALIZING. Check for skills.",
