@@ -69,7 +69,7 @@ Complete development toolkit - documentation, PRDs, debugging, PR workflows, and
 
 ```bash
 /dotai:create-app-design       # Generate design documentation
-/dotai:how                     # Plan before coding
+/dotai:opus <prompt>           # Run task with Opus model
 ```
 
 [Full Plugin Documentation →](./.claude-plugin/plugins/dotai/README.md)

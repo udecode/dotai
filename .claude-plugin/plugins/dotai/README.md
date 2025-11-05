@@ -168,15 +168,29 @@ Implementation planning prompt - align on approach before coding.
 
 **Critical:** Waits for approval before implementation
 
-#### `/c`
+#### `/watch`
 
 Quick command to start log monitoring.
 
 ```
-/c
+/watch
 ```
 
 **Runs:** `pnpm app:log`, `pnpm backend:log`, `pnpm typecheck:watch`
+
+### Model Commands
+
+#### `/opus`
+
+Run a task with the Opus model for complex reasoning and planning.
+
+```
+/opus <prompt>
+```
+
+**Usage:** `/opus "Design a scalable authentication system"`
+
+**Best for:** Architecture decisions, complex problem-solving, strategic planning
 
 ## Documentation Workflow
 
