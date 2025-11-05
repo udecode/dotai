@@ -17,7 +17,13 @@
     "fb@dotai": true,
     "notification@dotai": true,
     "media@dotai": false,
-    "codex@dotai": true
+    "codex@dotai": true,
+    "plan@dotai": true,
+    "agents@dotai": true,
+    "debug@dotai": true,
+    "test@dotai": true,
+    "skills@dotai": true,
+    "git@dotai": true
   },
   "hooks": {
     "UserPromptSubmit": [
