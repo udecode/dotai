@@ -1,0 +1,9 @@
+{
+  "name": "debug",
+  "version": "0.1.0",
+  "description": "Systematic debugging and root cause analysis framework - four-phase investigation process ensuring understanding before fixes",
+  "author": {
+    "name": "zbeyens"
+  },
+  "keywords": ["debugging", "root-cause", "investigation", "systematic", "tracing"]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "plan",
+  "version": "0.1.0",
+  "description": "Planning and brainstorming workflows for software development - helps refine ideas into designs and create detailed implementation plans",
+  "author": {
+    "name": "zbeyens"
+  },
+  "keywords": ["planning", "brainstorming", "implementation", "design", "workflow"]
+}

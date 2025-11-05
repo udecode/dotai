@@ -1,0 +1,9 @@
+{
+  "name": "test",
+  "version": "0.1.0",
+  "description": "Test-driven development workflow for writing tests before implementation - red-green-refactor cycle with deterministic unit tests",
+  "author": {
+    "name": "zbeyens"
+  },
+  "keywords": ["testing", "tdd", "test-driven", "unit-tests", "red-green-refactor"]
+}
