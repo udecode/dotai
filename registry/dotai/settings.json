@@ -1,6 +1,6 @@
 {
   "permissions": {
-    "allow": ["Bash", "Edit"]
+    "allow": ["Bash", "Edit", "Skill(dotai:*)"]
   },
   "enableAllProjectMcpServers": true,
   "extraKnownMarketplaces": {
@@ -20,23 +20,32 @@
     "codex@dotai": true
   },
   "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "if [ -d \".claude/flashback\" ]; then if command -v flashback &> /dev/null; then flashback session-start --context; elif [ -f \"$HOME/.claude/flashbacker/lib/cli.js\" ]; then node \"$HOME/.claude/flashbacker/lib/cli.js\" session-start --context; fi; fi"
-          }
-        ]
-      }
-    ],
     "UserPromptSubmit": [
       {
         "hooks": [
           {
             "type": "command",
             "command": "if [ -f \".claude/scripts/user-prompt-submit.sh\" ]; then .claude/scripts/user-prompt-submit.sh; fi"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f \".claude/scripts/session-start.sh\" ]; then .claude/scripts/session-start.sh; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f \".claude/scripts/post-compact.sh\" ]; then .claude/scripts/post-compact.sh; fi"
           }
         ]
       }

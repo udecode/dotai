@@ -38,6 +38,36 @@
       "name": "codex",
       "source": "./.claude-plugin/plugins/codex",
       "description": "MCP servers for Codex integration"
+    },
+    {
+      "name": "plan",
+      "source": "./.claude-plugin/plugins/plan",
+      "description": "Planning and brainstorming workflows for software development - helps refine ideas into designs and create detailed implementation plans"
+    },
+    {
+      "name": "agents",
+      "source": "./.claude-plugin/plugins/agents",
+      "description": "Agent orchestration patterns for parallel debugging and investigation - dispatch multiple Claude agents to solve independent problems concurrently"
+    },
+    {
+      "name": "debug",
+      "source": "./.claude-plugin/plugins/debug",
+      "description": "Systematic debugging and root cause analysis framework - four-phase investigation process ensuring understanding before fixes"
+    },
+    {
+      "name": "test",
+      "source": "./.claude-plugin/plugins/test",
+      "description": "Test-driven development workflow for writing tests before implementation - red-green-refactor cycle with deterministic unit tests"
+    },
+    {
+      "name": "skills",
+      "source": "./.claude-plugin/plugins/skills",
+      "description": "Meta-skills for finding, using, and writing Agent Skills - enforces skill usage protocols and provides skill authoring guidance"
+    },
+    {
+      "name": "git",
+      "source": "./.claude-plugin/plugins/git",
+      "description": "Git and GitHub workflow automation - streamlined PR creation, draft management, and code review workflows"
     }
   ]
 }

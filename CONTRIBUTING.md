@@ -164,6 +164,11 @@ my-plugin/
 │   └── *.md
 ├── agents/                   # Subagents (optional)
 │   └── *.md
+├── skills/                   # Agent Skills (optional)
+│   └── skill-name/
+│       ├── SKILL.md          # Required: skill instructions
+│       ├── reference.md      # Optional: documentation
+│       └── scripts/          # Optional: utility scripts
 ├── hooks/                    # Event handlers (optional)
 │   └── hooks.json           # Hook definitions (NOT in plugin.json)
 ├── .mcp.json                # MCP servers (optional)
@@ -350,6 +355,49 @@ allowed-tools: Bash, Read, Write, Glob, Grep # Optional
 <!-- content here -->
 ```
 
+### Add Skills to Your Plugin
+
+Plugins can include Agent Skills to extend Claude's capabilities. Skills are model-invoked—Claude autonomously uses them based on the task context.
+
+To add Skills to your plugin, create a `skills/` directory at your plugin root and add Skill folders with SKILL.md files. Plugin Skills are automatically available when the plugin is installed.
+
+**Skill Structure:**
+
+```
+skills/
+├── brainstorming/
+│   └── SKILL.md
+├── executing-plans/
+│   └── SKILL.md
+└── writing-plans/
+    ├── SKILL.md
+    └── scripts/
+        └── helper.py
+```
+
+**SKILL.md Format:**
+
+```yaml
+---
+name: your-skill-name
+description: Brief description of what this skill does and when to use it
+---
+
+# Your Skill Name
+
+## Instructions
+Provide clear, step-by-step guidance for Claude.
+
+## Examples
+Show concrete examples of using this skill.
+```
+
+**Field requirements:**
+- `name`: Must use lowercase letters, numbers, and hyphens only (max 64 characters)
+- `description`: Brief description of what the skill does and when to use it (max 1024 characters)
+
+The `description` field is critical for Claude to discover when to use your Skill. It should include both what the Skill does and when Claude should use it.
+
 ### Best Practices
 
 1. **Self-contained** - Embed templates/data in commands (no external files)
@@ -357,6 +405,8 @@ allowed-tools: Bash, Read, Write, Glob, Grep # Optional
 3. **Project-agnostic** - Reference project files via `@` syntax
 4. **DRY principle** - Use `strict: true` (default) to avoid duplicating metadata
 5. **Documentation** - Include comprehensive README.md
+6. **Focused Skills** - One skill should address one capability
+7. **Clear skill descriptions** - Help Claude discover when to use Skills by including specific triggers
 
 ### What NOT to Do
 

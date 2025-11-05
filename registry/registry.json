@@ -121,6 +121,16 @@
           "path": "registry/prompt/scripts/user-prompt-submit.sh",
           "type": "registry:file",
           "target": "~/.claude/scripts/user-prompt-submit.sh"
+        },
+        {
+          "path": "registry/prompt/scripts/post-compact.sh",
+          "type": "registry:file",
+          "target": "~/.claude/scripts/post-compact.sh"
+        },
+        {
+          "path": "registry/prompt/scripts/session-start.sh",
+          "type": "registry:file",
+          "target": "~/.claude/scripts/session-start.sh"
         }
       ]
     }

@@ -1,14 +1,9 @@
 # Docs Plugin
 
-Complete development toolkit for software projects. Combines documentation generation (PRDs, design docs, tech stack) with development workflows (debugging, PRs, planning).
+Complete development toolkit for software projects. Combines documentation generation (design docs, tech stack) with development workflows (PRs, planning).
 
 ## Features
 
-### 📝 Product Requirements Documents (PRDs)
-
-- **Quick PRD generation** - For simple, well-defined features
-- **Interactive PRD creation** - With clarifying questions for complex features
-- **PRD parsing** - Convert PRDs into actionable implementation checklists
 
 ### 🎨 Design Documentation
 
@@ -20,11 +15,6 @@ Complete development toolkit for software projects. Combines documentation gener
 - **Tech stack generation** - Document your entire technical stack
 - **Stack updates** - Track dependency changes and technical evolution
 
-### ✂️ Code Snippets
-
-- **Snippet generation** - Create reusable code templates from examples
-- **Template variables** - Support for placeholder customization
-
 ### 📋 Cursor Rules
 
 - **Rule creation** - Generate Cursor rule files with proper structure
@@ -35,9 +25,8 @@ Complete development toolkit for software projects. Combines documentation gener
 - **Feature documentation** - Comprehensive feature docs with code exploration
 - **Structure updates** - Keep project structure documentation current
 
-### 🐛 Debugging & Error Fixing
+### 🔧 Error Fixing
 
-- **Advanced debugging** - Systematic bug investigation with logging
 - **Quick fixes** - Fix errors from bash output
 
 ### 🔀 Git & PR Workflows
@@ -60,33 +49,6 @@ npx shadcn@latest add https://raw.githubusercontent.com/udecode/dotai/main/regis
 
 ## Commands
 
-### PRD Commands
-
-#### `/create-prd`
-
-Generate a PRD quickly without questions for simple, well-defined features.
-
-```
-/create-prd user profile page with avatar upload
-```
-
-#### `/create-prd-interactive`
-
-Generate a comprehensive PRD with interactive Q&A for complex features.
-
-```
-/create-prd-interactive user authentication system
-```
-
-#### `/parse-prd`
-
-Convert a PRD into a structured implementation checklist with organized phases, task groups, and checkboxes.
-
-```
-/parse-prd user-authentication
-```
-
-Creates `.claude/docs/checklist-[feature-name].md`
 
 ### Design Documentation Commands
 
@@ -122,16 +84,6 @@ Update tech stack documentation based on dependency changes and technical evolut
 
 ```
 /update-tech-stack
-```
-
-### Snippet Commands
-
-#### `/create-snippet`
-
-Generate a snippet template with instructions, placeholder variables, and validation requirements from selected code.
-
-```
-/create-snippet
 ```
 
 ### Cursor Rules Commands
@@ -170,17 +122,7 @@ Update project structure documentation by running the tree script.
 /update-project-structure
 ```
 
-### Debugging Commands
-
-#### `/debug`
-
-Systematic debugging workflow with comprehensive logging.
-
-```
-/debug User login failing with 401 error
-```
-
-**Workflow:** Reflects on possible sources → Distills to likely causes → Adds logs → Analyzes → Implements fix
+### Error Fixing Commands
 
 #### `/fix`
 
@@ -243,21 +185,15 @@ Quick command to start log monitoring.
 /create-app-design
 /create-tech-stack
 
-# 2. Create Features
-/create-prd-interactive "new feature name"
-/parse-prd new-feature
-
-# 3. Update Docs
+# 2. Update Docs
 /update-app-design
 /update-tech-stack
 ```
 
-**Output:** `.cursor/rules/` contains app-design-document.mdc, tech-stack.mdc, prd-[name].md, checklist-[name].md
+**Output:** `.cursor/rules/` contains app-design-document.mdc, tech-stack.mdc
 
 ## Best Practices
 
-- Use `/create-prd` for simple features, `/create-prd-interactive` for complex ones
-- Always parse PRDs into checklists before implementation
 - Create design docs early, update after major changes
 - Generate tech stack docs after initial setup, update when dependencies change
 - Keep design docs business-focused (avoid implementation details)
@@ -273,11 +209,17 @@ Quick command to start log monitoring.
 
 1. **Start session:** `/c`
 2. **Plan work:** `/how`
-3. **Debug if needed:** `/debug`
-4. **Fix errors:** `/fix`
-5. **Create PR:** `/pr`
+3. **Fix errors:** `/fix`
+4. **Create PR:** `/pr`
 
 ## Version History
+
+### 3.0.0
+
+- Moved PRD workflows to separate plugin
+- Moved debugging workflows to debug plugin
+- Streamlined to core documentation commands
+- Focus on design docs, tech stack, and PR workflows
 
 ### 2.0.0
 

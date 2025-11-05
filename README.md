@@ -61,23 +61,200 @@ Complete development toolkit - documentation, PRDs, debugging, PR workflows, and
 
 **Features:**
 
-- **PRD Workflows** - Create and parse Product Requirements Documents
 - **Documentation** - Generate and maintain app design and tech stack docs
-- **Debugging** - Systematic bug investigation with logging
 - **PR Management** - Full PR creation with reviews and draft mode
 - **Planning** - Implementation planning and log monitoring
 
 **Key Commands:**
 
 ```bash
-/dotai:create-prd-interactive  # Create PRD with AI questions
 /dotai:create-app-design       # Generate design documentation
-/dotai:debug                   # Start debugging workflow
-/dotai:pr                      # Create PR with review
 /dotai:how                     # Plan before coding
 ```
 
 [Full Plugin Documentation →](./.claude-plugin/plugins/dotai/README.md)
+
+### 📋 plan
+
+Planning and brainstorming workflows for software development - helps refine ideas into designs and create detailed implementation plans.
+
+**Installation:**
+
+```bash
+/plugin install plan@dotai
+# restart claude
+```
+
+**Features:**
+
+- **Brainstorming** - Transform rough ideas into fully-formed designs
+- **Writing Plans** - Create comprehensive implementation plans with TDD approach
+- **Executing Plans** - Batch execution with review checkpoints
+
+**Key Commands:**
+
+```bash
+/plan:brainstorm      # Interactive design refinement (Opus)
+/plan:write-plan     # Create implementation plan (Opus)
+/plan:execute-plan   # Execute plan with checkpoints
+```
+
+**Skills (auto-invoked):**
+
+- `brainstorming` - Refine ideas through collaborative questioning
+- `writing-plans` - Create detailed task breakdowns
+- `executing-plans` - Execute plans in controlled batches
+
+[Full Plugin Documentation →](./.claude-plugin/plugins/plan/README.md)
+
+### 🚀 agents
+
+Agent orchestration patterns for parallel debugging and investigation - dispatch multiple Claude agents to solve independent problems concurrently.
+
+**Installation:**
+
+```bash
+/plugin install agents@dotai
+# restart claude
+```
+
+**Features:**
+
+- **Parallel Dispatch** - Multiple agents work concurrently on independent problems
+- **Focused Scope** - Each agent has narrow domain to investigate
+- **Speed** - Solve multiple problems in time of one
+
+**Key Command:**
+
+```bash
+/agents:parallel   # Dispatch agents for parallel investigation
+```
+
+**Skills (auto-invoked):**
+
+- `dispatching-parallel-agents` - Orchestrate multiple agents for concurrent problem-solving
+
+[Full Plugin Documentation →](./.claude-plugin/plugins/agents/README.md)
+
+### 🔍 debug
+
+Systematic debugging and root cause analysis framework - four-phase investigation process ensuring understanding before fixes.
+
+**Installation:**
+
+```bash
+/plugin install debug@dotai
+# restart claude
+```
+
+**Features:**
+
+- **Systematic Debugging** - Four-phase framework (investigate, analyze, test, implement)
+- **Root Cause Tracing** - Trace bugs backward through call stack
+- **Defense-in-Depth** - Add validation at multiple layers
+
+**Key Command:**
+
+```bash
+/debug:debug   # Invoke systematic debugging framework
+```
+
+**Skills (auto-invoked):**
+
+- `systematic-debugging` - Four-phase debugging process
+- `root-cause-tracing` - Trace backward to find original trigger
+
+[Full Plugin Documentation →](./.claude-plugin/plugins/debug/README.md)
+
+### 🧪 test
+
+Test-driven development workflow for writing tests before implementation - red-green-refactor cycle with deterministic unit tests.
+
+**Installation:**
+
+```bash
+/plugin install test@dotai
+# restart claude
+```
+
+**Features:**
+
+- **Red-Green-Refactor** - Classic TDD workflow
+- **Smart Test Strategy** - Auto-decide when to test based on complexity
+- **Deterministic Tests** - Only unit tests, no complex mocking
+
+**Key Command:**
+
+```bash
+/test:tdd   # Test-driven development workflow
+```
+
+**Skills (auto-invoked):**
+
+- `test-driven-development` - Write test first, watch it fail, make it pass
+
+[Full Plugin Documentation →](./.claude-plugin/plugins/test/README.md)
+
+### 🎓 skills
+
+Meta-skills for finding, using, and writing Agent Skills - enforces skill usage protocols and provides skill authoring guidance.
+
+**Installation:**
+
+```bash
+/plugin install skills@dotai
+# restart claude
+```
+
+**Features:**
+
+- **Using Skills** - Mandatory protocols for skill discovery and usage
+- **Writing Skills** - TDD approach to skill authoring
+- **No Rationalization** - Prevents common excuses for skipping skills
+
+**Key Command:**
+
+```bash
+/skills:skills   # Enforce skill usage protocols
+```
+
+**Skills (auto-invoked):**
+
+- `using-skills` - Mandatory workflows for finding and using skills
+- `writing-skills` - TDD-based skill authoring process
+
+[Full Plugin Documentation →](./.claude-plugin/plugins/skills/README.md)
+
+### 🔀 git
+
+Git and GitHub workflow automation - streamlined PR creation, draft management, and code review workflows.
+
+**Installation:**
+
+```bash
+/plugin install git@dotai
+# restart claude
+```
+
+**Features:**
+
+- **Pull Request Creation** - Full PR workflow with automatic incremental reviews
+- **Draft PR Management** - Efficient draft workflow without reviews
+- **Smart Commits** - Conventional commit messages and branch naming
+
+**Key Commands:**
+
+```bash
+/git:create-pr   # Create PR with automatic code review
+/git:draft-pr    # Create draft PR for work-in-progress
+```
+
+**Skills (auto-invoked):**
+
+- `creating-pr` - PR creation with automatic incremental reviews
+- `drafting-pr` - Draft PR management without reviews
+
+[Full Plugin Documentation →](./.claude-plugin/plugins/git/README.md)
 
 ### 🎯 ctx
 
@@ -204,14 +381,18 @@ npx shadcn@latest add https://raw.githubusercontent.com/udecode/dotai/main/regis
 This installs:
 
 - `.claude/prompt.json` - Configuration file
-- `.claude/scripts/user-prompt-submit.sh` - Hook script
+- `.claude/scripts/user-prompt-submit.sh` - Hook script for before-start/before-complete
+- `.claude/scripts/post-compact.sh` - Hook script for post-compact recovery
+- `.claude/scripts/session-start.sh` - Hook script for session start events
 
-The `UserPromptSubmit` hook is automatically configured in `.claude/settings.json` when you install the dotai registry.
+The hooks are automatically configured in `.claude/settings.json` when you install the dotai registry.
 
 **Features:**
 
 - **Before-Start Checklists** - Enforce reminders before Claude responds
 - **Before-Complete Checklists** - Verification items before claiming completion
+- **Post-Compact Recovery** - Restore context after compaction with afterCompact instructions
+- **Session Start** - Load skills at session start (startup, resume, clear, compact)
 - **Project-Specific** - Configure different prompts per project
 
 **Configuration:**
@@ -291,10 +472,7 @@ pnpm ctx frontend api
 
 # Work on features...
 
-# Debug if needed
-/dotai:debug
-
-# Fix errors
+# Fix errors if needed
 /dotai:fix
 
 # Create PR

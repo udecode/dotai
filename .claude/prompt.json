@@ -33,5 +33,21 @@
         "Typecheck (ONLY if updated ts files): Read typecheck:watch output OR run `npm run typecheck` - verify passes"
       ]
     }
+  ],
+  "afterCompact": [
+    {
+      "tag": "POST-COMPACT-RECOVERY",
+      "header": "🚨 CONTEXT WIPED - MANDATORY SKILL RELOAD REQUIRED",
+      "instructions": [
+        "STOP. Context compaction has DELETED all previously loaded skills. You have FORGOTTEN everything.",
+        "DO NOT proceed with any task until you complete skill reloading below",
+        "DO NOT assume you remember any skills - they are ALL gone from memory",
+        "YOUR IMMEDIATE ACTION: Complete the mandatory reload checklist below",
+        "Skipping this = GUARANTEED FAILURE because you lost all behavioral patterns"
+      ],
+      "todos": [
+        "Skill reload after compaction: (1) Check TodoWrite to identify what task you were working on; (2) List ALL available skills from context; (3) For EACH skill ask 'Does this apply to my current task?' and mark ✓ or ✗; (4) Use Skill tool to load ALL marked ✓ (REQUIRED - they were wiped); (5) ONLY after reloading skills, resume the task. CRITICAL: All previously loaded skills are GONE and MUST be reloaded."
+      ]
+    }
   ]
 }
