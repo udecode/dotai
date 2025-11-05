@@ -7,7 +7,7 @@
   "files": [
     {
       "path": "registry/dotai/CLAUDE.md",
-      "content": "# CLAUDE.md\n\n## Project Overview\n\n[Describe your project here - what it does, who it's for, and what problem it solves]\n\n## Development\n\n### Critical Rules\n\n- Always run type checking before ending a task\n- Never git commit/push without approval\n\n### Commands\n\n- `pnpm typecheck` - Run TypeScript type checking (must pass without errors) on each task end. Do not run this unless you can't see it in Background Bash Shells.\n- `pnpm lint:fix` - Run ESLint and fix linting errors on precommit (not on each task end)\n- **NEVER make git commits unless explicitly asked by the user.**\n\nDO NOT run the following commands unless asked with `/c`. Read the output when checking app and typecheck errors:\n\n- `pnpm dev` - Start development server\n- `pnpm build` - Build for production\n- `pnpm app:log` - Watch App logs.\n- `pnpm backend:log` - Watch Backend logs.\n- `pnpm typecheck:watch` - Watch TypeScript type checking.\n",
+      "content": "# CLAUDE.md\n\n## Project Overview\n\n[Describe your project here - what it does, who it's for, and what problem it solves]\n\n## Development\n\n### Critical Rules\n\n- Always run type checking before ending a task\n- Never git commit/push without approval\n\n### Commands\n\n- `pnpm typecheck` - Run TypeScript type checking (must pass without errors) on each task end. Do not run this unless you can't see it in Background Bash Shells.\n- `pnpm lint:fix` - Run ESLint and fix linting errors on precommit (not on each task end)\n- **NEVER make git commits unless explicitly asked by the user.**\n\nDO NOT run the following commands unless asked with `/watch`. Read the output when checking app and typecheck errors:\n\n- `pnpm dev` - Start development server\n- `pnpm build` - Build for production\n- `pnpm app:log` - Watch App logs.\n- `pnpm backend:log` - Watch Backend logs.\n- `pnpm typecheck:watch` - Watch TypeScript type checking.\n",
       "type": "registry:file",
       "target": "~/CLAUDE.md"
     },
@@ -24,10 +24,10 @@
       "target": "~/.claude/settings.local.json"
     },
     {
-      "path": "registry/dotai/commands/c.md",
+      "path": "registry/dotai/commands/watch.md",
       "content": "To watch logs/errors, run `pnpm app:log` (Frontend), `pnpm backend:log` (Backend), then `pnpm typecheck:watch` (tsc).\n",
       "type": "registry:file",
-      "target": "~/.claude/commands/c.md"
+      "target": "~/.claude/commands/watch.md"
     },
     {
       "path": "registry/dotai/docs/app-design-document.mdc",

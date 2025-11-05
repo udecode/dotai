@@ -74,6 +74,36 @@ Complete development toolkit - documentation, PRDs, debugging, PR workflows, and
 
 [Full Plugin Documentation →](./.claude-plugin/plugins/dotai/README.md)
 
+### 🎓 skills
+
+Meta-skills for finding, using, and writing Agent Skills - enforces skill usage protocols and provides skill authoring guidance.
+
+**Installation:**
+
+```bash
+/plugin install skills@dotai
+# restart claude
+```
+
+**Features:**
+
+- **Using Skills** - Mandatory protocols for skill discovery and usage
+- **Writing Skills** - TDD approach to skill authoring
+- **No Rationalization** - Prevents common excuses for skipping skills
+
+**Key Command:**
+
+```bash
+/skills:skills   # Enforce skill usage protocols
+```
+
+**Skills (auto-invoked):**
+
+- `using-skills` - Mandatory workflows for finding and using skills
+- `writing-skills` - TDD-based skill authoring process
+
+[Full Plugin Documentation →](./.claude-plugin/plugins/skills/README.md)
+
 ### 📋 plan
 
 Planning and brainstorming workflows for software development - helps refine ideas into designs and create detailed implementation plans.
@@ -106,6 +136,80 @@ Planning and brainstorming workflows for software development - helps refine ide
 - `executing-plans` - Execute plans in controlled batches
 
 [Full Plugin Documentation →](./.claude-plugin/plugins/plan/README.md)
+
+### ✅ prompt
+
+Dynamic prompt injection system with before-start and before-complete checklists.
+
+**Installation:**
+
+The prompt system is automatically installed with the dotai registry (included in Quick Start setup). If you need to install it separately:
+
+```bash
+npx shadcn@latest add https://raw.githubusercontent.com/udecode/dotai/main/registry/prompt.json
+```
+
+This installs:
+
+- `.claude/prompt.json` - Configuration file
+- `.claude/scripts/user-prompt-submit.sh` - Hook script for before-start/before-complete
+- `.claude/scripts/post-compact.sh` - Hook script for post-compact recovery
+- `.claude/scripts/session-start.sh` - Hook script for session start events
+
+The hooks are automatically configured in `.claude/settings.json` when you install the dotai registry.
+
+**Features:**
+
+- **Before-Start Checklists** - Enforce reminders before Claude responds
+- **Before-Complete Checklists** - Verification items before claiming completion
+- **Post-Compact Recovery** - Restore context after compaction with afterCompact instructions
+- **Session Start** - Load skills at session start (startup, resume, clear, compact)
+- **Project-Specific** - Configure different prompts per project
+
+**Configuration:**
+
+Edit `.claude/prompt.json`:
+
+```json
+{
+  "beforeStart": [
+    {
+      "tag": "MANDATORY-FIRST-RESPONSE",
+      "header": "🚨 STOP - YOUR FIRST TOOL CALL MUST BE TodoWrite",
+      "instructions": [
+        "DO NOT analyze the task yet. DO NOT read files. DO NOT edit anything.",
+        "YOUR FIRST ACTION: Call TodoWrite with the todo below",
+        "Check if the todo's condition applies - if NO, mark completed immediately"
+      ],
+      "todos": [
+        "Skill analysis (SKIP if message contains 'quick'): (1) Check for rationalizations; (2) List ALL available skills; (3) Mark ✓/✗ for each; (4) Load matched skills; (5) Output result"
+      ]
+    }
+  ],
+  "beforeComplete": [
+    {
+      "tag": "VERIFICATION-CHECKLIST",
+      "header": "Before claiming work is complete - verify with FRESH evidence:",
+      "instructions": [
+        "Create TodoWrite with ALL todos below",
+        "For EACH todo: Check if condition applies",
+        "Work through every todo even if some don't apply"
+      ],
+      "todos": [
+        "TypeScript check (ONLY if updated ts files): Verify no `any` used",
+        "Typecheck (ONLY if updated ts files): Run typecheck and verify passes"
+      ]
+    }
+  ]
+}
+```
+
+**Structure:**
+
+- `tag` - Section identifier
+- `header` - Bold header shown at top of section
+- `instructions` - Operation guidelines (bulleted list)
+- `todos` - TodoWrite checklist items with conditional execution
 
 ### 🚀 agents
 
@@ -195,36 +299,6 @@ Test-driven development workflow for writing tests before implementation - red-g
 
 [Full Plugin Documentation →](./.claude-plugin/plugins/test/README.md)
 
-### 🎓 skills
-
-Meta-skills for finding, using, and writing Agent Skills - enforces skill usage protocols and provides skill authoring guidance.
-
-**Installation:**
-
-```bash
-/plugin install skills@dotai
-# restart claude
-```
-
-**Features:**
-
-- **Using Skills** - Mandatory protocols for skill discovery and usage
-- **Writing Skills** - TDD approach to skill authoring
-- **No Rationalization** - Prevents common excuses for skipping skills
-
-**Key Command:**
-
-```bash
-/skills:skills   # Enforce skill usage protocols
-```
-
-**Skills (auto-invoked):**
-
-- `using-skills` - Mandatory workflows for finding and using skills
-- `writing-skills` - TDD-based skill authoring process
-
-[Full Plugin Documentation →](./.claude-plugin/plugins/skills/README.md)
-
 ### 🔀 git
 
 Git and GitHub workflow automation - streamlined PR creation, draft management, and code review workflows.
@@ -275,17 +349,7 @@ Context manager for Claude Code and Codex. Prevent context bloat by loading only
 - **Quality Impact** - Focused presets vs diluted all-presets
 - **Single Source of Truth** - For both Claude Code and Codex
 
-**Quick Start:**
-
-```bash
-# AI chooses for you (Claude Code)
-/ctx "Build a modal component"
-
-# Manual selection
-pnpm ctx frontend  # UI work
-pnpm ctx backend   # API work
-pnpm ctx app       # Full-stack
-```
+**Note:** ctx is designed for global context management (project-wide rules and documentation). For task-specific dynamic context, prefer auto-loading skills which adapt to each task automatically.
 
 [Full Plugin Documentation →](./.claude-plugin/plugins/ctx/README.md)
 
@@ -354,91 +418,7 @@ brew install media-control  # Required
 - Auto-pause media when stopping responses
 - Works with Spotify, Apple Music, YouTube, etc.
 
-**Configuration:**
-
-```json
-{
-  "env": {
-    "CLAUDE_MEDIA_AUTO_PAUSE": "false" // Disable auto-pause
-  }
-}
-```
-
 [Full Plugin Documentation →](./.claude-plugin/plugins/media/README.md)
-
-### ✅ prompt
-
-Dynamic prompt injection system with before-start and before-complete checklists.
-
-**Installation:**
-
-The prompt system is automatically installed with the dotai registry (included in Quick Start setup). If you need to install it separately:
-
-```bash
-npx shadcn@latest add https://raw.githubusercontent.com/udecode/dotai/main/registry/prompt.json
-```
-
-This installs:
-
-- `.claude/prompt.json` - Configuration file
-- `.claude/scripts/user-prompt-submit.sh` - Hook script for before-start/before-complete
-- `.claude/scripts/post-compact.sh` - Hook script for post-compact recovery
-- `.claude/scripts/session-start.sh` - Hook script for session start events
-
-The hooks are automatically configured in `.claude/settings.json` when you install the dotai registry.
-
-**Features:**
-
-- **Before-Start Checklists** - Enforce reminders before Claude responds
-- **Before-Complete Checklists** - Verification items before claiming completion
-- **Post-Compact Recovery** - Restore context after compaction with afterCompact instructions
-- **Session Start** - Load skills at session start (startup, resume, clear, compact)
-- **Project-Specific** - Configure different prompts per project
-
-**Configuration:**
-
-Edit `.claude/prompt.json`:
-
-```json
-{
-  "beforeStart": [
-    {
-      "tag": "MANDATORY-FIRST-RESPONSE",
-      "header": "🚨 STOP - YOUR FIRST TOOL CALL MUST BE TodoWrite",
-      "instructions": [
-        "DO NOT analyze the task yet. DO NOT read files. DO NOT edit anything.",
-        "YOUR FIRST ACTION: Call TodoWrite with the todo below",
-        "Check if the todo's condition applies - if NO, mark completed immediately"
-      ],
-      "todos": [
-        "Skill analysis (SKIP if message contains 'quick'): (1) Check for rationalizations; (2) List ALL available skills; (3) Mark ✓/✗ for each; (4) Load matched skills; (5) Output result"
-      ]
-    }
-  ],
-  "beforeComplete": [
-    {
-      "tag": "VERIFICATION-CHECKLIST",
-      "header": "Before claiming work is complete - verify with FRESH evidence:",
-      "instructions": [
-        "Create TodoWrite with ALL todos below",
-        "For EACH todo: Check if condition applies",
-        "Work through every todo even if some don't apply"
-      ],
-      "todos": [
-        "TypeScript check (ONLY if updated ts files): Verify no `any` used",
-        "Typecheck (ONLY if updated ts files): Run typecheck and verify passes"
-      ]
-    }
-  ]
-}
-```
-
-**Structure:**
-
-- `tag` - Section identifier
-- `header` - Bold header shown at top of section
-- `instructions` - Operation guidelines (bulleted list)
-- `todos` - TodoWrite checklist items with conditional execution
 
 ## Workflows
 
@@ -458,92 +438,27 @@ pnpm ctx --init
 ### 2. Daily Workflow
 
 ```bash
-# Start session with context
-/fb:session-start
+# Plan feature implementation with Opus
+/plan:brainstorm      # Refine ideas into designs
+/plan:write-plan      # Create implementation plan
 
-# Plan work
-/dotai:how
+/clear
 
-# Load specific context
-pnpm ctx frontend api
+# Start monitoring logs/errors
+/watch
 
-# Start monitoring
-/dotai:c
+# Execute plan with checkpoints with Sonnet
+/plan:execute-plan
 
 # Work on features...
-
-# Fix errors if needed
-/dotai:fix
+# Skills auto-load based on task context
 
 # Create PR
-/dotai:pr
+/git:create-pr
 
-# Save session
+# Save session (optional)
 /fb:save-session
 ```
-
-### 3. Context Switching
-
-```bash
-# Generate new context for task
-pnpm ctx backend
-
-# Reload Claude Code
-/clear
-```
-
-## Choosing Your AI Tool
-
-dotai works with multiple AI development tools. Choose based on your workflow:
-
-| Tool            | Best For                                    | Limitations                                    |
-| --------------- | ------------------------------------------- | ---------------------------------------------- |
-| **Claude Code** | Quick iterations, UI, general coding        | Requires `/clear` after context updates        |
-| **Codex**       | Long-running tasks, backend, deep debugging | Worst CLI UX, no hooks, manual session saves   |
-| **Cursor**      | Manual code review with visual diffs        | Most expensive, slower with long conversations |
-
-### Multi-CLI Workflow
-
-Use both Claude Code and Codex in parallel:
-
-```bash
-# Terminal 1: Claude Code (Sonnet 4.5)
-claude
-
-# Terminal 2: Codex
-codex
-```
-
-**Work distribution:**
-
-- Claude Code: Quick iterations, UI work, continuous dev
-- Codex: Long-running tasks, backend, deep debugging
-
-**Context switching:**
-
-```bash
-# 1. Generate new context for a task
-pnpm ctx frontend  # or: backend, app, custom rules
-
-# 2. Reload both CLIs
-# Claude Code: /clear
-# Codex: /new
-```
-
-## Recommended Plans
-
-### [Claude Max](https://www.claude.com/pricing/max)
-
-- **Max 5x** ($100/month) - Best value for continuous development
-
-### [Codex](https://developers.openai.com/codex/pricing) (ChatGPT)
-
-- **Plus** ($20/month)
-- **Pro** ($200/month)
-
-### [Cursor](https://cursor.com/pricing)
-
-- **Pro** ($20/month) - Manual coding with [Tab](https://cursor.com/docs/tab/overview)
 
 ## Development
 

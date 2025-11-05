@@ -25,9 +25,9 @@
           "target": "~/.claude/settings.local.json"
         },
         {
-          "path": "registry/dotai/commands/c.md",
+          "path": "registry/dotai/commands/watch.md",
           "type": "registry:file",
-          "target": "~/.claude/commands/c.md"
+          "target": "~/.claude/commands/watch.md"
         },
         {
           "path": "registry/dotai/docs/app-design-document.mdc",
