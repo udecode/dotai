@@ -9,19 +9,31 @@ description: Use when creating or developing, before writing code or implementat
 
 Help turn ideas into fully formed designs and specs through natural collaborative dialogue.
 
+**🚨 CRITICAL REQUIREMENT**: Create the plan file `.claude/docs/plans/<topic>-design.md` BEFORE asking questions, then update it incrementally after EACH answer. Do NOT wait until the end to write everything at once.
+
 Start by understanding the current project context, then ask multiple related questions together (up to 4 at once) to efficiently refine the idea. Once you understand what you're building, present the design in small sections (200-300 words), checking after each section whether it looks right so far.
 
 ## The Process
 
+**CRITICAL FIRST STEP - Create Plan File Immediately:**
+
+- **Before asking ANY questions, create `.claude/docs/plans/<topic>-design.md` using Write tool**
+- Write initial context: problem statement, initial understanding (even if incomplete)
+- Structure: Use headings like "Goals", "Requirements", "Architecture", "Open Questions"
+- This file is your working document - update it continuously throughout brainstorming
+- **DO NOT wait until the end** - write first, refine continuously
+
 **Understanding the idea:**
 
 - Check out the current project state first (files, docs, recent commits)
+- **After EACH round of answers, immediately update the plan file using Edit tool**
 - Ask multiple related questions together using the AskUserQuestion tool (up to 4 per call)
 - **CRITICAL**: Always use the AskUserQuestion tool for ALL questions - NEVER output questions as plain text
 - Prefer multiple choice questions when possible (the tool supports multiSelect when needed)
 - Group related questions together for efficiency (e.g., scope + timeline + constraints in one call)
 - Focus on understanding: purpose, constraints, success criteria
 - After each round of answers, ask follow-up questions to drill deeper into areas that need clarification
+- **Pattern: Question → Answer → Update plan file → Next question**
 
 **Exploring approaches:**
 
@@ -41,23 +53,42 @@ Start by understanding the current project context, then ask multiple related qu
 
 **Documentation:**
 
-- Write the validated design to `.claude/docs/plans/YYYY-MM-DD-<topic>-design.md`
-- **CRITICAL: When refining designs, ALWAYS UPDATE THE PLAN FILE DIRECTLY using Edit tool**
-- Never just output refinements in chat - the plan file is the single source of truth
-- Each refinement iteration should be reflected in the plan file immediately
-- Use elements-of-style:writing-clearly-and-concisely skill if available
+- The plan file `.claude/docs/plans/<topic>-design.md` should already exist and be complete
+- **You should have been updating it throughout the entire brainstorming process**
+- If you haven't been updating it incrementally, you made a mistake - fix it now
+- Final pass: Review for clarity, completeness, and consistency
+- Use elements-of-style:writing-clearly-and-concisely skill if available for polish
 
-**Plan File Updates During Brainstorming:**
+**Incremental Writing Pattern (THE CORRECT WAY):**
+
+```
+WRONG ❌:
+1. Ask all questions
+2. Get all answers
+3. Write entire plan at the end
+
+CORRECT ✅:
+1. Write initial plan file with problem statement
+2. Ask question batch 1
+3. Immediately update plan file with answers
+4. Ask question batch 2
+5. Immediately update plan file with answers
+6. Present design section by section
+7. Update plan file with any refinements
+8. Final review and polish
+```
 
 Example workflow:
 
-1. Initial design → Write to `.claude/docs/plans/YYYY-MM-DD-<topic>-design.md`
-2. User: "Can we refine the input parameters?"
-3. Assistant: Discusses refinements AND uses Edit tool to update the plan file
-4. User: "What about error handling?"
-5. Assistant: Adds error handling section using Edit tool on the existing plan file
+1. **Start**: Write `.claude/docs/plans/2025-11-05-pcc-sync-design.md` with initial understanding
+2. **Question 1**: Ask about goals → User answers → Edit plan file "Goals" section
+3. **Question 2**: Ask about technical constraints → User answers → Edit plan file "Requirements" section
+4. **Question 3**: Ask about data types → User answers → Edit plan file "Data Types" section
+5. **Design**: Present architecture → User approves → Edit plan file "Architecture" section
+6. **Refinement**: User asks about error handling → Edit plan file to add "Error Handling" section
+7. **Complete**: Plan file reflects entire conversation
 
-The plan file should always reflect the current state of the design
+The plan file is your **working document**, not a final deliverable to write at the end
 
 **Implementation (if continuing):**
 
