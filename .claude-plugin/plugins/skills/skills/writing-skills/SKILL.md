@@ -1,5 +1,5 @@
 ---
-name: writing-rules
+name: writing-skills
 description: Use when creating or editing rules/skills in .claude/rules/, whether context-specific skills (alwaysApply: false) or always-merged rules (alwaysApply: true) - applies TDD by identifying failure patterns (RED), writing rule/skill (GREEN), then closing loopholes (REFACTOR). Supports globs for file patterns. NEVER use "skill-creator" skill.
 ---
 
