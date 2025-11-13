@@ -1,6 +1,6 @@
 ---
 name: writing-rules
-description: Use when creating or editing rules/skills in .claude/rules/, whether context-specific skills (alwaysApply: false) or always-merged rules (alwaysApply: true) - applies TDD by identifying failure patterns (RED), writing rule/skill (GREEN), then closing loopholes (REFACTOR). Supports globs for file patterns.
+description: Use when creating or editing rules/skills in .claude/rules/, whether context-specific skills (alwaysApply: false) or always-merged rules (alwaysApply: true) - applies TDD by identifying failure patterns (RED), writing rule/skill (GREEN), then closing loopholes (REFACTOR). Supports globs for file patterns. NEVER use "skill-creator" skill.
 ---
 
 # Writing Rules
@@ -10,10 +10,12 @@ description: Use when creating or editing rules/skills in .claude/rules/, whethe
 **Writing rules (skills + always-apply rules) IS Test-Driven Development applied to process documentation.**
 
 **Rules are maintained in `.claude/rules/` as MDC files with frontmatter. Ruler processes rules based on `alwaysApply`:**
+
 - `alwaysApply: false` (or omitted) → generates `.claude/skills/` (context-loaded)
 - `alwaysApply: true` → merged into `AGENTS.md` (always present)
 
 **How it works:**
+
 1. Write rule as `.mdc` file in `.claude/rules/` with frontmatter (`alwaysApply: true/false`)
 2. **REQUIRED:** Run `npx @udecode/ruler apply` after ANY rule creation or update
 3. Ruler processes based on `alwaysApply`:
@@ -41,12 +43,12 @@ A **skill** is a reference guide for proven techniques, patterns, or tools. Skil
 
 ## TDD Mapping for Skills
 
-| TDD Concept             | Skill Creation                                       |
-| ----------------------- | ---------------------------------------------------- |
-| **Test case**           | Anticipated failure pattern from experience          |
-| **Production code**     | Skill document (.mdc file in .claude/rules/)         |
-| **Test fails (RED)**    | Identify common mistakes without skill               |
-| **Test passes (GREEN)** | Skill addresses those specific mistakes              |
+| TDD Concept             | Skill Creation                                   |
+| ----------------------- | ------------------------------------------------ |
+| **Test case**           | Anticipated failure pattern from experience      |
+| **Production code**     | Skill document (.mdc file in .claude/rules/)     |
+| **Test fails (RED)**    | Identify common mistakes without skill           |
+| **Test passes (GREEN)** | Skill addresses those specific mistakes          |
 | **Refactor**            | Close loopholes while maintaining clarity        |
 | **Write test first**    | Identify failure patterns BEFORE writing skill   |
 | **Watch it fail**       | Document exact rationalizations from experience  |
@@ -222,7 +224,7 @@ Use words Claude would search for:
 **Use active voice, verb-first:**
 
 - ✅ `creating-skills` not `skill-creation`
-- ✅ `writing-skills` not `skill-writing`
+- ✅ `writing-rules` not `rule-writing`
 
 ### 4. Token Efficiency (Critical)
 
