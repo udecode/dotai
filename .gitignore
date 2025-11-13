@@ -1,8 +1,3 @@
-!.*
-
-CLAUDE.local.md
-AGENTS.md
-
 # Logs
 logs
 *.log
@@ -28,3 +23,12 @@ node_modules/
 *.sw?
 
 .DS_Store
+
+.codex
+
+# START Ruler Generated Files
+/.codex/config.toml
+/.cursor/rules
+/AGENTS.md
+/CLAUDE.md
+# END Ruler Generated Files
