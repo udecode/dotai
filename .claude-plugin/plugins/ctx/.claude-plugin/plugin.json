@@ -1,9 +1,0 @@
-{
-  "name": "ctx",
-  "version": "1.0.0",
-  "description": "Context-aware AGENTS.md generator for task-specific rule selection",
-  "author": {
-    "name": "zbeyens"
-  },
-  "keywords": ["context", "agents", "rules", "focus", "token-optimization"]
-}

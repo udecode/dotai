@@ -29,10 +29,10 @@ fi
 FULL_IGNORE=".git|*.bak|$CUSTOM_IGNORE$TSCONFIG_IGNORE"
 
 # Output file
-OUTPUT=".cursor/rules/project-structure.mdc"
+OUTPUT=".claude/rules/project-structure.mdc"
 
 # Create directory if it doesn't exist
-mkdir -p .cursor/rules
+mkdir -p .claude/rules
 
 # Header with Cursor rule frontmatter
 cat > "$OUTPUT" << 'EOF'

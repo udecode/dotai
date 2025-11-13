@@ -1,0 +1,25 @@
+---
+alwaysApply: true
+---
+
+# Project Status
+
+## Current Project Stage: [Stage Name]
+
+**Stage**: [Pre-MVP | MVP | Production | Enterprise]
+
+### DO Care About (Current Stage Priorities)
+
+[Stage-specific DO priorities from template below]
+
+### DO NOT Care About (Skip for Velocity)
+
+[Stage-specific DON'T priorities from template below]
+
+### Development Approach
+
+[Stage-specific development focus]
+
+## Stage-Based Development Guidelines
+
+[Keep existing stage categories and guidelines from the original file]

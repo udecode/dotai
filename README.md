@@ -7,6 +7,10 @@
 ╚═════╝  ╚═════╝    ╚═╝   ╚═╝  ╚═╝╚═╝
 ```
 
+## Agent Instructions
+
+Uses [ruler](https://github.com/udecode/ruler) for centralized AI agent config. Instructions in `.claude/rules/` (MDC files with frontmatter). `ruler apply` generates `CLAUDE.md`/`AGENTS.md` and Skills from rules.
+
 ## Quick Start
 
 ### Fastest Setup
@@ -31,18 +35,6 @@ Restart Claude Code, then install all plugin files:
 
 ```bash
 /dotai:install-all
-```
-
-### Configure Context Management
-
-Add this to your `package.json`:
-
-```json
-{
-  "scripts": {
-    "ctx": "tsx .claude/scripts/generate-agents.ts"
-  }
-}
 ```
 
 ## Available Plugins
@@ -330,29 +322,6 @@ Git and GitHub workflow automation - streamlined PR creation, draft management, 
 
 [Full Plugin Documentation →](./.claude-plugin/plugins/git/README.md)
 
-### 🎯 ctx
-
-Context manager for Claude Code and Codex. Prevent context bloat by loading only relevant docs for your task.
-
-**Installation:**
-
-```bash
-/plugin install ctx@dotai
-# restart claude
-/ctx:install
-```
-
-**Features:**
-
-- **AI-Powered** - `/ctx` in Claude Code analyzes your task and chooses preset
-- **Manual Control** - `pnpm ctx <preset>` for direct preset selection
-- **Quality Impact** - Focused presets vs diluted all-presets
-- **Single Source of Truth** - For both Claude Code and Codex
-
-**Note:** ctx is designed for global context management (project-wide rules and documentation). For task-specific dynamic context, prefer auto-loading skills which adapt to each task automatically.
-
-[Full Plugin Documentation →](./.claude-plugin/plugins/ctx/README.md)
-
 ### 🧠 fb
 
 Session memory and continuity for Claude Code.
@@ -427,9 +396,6 @@ brew install media-control  # Required
 After Quick Start, create foundational docs:
 
 ```bash
-# Generate initial context
-pnpm ctx --init
-
 # Create foundational docs
 /dotai:create-app-design
 /dotai:create-tech-stack

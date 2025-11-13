@@ -1,15 +1,25 @@
 ---
-name: writing-skills
-description: Use when creating new skills, editing existing skills, or verifying skills work before deployment - applies TDD to process documentation by anticipating failure patterns (RED), writing skill addressing those patterns (GREEN), then closing loopholes through application (REFACTOR)
+name: writing-rules
+description: Use when creating or editing rules/skills in .claude/rules/, whether context-specific skills (alwaysApply: false) or always-merged rules (alwaysApply: true) - applies TDD by identifying failure patterns (RED), writing rule/skill (GREEN), then closing loopholes (REFACTOR). Supports globs for file patterns.
 ---
 
-# Writing Skills
+# Writing Rules
 
 ## Overview
 
-**Writing skills IS Test-Driven Development applied to process documentation.**
+**Writing rules (skills + always-apply rules) IS Test-Driven Development applied to process documentation.**
 
-**Personal skills live in agent-specific directories (`~/.claude/skills` for Claude Code)**
+**Rules are maintained in `.claude/rules/` as MDC files with frontmatter. Ruler processes rules based on `alwaysApply`:**
+- `alwaysApply: false` (or omitted) → generates `.claude/skills/` (context-loaded)
+- `alwaysApply: true` → merged into `AGENTS.md` (always present)
+
+**How it works:**
+1. Write rule as `.mdc` file in `.claude/rules/` with frontmatter (`alwaysApply: true/false`)
+2. **REQUIRED:** Run `npx @udecode/ruler apply` after ANY rule creation or update
+3. Ruler processes based on `alwaysApply`:
+   - `false` → generates `.claude/skills/` (context-loaded by Claude Code)
+   - `true` → merges into `AGENTS.md` (always present)
+4. Optionally add `globs` for file pattern matching
 
 You identify common failure patterns (baseline behavior), write the skill (documentation) addressing those patterns, then verify through application scenarios, and refactor (close loopholes).
 
@@ -31,12 +41,12 @@ A **skill** is a reference guide for proven techniques, patterns, or tools. Skil
 
 ## TDD Mapping for Skills
 
-| TDD Concept             | Skill Creation                                   |
-| ----------------------- | ------------------------------------------------ |
-| **Test case**           | Anticipated failure pattern from experience      |
-| **Production code**     | Skill document (SKILL.md)                        |
-| **Test fails (RED)**    | Identify common mistakes without skill           |
-| **Test passes (GREEN)** | Skill addresses those specific mistakes          |
+| TDD Concept             | Skill Creation                                       |
+| ----------------------- | ---------------------------------------------------- |
+| **Test case**           | Anticipated failure pattern from experience          |
+| **Production code**     | Skill document (.mdc file in .claude/rules/)         |
+| **Test fails (RED)**    | Identify common mistakes without skill               |
+| **Test passes (GREEN)** | Skill addresses those specific mistakes              |
 | **Refactor**            | Close loopholes while maintaining clarity        |
 | **Write test first**    | Identify failure patterns BEFORE writing skill   |
 | **Watch it fail**       | Document exact rationalizations from experience  |
@@ -77,42 +87,55 @@ API docs, syntax guides, tool documentation (office docs)
 
 ## Directory Structure
 
+**Single-file skills** (default):
+
 ```
-skills/
+.claude/rules/
+  skill-name.mdc         # MDC file with frontmatter
+```
+
+**Multi-file skills** (only if >1 file needed):
+
+```
+.claude/rules/
   skill-name/
-    SKILL.md              # Main reference (required)
-    supporting-file.*     # Only if needed
+    skill-name.mdc       # Main skill (same basename as folder)
+    supporting-file.*    # Additional files
 ```
 
-**Flat namespace** - all skills in one searchable namespace
+**Ruler auto-generates from rules** - `npx @udecode/ruler apply` creates `.claude/skills/` from `.claude/rules/`
 
-**Separate files for:**
+**When to use folders:**
 
-1. **Heavy reference** (100+ lines) - API docs, comprehensive syntax
-2. **Reusable tools** - Scripts, utilities, templates
+- **Heavy reference** (100+ lines) - API docs, comprehensive syntax
+- **Reusable tools** - Scripts, utilities, templates
+- **Multiple files** - Anything requiring >1 file
 
-**Keep inline:**
+**Single .mdc file when:**
 
-- Principles and concepts
-- Code patterns (< 50 lines)
-- Everything else
+- All content fits inline
+- No external scripts or heavy reference
+- Principles, concepts, code patterns (< 50 lines)
 
-## SKILL.md Structure
+## MDC File Structure
 
-**Frontmatter (YAML):**
+**MDC format** (.mdc files) with **frontmatter**:
 
-- Only two fields supported: `name` and `description`
-- Max 1024 characters total
-- `name`: Use letters, numbers, and hyphens only (no parentheses, special chars)
-- `description`: Third-person, includes BOTH what it does AND when to use it
+**Frontmatter fields:**
+
+- `name`: Skill identifier (letters, numbers, hyphens only)
+- `description`: Discovery text (max 1024 chars total for frontmatter)
   - Start with "Use when..." to focus on triggering conditions
-  - Include specific symptoms, situations, and contexts
+  - Include specific symptoms, situations, contexts
+  - Written in third person
   - Keep under 500 characters if possible
+- `alwaysApply`: Must be `false` or omitted (ruler only generates skills from non-always rules)
 
 ```markdown
 ---
-name: Skill-Name-With-Hyphens
+name: skill-name-with-hyphens
 description: Use when [specific triggering conditions and symptoms] - [what the skill does and how it helps, written in third person]
+alwaysApply: false
 ---
 
 # Skill Name
@@ -260,7 +283,7 @@ You: [Search codebase → provide solution]
 **Verification:**
 
 ```bash
-wc -w skills/path/SKILL.md
+wc -w .claude/rules/skill-name.mdc
 # getting-started workflows: aim for <150 each
 # Other frequently-loaded: aim for <200 total
 ```
@@ -285,8 +308,8 @@ Use skill name only, with explicit requirement markers:
 
 - ✅ Good: `**REQUIRED SUB-SKILL:** Use superpowers test-driven-development`
 - ✅ Good: `**REQUIRED BACKGROUND:** You MUST understand superpowers systematic-debugging`
-- ❌ Bad: `See skills/testing/test-driven-development` (unclear if required)
-- ❌ Bad: `@skills/testing/test-driven-development/SKILL.md` (force-loads, burns context)
+- ❌ Bad: `See .claude/rules/test-driven-development.mdc` (unclear if required)
+- ❌ Bad: `@.claude/rules/test-driven-development.mdc` (force-loads, burns context)
 
 **Why no @ links:** `@` syntax force-loads files immediately, consuming 200k+ context before you need them.
 
@@ -348,36 +371,40 @@ You're good at porting - one great example is enough.
 
 ## File Organization
 
-### Self-Contained Skill
+### Self-Contained Skill (Default)
 
 ```
-defense-in-depth/
-  SKILL.md    # Everything inline
+.claude/rules/
+  defense-in-depth.mdc    # Everything inline
 ```
 
-When: All content fits, no heavy reference needed
+**When:** All content fits, no heavy reference needed
 
 ### Skill with Reusable Tool
 
 ```
-condition-based-waiting/
-  SKILL.md    # Overview + patterns
-  example.ts  # Working helpers to adapt
+.claude/rules/
+  condition-based-waiting/
+    condition-based-waiting.mdc  # Overview + patterns
+    example.ts                   # Working helpers to adapt
 ```
 
-When: Tool is reusable code, not just narrative
+**When:** Tool is reusable code, not just narrative
 
 ### Skill with Heavy Reference
 
 ```
-pptx/
-  SKILL.md       # Overview + workflows
-  pptxgenjs.md   # 600 lines API reference
-  ooxml.md       # 500 lines XML structure
-  scripts/       # Executable tools
+.claude/rules/
+  pptx/
+    pptx.mdc       # Overview + workflows
+    pptxgenjs.md   # 600 lines API reference
+    ooxml.md       # 500 lines XML structure
+    scripts/       # Executable tools
 ```
 
-When: Reference material too large for inline
+**When:** Reference material too large for inline
+
+**Note:** Ruler copies all files from skill folder to `.claude/skills/` when `.mdc` basename matches folder name
 
 ## The Iron Law (Same as TDD)
 
@@ -773,6 +800,7 @@ Deploying untested skills = deploying untested code. It's a violation of quality
 - [ ] Address specific baseline failures identified in RED
 - [ ] Code inline OR link to separate file
 - [ ] One excellent example (not multi-language)
+- [ ] **MANDATORY:** Run `npx @udecode/ruler apply` to generate .claude/skills/
 - [ ] Verify skill clarity through application to real scenarios
 
 **REFACTOR Phase - Close Loopholes:**
@@ -781,6 +809,7 @@ Deploying untested skills = deploying untested code. It's a violation of quality
 - [ ] Add explicit counters (if discipline skill)
 - [ ] Build rationalization table from all identified patterns
 - [ ] Create red flags list
+- [ ] **MANDATORY:** Run `npx @udecode/ruler apply` after ANY changes
 - [ ] Re-verify clarity and completeness
 
 **Quality Checks:**

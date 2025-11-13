@@ -13,7 +13,7 @@
     },
     {
       "path": "registry/dotai/settings.json",
-      "content": "{\n  \"permissions\": {\n    \"allow\": [\"Bash\", \"Edit\", \"Skill(dotai:*)\"]\n  },\n  \"enableAllProjectMcpServers\": true,\n  \"extraKnownMarketplaces\": {\n    \"dotai\": {\n      \"source\": {\n        \"source\": \"github\",\n        \"repo\": \"udecode/dotai\"\n      }\n    }\n  },\n  \"enabledPlugins\": {\n    \"ctx@dotai\": true,\n    \"dotai@dotai\": true,\n    \"fb@dotai\": true,\n    \"notification@dotai\": true,\n    \"media@dotai\": false,\n    \"codex@dotai\": true,\n    \"plan@dotai\": true,\n    \"agents@dotai\": true,\n    \"debug@dotai\": true,\n    \"test@dotai\": true,\n    \"skills@dotai\": true,\n    \"git@dotai\": true\n  },\n  \"hooks\": {\n    \"UserPromptSubmit\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"if [ -f \\\".claude/scripts/user-prompt-submit.sh\\\" ]; then .claude/scripts/user-prompt-submit.sh; fi\"\n          }\n        ]\n      }\n    ],\n    \"SessionStart\": [\n      {\n        \"matcher\": \"startup|clear|compact\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"if [ -f \\\".claude/scripts/session-start.sh\\\" ]; then .claude/scripts/session-start.sh; fi\"\n          }\n        ]\n      },\n      {\n        \"matcher\": \"compact\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"if [ -f \\\".claude/scripts/post-compact.sh\\\" ]; then .claude/scripts/post-compact.sh; fi\"\n          }\n        ]\n      }\n    ]\n  }\n}\n",
+      "content": "{\n  \"permissions\": {\n    \"allow\": [\"Bash\", \"Edit\", \"Skill(dotai:*)\"]\n  },\n  \"enableAllProjectMcpServers\": true,\n  \"extraKnownMarketplaces\": {\n    \"dotai\": {\n      \"source\": {\n        \"source\": \"github\",\n        \"repo\": \"udecode/dotai\"\n      }\n    }\n  },\n  \"enabledPlugins\": {\n    \"dotai@dotai\": true,\n    \"fb@dotai\": true,\n    \"notification@dotai\": true,\n    \"media@dotai\": false,\n    \"codex@dotai\": true,\n    \"plan@dotai\": true,\n    \"agents@dotai\": true,\n    \"debug@dotai\": true,\n    \"test@dotai\": true,\n    \"skills@dotai\": true,\n    \"git@dotai\": true\n  },\n  \"hooks\": {\n    \"UserPromptSubmit\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"if [ -f \\\".claude/scripts/user-prompt-submit.sh\\\" ]; then .claude/scripts/user-prompt-submit.sh; fi\"\n          }\n        ]\n      }\n    ],\n    \"SessionStart\": [\n      {\n        \"matcher\": \"startup|clear|compact\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"if [ -f \\\".claude/scripts/session-start.sh\\\" ]; then .claude/scripts/session-start.sh; fi\"\n          }\n        ]\n      },\n      {\n        \"matcher\": \"compact\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"if [ -f \\\".claude/scripts/post-compact.sh\\\" ]; then .claude/scripts/post-compact.sh; fi\"\n          }\n        ]\n      }\n    ]\n  }\n}\n",
       "type": "registry:file",
       "target": "~/.claude/settings.json"
     },
@@ -30,22 +30,34 @@
       "target": "~/.claude/commands/watch.md"
     },
     {
-      "path": "registry/dotai/docs/app-design-document.mdc",
-      "content": "---\ndescription:\nglobs:\nalwaysApply: true\n---\n\n# App Design Document\n",
+      "path": "registry/dotai/docs/1-app-design-document.mdc",
+      "content": "---\nalwaysApply: true\n---\n\n# App Design Document\n",
       "type": "registry:file",
-      "target": "~/.cursor/rules/app-design-document.mdc"
+      "target": "~/.claude/rules/1-app-design-document.mdc"
     },
     {
-      "path": "registry/dotai/docs/project-status.mdc",
-      "content": "---\ndescription:\nalwaysApply: true\n---\n\n# Project Structure\n",
+      "path": "registry/dotai/docs/3-project-status.mdc",
+      "content": "---\nalwaysApply: true\n---\n\n# Project Structure\n",
       "type": "registry:file",
-      "target": "~/.cursor/rules/project-status.mdc"
+      "target": "~/.claude/rules/3-project-status.mdc"
     },
     {
-      "path": "registry/dotai/docs/tech-stack.mdc",
-      "content": "---\ndescription:\nglobs:\nalwaysApply: true\n---\n\n# Tech Stack\n",
+      "path": "registry/dotai/docs/2-tech-stack.mdc",
+      "content": "---\nalwaysApply: true\n---\n\n# Tech Stack\n",
       "type": "registry:file",
-      "target": "~/.cursor/rules/tech-stack.mdc"
+      "target": "~/.claude/rules/2-tech-stack.mdc"
+    },
+    {
+      "path": "registry/dotai/ruler.toml",
+      "content": "# Ruler Configuration for Informed Medical\n# This project uses Ruler to manage AI agent instructions\n# Source: .ruler/ directory | Generated: root AGENTS.md, CLAUDE.md, etc.\n\n# Default agents to apply when --agents flag is not specified\ndefault_agents = [\"claude\", \"cursor\", \"codex\"]\n\n# --- Fork Configuration ---\n\nroot_folder = \".claude\"\n\n[rules]\nmerge_strategy = \"cursor\"\n\n[backup]\nenabled = false\n\n# --- Global Configuration ---\n\n# Skills support (manages .ruler/skills/ → .claude/skills/ propagation)\n[skills]\nenabled = true\ngenerate_from_rules = true\n\n# Automatic .gitignore management\n[gitignore]\nenabled = true\n\n# MCP (Model Context Protocol) server configuration\n[mcp]\nenabled = false  # Disable for now - can enable later if needed\nmerge_strategy = \"merge\"\n\n# --- Agent-Specific Configuration ---\n\n# Claude Code (primary agent)\n[agents.claude]\nenabled = true\noutput_path = \"CLAUDE.md\"\n\n# Cursor (secondary agent)\n[agents.cursor]\nenabled = true\n# Uses AGENTS.md by default\n\n# OpenAI Codex CLI\n[agents.codex]\nenabled = true\noutput_path_config = \".codex/config.toml\"\n# Uses AGENTS.md by default\n\n# Disable other agents\n[agents.copilot]\nenabled = false\n\n[agents.aider]\nenabled = false\n\n[agents.windsurf]\nenabled = false\n\n[agents.cline]\nenabled = false\n\n[agents.crush]\nenabled = false\n\n[agents.amp]\nenabled = false\n\n[agents.amazonqcli]\nenabled = false\n\n[agents.firebase]\nenabled = false\n\n[agents.gemini-cli]\nenabled = false\n\n[agents.jules]\nenabled = false\n\n[agents.junie]\nenabled = false\n\n[agents.kilocode]\nenabled = false\n\n[agents.opencode]\nenabled = false\n\n[agents.openhands]\nenabled = false\n\n[agents.goose]\nenabled = false\n\n[agents.qwen]\nenabled = false\n\n[agents.roo]\nenabled = false\n\n[agents.zed]\nenabled = false\n\n[agents.trae]\nenabled = false\n\n[agents.warp]\nenabled = false\n\n[agents.kiro]\nenabled = false\n\n[agents.firebender]\nenabled = false\n\n[agents.augmentcode]\nenabled = false\n",
+      "type": "registry:file",
+      "target": "~/.claude/ruler.toml"
+    },
+    {
+      "path": "registry/dotai/AGENTS.md",
+      "content": "- In all interactions and commit messages, be extremely concise and sacrifice grammar for the sake of concision.\n\n## PR Comments\n\n- When tagging Claude in GitHub issues, use '@claude'\n\n## GitHub\n\n- Your primary method for interacting with GitHub should be the GitHub CLI.\n\n## Plans\n\n- At the end of each plan, give me a list of unresolved questions to answer, if any. Make the questions extremely concise. Sacrifice grammar for the sake of concision.\n\n@README.md\n@CONTRIBUTING.md\n",
+      "type": "registry:file",
+      "target": "~/.claude/AGENTS.md"
     }
   ]
 }

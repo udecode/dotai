@@ -7,13 +7,8 @@
       "name": "dotai",
       "type": "registry:item",
       "title": "Project Initialization",
-      "description": "Initialize project with CLAUDE.md, settings, documentation templates, and tree script",
+      "description": "Initialize project with Claude Code settings and ruler",
       "files": [
-        {
-          "path": "registry/dotai/CLAUDE.md",
-          "type": "registry:file",
-          "target": "~/CLAUDE.md"
-        },
         {
           "path": "registry/dotai/settings.json",
           "type": "registry:file",
@@ -30,19 +25,29 @@
           "target": "~/.claude/commands/watch.md"
         },
         {
-          "path": "registry/dotai/docs/app-design-document.mdc",
+          "path": "registry/dotai/docs/1-app-design-document.mdc",
           "type": "registry:file",
-          "target": "~/.cursor/rules/app-design-document.mdc"
+          "target": "~/.claude/rules/1-app-design-document.mdc"
         },
         {
-          "path": "registry/dotai/docs/project-status.mdc",
+          "path": "registry/dotai/docs/3-project-status.mdc",
           "type": "registry:file",
-          "target": "~/.cursor/rules/project-status.mdc"
+          "target": "~/.claude/rules/3-project-status.mdc"
         },
         {
-          "path": "registry/dotai/docs/tech-stack.mdc",
+          "path": "registry/dotai/docs/2-tech-stack.mdc",
           "type": "registry:file",
-          "target": "~/.cursor/rules/tech-stack.mdc"
+          "target": "~/.claude/rules/2-tech-stack.mdc"
+        },
+        {
+          "path": "registry/dotai/ruler.toml",
+          "type": "registry:file",
+          "target": "~/.claude/ruler.toml"
+        },
+        {
+          "path": "registry/dotai/AGENTS.md",
+          "type": "registry:file",
+          "target": "~/.claude/AGENTS.md"
         }
       ]
     },
@@ -75,25 +80,6 @@
       ]
     },
     {
-      "name": "ctx",
-      "type": "registry:item",
-      "title": "Context-Aware AGENTS.md Generator",
-      "description": "Smart context management for Claude Code with task-specific rule selection and AGENTS.md generation",
-      "devDependencies": ["commander", "prompts", "zod"],
-      "files": [
-        {
-          "path": "registry/ctx/config/context.json",
-          "type": "registry:file",
-          "target": "~/.claude/context.json"
-        },
-        {
-          "path": "registry/ctx/scripts/generate-agents.ts",
-          "type": "registry:file",
-          "target": "~/.claude/scripts/generate-agents.ts"
-        }
-      ]
-    },
-    {
       "name": "all",
       "type": "registry:item",
       "title": "Complete Project Setup",
@@ -101,7 +87,6 @@
       "registryDependencies": [
         "https://raw.githubusercontent.com/udecode/dotai/main/registry/dotai.json",
         "https://raw.githubusercontent.com/udecode/dotai/main/registry/flashback.json",
-        "https://raw.githubusercontent.com/udecode/dotai/main/registry/ctx.json",
         "https://raw.githubusercontent.com/udecode/dotai/main/registry/prompt.json"
       ],
       "files": []

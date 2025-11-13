@@ -11,7 +11,7 @@ description: Generate comprehensive app design document with project stage asses
 
 - Project root: !`pwd`
 - Package.json: @package.json
-- Existing design docs: !`ls -la .cursor/rules/ 2>/dev/null || echo "No .cursor/rules directory yet"`
+- Existing design docs: !`ls -la .claude/rules/ 2>/dev/null || echo "No .claude/rules directory yet"`
 
 ## Goal
 
@@ -23,7 +23,7 @@ Create a comprehensive Application Design Document based on deep codebase analys
 
 - Analyze project structure and existing codebase
 - Review package.json for project name and dependencies
-- Check for existing documentation in .cursor/rules/
+- Check for existing documentation in .claude/rules/
 - Identify key application features and patterns
 - **Think deeply** about the application's purpose and architecture
 
@@ -54,7 +54,7 @@ _Extended thinking helps identify non-obvious patterns, understand complex busin
 
 Based on project stage response:
 
-- Update `.cursor/rules/project-status.mdc` with current stage
+- Update `.claude/rules/3-project-status.mdc` with current stage
 - Set appropriate DO/DON'T priorities for the stage
 - Document stage-specific development guidelines in the Cursor rule
 
@@ -64,8 +64,8 @@ Create comprehensive app design document following the standard structure
 
 ### 6. Save and Organize
 
-- Create `.cursor/rules/` directory if needed
-- Save as `app-design-document.mdc`
+- Create `.claude/rules/` directory if needed
+- Save as `1-app-design-document.mdc`
 - Suggest next steps (tech stack doc, PRD, etc.)
 
 ## Required Questions Template
@@ -223,7 +223,7 @@ The language should be clear, business-focused, and avoid technical implementati
 ### DON'T:
 
 - **Technical Details:** No code snippets or implementation specifics
-- **Technology Stack:** Save for tech-stack.mdc document
+- **Technology Stack:** Save for 2-tech-stack.mdc document
 - **Database Schemas:** Keep data models conceptual
 - **API Specifications:** Focus on capabilities, not endpoints
 - **Performance Metrics:** Describe goals, not technical benchmarks
@@ -231,8 +231,8 @@ The language should be clear, business-focused, and avoid technical implementati
 ## Output
 
 - **Format:** Markdown (`.mdc`)
-- **Location:** `.cursor/rules/`
-- **Filename:** `app-design-document.mdc`
+- **Location:** `.claude/rules/`
+- **Filename:** `1-app-design-document.mdc`
 
 ## Execution Steps
 
@@ -251,7 +251,7 @@ The language should be clear, business-focused, and avoid technical implementati
 
 ### 3. Update Project Status in Cursor Rule
 
-Update `.cursor/rules/project-status.mdc` with the project stage information:
+Update `.claude/rules/3-project-status.mdc` with the project stage information:
 
 ```markdown
 ---
@@ -316,7 +316,7 @@ alwaysApply: true
 
 ### 5. Save and Next Steps
 
-- Create directories: `mkdir -p .claude/docs .cursor/rules`
-- Save design document: `.cursor/rules/app-design-document.mdc`
-- Update Cursor rule: `.cursor/rules/project-status.mdc`
+- Create directories: `mkdir -p .claude/docs .claude/rules`
+- Save design document: `.claude/rules/1-app-design-document.mdc`
+- Update Claude rule: `.claude/rules/3-project-status.mdc`
 - Suggest: "Would you like me to create a technical stack document next?"

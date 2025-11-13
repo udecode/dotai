@@ -98,10 +98,16 @@ Registry items allow users to install files directly into their projects using t
 
 ```
 registry/
-├── registry.json           # Registry definition
+├── registry.json           # Registry definition (EDIT THIS)
 ├── flashback/              # Registry item files
-└── flashback.json          # Registry item definition (AUTO-GENERATED with "pnpm r")
+└── flashback.json          # Registry item definition (AUTO-GENERATED - NEVER EDIT)
 ```
+
+**⚠️ IMPORTANT:**
+
+- **NEVER manually edit** generated JSON files (dotai.json, flashback.json, etc.)
+- **ONLY edit** registry/registry.json
+- **ALWAYS run** `pnpm r` after changes to regenerate all registry item JSON files
 
 **Steps to add a new registry item:**
 
@@ -138,7 +144,9 @@ registry/
    pnpm r
    ```
 
-   This generates `registry/my-item.json` that users can install via shadcn CLI.
+   This auto-generates `registry/my-item.json` that users can install via shadcn CLI.
+
+   **⚠️ Never manually edit the generated JSON files!** Always edit `registry/registry.json` and run `pnpm r`.
 
 5. **Test the installation**:
    ```bash
@@ -147,10 +155,10 @@ registry/
 
 **Available registry items:**
 
-- `dotai` - Project initialization (CLAUDE.md, settings, docs templates, tree script)
+- `dotai` - Project initialization (AGENTS.md, settings, ruler config)
 - `flashback` - Session management system
-- `ctx` - Context-aware AGENTS.md generator
-- `all` - All registry items combined (dotai + flashback + ctx)
+- `prompt` - Prompt injection system with before-start/before-complete checklists
+- `all` - All registry items combined (dotai + flashback + prompt)
 
 ## Plugin Development Guidelines
 
@@ -393,6 +401,7 @@ Show concrete examples of using this skill.
 ```
 
 **Field requirements:**
+
 - `name`: Must use lowercase letters, numbers, and hyphens only (max 64 characters)
 - `description`: Brief description of what the skill does and when to use it (max 1024 characters)
 

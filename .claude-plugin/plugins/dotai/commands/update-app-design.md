@@ -11,9 +11,8 @@ description: Update existing app design document based on codebase changes and p
 
 - Project root: !`pwd`
 - Package.json: @package.json
-- Current design doc: @.cursor/rules/app-design-document.mdc
-- Last modified: !`stat -f "%Sm" .cursor/rules/app-design-document.mdc 2>/dev/null || echo "No existing document"`
-- Project status: @CLAUDE.md#project-status
+- Current design doc: @.claude/rules/1-app-design-document.mdc
+- Last modified: !`stat -f "%Sm" .claude/rules/1-app-design-document.mdc 2>/dev/null || echo "No existing document"`
 
 ## Goal
 
@@ -23,7 +22,7 @@ Update the existing Application Design Document to reflect current codebase stat
 
 ### 1. Document Analysis
 
-- Read and understand the existing app-design-document.mdc
+- Read and understand the existing 1-app-design-document.mdc
 - Establish baseline understanding of documented features
 - Note the document's structure and tone
 - Identify areas that may need updates
@@ -55,7 +54,7 @@ _Extended thinking helps identify subtle changes, understand how new features in
 
 If project stage or priorities have changed:
 
-- Update `CLAUDE.md` "Project Status" section
+- Update `.claude/rules/3-project-status.mdc`
 - Adjust DO/DON'T lists for new priorities
 - Document any stage transitions
 
@@ -71,7 +70,7 @@ Update the document incrementally:
 ### 6. Save Updated Document
 
 - Backup suggestion if major changes
-- Overwrite existing app-design-document.mdc
+- Overwrite existing 1-app-design-document.mdc
 - Note what was updated
 
 ## Required Questions Template
@@ -89,7 +88,7 @@ d) **Help Me Assess** - Let's review current state together
 
 Based on your current stage, are these still your priorities?
 
-[Show current DO/DON'T lists from CLAUDE.md]
+[Show current DO/DON'T lists from `.claude/rules/3-project-status.mdc`]
 
 a) **Same Priorities** - These still reflect our focus  
 b) **Adjusted Priorities** - Some changes needed (please specify)  
@@ -212,7 +211,7 @@ d) **Business Goal** - Partnerships, funding, market expansion
 
 ```bash
 # Check when document was last updated
-stat -f "%Sm" .cursor/rules/app-design-document.mdc
+stat -f "%Sm" .claude/rules/1-app-design-document.mdc
 
 # Review recent commits for feature changes
 git log --oneline --since="30 days ago" | head -20
@@ -231,7 +230,7 @@ git log --oneline --since="30 days ago" | head -20
 If stage or priorities changed, update both:
 
 ```markdown
-# In CLAUDE.md
+# In `.claude/rules/3-project-status.mdc`
 
 ## Project Status
 
@@ -260,10 +259,10 @@ If stage or priorities changed, update both:
 
 ```bash
 # Optional: Create backup
-cp .cursor/rules/app-design-document.mdc .cursor/rules/app-design-document.backup.mdc
+cp .claude/rules/1-app-design-document.mdc .claude/rules/1-app-design-document.backup.mdc
 
 # Save updated document
-# Overwrite .cursor/rules/app-design-document.mdc
+# Overwrite .claude/rules/1-app-design-document.mdc
 ```
 
 ## Key Principles
@@ -287,8 +286,8 @@ cp .cursor/rules/app-design-document.mdc .cursor/rules/app-design-document.backu
 ## Output
 
 - **Format:** Markdown (`.mdc`)
-- **Location:** `.cursor/rules/`
-- **Filename:** `app-design-document.mdc` (overwrites)
+- **Location:** `.claude/rules/`
+- **Filename:** `1-app-design-document.mdc` (overwrites)
 - **Backup:** Suggest if major changes
 
 ## Final Checklist
@@ -296,8 +295,8 @@ cp .cursor/rules/app-design-document.mdc .cursor/rules/app-design-document.backu
 1. ✅ Read existing document completely
 2. ✅ Analyze codebase changes thoroughly
 3. ✅ Ask project stage question FIRST
-4. ✅ Update CLAUDE.md if stage/priorities changed
+4. ✅ Update `.claude/rules/3-project-status.mdc` if stage/priorities changed
 5. ✅ Make incremental, targeted updates
 6. ✅ Preserve document quality and tone
 7. ✅ Suggest backup for major changes
-8. ✅ Consider tech-stack.mdc updates if needed
+8. ✅ Consider 2-tech-stack.mdc updates if needed

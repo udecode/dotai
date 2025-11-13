@@ -4,7 +4,6 @@ Complete development toolkit for software projects. Combines documentation gener
 
 ## Features
 
-
 ### 🎨 Design Documentation
 
 - **App design generation** - Comprehensive application design documents
@@ -49,12 +48,11 @@ npx shadcn@latest add https://raw.githubusercontent.com/udecode/dotai/main/regis
 
 ## Commands
 
-
 ### Design Documentation Commands
 
 #### `/create-app-design`
 
-Generate a comprehensive Application Design Document with interactive Q&A, project stage assessment, and automatic `CLAUDE.md` updates.
+Generate a comprehensive Application Design Document with interactive Q&A, project stage assessment.
 
 ```
 /create-app-design
@@ -204,7 +202,7 @@ Run a task with the Opus model for complex reasoning and planning.
 /update-tech-stack
 ```
 
-**Output:** `.cursor/rules/` contains app-design-document.mdc, tech-stack.mdc
+**Output:** `.claude/rules/` contains 1-app-design-document.mdc, 2-tech-stack.mdc
 
 ## Best Practices
 
@@ -227,6 +225,10 @@ Run a task with the Opus model for complex reasoning and planning.
 4. **Create PR:** `/pr`
 
 ## Version History
+
+### 4.0.0
+
+- Removed ctx plugin in favor of ruler
 
 ### 3.0.0
 

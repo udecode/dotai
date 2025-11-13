@@ -7,7 +7,6 @@
   "registryDependencies": [
     "https://raw.githubusercontent.com/udecode/dotai/main/registry/dotai.json",
     "https://raw.githubusercontent.com/udecode/dotai/main/registry/flashback.json",
-    "https://raw.githubusercontent.com/udecode/dotai/main/registry/ctx.json",
     "https://raw.githubusercontent.com/udecode/dotai/main/registry/prompt.json"
   ],
   "files": []

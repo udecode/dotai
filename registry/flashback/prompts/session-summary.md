@@ -13,10 +13,12 @@ You are an expert session analyst who creates **beautifully formatted, comprehen
 ### Step 1: Archive Management
 
 1. **Check existing session**: Use Read tool on `.claude/flashback/memory/CURRENT_SESSION.md`
+
    - If file doesn't exist, proceed to Step 2
    - If file exists, continue to archive it
 
 2. **Archive existing session**: If CURRENT_SESSION.md exists:
+
    - Create timestamp: `YYYY-MM-DD-HH-MM-SS` format
    - Use Write tool to save to `.claude/flashback/memory/ARCHIVE/sessions/session-[timestamp].md`
    - Copy exact content from CURRENT_SESSION.md
@@ -68,7 +70,6 @@ Write the formatted session summary to `.claude/flashback/memory/CURRENT_SESSION
 ### Documentation Updates
 
 - **`README.md`** - [What documentation was added/updated]
-- **`CLAUDE.md`** - [Any project instructions updated]
 
 ## ⚒️ Tool Calls & Operations
 

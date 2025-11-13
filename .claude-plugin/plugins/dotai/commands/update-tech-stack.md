@@ -11,9 +11,8 @@ description: Update tech stack documentation based on dependency changes and tec
 
 - Project root: !`pwd`
 - Package.json: @package.json
-- Current tech doc: @.cursor/rules/tech-stack.mdc
-- **Project Structure:** !`bash ~/.claude/plugins/marketplaces/dotai/.claude-plugin/plugins/dotai/scripts/tree.sh`
-- Last modified: !`stat -f "%Sm" .cursor/rules/tech-stack.mdc 2>/dev/null || echo "No existing document"`
+- Current tech doc: @.claude/rules/2-tech-stack.mdc
+- Last modified: !`stat -f "%Sm" .claude/rules/2-tech-stack.mdc 2>/dev/null || echo "No existing document"`
 - Recent package changes: !`git diff HEAD~10 HEAD -- package.json 2>/dev/null | grep -E "^[+-]" | head -20 || echo "No recent changes"`
 
 ## Goal
@@ -24,7 +23,7 @@ Update the existing Tech Stack Documentation to reflect current technical state,
 
 ### 1. Document Analysis
 
-- Read existing tech-stack.mdc thoroughly
+- Read existing 2-tech-stack.mdc thoroughly
 - Note documented versions and configurations
 - Understand current technical baseline
 - Identify sections that may need updates
@@ -74,7 +73,6 @@ Update incrementally:
 ### 6. Save and Verify
 
 - Suggest backup for major changes
-- Update CLAUDE.md commands if needed
 - Verify all versions are accurate
 
 ## Technical Questions Template
@@ -227,13 +225,13 @@ When adding major new tools:
 ```bash
 # Check current dependencies vs documented
 diff <(jq -r '.dependencies | keys[]' package.json | sort) \
-     <(grep -E '^\*\*.*:' .cursor/rules/tech-stack.mdc | cut -d: -f1 | sed 's/\*//g' | sort)
+     <(grep -E '^\*\*.*:' .claude/rules/2-tech-stack.mdc | cut -d: -f1 | sed 's/\*//g' | sort)
 
 # Review recent dependency commits
 git log --oneline --grep="dep" --since="30 days ago"
 
 # Check for new config files
-find . -name "*.config.*" -newer .cursor/rules/tech-stack.mdc 2>/dev/null
+find . -name "*.config.*" -newer .claude/rules/2-tech-stack.mdc 2>/dev/null
 ```
 
 **Think deeply about:** "What technical decisions drove these changes? How do version updates affect the overall architecture? What new capabilities do these tools enable?"
@@ -266,26 +264,14 @@ Follow incremental approach:
   - Built-in formatting
 ```
 
-### 4. Commands Update
-
-Update CLAUDE.md if new scripts discovered:
-
-```markdown
-### Development
-
-- `pnpm dev` - Start development server
-- `pnpm check` - NEW: Run Biome linting and formatting
-- `pnpm test:e2e` - NEW: Run Playwright tests
-```
-
-### 5. Save and Backup
+### 4. Save and Backup
 
 ```bash
 # Optional backup
-cp .cursor/rules/tech-stack.mdc .cursor/rules/tech-stack.backup.md
+cp .claude/rules/2-tech-stack.mdc .claude/rules/2-tech-stack.backup.md
 
 # Save updated document
-# Overwrite .cursor/rules/tech-stack.mdc
+# Overwrite .claude/rules/2-tech-stack.mdc
 ```
 
 ## Key Principles
@@ -309,19 +295,18 @@ cp .cursor/rules/tech-stack.mdc .cursor/rules/tech-stack.backup.md
 ## Output
 
 - **Format:** Markdown (`.mdc`)
-- **Location:** `.cursor/rules/`
-- **Filename:** `tech-stack.mdc` (overwrites)
+- **Location:** `.claude/rules/`
+- **Filename:** `2-tech-stack.mdc` (overwrites)
 - **Backup:** Suggest for major changes
 
 ## Final Checklist
 
-1. ✅ Read existing tech-stack.mdc completely
+1. ✅ Read existing 2-tech-stack.mdc completely
 2. ✅ Analyze all dependency changes
 3. ✅ Check configuration file updates
 4. ✅ Review infrastructure changes
 5. ✅ Ask targeted technical questions
 6. ✅ Update with exact versions
 7. ✅ Include configuration examples
-8. ✅ Update CLAUDE.md commands
-9. ✅ Suggest backup if major changes
-10. ✅ Verify technical accuracy
+8. ✅ Suggest backup if major changes
+9. ✅ Verify technical accuracy

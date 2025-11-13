@@ -4,7 +4,7 @@
   "description": "AI-powered development template with Claude Code, Codex (AGENTS.md), and Cursor integration",
   "license": "MIT",
   "scripts": {
-    "ctx": "tsx .claude/scripts/generate-agents.ts",
+    "postinstall": "ruler apply",
     "typecheck": "tsc --noEmit",
     "app:log": "echo 'Configure app:log command for your project'",
     "backend:log": "echo 'Configure backend:log command for your project'",
@@ -14,6 +14,7 @@
   "devDependencies": {
     "@types/node": "^24.7.1",
     "@types/prompts": "^2.4.9",
+    "@udecode/ruler": "^0.4.0",
     "commander": "^14.0.1",
     "prompts": "^2.4.2",
     "tsx": "^4.20.6",
