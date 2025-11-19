@@ -155,6 +155,28 @@ git commit -m "feat: add specific feature"
 - DRY, YAGNI, frequent commits
 - TypeScript syntax for all examples
 
+## Git Commit Guidance
+
+**IMPORTANT: Plans include commit steps, but executing-plans will handle commit approval.**
+
+**During Execution (not plan writing):**
+
+- **NEVER auto-commit** - Even if plan includes commit commands, agent must ask user first
+- **When to suggest commits:**
+  - After completing batch where agent verified tests pass
+  - Leverage existing pause points (batch completion, not extra pauses)
+  - Only when agent can verify the work (tests, typecheck, lint)
+- **When NOT to suggest commits:**
+  - Tests are user's responsibility (agent can't verify)
+  - No natural pause point exists
+  - Manual verification required
+
+**In this skill (plan writing):**
+
+- Include commit steps in tasks as part of the plan
+- Commit commands show what should be committed, not when
+- executing-plans skill handles actual commit timing and user approval
+
 ## Execution Handoff
 
 After saving the plan, offer execution choice:

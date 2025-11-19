@@ -49,6 +49,37 @@ Start by understanding the current project context, then ask multiple related qu
 - Cover: architecture, components, data flow, error handling, testing
 - Be ready to go back and clarify if something doesn't make sense
 
+## Design vs Implementation Boundaries
+
+**THIS SKILL IS FOR DESIGN ONLY.** If you find yourself writing implementation details, STOP - you're crossing into writing-plans territory.
+
+**DESIGN (this skill) - High-level, conceptual:**
+- Architecture decisions and trade-offs (e.g., "Use React Query for server state")
+- Component responsibilities (conceptual) (e.g., "FilterSidebar handles job title filtering")
+- Data flow approach (e.g., "Server actions → React Query → UI")
+- Technology choices with reasoning (e.g., "shadcn/ui for component library")
+- Open questions and assumptions
+
+**IMPLEMENTATION (writing-plans skill) - Detailed, executable:**
+- Exact file paths (e.g., "src/app/(protected)/training-videos/page.tsx")
+- Numbered implementation phases/steps (e.g., "Phase 1: Sidebar Setup")
+- "Files to modify" and "Files to create" lists
+- Complete code examples and snippets
+- Git commit instructions
+- Task breakdown with dependencies
+
+**Red Flags - STOP Immediately:**
+- Writing "Phase 1: Setup", "Phase 2: Components" → That's writing-plans
+- Listing "Files to modify: src/exact/path.tsx" → That's writing-plans
+- Creating "File Change Summary" section → That's writing-plans
+- Writing "Implementation Plan" header → That's writing-plans
+- Providing exact directory structures with file paths → That's writing-plans
+
+**If you catch yourself doing any of the above, immediately:**
+1. Delete the implementation content
+2. Ask user if ready to transition to writing-plans skill
+3. Use writing-plans skill to create proper implementation plan
+
 ## After the Design
 
 **Documentation:**
@@ -93,7 +124,7 @@ The plan file is your **working document**, not a final deliverable to write at 
 **Implementation (if continuing):**
 
 - Use AskUserQuestion tool: "Ready to set up for implementation?" with options: ["Yes, create implementation plan", "No, refine design more", "No, just save the design"]
-- Use writing-plan skill (if available) to create detailed implementation plan if user is ready
+- **MANDATORY NEXT STEP if user chooses "Yes":** Use writing-plans skill to create detailed implementation plan
 
 ## Key Principles
 

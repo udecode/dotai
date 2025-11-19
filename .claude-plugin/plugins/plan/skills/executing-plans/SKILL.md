@@ -35,12 +35,15 @@ For each task:
 
 **Note on tests**: Only some tasks will have tests (complex logic only). Follow the plan's testing approach - don't add tests where the plan doesn't specify them.
 
-### Step 3: Report
+### Step 3: Report and Commit Check
 
 When batch complete:
 
 - Show what was implemented
 - Show verification output
+- **Check if commit should be suggested:**
+  - If you verified tests/typecheck/lint passed AND plan includes commit steps → Ask: "Batch complete. Create commit for these changes?"
+  - If tests are user's responsibility OR you couldn't verify → Skip commit suggestion, just report
 - Say: "Ready for feedback."
 
 ### Step 4: Continue
@@ -57,10 +60,9 @@ After all tasks complete and verified:
 
 - Run final verification: `npm run typecheck && npm run lint`
 - Report completion summary showing all implemented tasks
-- Ask user: "All tasks complete. Would you like me to:
-  1. Create a git commit
-  2. Run additional verification
-  3. Move on to something else"
+- **Final commit check using AskUserQuestion tool:**
+  - If no commits created during batches → Ask: "All tasks complete. Create a git commit?"
+  - If already committed during batches → Ask: "All tasks complete. Run additional verification or move on?"
 
 ## When to Stop and Ask for Help
 
@@ -88,5 +90,7 @@ After all tasks complete and verified:
 - Follow plan steps exactly
 - Don't skip verifications
 - Reference skills when plan says to
-- Between batches: just report and wait
+- Between batches: report, check commit opportunity, wait for feedback
+- **Never auto-commit** - Always ask user first, even if plan includes commit commands
+- Leverage batch pauses for commit suggestions (don't create extra pauses)
 - Stop when blocked, don't guess
