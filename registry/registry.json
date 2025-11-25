@@ -7,7 +7,7 @@
       "name": "dotai",
       "type": "registry:item",
       "title": "Project Initialization",
-      "description": "Initialize project with Claude Code settings and ruler",
+      "description": "Initialize project with Claude Code settings and skiller",
       "files": [
         {
           "path": "registry/dotai/settings.json",
@@ -40,9 +40,9 @@
           "target": "~/.claude/rules/2-tech-stack.mdc"
         },
         {
-          "path": "registry/dotai/ruler.toml",
+          "path": "registry/dotai/skiller.toml",
           "type": "registry:file",
-          "target": "~/.claude/ruler.toml"
+          "target": "~/.claude/skiller.toml"
         },
         {
           "path": "registry/dotai/AGENTS.md",

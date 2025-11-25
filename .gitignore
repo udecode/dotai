@@ -32,3 +32,9 @@ node_modules/
 /AGENTS.md
 /CLAUDE.md
 # END Ruler Generated Files
+
+
+# START Skiller Generated Files
+/.claude/skills
+/.skillz
+# END Skiller Generated Files

@@ -1,24 +1,17 @@
 {
   "name": "dotai",
   "version": "1.0.0",
-  "description": "AI-powered development template with Claude Code, Codex (AGENTS.md), and Cursor integration",
+  "description": "Context manager for all agents.",
   "license": "MIT",
   "scripts": {
-    "postinstall": "ruler apply",
+    "postinstall": "bunx --bun skiller@latest apply",
     "typecheck": "tsc --noEmit",
-    "app:log": "echo 'Configure app:log command for your project'",
-    "backend:log": "echo 'Configure backend:log command for your project'",
-    "r": "npx shadcn@latest build registry/registry.json --output ./registry",
-    "test": "npx shadcn@latest add ./registry/flashback.json"
+    "build": "bunx --bun shadcn@latest build registry/registry.json --output ./registry",
+    "test": "bunx --bun shadcn@latest add ./registry/flashback.json"
   },
   "devDependencies": {
     "@types/node": "^24.7.1",
-    "@types/prompts": "^2.4.9",
-    "@udecode/ruler": "^0.4.0",
-    "commander": "^14.0.1",
-    "prompts": "^2.4.2",
-    "tsx": "^4.20.6",
-    "typescript": "^5.9.3",
-    "zod": "^3.25.76"
-  }
+    "typescript": "^5.9.3"
+  },
+  "packageManager": "bun@1.3.3"
 }
