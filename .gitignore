@@ -26,15 +26,11 @@ node_modules/
 
 .codex
 
-# START Ruler Generated Files
-/.codex/config.toml
-/.cursor/rules
-/AGENTS.md
-/CLAUDE.md
-# END Ruler Generated Files
-
-
 # START Skiller Generated Files
 /.claude/skills
+/.codex/config.toml
+/.cursor/rules
 /.skillz
+/AGENTS.md
+/CLAUDE.md
 # END Skiller Generated Files
