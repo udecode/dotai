@@ -9,7 +9,7 @@
 
 ## Agent Instructions
 
-Uses [ruler](https://github.com/udecode/ruler) for centralized AI agent config. Instructions in `.claude/rules/` (MDC files with frontmatter). `ruler apply` generates `CLAUDE.md`/`AGENTS.md` and Skills from rules.
+Uses [skiller](https://github.com/udecode/skiller) to apply the same rules to all coding agents. Instructions and skills in `.claude/rules/`. `npx skiller@latest apply` generates `CLAUDE.md`/`AGENTS.md`, Skills and MCP configurations.
 
 ## Quick Start
 

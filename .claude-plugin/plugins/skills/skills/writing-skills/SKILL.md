@@ -17,7 +17,7 @@ description: Use when creating or editing rules/skills in .claude/rules/, whethe
 **How it works:**
 
 1. Write rule as `.mdc` file in `.claude/rules/` with frontmatter (`alwaysApply: true/false`)
-2. **REQUIRED:** Run `npx @udecode/ruler apply` after ANY rule creation or update
+2. **REQUIRED:** Run `npx skiller@latest apply` after ANY rule creation or update
 3. Ruler processes based on `alwaysApply`:
    - `false` → generates `.claude/skills/` (context-loaded by Claude Code)
    - `true` → merges into `AGENTS.md` (always present)
@@ -105,7 +105,7 @@ API docs, syntax guides, tool documentation (office docs)
     supporting-file.*    # Additional files
 ```
 
-**Ruler auto-generates from rules** - `npx @udecode/ruler apply` creates `.claude/skills/` from `.claude/rules/`
+**Ruler auto-generates from rules** - `npx skiller@latest apply` creates `.claude/skills/` from `.claude/rules/`
 
 **When to use folders:**
 
@@ -802,7 +802,7 @@ Deploying untested skills = deploying untested code. It's a violation of quality
 - [ ] Address specific baseline failures identified in RED
 - [ ] Code inline OR link to separate file
 - [ ] One excellent example (not multi-language)
-- [ ] **MANDATORY:** Run `npx @udecode/ruler apply` to generate .claude/skills/
+- [ ] **MANDATORY:** Run `npx skiller@latest apply` to generate .claude/skills/
 - [ ] Verify skill clarity through application to real scenarios
 
 **REFACTOR Phase - Close Loopholes:**
@@ -811,7 +811,7 @@ Deploying untested skills = deploying untested code. It's a violation of quality
 - [ ] Add explicit counters (if discipline skill)
 - [ ] Build rationalization table from all identified patterns
 - [ ] Create red flags list
-- [ ] **MANDATORY:** Run `npx @udecode/ruler apply` after ANY changes
+- [ ] **MANDATORY:** Run `npx skiller@latest apply` after ANY changes
 - [ ] Re-verify clarity and completeness
 
 **Quality Checks:**

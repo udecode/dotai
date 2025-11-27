@@ -16,7 +16,7 @@ After installation, add ruler postinstall to your `package.json` to auto-generat
 ```json
 {
   "scripts": {
-    "postinstall": "ruler apply"
+    "postinstall": "npx skiller@latest apply"
   }
 }
 ```
