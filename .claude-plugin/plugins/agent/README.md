@@ -20,7 +20,7 @@ Dispatch multiple Claude agents to investigate and fix independent problems simu
 ## Installation
 
 ```bash
-/plugin install agents@dotai
+/plugin install agent@dotai
 # restart claude
 ```
 

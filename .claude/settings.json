@@ -18,10 +18,10 @@
     "media@dotai": false,
     "codex@dotai": true,
     "plan@dotai": true,
-    "agents@dotai": true,
+    "agent@dotai": true,
     "debug@dotai": true,
     "test@dotai": true,
-    "skills@dotai": true,
+    "skill@dotai": true,
     "git@dotai": true
   },
   "hooks": {

@@ -29,7 +29,7 @@ TDD approach to skill authoring:
 ## Installation
 
 ```bash
-/plugin install skills@dotai
+/plugin install skill@dotai
 # restart claude
 ```
 

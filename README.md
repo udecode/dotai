@@ -66,14 +66,14 @@ Complete development toolkit - documentation, PRDs, debugging, PR workflows, and
 
 [Full Plugin Documentation →](./.claude-plugin/plugins/dotai/README.md)
 
-### 🎓 skills
+### 🎓 skill
 
 Meta-skills for finding, using, and writing Agent Skills - enforces skill usage protocols and provides skill authoring guidance.
 
 **Installation:**
 
 ```bash
-/plugin install skills@dotai
+/plugin install skill@dotai
 # restart claude
 ```
 
@@ -86,7 +86,7 @@ Meta-skills for finding, using, and writing Agent Skills - enforces skill usage 
 **Key Command:**
 
 ```bash
-/skills:skills   # Enforce skill usage protocols
+/skill:skills   # Enforce skill usage protocols
 ```
 
 **Skills (auto-invoked):**
@@ -94,7 +94,7 @@ Meta-skills for finding, using, and writing Agent Skills - enforces skill usage 
 - `using-skills` - Mandatory workflows for finding and using skills
 - `writing-skills` - TDD-based skill authoring process
 
-[Full Plugin Documentation →](./.claude-plugin/plugins/skills/README.md)
+[Full Plugin Documentation →](./.claude-plugin/plugins/skill/README.md)
 
 ### 📋 plan
 
@@ -203,14 +203,14 @@ Edit `.claude/prompt.json`:
 - `instructions` - Operation guidelines (bulleted list)
 - `todos` - TodoWrite checklist items with conditional execution
 
-### 🚀 agents
+### 🚀 agent
 
 Agent orchestration patterns for parallel debugging and investigation - dispatch multiple Claude agents to solve independent problems concurrently.
 
 **Installation:**
 
 ```bash
-/plugin install agents@dotai
+/plugin install agent@dotai
 # restart claude
 ```
 
@@ -223,14 +223,14 @@ Agent orchestration patterns for parallel debugging and investigation - dispatch
 **Key Command:**
 
 ```bash
-/agents:parallel   # Dispatch agents for parallel investigation
+/agent:parallel   # Dispatch agents for parallel investigation
 ```
 
 **Skills (auto-invoked):**
 
 - `dispatching-parallel-agents` - Orchestrate multiple agents for concurrent problem-solving
 
-[Full Plugin Documentation →](./.claude-plugin/plugins/agents/README.md)
+[Full Plugin Documentation →](./.claude-plugin/plugins/agent/README.md)
 
 ### 🔍 debug
 

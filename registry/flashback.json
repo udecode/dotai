@@ -1,7 +1,6 @@
 {
   "$schema": "https://ui.shadcn.com/schema/registry-item.json",
   "name": "flashback",
-  "type": "registry:item",
   "title": "Flashback Session Management",
   "description": "Session continuity system for Claude Code with automatic memory management and working plan tracking",
   "files": [
@@ -29,5 +28,6 @@
       "type": "registry:file",
       "target": "~/.claude/flashback/memory/WORKING_PLAN.md"
     }
-  ]
+  ],
+  "type": "registry:item"
 }

@@ -1,7 +1,6 @@
 {
   "$schema": "https://ui.shadcn.com/schema/registry-item.json",
   "name": "prompt",
-  "type": "registry:item",
   "title": "Prompt Injection System",
   "description": "Dynamic prompt checklists for before-start and before-complete workflows",
   "files": [
@@ -29,5 +28,6 @@
       "type": "registry:file",
       "target": "~/.claude/scripts/session-start.sh"
     }
-  ]
+  ],
+  "type": "registry:item"
 }
