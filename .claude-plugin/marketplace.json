@@ -40,8 +40,8 @@
       "description": "Planning and brainstorming workflows for software development - helps refine ideas into designs and create detailed implementation plans"
     },
     {
-      "name": "agent",
-      "source": "./.claude-plugin/plugins/agent",
+      "name": "agents",
+      "source": "./.claude-plugin/plugins/agents",
       "description": "Agent orchestration patterns for parallel debugging and investigation - dispatch multiple Claude agents to solve independent problems concurrently"
     },
     {
@@ -55,8 +55,8 @@
       "description": "Test-driven development workflow for writing tests before implementation - red-green-refactor cycle with deterministic unit tests"
     },
     {
-      "name": "skill",
-      "source": "./.claude-plugin/plugins/skill",
+      "name": "skills",
+      "source": "./.claude-plugin/plugins/skills",
       "description": "Meta-skills for finding, using, and writing Agent Skills - enforces skill usage protocols and provides skill authoring guidance"
     },
     {
