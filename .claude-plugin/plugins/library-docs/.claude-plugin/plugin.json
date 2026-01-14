@@ -1,0 +1,9 @@
+{
+  "name": "library-docs",
+  "version": "0.1.0",
+  "description": "Library documentation lookup - clone and explore library source code to answer API questions",
+  "author": {
+    "name": "zbeyens"
+  },
+  "keywords": ["documentation", "library", "api", "source-code", "research"]
+}
