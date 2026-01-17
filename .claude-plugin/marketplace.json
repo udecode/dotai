@@ -63,6 +63,11 @@
       "name": "git",
       "source": "./.claude-plugin/plugins/git",
       "description": "Git and GitHub workflow automation - streamlined PR creation, draft management, and code review workflows"
+    },
+    {
+      "name": "gh-docs",
+      "source": "./.claude-plugin/plugins/gh-docs",
+      "description": "GitHub library docs lookup - clone and explore source code to answer API questions"
     }
   ]
 }

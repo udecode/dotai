@@ -1,7 +1,7 @@
 {
-  "name": "library-docs",
+  "name": "gh-docs",
   "version": "0.1.0",
-  "description": "Library documentation lookup - clone and explore library source code to answer API questions",
+  "description": "GitHub library docs lookup - clone and explore source code to answer API questions",
   "author": {
     "name": "zbeyens"
   },

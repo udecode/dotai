@@ -1,9 +1,9 @@
 ---
-name: library-docs
+name: gh-docs
 description: Look up documentation and source code for libraries and packages. Use when the user asks a question about a library, needs to understand a library's API, or when you need information about a library that you don't know about. Triggers on questions like "How do I use X library?", "What's the API for Y?", "Show me how Z library handles this", or when encountering unfamiliar library usage.
 ---
 
-# Library Docs
+# GitHub Docs
 
 Look up library documentation by finding and exploring the library's source code repository.
 
