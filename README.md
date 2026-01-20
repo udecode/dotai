@@ -92,7 +92,6 @@ Meta-skills for finding, using, and writing Agent Skills - enforces skill usage 
 **Skills (auto-invoked):**
 
 - `using-skills` - Mandatory workflows for finding and using skills
-- `writing-skills` - TDD-based skill authoring process
 
 [Full Plugin Documentation →](./.claude-plugin/plugins/skills/README.md)
 
@@ -143,7 +142,7 @@ npx shadcn@latest add https://raw.githubusercontent.com/udecode/dotai/main/regis
 
 This installs:
 
-- `.claude/prompt.json` - Configuration file
+- `.claude/prompt.yml` - Configuration file
 - `.claude/scripts/user-prompt-submit.sh` - Hook script for before-start/before-complete
 - `.claude/scripts/post-compact.sh` - Hook script for post-compact recovery
 - `.claude/scripts/session-start.sh` - Hook script for session start events
@@ -160,40 +159,44 @@ The hooks are automatically configured in `.claude/settings.json` when you insta
 
 **Configuration:**
 
-Edit `.claude/prompt.json`:
+Edit `.claude/prompt.yml`:
 
-```json
-{
-  "beforeStart": [
-    {
-      "tag": "MANDATORY-FIRST-RESPONSE",
-      "header": "🚨 STOP - YOUR FIRST TOOL CALL MUST BE TodoWrite",
-      "instructions": [
-        "DO NOT analyze the task yet. DO NOT read files. DO NOT edit anything.",
-        "YOUR FIRST ACTION: Call TodoWrite with the todo below",
-        "Check if the todo's condition applies - if NO, mark completed immediately"
-      ],
-      "todos": [
-        "Skill analysis (SKIP if message contains 'quick'): (1) Check for rationalizations; (2) List ALL available skills; (3) Mark ✓/✗ for each; (4) Load matched skills; (5) Output result"
-      ]
-    }
-  ],
-  "beforeComplete": [
-    {
-      "tag": "VERIFICATION-CHECKLIST",
-      "header": "Before claiming work is complete - verify with FRESH evidence:",
-      "instructions": [
-        "Create TodoWrite with ALL todos below",
-        "For EACH todo: Check if condition applies",
-        "Work through every todo even if some don't apply"
-      ],
-      "todos": [
-        "TypeScript check (ONLY if updated ts files): Verify no `any` used",
-        "Typecheck (ONLY if updated ts files): Run typecheck and verify passes"
-      ]
-    }
-  ]
-}
+```yaml
+beforeStart:
+  - tag: MANDATORY-FIRST-RESPONSE
+    header: 🚨 STOP - FIRST TOOL CALL MUST BE TodoWrite
+    instructions:
+      - DO NOT analyze. DO NOT read files. DO NOT edit.
+      - "FIRST ACTION: TodoWrite with todo below as in_progress"
+      - Condition NO → mark completed → proceed
+    todos:
+      - |
+        Skill analysis (SKIP if 'quick' in message):
+        (1) List ALL available skills
+        (2) For EACH: YES/MIGHT/MAYBE = ✓
+        (3) Skill(...) for ALL ✓ IN ONE PARALLEL CALL
+
+beforeComplete:
+  - tag: VERIFICATION-CHECKLIST
+    header: 🔒 VERIFICATION REQUIRED
+    instructions:
+      - TodoWrite with ALL todos below
+      - Condition NO → mark completed and skip
+    todos:
+      - "Typecheck (IF updated .ts files): Bash `bun typecheck`"
+      - "Lint: Bash `bun lint:fix`"
+
+afterCompact:
+  - tag: POST-COMPACT-RECOVERY
+    header: 🚨 CONTEXT WIPED - MANDATORY SKILL RELOAD
+    instructions:
+      - Context compaction DELETED all skills
+      - DO NOT proceed until skill reload complete
+    todos:
+      - |
+        Skill reload (MANDATORY):
+        (1) List ALL available skills
+        (2) Skill(...) for ALL applicable
 ```
 
 **Structure:**
@@ -202,6 +205,7 @@ Edit `.claude/prompt.json`:
 - `header` - Bold header shown at top of section
 - `instructions` - Operation guidelines (bulleted list)
 - `todos` - TodoWrite checklist items with conditional execution
+- `afterCompact` - Instructions after context compaction
 
 ### 🚀 agents
 
