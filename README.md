@@ -322,35 +322,6 @@ Git and GitHub workflow automation - streamlined PR creation, draft management, 
 
 [Full Plugin Documentation →](./.claude-plugin/plugins/git/README.md)
 
-### 🧠 fb
-
-Session memory and continuity for Claude Code.
-
-**Installation:**
-
-```bash
-/plugin install fb@dotai
-# restart claude
-/fb:install
-```
-
-**Features:**
-
-- **Session Continuity** - Restore context from previous sessions
-- **Working Plan** - Track development priorities across sessions
-- **Project Memory** - Store important learnings
-- **Auto-Archiving** - Organized session history
-
-**Key Commands:**
-
-```bash
-/fb:session-start   # Restore previous context
-/fb:save-session    # Save session summary
-/fb:remember        # Store important info
-```
-
-[Full Plugin Documentation →](./.claude-plugin/plugins/fb/README.md)
-
 ### 🔔 notification
 
 macOS notifications for Claude Code events.
@@ -421,9 +392,6 @@ After Quick Start, create foundational docs:
 
 # Create PR
 /git:create-pr
-
-# Save session (optional)
-/fb:save-session
 ```
 
 ## Development

@@ -52,41 +52,12 @@
       ]
     },
     {
-      "name": "flashback",
-      "type": "registry:item",
-      "title": "Flashback Session Management",
-      "description": "Session continuity system for Claude Code with automatic memory management and working plan tracking",
-      "files": [
-        {
-          "path": "registry/flashback/prompts/session-summary.md",
-          "type": "registry:file",
-          "target": "~/.claude/flashback/prompts/session-summary.md"
-        },
-        {
-          "path": "registry/flashback/prompts/working-plan-update.md",
-          "type": "registry:file",
-          "target": "~/.claude/flashback/prompts/working-plan-update.md"
-        },
-        {
-          "path": "registry/flashback/config/flashback.json",
-          "type": "registry:file",
-          "target": "~/.claude/flashback/config/flashback.json"
-        },
-        {
-          "path": "registry/flashback/memory/WORKING_PLAN.md",
-          "type": "registry:file",
-          "target": "~/.claude/flashback/memory/WORKING_PLAN.md"
-        }
-      ]
-    },
-    {
       "name": "all",
       "type": "registry:item",
       "title": "Complete Project Setup",
       "description": "Install all dotai plugins",
       "registryDependencies": [
         "https://raw.githubusercontent.com/udecode/dotai/main/registry/dotai.json",
-        "https://raw.githubusercontent.com/udecode/dotai/main/registry/flashback.json",
         "https://raw.githubusercontent.com/udecode/dotai/main/registry/prompt.json"
       ],
       "files": []

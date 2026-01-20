@@ -131,4 +131,3 @@ Skills are automatically discovered and used by Claude based on task context. No
 Works seamlessly with other dotai plugins:
 
 - **dotai** - Use with `/dotai:create-prd` for requirements → design → implementation flow
-- **fb** - Session continuity across planning and implementation phases

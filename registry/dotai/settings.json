@@ -13,9 +13,7 @@
   },
   "enabledPlugins": {
     "dotai@dotai": true,
-    "fb@dotai": true,
     "notification@dotai": true,
-    "media@dotai": false,
     "codex@dotai": true,
     "plan@dotai": true,
     "agents@dotai": true,

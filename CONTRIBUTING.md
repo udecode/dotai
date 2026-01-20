@@ -72,7 +72,7 @@ Develop and test plugins directly in `.claude-plugin/`:
 
 - Reusable across projects
 - Published in marketplace
-- Examples: `dotai`, `notification`, `fb`
+- Examples: `dotai`, `notification`
 - Must be self-contained and project-agnostic
 
 **Development/Testing** (same location during development):
@@ -99,13 +99,13 @@ Registry items allow users to install files directly into their projects using t
 ```
 registry/
 ├── registry.json           # Registry definition (EDIT THIS)
-├── flashback/              # Registry item files
-└── flashback.json          # Registry item definition (AUTO-GENERATED - NEVER EDIT)
+├── my-item/                # Registry item files
+└── my-item.json            # Registry item definition (AUTO-GENERATED - NEVER EDIT)
 ```
 
 **⚠️ IMPORTANT:**
 
-- **NEVER manually edit** generated JSON files (dotai.json, flashback.json, etc.)
+- **NEVER manually edit** generated JSON files (dotai.json, etc.)
 - **ONLY edit** registry/registry.json
 - **ALWAYS run** `pnpm r` after changes to regenerate all registry item JSON files
 
@@ -156,9 +156,8 @@ registry/
 **Available registry items:**
 
 - `dotai` - Project initialization (AGENTS.md, settings, ruler config)
-- `flashback` - Session management system
 - `prompt` - Prompt injection system with before-start/before-complete checklists
-- `all` - All registry items combined (dotai + flashback + prompt)
+- `all` - All registry items combined (dotai + prompt)
 
 ## Plugin Development Guidelines
 

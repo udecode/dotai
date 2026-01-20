@@ -20,11 +20,6 @@
       "description": "macOS notifications for Claude Code events"
     },
     {
-      "name": "fb",
-      "source": "./.claude-plugin/plugins/fb",
-      "description": "Session management and continuity with automatic memory tracking"
-    },
-    {
       "name": "media",
       "source": "./.claude-plugin/plugins/media",
       "description": "Auto-play/pause media on prompt submit/stop"

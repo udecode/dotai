@@ -145,7 +145,6 @@ Works seamlessly with other dotai plugins:
 
 - **plan** - Use with executing-plans for structured implementation
 - **dotai** - Combine with debugging workflows for comprehensive fixes
-- **fb** - Session continuity across parallel agent investigations
 
 ## Best Practices
 
