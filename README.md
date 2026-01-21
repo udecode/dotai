@@ -14,7 +14,7 @@ Dotai:
 
 ```bash
 /plugin marketplace add https://github.com/udecode/dotai
-/plugin install dotai notification codex debug test learn git dig compound-engineering
+/plugin install dotai notification debug test learn dig git
 ```
 
 Claude Plugins Official:
@@ -135,13 +135,13 @@ beforeComplete:
 
 ### Workflow Commands
 
-| Command | Description |
-|---------|-------------|
+| Command                 | Description                          |
+| ----------------------- | ------------------------------------ |
 | `/workflows:brainstorm` | Explore requirements before planning |
-| `/workflows:plan` | Create implementation plans |
-| `/workflows:review` | Run comprehensive code reviews |
-| `/workflows:work` | Execute work items systematically |
-| `/workflows:compound` | Document solved problems |
+| `/workflows:plan`       | Create implementation plans          |
+| `/workflows:review`     | Run comprehensive code reviews       |
+| `/workflows:work`       | Execute work items systematically    |
+| `/workflows:compound`   | Document solved problems             |
 
 ### Agents (27)
 
