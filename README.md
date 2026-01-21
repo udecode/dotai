@@ -131,17 +131,16 @@ beforeComplete:
 
 ## Compound Engineering
 
-27 agents, 20 commands, 14 skills, 1 MCP server.
-
 ### Workflow Commands
 
-| Command                 | Description                          |
-| ----------------------- | ------------------------------------ |
-| `/workflows:brainstorm` | Explore requirements before planning |
-| `/workflows:plan`       | Create implementation plans          |
-| `/workflows:review`     | Run comprehensive code reviews       |
-| `/workflows:work`       | Execute work items systematically    |
-| `/workflows:compound`   | Document solved problems             |
+| Command                 | Description                                                            |
+| ----------------------- | ---------------------------------------------------------------------- |
+| `/workflows:lfg`        | Full autonomous workflow (plan → work → review → test browser → video) |
+| `/workflows:brainstorm` | Explore requirements before planning                                   |
+| `/workflows:plan`       | Create implementation plans                                            |
+| `/workflows:review`     | Run comprehensive code reviews                                         |
+| `/workflows:work`       | Execute work items systematically                                      |
+| `/workflows:compound`   | Document solved problems                                               |
 
 ### Agents (27)
 
