@@ -44,54 +44,11 @@ Comprehensive PR review capabilities:
 # restart claude
 ```
 
-## Commands
-
-### /git:create-pr
-
-Create or update PR with comprehensive descriptions and meaningful commits.
-
-```bash
-/git:create-pr
-```
-
-Features:
-- Comprehensive PR descriptions
-- Conventional commit messages
-- Update comments preserve original context
-- Branch management and staging
-
-### /git:draft-pr
-
-Create or update draft PR without code review for work-in-progress.
-
-```bash
-/git:draft-pr
-```
-
-Features:
-- Quick draft creation
-- No automatic reviews
-- Progressive updates
-- Mark ready when complete
-
-### /git:review-pr
-
-Review pull request with comprehensive code analysis and constructive feedback.
-
-```bash
-/git:review-pr
-```
-
-Features:
-- Full or incremental review options
-- Severity-based issue classification
-- Constructive feedback with examples
-- GitHub review actions (approve/request changes)
-- Structured review templates
-
 ## Skills
 
-### Creating PR
+### create-pr
+
+Create or update PR with comprehensive descriptions and meaningful commits.
 
 **When to use:** Creating or updating pull requests with comprehensive descriptions
 
@@ -103,7 +60,9 @@ Features:
 - Update comment templates
 - PR description generation
 
-### Drafting PR
+### draft-pr
+
+Create or update draft PR without code review for work-in-progress.
 
 **When to use:** Creating work-in-progress PRs without review
 
@@ -115,7 +74,9 @@ Features:
 - No automatic reviews
 - Ready for review workflow
 
-### Reviewing PR
+### review-pr
+
+Review pull request with comprehensive code analysis and constructive feedback.
 
 **When to use:** Reviewing pull requests with comprehensive code analysis
 
@@ -135,7 +96,7 @@ Features:
 ```bash
 # 1. Make changes on feature branch
 # 2. Use command
-/git:create-pr
+create-pr
 # 3. Automatically:
 #    - Stages all changes
 #    - Creates meaningful commit
@@ -148,7 +109,7 @@ Features:
 ```bash
 # 1. Identify PR to review
 # 2. Use command
-/git:review-pr
+review-pr
 # 3. Choose review type:
 #    - Full review of entire PR
 #    - Incremental review of latest changes
@@ -163,7 +124,7 @@ Features:
 ```bash
 # 1. Make WIP changes
 # 2. Use command
-/git:draft-pr
+draft-pr
 # 3. Automatically:
 #    - Stages changes
 #    - Commits with conventional message
@@ -176,7 +137,7 @@ Features:
 ```bash
 # 1. Make additional changes
 # 2. Use same command
-/git:create-pr  # or /git:draft-pr
+create-pr  # or draft-pr
 # 3. Automatically:
 #    - Commits new changes
 #    - Pushes to existing PR
@@ -262,21 +223,17 @@ Works seamlessly with other dotai plugins:
 - **dotai** - Use after implementing features
 - **debug** - Fix issues before creating PRs
 - **test** - Ensure tests pass before PR
-- **plan** - Plan implementation before PR
 
 ## Common Workflows
 
 ### Feature Development
 
 ```bash
-# 1. Plan feature
-/plan:brainstorm
-
-# 2. Implement
+# 1. Implement feature
 # ... make changes ...
 
-# 3. Create PR
-/git:create-pr
+# 2. Create PR
+create-pr
 ```
 
 ### Bug Fix
@@ -289,24 +246,24 @@ Works seamlessly with other dotai plugins:
 # ... apply fix ...
 
 # 3. Create PR
-/git:create-pr
+create-pr
 ```
 
 ### Progressive Development
 
 ```bash
 # 1. Start with draft
-/git:draft-pr
+draft-pr
 
 # 2. Keep updating
 # ... make changes ...
-/git:draft-pr  # adds update
+draft-pr  # adds update
 
 # 3. Mark ready
 gh pr ready
 
 # 4. Request review
-/git:review-pr
+review-pr
 ```
 
 ### Code Review Workflow
@@ -316,11 +273,11 @@ gh pr ready
 gh pr list
 
 # 2. Review the PR
-/git:review-pr
+review-pr
 
 # 3. Follow up on changes
 # ... after author updates ...
-/git:review-pr  # incremental review
+review-pr  # incremental review
 ```
 
 ## Troubleshooting

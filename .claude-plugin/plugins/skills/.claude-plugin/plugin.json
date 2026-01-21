@@ -1,9 +1,0 @@
-{
-  "name": "skills",
-  "version": "0.1.0",
-  "description": "Meta-skills for finding, using, and writing Agent Skills - enforces skill usage protocols and provides skill authoring guidance",
-  "author": {
-    "name": "zbeyens"
-  },
-  "keywords": ["skills", "meta", "protocols", "authoring", "workflows"]
-}

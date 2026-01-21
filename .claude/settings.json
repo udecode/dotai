@@ -15,12 +15,11 @@
     "dotai@dotai": true,
     "notification@dotai": true,
     "codex@dotai": true,
-    "plan@dotai": true,
-    "agents@dotai": true,
     "debug@dotai": true,
     "test@dotai": true,
-    "skills@dotai": true,
-    "git@dotai": true
+    "learn@dotai": true,
+    "git@dotai": true,
+    "dig@dotai": true
   },
   "hooks": {
     "UserPromptSubmit": [

@@ -4,10 +4,8 @@
   "description": "Context manager for all agents.",
   "license": "MIT",
   "scripts": {
-    "postinstall": "bunx --bun skiller@latest apply",
     "typecheck": "tsc --noEmit",
-    "build": "bunx --bun shadcn@latest build registry/registry.json --output ./registry",
-    "test": "bunx --bun shadcn@latest add ./registry/flashback.json"
+    "build": "bunx --bun shadcn@latest build registry/registry.json --output ./registry"
   },
   "devDependencies": {
     "@types/node": "^24.7.1",

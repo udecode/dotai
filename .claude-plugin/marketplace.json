@@ -30,16 +30,6 @@
       "description": "MCP servers for Codex integration"
     },
     {
-      "name": "plan",
-      "source": "./.claude-plugin/plugins/plan",
-      "description": "Planning and brainstorming workflows for software development - helps refine ideas into designs and create detailed implementation plans"
-    },
-    {
-      "name": "agents",
-      "source": "./.claude-plugin/plugins/agents",
-      "description": "Agent orchestration patterns for parallel debugging and investigation - dispatch multiple Claude agents to solve independent problems concurrently"
-    },
-    {
       "name": "debug",
       "source": "./.claude-plugin/plugins/debug",
       "description": "Systematic debugging and root cause analysis framework - four-phase investigation process ensuring understanding before fixes"
@@ -50,9 +40,9 @@
       "description": "Test-driven development workflow for writing tests before implementation - red-green-refactor cycle with deterministic unit tests"
     },
     {
-      "name": "skills",
-      "source": "./.claude-plugin/plugins/skills",
-      "description": "Meta-skills for finding, using, and writing Agent Skills - enforces skill usage protocols and provides skill authoring guidance"
+      "name": "learn",
+      "source": "./.claude-plugin/plugins/learn",
+      "description": "Continuous learning system - extracts reusable knowledge from work sessions into Claude Code skills"
     },
     {
       "name": "git",
@@ -60,9 +50,9 @@
       "description": "Git and GitHub workflow automation - streamlined PR creation, draft management, and code review workflows"
     },
     {
-      "name": "gh-docs",
-      "source": "./.claude-plugin/plugins/gh-docs",
-      "description": "GitHub library docs lookup - clone and explore source code to answer API questions"
+      "name": "dig",
+      "source": "./.claude-plugin/plugins/dig",
+      "description": "Dig into library source code - clone and explore repos to answer API questions"
     }
   ]
 }

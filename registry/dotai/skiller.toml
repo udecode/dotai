@@ -1,5 +1,5 @@
 # Default agents to apply when --agents flag is not specified
-default_agents = ["claude", "cursor", "codex"]
+default_agents = ["claude"]
 
 # --- Fork Configuration ---
 
@@ -14,6 +14,7 @@ enabled = false
 [skills]
 enabled = true
 generate_from_rules = true
+prune = true
 
 # Automatic .gitignore management
 [gitignore]
@@ -31,18 +32,12 @@ merge_strategy = "merge"
 enabled = true
 output_path = "CLAUDE.md"
 
-# Cursor (secondary agent)
 [agents.cursor]
-enabled = true
-# Uses AGENTS.md by default
+enabled = false
 
-# OpenAI Codex CLI
 [agents.codex]
-enabled = true
-output_path_config = ".codex/config.toml"
-# Uses AGENTS.md by default
+enabled = false
 
-# Disable other agents
 [agents.copilot]
 enabled = false
 

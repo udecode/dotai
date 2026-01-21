@@ -1,12 +1,12 @@
 {
   "$schema": "https://ui.shadcn.com/schema/registry-item.json",
   "name": "all",
-  "type": "registry:item",
   "title": "Complete Project Setup",
   "description": "Install all dotai plugins",
   "registryDependencies": [
     "https://raw.githubusercontent.com/udecode/dotai/main/registry/dotai.json",
-    "https://raw.githubusercontent.com/udecode/dotai/main/registry/prompt.json"
+    "https://raw.githubusercontent.com/udecode/dotai/main/registry/prompt.yml"
   ],
-  "files": []
+  "files": [],
+  "type": "registry:item"
 }

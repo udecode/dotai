@@ -112,24 +112,6 @@ Enter "Documentation Mode" to generate comprehensive feature documentation with 
 /create-doc authentication feature
 ```
 
-#### `/update-project-structure`
-
-Update project structure documentation by running the tree script.
-
-```
-/update-project-structure
-```
-
-### Error Fixing Commands
-
-#### `/fix`
-
-Quickly fix errors visible in bash output.
-
-```
-/fix
-```
-
 ### Git & PR Commands
 
 #### `/pr`
@@ -166,30 +148,6 @@ Implementation planning prompt - align on approach before coding.
 
 **Critical:** Waits for approval before implementation
 
-#### `/watch`
-
-Quick command to start log monitoring.
-
-```
-/watch
-```
-
-**Runs:** `pnpm app:log`, `pnpm backend:log`, `pnpm typecheck:watch`
-
-### Model Commands
-
-#### `/opus`
-
-Run a task with the Opus model for complex reasoning and planning.
-
-```
-/opus <prompt>
-```
-
-**Usage:** `/opus "Design a scalable authentication system"`
-
-**Best for:** Architecture decisions, complex problem-solving, strategic planning
-
 ## Documentation Workflow
 
 ```bash
@@ -214,15 +172,6 @@ Run a task with the Opus model for complex reasoning and planning.
 ## Troubleshooting
 
 **Commands Not Appearing:** Restart Claude Code, verify with `/help`
-
-## Development Workflow
-
-### Typical Flow
-
-1. **Start session:** `/c`
-2. **Plan work:** `/how`
-3. **Fix errors:** `/fix`
-4. **Create PR:** `/pr`
 
 ## Version History
 

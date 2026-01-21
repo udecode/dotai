@@ -1,13 +1,12 @@
 {
   "$schema": "https://ui.shadcn.com/schema/registry-item.json",
   "name": "dotai",
-  "type": "registry:item",
   "title": "Project Initialization",
   "description": "Initialize project with Claude Code settings and skiller",
   "files": [
     {
       "path": "registry/dotai/settings.json",
-      "content": "{\n  \"permissions\": {\n    \"allow\": [\"Bash\", \"Edit\", \"Skill(dotai:*)\"]\n  },\n  \"enableAllProjectMcpServers\": true,\n  \"extraKnownMarketplaces\": {\n    \"dotai\": {\n      \"source\": {\n        \"source\": \"github\",\n        \"repo\": \"udecode/dotai\"\n      }\n    }\n  },\n  \"enabledPlugins\": {\n    \"dotai@dotai\": true,\n    \"notification@dotai\": true,\n    \"media@dotai\": false,\n    \"codex@dotai\": true,\n    \"plan@dotai\": true,\n    \"agents@dotai\": true,\n    \"debug@dotai\": true,\n    \"test@dotai\": true,\n    \"skills@dotai\": true,\n    \"git@dotai\": true\n  },\n  \"hooks\": {\n    \"UserPromptSubmit\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"if [ -f \\\".claude/scripts/user-prompt-submit.sh\\\" ]; then .claude/scripts/user-prompt-submit.sh; fi\"\n          }\n        ]\n      }\n    ],\n    \"SessionStart\": [\n      {\n        \"matcher\": \"startup|clear|compact\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"if [ -f \\\".claude/scripts/session-start.sh\\\" ]; then .claude/scripts/session-start.sh; fi\"\n          }\n        ]\n      },\n      {\n        \"matcher\": \"compact\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"if [ -f \\\".claude/scripts/post-compact.sh\\\" ]; then .claude/scripts/post-compact.sh; fi\"\n          }\n        ]\n      }\n    ]\n  }\n}\n",
+      "content": "{\n  \"permissions\": {\n    \"allow\": [\"Bash\", \"Edit\", \"Skill(dotai:*)\"]\n  },\n  \"enableAllProjectMcpServers\": true,\n  \"extraKnownMarketplaces\": {\n    \"dotai\": {\n      \"source\": {\n        \"source\": \"github\",\n        \"repo\": \"udecode/dotai\"\n      }\n    },\n    \"every-marketplace\": {\n      \"source\": {\n        \"source\": \"github\",\n        \"repo\": \"EveryInc/compound-engineering-plugin\"\n      }\n    }\n  },\n  \"enabledPlugins\": {\n    \"codex@dotai\": true,\n    \"debug@dotai\": true,\n    \"dig@dotai\": true,\n    \"dotai@dotai\": true,\n    \"git@dotai\": true,\n    \"learn@dotai\": true,\n    \"notification@dotai\": true,\n    \"test@dotai\": true,\n    \"frontend-design@claude-plugins-official\": true,\n    \"ralph-loop@claude-plugins-official\": true,\n    \"compound-engineering@every-marketplace\": true\n  },\n  \"hooks\": {\n    \"UserPromptSubmit\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"if [ -f \\\".claude/scripts/user-prompt-submit.sh\\\" ]; then .claude/scripts/user-prompt-submit.sh; fi\"\n          }\n        ]\n      }\n    ],\n    \"SessionStart\": [\n      {\n        \"matcher\": \"startup|clear|compact\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"if [ -f \\\".claude/scripts/session-start.sh\\\" ]; then .claude/scripts/session-start.sh; fi\"\n          }\n        ]\n      },\n      {\n        \"matcher\": \"compact\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"if [ -f \\\".claude/scripts/post-compact.sh\\\" ]; then .claude/scripts/post-compact.sh; fi\"\n          }\n        ]\n      }\n    ]\n  }\n}\n",
       "type": "registry:file",
       "target": "~/.claude/settings.json"
     },
@@ -16,12 +15,6 @@
       "content": "{\n  \"env\": {\n    \"CLAUDE_MEDIA_DISABLED\": \"false\",\n    \"CLAUDE_MEDIA_AUTO_START\": \"true\",\n    \"CLAUDE_MEDIA_AUTO_PAUSE\": \"true\"\n  }\n}\n",
       "type": "registry:file",
       "target": "~/.claude/settings.local.json"
-    },
-    {
-      "path": "registry/dotai/commands/watch.md",
-      "content": "To watch logs/errors, run `pnpm app:log` (Frontend), `pnpm backend:log` (Backend), then `pnpm typecheck:watch` (tsc).\n",
-      "type": "registry:file",
-      "target": "~/.claude/commands/watch.md"
     },
     {
       "path": "registry/dotai/docs/1-app-design-document.mdc",
@@ -43,7 +36,7 @@
     },
     {
       "path": "registry/dotai/skiller.toml",
-      "content": "# Default agents to apply when --agents flag is not specified\ndefault_agents = [\"claude\", \"cursor\", \"codex\"]\n\n# --- Fork Configuration ---\n\n[rules]\nmerge_strategy = \"cursor\"\n\n[backup]\nenabled = false\n\n# --- Global Configuration ---\n\n[skills]\nenabled = true\ngenerate_from_rules = true\n\n# Automatic .gitignore management\n[gitignore]\nenabled = true\n\n# MCP (Model Context Protocol) server configuration\n[mcp]\nenabled = true\nmerge_strategy = \"merge\"\n\n# --- Agent-Specific Configuration ---\n\n# Claude Code (primary agent)\n[agents.claude]\nenabled = true\noutput_path = \"CLAUDE.md\"\n\n# Cursor (secondary agent)\n[agents.cursor]\nenabled = true\n# Uses AGENTS.md by default\n\n# OpenAI Codex CLI\n[agents.codex]\nenabled = true\noutput_path_config = \".codex/config.toml\"\n# Uses AGENTS.md by default\n\n# Disable other agents\n[agents.copilot]\nenabled = false\n\n[agents.aider]\nenabled = false\n\n[agents.windsurf]\nenabled = false\n\n[agents.cline]\nenabled = false\n\n[agents.crush]\nenabled = false\n\n[agents.amp]\nenabled = false\n\n[agents.amazonqcli]\nenabled = false\n\n[agents.firebase]\nenabled = false\n\n[agents.gemini-cli]\nenabled = false\n\n[agents.jules]\nenabled = false\n\n[agents.junie]\nenabled = false\n\n[agents.kilocode]\nenabled = false\n\n[agents.opencode]\nenabled = false\n\n[agents.openhands]\nenabled = false\n\n[agents.goose]\nenabled = false\n\n[agents.qwen]\nenabled = false\n\n[agents.roo]\nenabled = false\n\n[agents.zed]\nenabled = false\n\n[agents.trae]\nenabled = false\n\n[agents.warp]\nenabled = false\n\n[agents.kiro]\nenabled = false\n\n[agents.firebender]\nenabled = false\n\n[agents.augmentcode]\nenabled = false\n",
+      "content": "# Default agents to apply when --agents flag is not specified\ndefault_agents = [\"claude\"]\n\n# --- Fork Configuration ---\n\n[rules]\nmerge_strategy = \"cursor\"\n\n[backup]\nenabled = false\n\n# --- Global Configuration ---\n\n[skills]\nenabled = true\ngenerate_from_rules = true\nprune = true\n\n# Automatic .gitignore management\n[gitignore]\nenabled = true\n\n# MCP (Model Context Protocol) server configuration\n[mcp]\nenabled = true\nmerge_strategy = \"merge\"\n\n# --- Agent-Specific Configuration ---\n\n# Claude Code (primary agent)\n[agents.claude]\nenabled = true\noutput_path = \"CLAUDE.md\"\n\n[agents.cursor]\nenabled = false\n\n[agents.codex]\nenabled = false\n\n[agents.copilot]\nenabled = false\n\n[agents.aider]\nenabled = false\n\n[agents.windsurf]\nenabled = false\n\n[agents.cline]\nenabled = false\n\n[agents.crush]\nenabled = false\n\n[agents.amp]\nenabled = false\n\n[agents.amazonqcli]\nenabled = false\n\n[agents.firebase]\nenabled = false\n\n[agents.gemini-cli]\nenabled = false\n\n[agents.jules]\nenabled = false\n\n[agents.junie]\nenabled = false\n\n[agents.kilocode]\nenabled = false\n\n[agents.opencode]\nenabled = false\n\n[agents.openhands]\nenabled = false\n\n[agents.goose]\nenabled = false\n\n[agents.qwen]\nenabled = false\n\n[agents.roo]\nenabled = false\n\n[agents.zed]\nenabled = false\n\n[agents.trae]\nenabled = false\n\n[agents.warp]\nenabled = false\n\n[agents.kiro]\nenabled = false\n\n[agents.firebender]\nenabled = false\n\n[agents.augmentcode]\nenabled = false\n",
       "type": "registry:file",
       "target": "~/.claude/skiller.toml"
     },
@@ -53,5 +46,6 @@
       "type": "registry:file",
       "target": "~/.claude/AGENTS.md"
     }
-  ]
+  ],
+  "type": "registry:item"
 }

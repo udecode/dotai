@@ -15,16 +15,6 @@
           "target": "~/.claude/settings.json"
         },
         {
-          "path": "registry/dotai/settings.local.json",
-          "type": "registry:file",
-          "target": "~/.claude/settings.local.json"
-        },
-        {
-          "path": "registry/dotai/commands/watch.md",
-          "type": "registry:file",
-          "target": "~/.claude/commands/watch.md"
-        },
-        {
           "path": "registry/dotai/docs/1-app-design-document.mdc",
           "type": "registry:file",
           "target": "~/.claude/rules/1-app-design-document.mdc"
@@ -58,7 +48,7 @@
       "description": "Install all dotai plugins",
       "registryDependencies": [
         "https://raw.githubusercontent.com/udecode/dotai/main/registry/dotai.json",
-        "https://raw.githubusercontent.com/udecode/dotai/main/registry/prompt.json"
+        "https://raw.githubusercontent.com/udecode/dotai/main/registry/prompt.yml"
       ],
       "files": []
     },
@@ -69,9 +59,9 @@
       "description": "Dynamic prompt checklists for before-start and before-complete workflows",
       "files": [
         {
-          "path": "registry/prompt/config/prompt.json",
+          "path": "registry/prompt/config/prompt.yml",
           "type": "registry:file",
-          "target": "~/.claude/prompt.json"
+          "target": "~/.claude/prompt.yml"
         },
         {
           "path": "registry/prompt/scripts/user-prompt-submit.sh",

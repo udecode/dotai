@@ -1,402 +1,163 @@
-```
-██████╗  ██████╗ ████████╗ █████╗ ██╗
-██╔══██╗██╔═══██╗╚══██╔══╝██╔══██╗██║
-██║  ██║██║   ██║   ██║   ███████║██║
-██║  ██║██║   ██║   ██║   ██╔══██║██║
-██████╔╝╚██████╔╝   ██║   ██║  ██║██║
-╚═════╝  ╚═════╝    ╚═╝   ╚═╝  ╚═╝╚═╝
-```
+# dotai
 
-## Agent Instructions
+## Install
 
-Uses [skiller](https://github.com/udecode/skiller) to apply the same rules to all coding agents. Instructions and skills in `.claude/rules/`. `npx skiller@latest apply` generates `CLAUDE.md`/`AGENTS.md`, Skills and MCP configurations.
-
-## Quick Start
-
-### Fastest Setup
+### New `.claude/settings.json` file
 
 ```bash
 npx shadcn@latest add https://raw.githubusercontent.com/udecode/dotai/main/registry/all.json
 ```
 
-Then, restart `claude`.
+### Existing `.claude/settings.json` file
 
-This installs all project files and configures Claude Code to auto-install the marketplace and plugins.
-
-### Manual Setup
-
-Add marketplace and plugins (interactive):
+Dotai:
 
 ```bash
-/plugin marketplace add udecode/dotai
+/plugin marketplace add https://github.com/udecode/dotai
+/plugin install dotai notification codex debug test learn git dig compound-engineering
 ```
 
-Restart Claude Code, then install all plugin files:
+Claude Plugins Official:
 
 ```bash
-/dotai:install-all
+/plugin install ralph-loop@@claude-plugins-official
+/plugin install frontend-design@@claude-plugins-official
 ```
 
-## Available Plugins
-
-### 🛠️ dotai
-
-Complete development toolkit - documentation, PRDs, debugging, PR workflows, and planning.
-
-**Installation:**
+Compound Engineering:
 
 ```bash
-/plugin install dotai@dotai
-# restart claude
-/dotai:install
+/plugin marketplace add https://github.com/kieranklaassen/compound-engineering-plugin
+/plugin install compound-engineering
 ```
 
-**Features:**
+## Components
 
-- **Documentation** - Generate and maintain app design and tech stack docs
-- **PR Management** - Full PR creation with reviews and draft mode
-- **Planning** - Implementation planning and log monitoring
+| Component | Count |
+| --------- | ----- |
+| Plugins   | 9     |
+| Commands  | 5     |
+| Skills    | 8     |
 
-**Key Commands:**
+## Plugins
 
-```bash
-/dotai:create-app-design       # Generate design documentation
-/dotai:opus <prompt>           # Run task with Opus model
-```
+| Plugin         | Description                               |
+| -------------- | ----------------------------------------- |
+| `dotai`        | Development toolkit - docs, PRs, planning |
+| `debug`        | Four-phase debugging framework            |
+| `test`         | TDD workflow - red-green-refactor         |
+| `git`          | PR creation, drafts, reviews              |
+| `learn`        | Extract knowledge into skills             |
+| `dig`          | Clone and explore library source          |
+| `notification` | macOS notifications                       |
+| `media`        | Auto-play/pause media                     |
+| `codex`        | MCP servers for Codex                     |
 
-[Full Plugin Documentation →](./.claude-plugin/plugins/dotai/README.md)
+## Commands
 
-### 🎓 skills
+### Documentation
 
-Meta-skills for finding, using, and writing Agent Skills - enforces skill usage protocols and provides skill authoring guidance.
+| Command                    | Description                       |
+| -------------------------- | --------------------------------- |
+| `/dotai:create-app-design` | Generate app design documentation |
+| `/dotai:update-app-design` | Update existing app design docs   |
+| `/dotai:create-tech-stack` | Generate tech stack documentation |
+| `/dotai:update-tech-stack` | Update existing tech stack docs   |
+| `/dotai:install`           | Install plugin files              |
 
-**Installation:**
+## Skills
 
-```bash
-/plugin install skills@dotai
-# restart claude
-```
+Skills are auto-invoked based on context.
 
-**Features:**
+### Debugging
 
-- **Using Skills** - Mandatory protocols for skill discovery and usage
-- **Writing Skills** - TDD approach to skill authoring
-- **No Rationalization** - Prevents common excuses for skipping skills
+| Skill   | Plugin | Description                                                             |
+| ------- | ------ | ----------------------------------------------------------------------- |
+| `debug` | debug  | Four-phase debugging process (investigate → analyze → test → implement) |
+| `trace` | debug  | Trace backward through call stack to find root cause                    |
 
-**Key Command:**
+### Testing
 
-```bash
-/skills:skills   # Enforce skill usage protocols
-```
+| Skill | Plugin | Description                                                       |
+| ----- | ------ | ----------------------------------------------------------------- |
+| `tdd` | test   | Test-driven development - write test first, watch fail, make pass |
 
-**Skills (auto-invoked):**
+### Git & PRs
 
-- `using-skills` - Mandatory workflows for finding and using skills
+| Skill       | Plugin | Description                                              |
+| ----------- | ------ | -------------------------------------------------------- |
+| `create-pr` | git    | Create PR with comprehensive description and auto-review |
+| `draft-pr`  | git    | Create draft PR for work-in-progress                     |
+| `review-pr` | git    | Code review with severity ratings and feedback           |
 
-[Full Plugin Documentation →](./.claude-plugin/plugins/skills/README.md)
+### Learning
 
-### 📋 plan
+| Skill   | Plugin | Description                                          |
+| ------- | ------ | ---------------------------------------------------- |
+| `learn` | learn  | Extract reusable knowledge from sessions into skills |
 
-Planning and brainstorming workflows for software development - helps refine ideas into designs and create detailed implementation plans.
+### Research
 
-**Installation:**
+| Skill | Plugin | Description                                              |
+| ----- | ------ | -------------------------------------------------------- |
+| `dig` | dig    | Clone and explore library source to answer API questions |
 
-```bash
-/plugin install plan@dotai
-# restart claude
-```
+## Prompt System
 
-**Features:**
+Dynamic prompt injection via `.claude/prompt.yml`:
 
-- **Brainstorming** - Transform rough ideas into fully-formed designs
-- **Writing Plans** - Create comprehensive implementation plans with TDD approach
-- **Executing Plans** - Batch execution with review checkpoints
+| Hook             | Description                                   |
+| ---------------- | --------------------------------------------- |
+| `beforeStart`    | Checklist before Claude responds              |
+| `beforeComplete` | Verification items before claiming completion |
+| `afterCompact`   | Context recovery after compaction             |
 
-**Key Commands:**
-
-```bash
-/plan:brainstorm      # Interactive design refinement (Opus)
-/plan:write-plan     # Create implementation plan (Opus)
-/plan:execute-plan   # Execute plan with checkpoints
-```
-
-**Skills (auto-invoked):**
-
-- `brainstorming` - Refine ideas through collaborative questioning
-- `writing-plans` - Create detailed task breakdowns
-- `executing-plans` - Execute plans in controlled batches
-
-[Full Plugin Documentation →](./.claude-plugin/plugins/plan/README.md)
-
-### ✅ prompt
-
-Dynamic prompt injection system with before-start and before-complete checklists.
-
-**Installation:**
-
-The prompt system is automatically installed with the dotai registry (included in Quick Start setup). If you need to install it separately:
-
-```bash
-npx shadcn@latest add https://raw.githubusercontent.com/udecode/dotai/main/registry/prompt.json
-```
-
-This installs:
-
-- `.claude/prompt.yml` - Configuration file
-- `.claude/scripts/user-prompt-submit.sh` - Hook script for before-start/before-complete
-- `.claude/scripts/post-compact.sh` - Hook script for post-compact recovery
-- `.claude/scripts/session-start.sh` - Hook script for session start events
-
-The hooks are automatically configured in `.claude/settings.json` when you install the dotai registry.
-
-**Features:**
-
-- **Before-Start Checklists** - Enforce reminders before Claude responds
-- **Before-Complete Checklists** - Verification items before claiming completion
-- **Post-Compact Recovery** - Restore context after compaction with afterCompact instructions
-- **Session Start** - Load skills at session start (startup, resume, clear, compact)
-- **Project-Specific** - Configure different prompts per project
-
-**Configuration:**
-
-Edit `.claude/prompt.yml`:
+**Example configuration:**
 
 ```yaml
 beforeStart:
-  - tag: MANDATORY-FIRST-RESPONSE
-    header: 🚨 STOP - FIRST TOOL CALL MUST BE TodoWrite
-    instructions:
-      - DO NOT analyze. DO NOT read files. DO NOT edit.
-      - "FIRST ACTION: TodoWrite with todo below as in_progress"
-      - Condition NO → mark completed → proceed
+  - tag: SKILL-ANALYSIS
+    header: 🎯 Skill Check
     todos:
-      - |
-        Skill analysis (SKIP if 'quick' in message):
-        (1) List ALL available skills
-        (2) For EACH: YES/MIGHT/MAYBE = ✓
-        (3) Skill(...) for ALL ✓ IN ONE PARALLEL CALL
+      - "List available skills, invoke applicable ones"
 
 beforeComplete:
-  - tag: VERIFICATION-CHECKLIST
-    header: 🔒 VERIFICATION REQUIRED
-    instructions:
-      - TodoWrite with ALL todos below
-      - Condition NO → mark completed and skip
+  - tag: VERIFICATION
+    header: 🔒 Verify
     todos:
-      - "Typecheck (IF updated .ts files): Bash `bun typecheck`"
-      - "Lint: Bash `bun lint:fix`"
-
-afterCompact:
-  - tag: POST-COMPACT-RECOVERY
-    header: 🚨 CONTEXT WIPED - MANDATORY SKILL RELOAD
-    instructions:
-      - Context compaction DELETED all skills
-      - DO NOT proceed until skill reload complete
-    todos:
-      - |
-        Skill reload (MANDATORY):
-        (1) List ALL available skills
-        (2) Skill(...) for ALL applicable
+      - "Typecheck: bun typecheck"
+      - "Lint: bun lint:fix"
 ```
 
-**Structure:**
+## Compound Engineering
 
-- `tag` - Section identifier
-- `header` - Bold header shown at top of section
-- `instructions` - Operation guidelines (bulleted list)
-- `todos` - TodoWrite checklist items with conditional execution
-- `afterCompact` - Instructions after context compaction
+27 agents, 20 commands, 14 skills, 1 MCP server.
 
-### 🚀 agents
+### Workflow Commands
 
-Agent orchestration patterns for parallel debugging and investigation - dispatch multiple Claude agents to solve independent problems concurrently.
+| Command | Description |
+|---------|-------------|
+| `/workflows:brainstorm` | Explore requirements before planning |
+| `/workflows:plan` | Create implementation plans |
+| `/workflows:review` | Run comprehensive code reviews |
+| `/workflows:work` | Execute work items systematically |
+| `/workflows:compound` | Document solved problems |
 
-**Installation:**
+### Agents (27)
 
-```bash
-/plugin install agents@dotai
-# restart claude
-```
+- **Review (14)**: agent-native-reviewer, architecture-strategist, code-simplicity-reviewer, data-integrity-guardian, deployment-verification-agent, dhh-rails-reviewer, kieran-rails-reviewer, kieran-python-reviewer, kieran-typescript-reviewer, pattern-recognition-specialist, performance-oracle, security-sentinel, julik-frontend-races-reviewer, data-migration-expert
+- **Research (4)**: best-practices-researcher, framework-docs-researcher, git-history-analyzer, repo-research-analyst
+- **Design (3)**: design-implementation-reviewer, design-iterator, figma-design-sync
+- **Workflow (5)**: bug-reproduction-validator, every-style-editor, lint, pr-comment-resolver, spec-flow-analyzer
+- **Docs (1)**: ankane-readme-writer
 
-**Features:**
+### Skills (14)
 
-- **Parallel Dispatch** - Multiple agents work concurrently on independent problems
-- **Focused Scope** - Each agent has narrow domain to investigate
-- **Speed** - Solve multiple problems in time of one
+agent-native-architecture, andrew-kane-gem-writer, compound-docs, create-agent-skills, dhh-rails-style, dspy-ruby, frontend-design, skill-creator, every-style-editor, file-todos, git-worktree, rclone, agent-browser, gemini-imagegen
 
-**Key Command:**
+### MCP Server
 
-```bash
-/agents:parallel   # Dispatch agents for parallel investigation
-```
-
-**Skills (auto-invoked):**
-
-- `dispatching-parallel-agents` - Orchestrate multiple agents for concurrent problem-solving
-
-[Full Plugin Documentation →](./.claude-plugin/plugins/agents/README.md)
-
-### 🔍 debug
-
-Systematic debugging and root cause analysis framework - four-phase investigation process ensuring understanding before fixes.
-
-**Installation:**
-
-```bash
-/plugin install debug@dotai
-# restart claude
-```
-
-**Features:**
-
-- **Systematic Debugging** - Four-phase framework (investigate, analyze, test, implement)
-- **Root Cause Tracing** - Trace bugs backward through call stack
-- **Defense-in-Depth** - Add validation at multiple layers
-
-**Key Command:**
-
-```bash
-/debug:debug   # Invoke systematic debugging framework
-```
-
-**Skills (auto-invoked):**
-
-- `systematic-debugging` - Four-phase debugging process
-- `root-cause-tracing` - Trace backward to find original trigger
-
-[Full Plugin Documentation →](./.claude-plugin/plugins/debug/README.md)
-
-### 🧪 test
-
-Test-driven development workflow for writing tests before implementation - red-green-refactor cycle with deterministic unit tests.
-
-**Installation:**
-
-```bash
-/plugin install test@dotai
-# restart claude
-```
-
-**Features:**
-
-- **Red-Green-Refactor** - Classic TDD workflow
-- **Smart Test Strategy** - Auto-decide when to test based on complexity
-- **Deterministic Tests** - Only unit tests, no complex mocking
-
-**Key Command:**
-
-```bash
-/test:tdd   # Test-driven development workflow
-```
-
-**Skills (auto-invoked):**
-
-- `test-driven-development` - Write test first, watch it fail, make it pass
-
-[Full Plugin Documentation →](./.claude-plugin/plugins/test/README.md)
-
-### 🔀 git
-
-Git and GitHub workflow automation - streamlined PR creation, draft management, and code review workflows.
-
-**Installation:**
-
-```bash
-/plugin install git@dotai
-# restart claude
-```
-
-**Features:**
-
-- **Pull Request Creation** - Full PR workflow with automatic incremental reviews
-- **Draft PR Management** - Efficient draft workflow without reviews
-- **Smart Commits** - Conventional commit messages and branch naming
-
-**Key Commands:**
-
-```bash
-/git:create-pr   # Create PR with automatic code review
-/git:draft-pr    # Create draft PR for work-in-progress
-```
-
-**Skills (auto-invoked):**
-
-- `creating-pr` - PR creation with automatic incremental reviews
-- `drafting-pr` - Draft PR management without reviews
-
-[Full Plugin Documentation →](./.claude-plugin/plugins/git/README.md)
-
-### 🔔 notification
-
-macOS notifications for Claude Code events.
-
-**Installation:**
-
-```bash
-/plugin install notification@dotai
-# restart claude
-```
-
-**Features:**
-
-- Get notified when Claude finishes responding
-- Ping on compact events
-
-[Full Plugin Documentation →](./.claude-plugin/plugins/notification/README.md)
-
-### 🎵 media
-
-Auto-play/pause media on prompt submit/stop.
-
-**Installation:**
-
-```bash
-brew install media-control  # Required
-/plugin install media@dotai
-# restart claude
-```
-
-**Features:**
-
-- Auto-play media when submitting prompts
-- Auto-pause media when stopping responses
-- Works with Spotify, Apple Music, YouTube, etc.
-
-[Full Plugin Documentation →](./.claude-plugin/plugins/media/README.md)
-
-## Workflows
-
-### 1. Initial Setup
-
-After Quick Start, create foundational docs:
-
-```bash
-# Create foundational docs
-/dotai:create-app-design
-/dotai:create-tech-stack
-```
-
-### 2. Daily Workflow
-
-```bash
-# Plan feature implementation with Opus
-/plan:brainstorm      # Refine ideas into designs
-/plan:write-plan      # Create implementation plan
-
-/clear
-
-# Start monitoring logs/errors
-/watch
-
-# Execute plan with checkpoints with Sonnet
-/plan:execute-plan
-
-# Work on features...
-# Skills auto-load based on task context
-
-# Create PR
-/git:create-pr
-```
+context7 - Framework documentation lookup (Rails, React, Next.js, Vue, Django, Laravel, etc.)
 
 ## Development
 

@@ -1,9 +1,0 @@
-{
-  "name": "agents",
-  "version": "0.1.0",
-  "description": "Agent orchestration patterns for parallel debugging and investigation - dispatch multiple Claude agents to solve independent problems concurrently",
-  "author": {
-    "name": "zbeyens"
-  },
-  "keywords": ["agents", "parallel", "debugging", "orchestration", "dispatch"]
-}

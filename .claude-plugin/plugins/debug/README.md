@@ -33,21 +33,9 @@ Trace bugs backward through call stack to find original trigger:
 # restart claude
 ```
 
-## Commands
-
-### /debug:debug
-
-Invoke systematic four-phase debugging framework.
-
-```bash
-/debug:debug
-```
-
-Enforces disciplined investigation before fixes.
-
 ## Skills
 
-### Systematic Debugging
+### debug
 
 **When to use:** Any bug, test failure, or unexpected behavior
 
@@ -61,7 +49,7 @@ Enforces disciplined investigation before fixes.
 
 **Iron Law:** NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 
-### Root Cause Tracing
+### trace
 
 **When to use:** Errors occur deep in execution, need to trace back to trigger
 
@@ -116,9 +104,8 @@ From debugging sessions:
 
 Works seamlessly with other dotai plugins:
 
-- **agents** - Dispatch parallel agents after root cause identified
-- **plan** - Use systematic debugging in implementation plans
 - **test** - Write appropriate tests based on complexity
+- **git** - Integrate with PR workflows
 
 ## Best Practices
 

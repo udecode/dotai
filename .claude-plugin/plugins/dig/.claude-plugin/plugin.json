@@ -1,0 +1,9 @@
+{
+  "name": "dig",
+  "version": "0.1.0",
+  "description": "Dig into library source code - clone and explore repos to answer API questions",
+  "author": {
+    "name": "zbeyens"
+  },
+  "keywords": ["documentation", "library", "api", "source-code", "research"]
+}

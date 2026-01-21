@@ -1,9 +1,0 @@
-{
-  "name": "gh-docs",
-  "version": "0.1.0",
-  "description": "GitHub library docs lookup - clone and explore source code to answer API questions",
-  "author": {
-    "name": "zbeyens"
-  },
-  "keywords": ["documentation", "library", "api", "source-code", "research"]
-}

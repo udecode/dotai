@@ -372,11 +372,11 @@ To add Skills to your plugin, create a `skills/` directory at your plugin root a
 
 ```
 skills/
-├── brainstorming/
+├── debug/
 │   └── SKILL.md
-├── executing-plans/
+├── tdd/
 │   └── SKILL.md
-└── writing-plans/
+└── create-pr/
     ├── SKILL.md
     └── scripts/
         └── helper.py

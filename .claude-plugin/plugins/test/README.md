@@ -31,23 +31,12 @@ Automatic decision on when to test:
 # restart claude
 ```
 
-## Commands
-
-### /test:tdd
-
-Invoke test-driven development workflow.
-
-```bash
-/test:tdd
-```
-
-Enforces writing tests before implementation for complex logic.
-
 ## Skills
 
-### Test-Driven Development
+### tdd
 
 **When to use:**
+
 - User explicitly requests tests
 - Complex logic where bugs are likely
 - Business logic with edge cases
@@ -55,6 +44,7 @@ Enforces writing tests before implementation for complex logic.
 - Critical paths that could break silently
 
 **When NOT to use:**
+
 - ❌ UI components (React components, hooks)
 - ❌ Simple CRUD operations
 - ❌ Straightforward mappings
@@ -66,7 +56,7 @@ Enforces writing tests before implementation for complex logic.
 ### 1. Write Failing Test
 
 ```typescript
-test('calculates compound interest correctly', () => {
+test("calculates compound interest correctly", () => {
   const result = calculateCompoundInterest(1000, 0.05, 12, 2);
   expect(result).toBe(1104.94);
 });
@@ -95,6 +85,7 @@ Test passes → Implementation correct
 ### 4. Refactor (Optional)
 
 Improve code while keeping tests green:
+
 - Extract constants
 - Improve names
 - Simplify logic
@@ -110,12 +101,14 @@ git commit -m "feat: implement compound interest calculation with tests"
 ## Test Types
 
 **Only write deterministic unit tests:**
+
 - ✅ Pure functions
 - ✅ Synchronous logic
 - ✅ Data transformations
 - ✅ Algorithms
 
 **Avoid:**
+
 - ❌ Integration tests
 - ❌ End-to-end tests
 - ❌ Complex mocking
@@ -164,9 +157,8 @@ npm run lint
 
 Works seamlessly with other dotai plugins:
 
-- **debug** - Use systematic debugging when tests fail
-- **plan** - Include TDD approach in implementation plans
-- **agents** - Dispatch agents to write tests for different modules
+- **debug** - Use debug skill when tests fail
+- **git** - Integrate with PR workflows
 
 ## Best Practices
 
@@ -183,7 +175,7 @@ Works seamlessly with other dotai plugins:
 
 ```typescript
 // 1. Write failing test
-test('fibonacci returns correct sequence', () => {
+test("fibonacci returns correct sequence", () => {
   expect(fibonacci(0)).toBe(0);
   expect(fibonacci(1)).toBe(1);
   expect(fibonacci(5)).toBe(5);
