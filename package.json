@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "bunx --bun shadcn@latest build registry/registry.json --output ./registry"
+    "precommit": "bash scripts/copy-skills.sh && bunx --bun shadcn@latest build registry/registry.json --output ./registry"
   },
   "devDependencies": {
     "@types/node": "^24.7.1",

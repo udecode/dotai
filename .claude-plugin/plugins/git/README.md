@@ -46,102 +46,99 @@ Comprehensive PR review capabilities:
 
 ## Skills
 
-### create-pr
+### pr
 
-Create or update PR with comprehensive descriptions and meaningful commits.
+Unified PR management with three core operations: create regular PRs, create draft PRs, and review PRs.
 
-**When to use:** Creating or updating pull requests with comprehensive descriptions
+**When to use:** Any PR workflow - creating, drafting, or reviewing pull requests
 
-**Triggers:** PR creation, feature complete, ready to merge
+**Triggers:** "create a PR", "make a draft PR", "review PR", or any PR-related task
 
-**Key Features:**
-- Branch management and switching
-- Conventional commit messages
-- Update comment templates
-- PR description generation
+**Operations:**
 
-### draft-pr
+1. **Create PR** - Regular PRs with comprehensive descriptions
+   - Branch management and switching
+   - Conventional commit messages
+   - Update comment templates
+   - PR description generation
 
-Create or update draft PR without code review for work-in-progress.
+2. **Draft PR** - Work-in-progress PRs without automatic review
+   - Draft PR management
+   - Progressive updates
+   - No automatic reviews
+   - Ready for review workflow
 
-**When to use:** Creating work-in-progress PRs without review
+3. **Review PR** - Code analysis with severity ratings
+   - Quick reviews for simple feedback
+   - Comprehensive reviews via `/workflows:review` (multi-agent analysis)
+   - Severity-based classifications
+   - GitHub review integration
 
-**Triggers:** WIP changes, early feedback needed, progressive development
-
-**Key Features:**
-- Draft PR management
-- Update comment templates
-- No automatic reviews
-- Ready for review workflow
-
-### review-pr
-
-Review pull request with comprehensive code analysis and constructive feedback.
-
-**When to use:** Reviewing pull requests with comprehensive code analysis
-
-**Triggers:** PR needs review, code quality check, post-merge review
-
-**Key Features:**
-- Full or incremental review options
-- Severity-based issue classification
-- Review checklist and principles
-- GitHub review integration
-- Structured review templates
+**Architecture:**
+- Core workflow in `SKILL.md` with navigation
+- Detailed instructions in `references/` (create.md, draft.md, review.md)
+- Progressive disclosure for token efficiency
 
 ## Workflow Examples
 
 ### Creating a PR
 
 ```bash
-# 1. Make changes on feature branch
-# 2. Use command
-create-pr
-# 3. Automatically:
-#    - Stages all changes
-#    - Creates meaningful commit
-#    - Pushes to remote
-#    - Creates PR with description
+# Simply ask Claude
+"Create a PR for these changes"
+
+# Claude automatically:
+# - Determines it's a regular PR (not draft)
+# - Loads references/create.md
+# - Stages all changes
+# - Creates meaningful commit
+# - Pushes to remote
+# - Creates PR with description
 ```
 
 ### Reviewing a PR
 
 ```bash
-# 1. Identify PR to review
-# 2. Use command
-review-pr
-# 3. Choose review type:
-#    - Full review of entire PR
-#    - Incremental review of latest changes
-# 4. Review posts with:
-#    - Issue classification by severity
-#    - Constructive feedback
-#    - GitHub status update
+# For quick review
+"Review PR #123"
+
+# For comprehensive review
+"Do a thorough review of PR #123"
+# → Delegates to /workflows:review for multi-agent analysis
+
+# Claude automatically:
+# - Loads references/review.md
+# - Gathers PR context
+# - Analyzes changes
+# - Posts structured review
 ```
 
 ### Creating a Draft PR
 
 ```bash
-# 1. Make WIP changes
-# 2. Use command
-draft-pr
-# 3. Automatically:
-#    - Stages changes
-#    - Commits with conventional message
-#    - Creates draft PR
-#    - No review performed
+# Simply ask Claude
+"Create a draft PR for this WIP"
+
+# Claude automatically:
+# - Determines it's a draft PR
+# - Loads references/draft.md
+# - Stages changes
+# - Commits with conventional message
+# - Creates draft PR
+# - No review performed
 ```
 
 ### Updating Existing PR
 
 ```bash
-# 1. Make additional changes
-# 2. Use same command
-create-pr  # or draft-pr
-# 3. Automatically:
-#    - Commits new changes
-#    - Pushes to existing PR
-#    - Adds update comment
+# Make changes, then:
+"Update the PR"
+
+# Claude automatically:
+# - Detects existing PR
+# - Commits new changes
+# - Pushes to existing branch
+# - Adds update comment (preserves description)
 ```
 
 ## Commit Message Conventions
@@ -233,37 +230,37 @@ Works seamlessly with other dotai plugins:
 # ... make changes ...
 
 # 2. Create PR
-create-pr
+"Create a PR"
 ```
 
 ### Bug Fix
 
 ```bash
 # 1. Debug issue
-/debug:debug
+/debug
 
 # 2. Fix bug
 # ... apply fix ...
 
 # 3. Create PR
-create-pr
+"Create a PR for the bug fix"
 ```
 
 ### Progressive Development
 
 ```bash
 # 1. Start with draft
-draft-pr
+"Create a draft PR"
 
 # 2. Keep updating
 # ... make changes ...
-draft-pr  # adds update
+"Update the draft PR"
 
 # 3. Mark ready
 gh pr ready
 
-# 4. Request review
-review-pr
+# 4. Request comprehensive review
+"Do a thorough review"  # → uses /workflows:review
 ```
 
 ### Code Review Workflow
@@ -272,12 +269,14 @@ review-pr
 # 1. Find PR to review
 gh pr list
 
-# 2. Review the PR
-review-pr
+# 2. Quick review
+"Review PR #123"
 
-# 3. Follow up on changes
-# ... after author updates ...
-review-pr  # incremental review
+# 3. Or comprehensive review
+"Thoroughly review PR #123"  # → uses /workflows:review
+
+# 4. Follow up on changes
+"Review the latest changes on PR #123"  # incremental
 ```
 
 ## Troubleshooting

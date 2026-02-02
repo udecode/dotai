@@ -84,11 +84,9 @@ Skills are auto-invoked based on context.
 
 ### Git & PRs
 
-| Skill       | Plugin | Description                                              |
-| ----------- | ------ | -------------------------------------------------------- |
-| `create-pr` | git    | Create PR with comprehensive description and auto-review |
-| `draft-pr`  | git    | Create draft PR for work-in-progress                     |
-| `review-pr` | git    | Code review with severity ratings and feedback           |
+| Skill | Plugin | Description                                                                                                   |
+| ----- | ------ | ------------------------------------------------------------------------------------------------------------- |
+| `pr`  | git    | Unified PR management - create regular/draft PRs, review with severity ratings (delegates to /workflows:review for comprehensive analysis) |
 
 ### Learning
 

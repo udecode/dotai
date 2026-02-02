@@ -11,12 +11,6 @@
       "target": "~/.claude/settings.json"
     },
     {
-      "path": "registry/dotai/settings.local.json",
-      "content": "{\n  \"env\": {\n    \"CLAUDE_MEDIA_DISABLED\": \"false\",\n    \"CLAUDE_MEDIA_AUTO_START\": \"true\",\n    \"CLAUDE_MEDIA_AUTO_PAUSE\": \"true\"\n  }\n}\n",
-      "type": "registry:file",
-      "target": "~/.claude/settings.local.json"
-    },
-    {
       "path": "registry/dotai/docs/1-app-design-document.mdc",
       "content": "---\nalwaysApply: true\n---\n\n# App Design Document\n",
       "type": "registry:file",
@@ -42,7 +36,7 @@
     },
     {
       "path": "registry/dotai/AGENTS.md",
-      "content": "- In all interactions and commit messages, be extremely concise and sacrifice grammar for the sake of concision.\n\n## PR Comments\n\n- When tagging Claude in GitHub issues, use '@claude'\n\n## GitHub\n\n- Your primary method for interacting with GitHub should be the GitHub CLI.\n\n## Plans\n\n- At the end of each plan, give me a list of unresolved questions to answer, if any. Make the questions extremely concise. Sacrifice grammar for the sake of concision.\n\n@README.md\n@CONTRIBUTING.md\n",
+      "content": "- In all interactions and commit messages, be extremely concise and sacrifice grammar for the sake of concision\n- ALWAYS read and understand relevant files before proposing edits. Do not speculate about code you have not inspected\n- ALWAYS use AskUserQuestion tool when asking questions to the user\n\n## GitHub\n\n- Your primary method for interacting with GitHub should be the GitHub CLI\n\n## Plans\n\n- At the end of each plan, give me a list of unresolved questions to answer, if any. Make the questions extremely concise. Sacrifice grammar for the sake of concision\n",
       "type": "registry:file",
       "target": "~/.claude/AGENTS.md"
     }
