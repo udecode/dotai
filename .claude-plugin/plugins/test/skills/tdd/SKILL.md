@@ -257,3 +257,69 @@ GREEN: Add check: if (!email || !email.includes("@")) return { valid: false }
 
        Verify all other validation tests still pass.
 ```
+
+## Type Testing
+
+Compile-time type assertions. No runtime — just `bun typecheck`. Catches regressions in generics, conditional types, and type constraints that runtime tests can't see.
+
+**When:** generic APIs, utility types, complex inference, mapped/conditional types, ensuring invalid usage errors. **Not:** trivial stuff like `string` prop accepts `string`.
+
+### Utilities
+
+Search for a file exporting `Expect` and `Equal`. If none exists, create one:
+
+```typescript
+export function Expect<T extends true>() {}
+export type Equal<X, Y> = (<T>() => T extends X ? 1 : 2) extends <
+  T
+>() => T extends Y ? 1 : 2
+  ? true
+  : false;
+export type Not<T extends boolean> = T extends true ? false : true;
+export type IsAny<T> = 0 extends 1 & T ? true : false;
+export type IsNever<T> = [T] extends [never] ? true : false;
+```
+
+- `Expect<T extends true>` — compile error = test failure
+- `Equal<X, Y>` — exact type equality (defeats `any` widening)
+- `Not`, `IsAny`, `IsNever` — edge case guards (`any`/`never` break naive comparisons)
+
+### Positive Assertions
+
+```typescript
+import { Expect, Equal, Not, IsAny } from "./utils";
+
+// Block scope each test to avoid name collisions
+{
+  type Result = ReturnType<typeof myGenericFn<SomeInput>>;
+  Expect<Equal<Result, { id: string; name: string }>>;
+  Expect<Not<IsAny<Result>>>;
+}
+```
+
+### Negative Tests
+
+`@ts-expect-error` **must** be on the line immediately before the error. Always include a reason. Unused directive = failing test (constraint is missing).
+
+```typescript
+// ✅ directive on line immediately before error
+doSomething({
+  // @ts-expect-error - name must be string
+  name: 123,
+});
+
+// ❌ directive too far from error
+doSomething({
+  // @ts-expect-error - name must be string
+  ...defaults,
+  name: 123,
+});
+```
+
+### Tips
+
+- **`declare const`** for mock values without runtime: `declare const ctx: SomeCtx;`
+- **`type _name = Expect<...>`** when you need a type-level-only assertion (no runtime `Expect()` call needed)
+- **`/* biome-ignore-all lint */`** at file top for type-only files — suppresses unused variable warnings
+
+Run with `bun typecheck`. If it compiles, it passes.
