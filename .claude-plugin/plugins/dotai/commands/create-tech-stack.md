@@ -14,7 +14,7 @@ description: Generate comprehensive technical stack documentation from codebase 
 - Node version: !`node --version 2>/dev/null || echo "Node.js not found"`
 - TypeScript config: @tsconfig.json
 - Database schema: !`ls -la prisma/schema.prisma 2>/dev/null || echo "No Prisma schema found"`
-- Existing docs: !`ls -la .claude/rules/*.md 2>/dev/null || echo "No docs yet"`
+- Existing docs: !`ls -la .claude/skills/*.md 2>/dev/null || echo "No docs yet"`
 
 ## Goal
 
@@ -63,7 +63,7 @@ Create detailed tech stack document with:
 
 ### 5. Save and Organize
 
-- Create `.claude/rules/` if needed
+- Create `.claude/skills/` if needed
 - Save as `2-tech-stack.mdc`
 
 ## Technical Questions Template
@@ -242,7 +242,7 @@ The language should be technical, precise, and include specific version numbers 
 ## Output
 
 - **Format:** Markdown (`.mdc`)
-- **Location:** `.claude/rules/`
+- **Location:** `.claude/skills/`
 - **Filename:** `2-tech-stack.mdc`
 
 ## Execution Steps
@@ -283,7 +283,7 @@ The language should be technical, precise, and include specific version numbers 
 ```bash
 # Create directory and save
 mkdir -p .claude/docs
-# Save to .claude/rules/2-tech-stack.mdc
+# Save to .claude/skills/2-tech-stack.mdc
 ```
 
 ### 6. Next Steps

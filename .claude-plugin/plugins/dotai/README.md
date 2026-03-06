@@ -160,7 +160,7 @@ Implementation planning prompt - align on approach before coding.
 /update-tech-stack
 ```
 
-**Output:** `.claude/rules/` contains 1-app-design-document.mdc, 2-tech-stack.mdc
+**Output:** `.claude/skills/` contains 1-app-design-document.mdc, 2-tech-stack.mdc
 
 ## Best Practices
 

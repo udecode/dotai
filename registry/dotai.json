@@ -14,19 +14,19 @@
       "path": "registry/dotai/docs/1-app-design-document.mdc",
       "content": "---\nalwaysApply: true\n---\n\n# App Design Document\n",
       "type": "registry:file",
-      "target": "~/.claude/rules/1-app-design-document.mdc"
+      "target": "~/.claude/skills/1-app-design-document.mdc"
     },
     {
       "path": "registry/dotai/docs/3-project-status.mdc",
       "content": "---\nalwaysApply: true\n---\n\n# Project Status\n\n## Current Project Stage: [Stage Name]\n\n**Stage**: [Pre-MVP | MVP | Production | Enterprise]\n\n### DO Care About (Current Stage Priorities)\n\n[Stage-specific DO priorities from template below]\n\n### DO NOT Care About (Skip for Velocity)\n\n[Stage-specific DON'T priorities from template below]\n\n### Development Approach\n\n[Stage-specific development focus]\n\n## Stage-Based Development Guidelines\n\n[Keep existing stage categories and guidelines from the original file]\n",
       "type": "registry:file",
-      "target": "~/.claude/rules/3-project-status.mdc"
+      "target": "~/.claude/skills/3-project-status.mdc"
     },
     {
       "path": "registry/dotai/docs/2-tech-stack.mdc",
       "content": "---\nalwaysApply: true\n---\n\n# Tech Stack\n",
       "type": "registry:file",
-      "target": "~/.claude/rules/2-tech-stack.mdc"
+      "target": "~/.claude/skills/2-tech-stack.mdc"
     },
     {
       "path": "registry/dotai/skiller.toml",

@@ -73,7 +73,7 @@ Before extracting, verify:
 
 1. **Identify** - What was non-obvious about the solution?
 2. **Research** - Search web for best practices when appropriate
-3. **Structure** - Save to `.claude/rules/[skill-name].mdc` (if `.claude/skiller.toml` exists) or `.claude/skills/[skill-name]/SKILL.md` otherwise
+3. **Structure** - Save to `.claude/skills/[skill-name].mdc` (if `.claude/skiller.toml` exists) or `.claude/skills/[skill-name]/SKILL.md` otherwise
 4. **Optimize** - Write effective descriptions for discovery
 5. **Deploy** - Run `npx skiller@latest apply`
 

@@ -17,17 +17,17 @@
         {
           "path": "registry/dotai/docs/1-app-design-document.mdc",
           "type": "registry:file",
-          "target": "~/.claude/rules/1-app-design-document.mdc"
+          "target": "~/.claude/skills/1-app-design-document.mdc"
         },
         {
           "path": "registry/dotai/docs/3-project-status.mdc",
           "type": "registry:file",
-          "target": "~/.claude/rules/3-project-status.mdc"
+          "target": "~/.claude/skills/3-project-status.mdc"
         },
         {
           "path": "registry/dotai/docs/2-tech-stack.mdc",
           "type": "registry:file",
-          "target": "~/.claude/rules/2-tech-stack.mdc"
+          "target": "~/.claude/skills/2-tech-stack.mdc"
         },
         {
           "path": "registry/dotai/skiller.toml",
