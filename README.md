@@ -14,7 +14,7 @@ Dotai:
 
 ```bash
 /plugin marketplace add https://github.com/udecode/dotai
-/plugin install dotai notification debug test learn dig git
+/plugin install dotai notification debug test dig codex
 ```
 
 Claude Plugins Official:
@@ -35,19 +35,17 @@ Compound Engineering:
 
 | Component | Count |
 | --------- | ----- |
-| Plugins   | 9     |
+| Plugins   | 7     |
 | Commands  | 5     |
-| Skills    | 8     |
+| Skills    | 3     |
 
 ## Plugins
 
 | Plugin         | Description                               |
 | -------------- | ----------------------------------------- |
-| `dotai`        | Development toolkit - docs, PRs, planning |
+| `dotai`        | Development toolkit - docs and planning    |
 | `debug`        | Four-phase debugging framework            |
 | `test`         | TDD workflow - red-green-refactor         |
-| `git`          | PR creation, drafts, reviews              |
-| `learn`        | Extract knowledge into skills             |
 | `dig`          | Clone and explore library source          |
 | `notification` | macOS notifications                       |
 | `media`        | Auto-play/pause media                     |
@@ -73,26 +71,13 @@ Skills are auto-invoked based on context.
 
 | Skill   | Plugin | Description                                                             |
 | ------- | ------ | ----------------------------------------------------------------------- |
-| `debug` | debug  | Four-phase debugging process (investigate → analyze → test → implement) |
-| `trace` | debug  | Trace backward through call stack to find root cause                    |
+| `debug` | debug  | Four-phase debugging process with built-in deep-stack tracing           |
 
 ### Testing
 
 | Skill | Plugin | Description                                                       |
 | ----- | ------ | ----------------------------------------------------------------- |
 | `tdd` | test   | Test-driven development - write test first, watch fail, make pass |
-
-### Git & PRs
-
-| Skill | Plugin | Description                                                                                                   |
-| ----- | ------ | ------------------------------------------------------------------------------------------------------------- |
-| `pr`  | git    | Unified PR management - create regular/draft PRs, review with severity ratings (delegates to /workflows:review for comprehensive analysis) |
-
-### Learning
-
-| Skill   | Plugin | Description                                          |
-| ------- | ------ | ---------------------------------------------------- |
-| `learn` | learn  | Extract reusable knowledge from sessions into skills |
 
 ### Research
 

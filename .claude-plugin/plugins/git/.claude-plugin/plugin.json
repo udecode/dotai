@@ -1,9 +1,0 @@
-{
-  "name": "git",
-  "version": "0.1.0",
-  "description": "Git and GitHub workflow automation - streamlined PR creation, draft management, and code review workflows",
-  "author": {
-    "name": "zbeyens"
-  },
-  "keywords": ["git", "github", "pr", "pull-request", "review", "workflow"]
-}

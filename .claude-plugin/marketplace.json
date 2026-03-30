@@ -12,7 +12,7 @@
     {
       "name": "dotai",
       "source": "./.claude-plugin/plugins/dotai",
-      "description": "Complete development toolkit - documentation, PRDs, debugging, PR workflows, and planning"
+      "description": "Complete development toolkit - documentation, PRDs, debugging, and planning"
     },
     {
       "name": "notification",
@@ -38,16 +38,6 @@
       "name": "test",
       "source": "./.claude-plugin/plugins/test",
       "description": "Test-driven development workflow for writing tests before implementation - red-green-refactor cycle with deterministic unit tests"
-    },
-    {
-      "name": "learn",
-      "source": "./.claude-plugin/plugins/learn",
-      "description": "Continuous learning system - extracts reusable knowledge from work sessions into Claude Code skills"
-    },
-    {
-      "name": "git",
-      "source": "./.claude-plugin/plugins/git",
-      "description": "Git and GitHub workflow automation - streamlined PR creation, draft management, and code review workflows"
     },
     {
       "name": "dig",
