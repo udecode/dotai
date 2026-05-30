@@ -184,12 +184,12 @@ function toCamelCase(value) {
 
 function printHelp() {
   console.log(`Usage:
-  node skills/autogoal/scripts/create-goal-template.mjs \\
+  node .agents/skills/autogoal/scripts/create-goal-template.mjs \\
     --skill package-release-audit \\
     [--from goal] \\
     [--force]
 
-  node skills/autogoal/scripts/create-goal-template.mjs \\
+  node .agents/skills/autogoal/scripts/create-goal-template.mjs \\
     --path docs/plans/templates/custom.md
 
 Creates a project-owned reusable goal template under docs/plans/templates/.

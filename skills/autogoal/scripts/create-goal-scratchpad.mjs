@@ -493,7 +493,7 @@ function toCamelCase(value) {
 
 function printHelp() {
   console.log(`Usage:
-  node skills/autogoal/scripts/create-goal-scratchpad.mjs \\
+  node .agents/skills/autogoal/scripts/create-goal-scratchpad.mjs \\
     --title "Short goal title" \\
     [--slug short-slug] \\
     [--template "skill-name or template path"] \\
@@ -511,7 +511,7 @@ the CLI. After creation, edit the generated docs/plans file and fill the
 template fields there.
 
 Use --template task to resolve project templates first, then built-in templates
-under skills/autogoal/assets/docs/plans/templates/.
+under .agents/skills/autogoal/assets/docs/plans/templates/.
 Use --with docs --with browser to materialize pack rows from project packs
 first, then built-in packs. Runtime goal plans live under docs/plans/.`);
 }

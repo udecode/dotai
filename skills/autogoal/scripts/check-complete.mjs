@@ -389,7 +389,7 @@ function findRepoRoot(start) {
 
 function printHelp() {
   console.log(`Usage:
-  node skills/autogoal/scripts/check-complete.mjs docs/plans/<goal-plan>.md
+  node .agents/skills/autogoal/scripts/check-complete.mjs docs/plans/<goal-plan>.md
 
 Validates the active goal plan before update_goal(status: complete). The check
 is mechanical: it proves the checklist, phase table, verification evidence,
