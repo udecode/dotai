@@ -9,15 +9,6 @@ Use this when the user asks for a durable objective, long-running autonomous
 work, goal setup, or when a governing repo skill requires goal setup before
 work starts.
 
-## Orchestrator Mode
-
-If the current thread has `$orchestrator on` active and the requested goal is
-per-branch implementation work, do not create or continue the goal locally. Let
-`orchestrator` route the goal request to the child thread for that branch or
-tracker key. Create a local goal only for orchestrator-owned coordination
-outcomes, such as maintaining the child-thread registry or checking child
-statuses.
-
 This skill turns a vague "keep going" instruction into a thread-scoped
 completion contract: what should be true, how it is verified, what must not
 change, and when Codex should stop.
