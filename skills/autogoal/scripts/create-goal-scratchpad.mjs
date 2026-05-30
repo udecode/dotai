@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { initProjectTemplates } from './init-templates.mjs';
 
 const ALLOWED_FLAGS = new Set([
   'date',
@@ -32,13 +33,7 @@ const HEADING_PATTERN = /^#{1,6}\s+\S/;
 const TABLE_MARKDOWN_SEPARATOR_CELL_PATTERN = /^:?-+:?$/;
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = path.dirname(SCRIPT_DIR);
-const BUILTIN_TEMPLATES_DIR = path.join(
-  SKILL_DIR,
-  'assets',
-  'docs',
-  'plans',
-  'templates'
-);
+const BUILTIN_TEMPLATES_DIR = path.join(SKILL_DIR, 'assets', 'templates');
 
 const args = parseArgs(process.argv.slice(2));
 
@@ -49,6 +44,7 @@ if (args.help) {
 
 if (args.title) {
   const root = findRepoRoot(process.cwd());
+  await initProjectTemplates(root, { silent: true });
   const templatePath = resolveTemplatePath(root, args.template);
   const packs = resolvePackPaths(root, args.with ?? []);
   const date = args.date ?? new Date().toISOString().slice(0, 10);
@@ -510,8 +506,9 @@ threshold, verification, constraints, boundaries, or blocked condition through
 the CLI. After creation, edit the generated docs/plans file and fill the
 template fields there.
 
-Use --template task to resolve project templates first, then built-in templates
-under .agents/skills/autogoal/assets/docs/plans/templates/.
+Before creating a plan, missing generic templates are initialized under
+docs/plans/templates/. Use --template task to resolve project templates first,
+then built-in templates under .agents/skills/autogoal/assets/templates/.
 Use --with docs --with browser to materialize pack rows from project packs
 first, then built-in packs. Runtime goal plans live under docs/plans/.`);
 }

@@ -57,7 +57,8 @@ browser proof, or source-backed citations.
 
 It does not own project policy. Keep repo commands, package managers, browser
 tools, release rules, PR policy, scorecards, issue ledgers, and lane-specific
-pass schedules in derived skills or `.agents/skills/autogoal/assets/docs/plans/templates/<template>.md`.
+pass schedules in derived skills or project-owned
+`docs/plans/templates/<template>.md`.
 
 Derived skills may be stricter than `autogoal`; they should not duplicate the
 goal lifecycle. `autogoal` says how work remains honest. The derived skill says
@@ -421,7 +422,7 @@ Target selection order:
    plan before editing anything.
 4. If the miss belongs to every goal, target the dotai source package:
    `skills/autogoal/SKILL.md` and
-   `skills/autogoal/assets/docs/plans/templates/goal.md`. Do not patch the
+   `skills/autogoal/assets/templates/goal.md`. Do not patch the
    installed `.agents/skills/autogoal` copy by hand.
 5. If ownership is still unclear after source reads, ask one short targeting
    question instead of patching multiple templates.
@@ -431,7 +432,7 @@ Repair scope matrix:
 | Miss | Primary repair owner |
 |------|----------------------|
 | Current plan has wrong status, row, evidence, or handoff fields | active `docs/plans/*` plan |
-| Future generated plans need a recurring section, gate, row, or placeholder | project-owned `docs/plans/templates/<owner>.md` or dotai source `skills/autogoal/assets/docs/plans/templates/<owner>.md` |
+| Future generated plans need a recurring section, gate, row, or placeholder | project-owned `docs/plans/templates/<owner>.md` or dotai source `skills/autogoal/assets/templates/<owner>.md` |
 | Agent chose the wrong workflow, target, proof standard, or completion rule | `skills/<owner>/SKILL.md` |
 | Prose keeps failing and the miss is mechanically checkable | dotai source `skills/autogoal/scripts/*` plus focused script proof |
 | Derived skill adds lane-specific ceremony or policy | derived skill rule/template, not `autogoal` |
@@ -487,7 +488,7 @@ Any skill that requires or wraps `autogoal` should declare:
 
 - when it creates or continues a goal
 - which flow mode it uses by default, and how the user changes it
-- which `.agents/skills/autogoal/assets/docs/plans/templates/<template>.md` it uses
+- which project template `docs/plans/templates/<template>.md` it uses
 - which packs it applies by default, and which touched surfaces add more packs
 - extra start gates and completion gates it owns
 - evidence types it requires
@@ -582,6 +583,31 @@ Set the goal before mutable lane state when the workflow depends on a goal. For
 pass-gated planning or accepted-plan execution lanes, the goal is the first
 durable action after the minimum read needed to derive the objective.
 
+## Template Init
+
+Generic autogoal templates are project files. They live at:
+
+```txt
+docs/plans/templates/goal.md
+docs/plans/templates/task.md
+docs/plans/templates/docs.md
+docs/plans/templates/major-task.md
+docs/plans/templates/goal-repair.md
+docs/plans/templates/packs/<pack>.md
+```
+
+When `docs/plans/templates/goal.md` or another generic template is missing,
+initialize the generic set before creating a goal plan:
+
+```bash
+node .agents/skills/autogoal/scripts/init-templates.mjs
+```
+
+`create-goal-scratchpad.mjs` and `create-goal-template.mjs` run this
+initialization automatically. Existing files are kept. Project-specific
+templates such as `docs/plans/templates/<lane>.md` stay in the project and are
+never moved into the skill package.
+
 ## Goal Plan
 
 Every active goal gets one durable goal plan. It is a single markdown file that
@@ -629,22 +655,22 @@ template and record the replacement. If any durable work has already started,
 do not swap the plan out from under the work; close the generated plan with
 honest evidence, N/A rows, or a blocker.
 
-The default built-in template is generic:
+The default project template is generic:
 
 ```txt
-.agents/skills/autogoal/assets/docs/plans/templates/goal.md
+docs/plans/templates/goal.md
 ```
 
-Project or skill-specific built-in templates live beside it:
+Project or skill-specific templates live beside it:
 
 ```txt
-.agents/skills/autogoal/assets/docs/plans/templates/<template>.md
+docs/plans/templates/<template>.md
 ```
 
-Built-in reusable packs live under:
+Reusable packs live under:
 
 ```txt
-.agents/skills/autogoal/assets/docs/plans/templates/packs/<pack>.md
+docs/plans/templates/packs/<pack>.md
 ```
 
 Use templates by passing the primary template name. Add packs for touched
@@ -662,9 +688,11 @@ Repeat `--with` for multiple packs, or pass a comma-separated list. The helper
 records `Primary template:` and `Applied packs:` in the generated plan and
 copies pack rows into the plan's existing gate/checklist sections.
 
-`docs/plans/templates` holds optional project overrides. Direct files under
-`docs/plans` are instantiated runtime goal plans. Do not store goal templates or
-active goal state under `docs/goals`.
+`docs/plans/templates` holds reusable project templates. Generic templates are
+seeded there by `init-templates.mjs`; non-generic templates stay there as
+project-owned workflow policy. Direct files under `docs/plans` are instantiated
+runtime goal plans. Do not store goal templates or active goal state under
+`docs/goals`.
 
 Create a new project-owned template by copying the generic template:
 
@@ -780,7 +808,7 @@ Goal plan:
 <docs/plans/path>
 
 Primary template:
-<project docs/plans/templates/name.md or built-in .agents/skills/autogoal/assets/docs/plans/templates/name.md>
+<docs/plans/templates/name.md>
 
 Applied packs:
 - <pack or none>

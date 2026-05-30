@@ -6,7 +6,7 @@ Skills are the main routing layer. This repo is the canonical source for reusabl
 
 ## Included Skills
 
-- `autogoal`: durable goal lifecycle and reusable plan templates.
+- `autogoal`: durable goal lifecycle and seeded plan templates.
   - Deps: Codex goal tools (`get_goal`, `create_goal`, `update_goal`); optional `orchestrator` when `$orchestrator on` is active.
 - `debug`: root-cause debugging workflow.
   - Deps: optional `tdd` for complex business-logic fixes that need test coverage.

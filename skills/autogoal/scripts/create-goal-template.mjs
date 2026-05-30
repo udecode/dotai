@@ -4,17 +4,12 @@ import { existsSync } from 'node:fs';
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { initProjectTemplates } from './init-templates.mjs';
 
 const SAFE_SKILL_NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = path.dirname(SCRIPT_DIR);
-const BUILTIN_TEMPLATES_DIR = path.join(
-  SKILL_DIR,
-  'assets',
-  'docs',
-  'plans',
-  'templates'
-);
+const BUILTIN_TEMPLATES_DIR = path.join(SKILL_DIR, 'assets', 'templates');
 
 const args = parseArgs(process.argv.slice(2));
 
@@ -29,24 +24,26 @@ const targetPath = resolveTargetPath(root, args);
 if (!targetPath && !args.print) {
   printHelp();
   process.exitCode = 1;
-} else {
+} else if (args.print) {
   const sourcePath = resolveSourceTemplate(root, args.from);
   const content = await readFile(sourcePath, 'utf8');
 
-  if (args.print) {
-    process.stdout.write(content);
-  } else {
-    await mkdir(path.dirname(targetPath), { recursive: true });
+  process.stdout.write(content);
+} else {
+  await initProjectTemplates(root, { silent: true });
+  const sourcePath = resolveSourceTemplate(root, args.from);
+  const content = await readFile(sourcePath, 'utf8');
 
-    if (!args.force && (await exists(targetPath))) {
-      throw new Error(
-        `goal template already exists: ${path.relative(root, targetPath)} (use --force to overwrite)`
-      );
-    }
+  await mkdir(path.dirname(targetPath), { recursive: true });
 
-    await writeFile(targetPath, content);
-    console.log(path.relative(root, targetPath));
+  if (!args.force && (await exists(targetPath))) {
+    throw new Error(
+      `goal template already exists: ${path.relative(root, targetPath)} (use --force to overwrite)`
+    );
   }
+
+  await writeFile(targetPath, content);
+  console.log(path.relative(root, targetPath));
 }
 
 function parseArgs(argv) {
@@ -193,6 +190,7 @@ function printHelp() {
     --path docs/plans/templates/custom.md
 
 Creates a project-owned reusable goal template under docs/plans/templates/.
+Before writing, missing generic templates are initialized under docs/plans/templates/.
 Source templates resolve from project templates first, then built-in autogoal assets.
 Runtime goal plans still go in docs/plans via create-goal-scratchpad.mjs.`);
 }
