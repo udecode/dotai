@@ -38,7 +38,7 @@ Blocked condition:
 
 Completion rule:
 - Do not call `update_goal(status: complete)` while required checklist items remain unchecked.
-- Do not call `update_goal(status: complete)` until every completion threshold is satisfied, final evidence is recorded, and `node skills/autogoal/scripts/check-complete.mjs {{PLAN_PATH}}` passes.
+- Do not call `update_goal(status: complete)` until every completion threshold is satisfied, final evidence is recorded, and `node .agents/skills/autogoal/scripts/check-complete.mjs {{PLAN_PATH}}` passes.
 
 Start Gates:
 | Gate | Applies | Evidence |
@@ -64,7 +64,7 @@ Completion Gates:
 | Build-sensitive behavior changed | pending | Run relevant build/check | pending |
 | Browser surface changed | pending | Capture browser proof | pending |
 | Final lint/format | pending | Run relevant lint/format command or record N/A | pending |
-| Goal plan complete | yes | Run `node skills/autogoal/scripts/check-complete.mjs {{PLAN_PATH}}` | pending |
+| Goal plan complete | yes | Run `node .agents/skills/autogoal/scripts/check-complete.mjs {{PLAN_PATH}}` | pending |
 
 Findings:
 - None yet.

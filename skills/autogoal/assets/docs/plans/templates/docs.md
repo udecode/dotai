@@ -37,7 +37,7 @@ Blocked condition:
 - TODO: Name missing source code, docs entry, route, product choice, or command failure that stops autonomous docs work.
 
 Completion rule:
-- Do not call `update_goal(status: complete)` until required checks are closed and `node skills/autogoal/scripts/check-complete.mjs {{PLAN_PATH}}` passes.
+- Do not call `update_goal(status: complete)` until required checks are closed and `node .agents/skills/autogoal/scripts/check-complete.mjs {{PLAN_PATH}}` passes.
 
 Start Gates:
 | Gate | Applies | Evidence |
@@ -60,7 +60,7 @@ Completion Gates:
 | Docs source-backed claim audit | pending | Verify docs claims against current source | pending |
 | Docs links / routes / previews | pending | Verify or record N/A | pending |
 | Docs parser/build | pending | Run relevant docs parser/build or record N/A | pending |
-| Goal plan complete | yes | Run `node skills/autogoal/scripts/check-complete.mjs {{PLAN_PATH}}` | pending |
+| Goal plan complete | yes | Run `node .agents/skills/autogoal/scripts/check-complete.mjs {{PLAN_PATH}}` | pending |
 
 Findings:
 - None yet.
