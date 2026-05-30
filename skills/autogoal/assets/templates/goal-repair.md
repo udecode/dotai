@@ -35,6 +35,7 @@ Completion Gates:
 | Root cause recorded | pending | Explain why the miss happened | pending |
 | Canonical source repaired | pending | Patch the real source of truth | pending |
 | Verification proof | pending | Run named proof or record blocker | pending |
+| Autoreview | pending | Review repair against expected behavior, observed miss, and newest user request | pending |
 | Goal plan complete | yes | Run `node .agents/skills/autogoal/scripts/check-complete.mjs {{PLAN_PATH}}` | pending |
 
 Timeline:

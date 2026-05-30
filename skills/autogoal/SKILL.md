@@ -81,9 +81,10 @@ parents:
 - `package-api`: package exports, public API, release artifacts, package
   boundaries, or package-level checks changed
 
-Core execution and review gates belong in the primary template. Packs are only
-for optional touched surfaces that would otherwise be absent from that
-template.
+Core execution and review gates belong in the primary template. Every primary
+template must include `Autoreview` as the last human-readable gate before
+`Goal plan complete`. Packs are only for optional touched surfaces that would
+otherwise be absent from that template.
 
 Do not create runtime inheritance between templates. The helper copies pack rows
 into the generated plan's `Start Gates`, `Work Checklist`, and
@@ -738,6 +739,8 @@ Template quality bar:
   facts.
 - No template may let a goal finish from polished prose, score alone, or a
   completed phase table without fresh evidence.
+- Every primary template must include an `Autoreview` completion gate before
+  the final `Goal plan complete` check.
 - Every required checklist item must map to evidence, an explicit N/A reason,
   or a blocker.
 - Every required section is either present in the template or omitted with a

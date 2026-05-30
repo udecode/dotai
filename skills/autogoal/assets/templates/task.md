@@ -64,6 +64,7 @@ Completion Gates:
 | Build-sensitive behavior changed | pending | Run relevant build/check | pending |
 | Browser surface changed | pending | Capture browser proof | pending |
 | Final lint/format | pending | Run relevant lint/format command or record N/A | pending |
+| Autoreview | pending | Review final diff/output against objective, acceptance criteria, constraints, and newest user request | pending |
 | Goal plan complete | yes | Run `node .agents/skills/autogoal/scripts/check-complete.mjs {{PLAN_PATH}}` | pending |
 
 Findings:
