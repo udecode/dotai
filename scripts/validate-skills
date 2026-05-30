@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+SKILLS_DIR="$ROOT/skills"
+fail=0
+
+if [ ! -d "$SKILLS_DIR" ]; then
+  echo "missing skills/"
+  exit 1
+fi
+
+shopt -s nullglob
+skill_dirs=("$SKILLS_DIR"/*)
+
+if [ "${#skill_dirs[@]}" -eq 0 ]; then
+  echo "no skills found"
+  exit 1
+fi
+
+for skill_dir in "${skill_dirs[@]}"; do
+  [ -d "$skill_dir" ] || continue
+
+  skill="$(basename -- "$skill_dir")"
+  file="$skill_dir/SKILL.md"
+
+  if [ ! -f "$file" ]; then
+    echo "$skill: missing SKILL.md"
+    fail=1
+    continue
+  fi
+
+  if [ "$(sed -n '1p' "$file")" != "---" ]; then
+    echo "$skill: missing opening frontmatter"
+    fail=1
+    continue
+  fi
+
+  end_line="$(awk 'NR > 1 && $0 == "---" { print NR; exit }' "$file")"
+  if [ -z "$end_line" ]; then
+    echo "$skill: missing closing frontmatter"
+    fail=1
+    continue
+  fi
+
+  name="$(sed -n "2,$((end_line - 1))p" "$file" | awk -F': *' '$1 == "name" { print $2; exit }')"
+  description="$(sed -n "2,$((end_line - 1))p" "$file" | awk -F': *' '$1 == "description" { print $2; exit }')"
+
+  if [ -z "$name" ]; then
+    echo "$skill: missing name"
+    fail=1
+  elif [ "$name" != "$skill" ]; then
+    echo "$skill: name mismatch ($name)"
+    fail=1
+  fi
+
+  if [ -z "$description" ]; then
+    echo "$skill: missing description"
+    fail=1
+  fi
+done
+
+if [ "$fail" -ne 0 ]; then
+  exit 1
+fi
+
+echo "skills ok"

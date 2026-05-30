@@ -1,150 +1,39 @@
 # dotai
 
-## Install
+Shared skills for coding agents.
 
-### New `.claude/settings.json` file
+Skills are the main routing layer. This repo is the canonical source for reusable udecode workflows; downstream repos should link to these skills instead of copying long `SKILL.md` files around.
 
-```bash
-npx shadcn@latest add https://raw.githubusercontent.com/udecode/dotai/main/registry/all.json
+## Included Skills
+
+- `autogoal`: durable goal lifecycle and reusable plan templates.
+  - Deps: Codex goal tools (`get_goal`, `create_goal`, `update_goal`); optional `orchestrator` when `$orchestrator on` is active.
+- `debug`: root-cause debugging workflow.
+  - Deps: optional `tdd` for complex business-logic fixes that need test coverage.
+- `hard-cut`: delete-first repo cleanup workflow.
+- `orchestrator`: route branch work to reusable child threads.
+  - Deps: durable Codex thread tools.
+- `tdd`: test-first development loop.
+
+## Quick Start
+
+Install with the `skills` CLI:
+
+```sh
+npx skills add udecode/dotai
 ```
 
-### Existing `.claude/settings.json` file
+## Validate
 
-Dotai:
+Run after edits:
 
-```bash
-/plugin marketplace add https://github.com/udecode/dotai
-/plugin install dotai notification debug test dig codex
+```sh
+scripts/validate-skills
 ```
 
-Claude Plugins Official:
+## Editing Rules
 
-```bash
-/plugin install ralph-loop@@claude-plugins-official
-/plugin install frontend-design@@claude-plugins-official
-```
-
-Compound Engineering:
-
-```bash
-/plugin marketplace add https://github.com/kieranklaassen/compound-engineering-plugin
-/plugin install compound-engineering
-```
-
-## Components
-
-| Component | Count |
-| --------- | ----- |
-| Plugins   | 7     |
-| Commands  | 5     |
-| Skills    | 3     |
-
-## Plugins
-
-| Plugin         | Description                               |
-| -------------- | ----------------------------------------- |
-| `dotai`        | Development toolkit - docs and planning    |
-| `debug`        | Four-phase debugging framework            |
-| `test`         | TDD workflow - red-green-refactor         |
-| `dig`          | Clone and explore library source          |
-| `notification` | macOS notifications                       |
-| `media`        | Auto-play/pause media                     |
-| `codex`        | MCP servers for Codex                     |
-
-## Commands
-
-### Documentation
-
-| Command                    | Description                       |
-| -------------------------- | --------------------------------- |
-| `/dotai:create-app-design` | Generate app design documentation |
-| `/dotai:update-app-design` | Update existing app design docs   |
-| `/dotai:create-tech-stack` | Generate tech stack documentation |
-| `/dotai:update-tech-stack` | Update existing tech stack docs   |
-| `/dotai:install`           | Install plugin files              |
-
-## Skills
-
-Skills are auto-invoked based on context.
-
-### Debugging
-
-| Skill   | Plugin | Description                                                             |
-| ------- | ------ | ----------------------------------------------------------------------- |
-| `debug` | debug  | Four-phase debugging process with built-in deep-stack tracing           |
-
-### Testing
-
-| Skill | Plugin | Description                                                       |
-| ----- | ------ | ----------------------------------------------------------------- |
-| `tdd` | test   | Test-driven development - write test first, watch fail, make pass |
-
-### Research
-
-| Skill | Plugin | Description                                              |
-| ----- | ------ | -------------------------------------------------------- |
-| `dig` | dig    | Clone and explore library source to answer API questions |
-
-## Prompt System
-
-Dynamic prompt injection via `.claude/prompt.yml`:
-
-| Hook             | Description                                   |
-| ---------------- | --------------------------------------------- |
-| `beforeStart`    | Checklist before Claude responds              |
-| `beforeComplete` | Verification items before claiming completion |
-| `afterCompact`   | Context recovery after compaction             |
-
-**Example configuration:**
-
-```yaml
-beforeStart:
-  - tag: SKILL-ANALYSIS
-    header: 🎯 Skill Check
-    todos:
-      - "List available skills, invoke applicable ones"
-
-beforeComplete:
-  - tag: VERIFICATION
-    header: 🔒 Verify
-    todos:
-      - "Typecheck: bun typecheck"
-      - "Lint: bun lint:fix"
-```
-
-## Compound Engineering
-
-### Workflow Commands
-
-| Command                 | Description                                                            |
-| ----------------------- | ---------------------------------------------------------------------- |
-| `/workflows:lfg`        | Full autonomous workflow (plan → work → review → test browser → video) |
-| `/workflows:brainstorm` | Explore requirements before planning                                   |
-| `/workflows:plan`       | Create implementation plans                                            |
-| `/workflows:review`     | Run comprehensive code reviews                                         |
-| `/workflows:work`       | Execute work items systematically                                      |
-| `/workflows:compound`   | Document solved problems                                               |
-
-### Agents (27)
-
-- **Review (14)**: agent-native-reviewer, architecture-strategist, code-simplicity-reviewer, data-integrity-guardian, deployment-verification-agent, dhh-rails-reviewer, kieran-rails-reviewer, kieran-python-reviewer, kieran-typescript-reviewer, pattern-recognition-specialist, performance-oracle, security-sentinel, julik-frontend-races-reviewer, data-migration-expert
-- **Research (4)**: best-practices-researcher, framework-docs-researcher, git-history-analyzer, repo-research-analyst
-- **Design (3)**: design-implementation-reviewer, design-iterator, figma-design-sync
-- **Workflow (5)**: bug-reproduction-validator, every-style-editor, lint, pr-comment-resolver, spec-flow-analyzer
-- **Docs (1)**: ankane-readme-writer
-
-### Skills (14)
-
-agent-native-architecture, andrew-kane-gem-writer, compound-docs, create-agent-skills, dhh-rails-style, dspy-ruby, frontend-design, skill-creator, every-style-editor, file-todos, git-worktree, rclone, agent-browser, gemini-imagegen
-
-### MCP Server
-
-context7 - Framework documentation lookup (Rails, React, Next.js, Vue, Django, Laravel, etc.)
-
-## Development
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md).
-
-## License
-
-MIT
+- Keep descriptions short and useful for routing.
+- Keep skill bodies operational, not essay-like.
+- Prefer helper scripts for repeatable command logic.
+- Do not include secrets, private hostnames, private account IDs, or private URLs.

@@ -1,9 +1,0 @@
-{
-  "name": "dotai",
-  "version": "1.0.0",
-  "description": "Complete development toolkit - documentation, PRDs, design docs, debugging, PR workflows, and planning",
-  "author": {
-    "name": "zbeyens"
-  },
-  "keywords": ["documentation", "prd", "design", "tech-stack", "cursor-rules", "snippets", "workflow", "development", "debugging", "pr", "git", "planning"]
-}

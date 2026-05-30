@@ -1,9 +1,0 @@
-{
-  "name": "notification",
-  "version": "1.0.0",
-  "description": "macOS notifications for Claude Code events",
-  "author": {
-    "name": "zbeyens"
-  },
-  "keywords": ["notifications", "hooks", "macos"]
-}
