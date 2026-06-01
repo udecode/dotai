@@ -21,6 +21,21 @@ Completion threshold:
 Verification surface:
 - TODO: Name the source audit, regenerated artifact, command, review, or user-visible proof.
 
+Constraints:
+- Repair one expectation narrowly.
+- Patch source-of-truth files, not generated skill mirrors.
+- Do not weaken evidence safety or completion gates just to reduce annoyance.
+- Do not broaden the repair to unrelated skills/templates.
+
+Boundaries:
+- Source of truth: latest `autogoal repair <expectation>` request.
+- Allowed edit scope: TODO.
+- Derived skill scope: TODO.
+- Non-goals: TODO.
+
+Blocked condition:
+- TODO: Name the missing plan path, skill owner, expected behavior, or user decision that stops autonomous repair.
+
 Work Checklist:
 - [ ] Expected behavior and observed miss are concrete.
 - [ ] Source of truth for the missed rule is identified.
