@@ -53,5 +53,28 @@ Completion Gates:
 | Autoreview | pending | Review repair against expected behavior, observed miss, and newest user request | pending |
 | Goal plan complete | yes | Run `node .agents/skills/autogoal/scripts/check-complete.mjs {{PLAN_PATH}}` | pending |
 
+Phase / pass table:
+| Phase | Status | Evidence | Next |
+|-------|--------|----------|------|
+| Intake and source read | in_progress | created plan | repair |
+| Repair | pending | | verification |
+| Verification | pending | | closeout |
+| Closeout | pending | | final response |
+
 Timeline:
 - {{CREATED_AT}}: repair plan created.
+
+Verification evidence:
+- Pending.
+
+Reboot status:
+| Question | Answer |
+|----------|--------|
+| Where am I? | Intake and source read |
+| Where am I going? | Repair, verification, closeout |
+| What is the goal? | TODO: Fill from Objective |
+| What have I learned? | See Observed miss |
+| What have I done? | See Timeline |
+
+Open risks:
+- Pending.

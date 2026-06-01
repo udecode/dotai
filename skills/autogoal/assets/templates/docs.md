@@ -63,8 +63,31 @@ Completion Gates:
 | Autoreview | pending | Review final docs against objective, constraints, source truth, and newest user request | pending |
 | Goal plan complete | yes | Run `node .agents/skills/autogoal/scripts/check-complete.mjs {{PLAN_PATH}}` | pending |
 
+Phase / pass table:
+| Phase | Status | Evidence | Next |
+|-------|--------|----------|------|
+| Intake and source read | in_progress | created plan | writing |
+| Writing | pending | | verification |
+| Verification | pending | | closeout |
+| Closeout | pending | | final response |
+
 Findings:
 - None yet.
 
 Timeline:
 - {{CREATED_AT}}: plan created.
+
+Verification evidence:
+- Pending.
+
+Reboot status:
+| Question | Answer |
+|----------|--------|
+| Where am I? | Intake and source read |
+| Where am I going? | Writing, verification, closeout |
+| What is the goal? | TODO: Fill from Objective |
+| What have I learned? | See Findings |
+| What have I done? | See Timeline |
+
+Open risks:
+- Pending.
