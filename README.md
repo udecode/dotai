@@ -13,6 +13,9 @@ Skills are the main routing layer. This repo is the canonical source for reusabl
 - `hard-cut`: delete-first repo cleanup workflow.
 - `orchestrator`: route branch work to reusable child threads.
   - Deps: durable Codex thread tools.
+- `sync-vision`: keep project `VISION.md` and `docs/vision/**` current from
+  changed human/agent inputs.
+  - Deps: `autogoal`; optional project-owned `docs/plans/templates/sync-vision.md`.
 - `tdd`: test-first development loop.
 - `video-transcripts`: generate XML transcripts for tracker video evidence.
   - Deps: `GEMINI_API_KEY` or `GOOGLE_API_KEY`; `curl`, `jq`, and `file`; optional `gh` for private GitHub attachments.
