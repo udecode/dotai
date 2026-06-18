@@ -8,6 +8,12 @@ Skills are the main routing layer. This repo is the canonical source for reusabl
 
 - `autogoal`: durable goal lifecycle and seeded plan templates.
   - Deps: Codex goal tools (`get_goal`, `create_goal`, `update_goal`); optional `orchestrator` when `$orchestrator on` is active.
+- `agent-native-reviewer`: review whether agents can discover, perform, and
+  verify the same meaningful actions as maintainers/users across skills,
+  prompts, commands, generated mirrors, repo workflows, and product actions.
+  - Deps: optional `autogoal`, `sync-skills`, `sync-vision`,
+    `resolve-pr-feedback`, `hard-cut`, `tdd`, and `diagnosing-bugs` for routed
+    follow-up work.
 - `hard-cut`: delete-first repo cleanup workflow.
 - `orchestrator`: route branch work to reusable child threads.
   - Deps: durable Codex thread tools.
