@@ -1,7 +1,7 @@
 ---
 name: resolve-pr-feedback
 description: Resolve GitHub PR review feedback with source-backed triage, fixes, autogoal plan state, mandatory autoreview closeout, replies, and thread resolution.
-argument-hint: '[PR number, comment URL, or blank for current branch''s PR]'
+argument-hint: "[PR number, comment URL, or blank for current branch's PR]"
 disable-model-invocation: true
 ---
 
@@ -52,13 +52,13 @@ and stop conditions into the plan before fixing feedback.
 
 ## Mode Detection
 
-| Argument | Mode |
-|----------|------|
-| No argument | Full: all unresolved feedback on the current branch's PR |
-| PR number | Full: all unresolved feedback on that PR |
-| Review-thread URL `#discussion_r...` | Targeted: only that review thread |
-| Top-level PR comment URL `#issuecomment-...` | Targeted: only that top-level PR comment |
-| Review body URL `#pullrequestreview-...` | Targeted: only that review body |
+| Argument                                     | Mode                                                     |
+| -------------------------------------------- | -------------------------------------------------------- |
+| No argument                                  | Full: all unresolved feedback on the current branch's PR |
+| PR number                                    | Full: all unresolved feedback on that PR                 |
+| Review-thread URL `#discussion_r...`         | Targeted: only that review thread                        |
+| Top-level PR comment URL `#issuecomment-...` | Targeted: only that top-level PR comment                 |
+| Review body URL `#pullrequestreview-...`     | Targeted: only that review body                          |
 
 Targeted mode is strict. Do not fetch or process unrelated threads unless the
 targeted fix exposes an obvious sibling bug class in the same changed surface;
@@ -92,15 +92,14 @@ refresh downstream installs through the Skills CLI.
 
    The output includes:
 
-   | Key | Contents | Has file/line? | Resolvable? |
-   |-----|----------|----------------|-------------|
-   | `review_threads` | unresolved inline review threads, including outdated threads with `isOutdated`, `originalLine`, `startLine`, and `originalStartLine` | yes | yes |
-   | `pr_comments` | top-level PR comments excluding the PR author and CI/status bot noise | no | no |
-   | `review_bodies` | review submission bodies excluding the PR author and CI/status bot noise | no | no |
+   | Key              | Contents                                                                                                                             | Has file/line? | Resolvable? |
+   | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------- | ----------- |
+   | `review_threads` | unresolved inline review threads, including outdated threads with `isOutdated`, `originalLine`, `startLine`, and `originalStartLine` | yes            | yes         |
+   | `pr_comments`    | top-level PR comments excluding the PR author and CI/status bot noise                                                                | no             | no          |
+   | `review_bodies`  | review submission bodies excluding the PR author and CI/status bot noise                                                             | no             | no          |
 
 3. **Triage.** Separate new, already-handled, pending, and non-actionable
    feedback.
-
    - Review threads with only reviewer comments are new.
    - Threads with a substantive previous reply that defers a decision are
      pending. Do not re-process them; surface them in the final handoff.
@@ -117,11 +116,9 @@ refresh downstream installs through the Skills CLI.
 
 5. **Fix.** Work each item in the main thread unless a future orchestrator is
    explicitly active. Group same-file items sequentially. For each item:
-
    - read the current file and relevant adjacent code;
    - decide `fixed`, `fixed-differently`, `replied`, `not-addressing`,
      `declined`, or `needs-human`;
-   - use `review-sweep` when one comment implies a clear diff-wide rule;
    - keep fixes scoped to the reviewed diff and its direct owners;
    - do not implement speculative architecture changes from review comments.
 
