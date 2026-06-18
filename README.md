@@ -8,11 +8,12 @@ Skills are the main routing layer. This repo is the canonical source for reusabl
 
 - `autogoal`: durable goal lifecycle and seeded plan templates.
   - Deps: Codex goal tools (`get_goal`, `create_goal`, `update_goal`); optional `orchestrator` when `$orchestrator on` is active.
-- `debug`: root-cause debugging workflow.
-  - Deps: optional `tdd` for complex business-logic fixes that need test coverage.
 - `hard-cut`: delete-first repo cleanup workflow.
 - `orchestrator`: route branch work to reusable child threads.
   - Deps: durable Codex thread tools.
+- `resolve-pr-feedback`: GitHub PR review feedback closure with source-backed
+  triage, proof, replies, and thread resolution.
+  - Deps: `gh`, `jq`; optional project-owned `docs/plans/templates/resolve-pr-feedback.md`.
 - `sync-vision`: keep project `VISION.md` and `docs/vision/**` current from
   changed human/agent inputs.
   - Deps: `autogoal`; optional project-owned `docs/plans/templates/sync-vision.md`.
