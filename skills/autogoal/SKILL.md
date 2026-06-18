@@ -76,8 +76,8 @@ parents:
 - `docs`: docs are touched but not the dominant deliverable
 - `agent-native`: agent instructions, skills, hooks, commands, prompts, or
   user-action tooling changed
-- `browser`: real browser, route, UI, console, network, or interaction proof
-  is required
+- `browser`: real browser, route, UI, native browser/OS, console, network, or
+  interaction proof is required
 - `package-api`: package exports, public API, release artifacts, package
   boundaries, or package-level checks changed
 
