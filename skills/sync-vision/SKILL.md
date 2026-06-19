@@ -1,6 +1,6 @@
 ---
 name: sync-vision
-description: Sync VISION.md and docs/vision detail files from changed human and agent inputs; use when project taste, doctrine, or maintainer judgment should learn from recent plans, docs, skills, reviews, or repeated misses.
+description: Sync root VISION.md from changed human and agent inputs; use when project taste, doctrine, or maintainer judgment should learn from recent plans, docs, skills, reviews, or repeated misses.
 disable-model-invocation: true
 ---
 
@@ -8,15 +8,14 @@ disable-model-invocation: true
 
 Handle `$ARGUMENTS`.
 
-`VISION.md` and `docs/vision/*.md` are living project taste. Treat them like a
-brain: learn from repeated human answers, agent misses, plans, docs, skills,
-research, reviews, and handoffs, then ignore noise.
+`VISION.md` is living project taste. Treat it like the project doctrine layer:
+learn from repeated human answers, agent misses, plans, docs, skills, research,
+reviews, and handoffs, then ignore noise.
 
 This skill is the incremental sync lane. It does not replace a `vision` router.
-It keeps root `VISION.md` and relevant `docs/vision/*.md` detail files current
-by analyzing changed durable inputs since the last synced commit. Root
-`VISION.md` stays the mandatory essential read. Detail files scale doctrine by
-owner, package, product lane, or workflow.
+It keeps root `VISION.md` current by analyzing changed durable inputs since the
+last synced commit. Root `VISION.md` is the mandatory essential read and single
+project vision source.
 
 ## Autogoal Dependency
 
@@ -32,13 +31,13 @@ Use `autogoal` before mutable work. This is a derived autogoal workflow.
   and N/A rows.
 - `autogoal` owns lifecycle, first-checkpoint requirement extraction,
   completion semantics, output-budget discipline, and `check-complete.mjs`.
-- `sync-vision` owns input-range accounting, candidate classification, root vs
-  detail doctrine patch rules, status semantics, and baseline advancement.
+- `sync-vision` owns input-range accounting, candidate classification, root
+  doctrine patch rules, status semantics, and baseline advancement.
 
 Goal handle shape:
 
 ```txt
-Sync vision; done when changed inputs are classified, vision docs are patched or reaffirmed, baseline semantics are recorded, and checks pass; plan docs/plans/<path>.md.
+Sync vision; done when changed inputs are classified, VISION.md is patched or reaffirmed, baseline semantics are recorded, and checks pass; plan docs/plans/<path>.md.
 ```
 
 ## State
@@ -92,9 +91,9 @@ branch state in dotai.
 
 - `status`: read `status.json`, current `HEAD`, committed diff count, and
   working-tree overlay count. No writes.
-- `preview`: write run artifacts and recommendations. Do not patch vision docs.
+- `preview`: write run artifacts and recommendations. Do not patch `VISION.md`.
   Do not advance baseline.
-- `sync`: default. Write artifacts, patch root/detail vision docs for
+- `sync`: default. Write artifacts, patch root `VISION.md` for
   high-confidence reusable decisions, route non-vision owners, and advance
   baseline only if all committed inputs are classified.
 - `advance`: update `status.json` to current `HEAD` only after the active plan
@@ -122,7 +121,6 @@ Analyze changed durable inputs, not the whole repo every time:
 
 - `VISION.md`
 - `AGENTS.md`
-- `docs/vision/**`
 - `.agents/AGENTS.md`
 - `.agents/rules/**`
 - `skills/**` when the repo uses top-level source skills, as dotai does
@@ -141,24 +139,20 @@ audits.
 
 Every candidate line or theme becomes one of:
 
-- `captured`: patch root `VISION.md` or the relevant `docs/vision/*.md` file
-  with a compact latest-state rule.
-- `reaffirmed`: already covered by root or a detail file; record the section.
+- `captured`: patch root `VISION.md` with a compact latest-state rule.
+- `reaffirmed`: already covered by root; record the section.
 - `rejected`: stale, one-off, contradicted, too narrow, or not project taste.
 - `run-specific`: belongs in the active plan only.
 - `owner-routed`: belongs in a skill/rule, research doc, benchmark target,
   package docs, product spec, behavior spec, or migration guide instead of
-  vision docs.
+  `VISION.md`.
 - `deferred-with-question`: missing taste; queue one concise question and do
   not advance the baseline unless the range can be safely accounted for without
   it.
 
-Promote to root `VISION.md` only when the rule must be visible in the mandatory
-first read: global taste, source order, cross-boundary law, public API doctrine,
-proof standards, review attention, or supervisor stop conditions.
-
-Promote owner detail to `docs/vision/*.md` when the rule is reusable but only
-relevant after a lane is selected.
+Promote to root `VISION.md` when the rule is reusable project doctrine: global
+taste, source order, cross-boundary law, public API doctrine, proof standards,
+review attention, owner-specific doctrine, or supervisor stop conditions.
 
 Do not promote:
 
@@ -174,17 +168,16 @@ Do not promote:
 
 1. Load `autogoal`, create or continue a `sync-vision` plan, and copy every
    user requirement into checkpoint zero.
-2. Read root `VISION.md` if present.
-3. Read relevant `docs/vision/*.md` files if present.
-4. Read `docs/sync/vision/status.json` if present.
-5. Run the helper in `status` or collection mode.
-6. Read `summary.md`, `candidate-lines.tsv`, and the changed source files that
+2. Read root `VISION.md`.
+3. Read `docs/sync/vision/status.json` if present.
+4. Run the helper in `status` or collection mode.
+5. Read `summary.md`, `candidate-lines.tsv`, and the changed source files that
    actually contain high-signal candidates.
-7. Cluster candidates by reusable decision, not by file.
-8. Classify each cluster.
-9. Patch root `VISION.md` or relevant `docs/vision/*.md` only for `captured`
+6. Cluster candidates by reusable decision, not by file.
+7. Classify each cluster.
+8. Patch root `VISION.md` only for `captured`
    clusters. Write current-state doctrine, not changelog prose.
-10. Route owner-specific misses to the owner:
+9. Route owner-specific misses to the owner:
     - skill/rule miss -> local skill source or installed shared skill owner;
     - behavior law -> product behavior/spec docs or owning plan skill;
     - automation miss -> owning supervisor skill;
@@ -192,11 +185,11 @@ Do not promote:
     - migration miss -> migration owner;
     - benchmark truth -> benchmark target/script owner;
     - docs/API mismatch -> docs or package owner.
-11. Record a decision ledger in the plan or run summary.
-12. If agent rules or shared skills changed, run the repo's generation or skill
+10. Record a decision ledger in the plan or run summary.
+11. If agent rules or shared skills changed, run the repo's generation or skill
     validation command.
-13. Run the active plan completion checker when available.
-14. Advance `lastSyncedCommit` only when the committed range is fully
+12. Run the active plan completion checker when available.
+13. Advance `lastSyncedCommit` only when the committed range is fully
     classified.
 
 ## Baseline Advancement
@@ -205,8 +198,7 @@ Advance baseline when all are true:
 
 - committed diff range was collected from prior `lastSyncedCommit` to target;
 - every candidate cluster has a classification;
-- root or detail vision docs were patched or explicitly reaffirmed for reusable
-  taste;
+- root `VISION.md` was patched or explicitly reaffirmed for reusable taste;
 - owner-routed items have concrete owners;
 - deferred questions are listed with recommendations;
 - generated mirrors are synced when source rules changed;
@@ -226,7 +218,7 @@ Include:
 
 - base commit, target commit, and whether baseline advanced;
 - changed input count and candidate count;
-- root/detail vision doc changes;
+- root vision doc changes;
 - reaffirmed existing sections;
 - rejected/noise clusters;
 - owner-routed follow-ups;

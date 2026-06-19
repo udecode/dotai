@@ -20,8 +20,8 @@ Skills are the main routing layer. This repo is the canonical source for reusabl
 - `resolve-pr-feedback`: GitHub PR review feedback closure with source-backed
   triage, proof, replies, and thread resolution.
   - Deps: `gh`, `jq`; optional project-owned `docs/plans/templates/resolve-pr-feedback.md`.
-- `sync-vision`: keep project `VISION.md` and `docs/vision/**` current from
-  changed human/agent inputs.
+- `sync-vision`: keep project root `VISION.md` current from changed
+  human/agent inputs.
   - Deps: `autogoal`; optional project-owned `docs/plans/templates/sync-vision.md`.
 - `tdd`: test-first development loop.
 - `video-transcripts`: generate XML transcripts for tracker video evidence.

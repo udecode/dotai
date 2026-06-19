@@ -15,7 +15,6 @@ const args = process.argv.slice(2);
 const defaultSourcePathspecs = [
   'VISION.md',
   'AGENTS.md',
-  'docs/vision',
   '.agents/AGENTS.md',
   '.agents/rules',
   'skills',
@@ -44,7 +43,6 @@ const defaultExactInputFiles = new Set([
 const defaultInputPathPrefixes = [
   '.agents/rules/',
   'skills/',
-  'docs/vision/',
   'docs/plans/',
   'docs/sync/',
   'docs/research/',
@@ -394,7 +392,7 @@ function main() {
     '',
     '- Read `candidate-lines.tsv` and the owning changed files.',
     '- Cluster candidates into captured, reaffirmed, rejected, run-specific, owner-routed, or deferred-with-question.',
-    '- Patch root `VISION.md` or the relevant `docs/vision/*.md` only for reusable latest-state doctrine.',
+    '- Patch root `VISION.md` only for reusable latest-state doctrine.',
     '- Advance `lastSyncedCommit` only after the committed range is fully accounted for.',
     '',
   ].join('\n');
