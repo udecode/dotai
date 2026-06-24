@@ -9,6 +9,9 @@ Goal plan:
 Template:
 {{TEMPLATE_PATH}}
 
+Linked plans:
+- None.
+
 First checkpoint:
 - Before implementation or broad exploration, copy every explicit prompt
   requirement into this plan as checkable checkpoints: scope, non-goals,

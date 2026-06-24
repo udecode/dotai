@@ -62,9 +62,11 @@ Goal plans are composable, but only through static materialization.
 The model is:
 
 1. one active goal
-2. one concrete `docs/plans` plan file
+2. one root `docs/plans` plan file
 3. one primary template
 4. optional materialized packs
+5. optional linked child `docs/plans` plan files for independently owned
+   sub-tasks
 
 The primary template is chosen by dominant risk: `task` for normal execution,
 `docs` for docs-dominant work, `major-task` for heavyweight architecture or
@@ -90,6 +92,13 @@ Do not create runtime inheritance between templates. The helper copies pack rows
 into the generated plan's `Start Gates`, `Work Checklist`, and
 `Completion Gates`. After creation, the generated plan is the truth; the checker
 validates that materialized plan only.
+
+Linked child plans are different from packs. Use them when one parent goal
+supervises multiple independently owned task plans, such as one PRD/full-loop
+plan linking one task plan per issue. The parent records the child links and
+rollup status; each child owns its own source, proof, review, and closeout
+packet. `check-complete.mjs` on the parent must fail while any linked child plan
+is missing or incomplete.
 
 The generated plan is the dedicated plan shell. Fill that exact file
 immediately after generation: replace placeholders, resolve every gate row, and
@@ -410,13 +419,14 @@ Use the hybrid rule for every goal:
 2. The `docs/plans` goal plan records the verification surface, constraints,
    boundaries, blocked condition, fresh evidence, and completion threshold.
 3. `node .agents/skills/autogoal/scripts/check-complete.mjs <docs/plans/path>` is
-   the final mechanical gate before `update_goal(status: complete)`.
+   the final mechanical gate before `update_goal(status: complete)`. If that
+   plan links child plans, the checker recursively validates them too.
 
 The checker validates that the goal plan has no unchecked required checklist
 items, no unresolved gate rows, no open phase/pass rows, concrete verification
-evidence, current reboot status, and recorded risks. It does not replace tests,
-browser proof, source audits, benchmark output, or other named verification
-evidence.
+evidence, current reboot status, recorded risks, and no incomplete linked child
+plans. It does not replace tests, browser proof, source audits, benchmark
+output, or other named verification evidence.
 
 ## Evidence Type Contract
 
@@ -713,6 +723,43 @@ autogoal template. The helper lives
 under `.agents/skills/autogoal/` because it is generic rule tooling; generated
 `SKILL.md` files are not edited by hand.
 
+## Linked Plan Trees
+
+Use linked child plans when one root goal coordinates multiple independent
+task-sized plans. This is the right shape for a PRD/full-loop parent plan that
+delegates one child plan per Linear issue or implementation packet.
+
+Format the parent section as:
+
+```md
+Linked plans:
+- [DEV-123 task closeout](docs/plans/DEV-123-auth-invites.md) - owns invite acceptance.
+- [DEV-124 task closeout](docs/plans/DEV-124-password-reset.md) - owns reset flow.
+```
+
+If there are no child plans, write:
+
+```md
+Linked plans:
+- None.
+```
+
+Rules:
+
+- Link only `docs/plans/*.md` files. Do not link scratch files, generated
+  artifacts, issue URLs, PR URLs, or external docs as child plans.
+- Each child plan must be a normal autogoal-compatible plan with concrete
+  objective, threshold, verification, checklist, gates, phase table,
+  verification evidence, reboot status, and open risks.
+- The parent plan tracks orchestration and rollup decisions; the child plan
+  owns task-level proof. Do not duplicate child gates in the parent.
+- Run `check-complete.mjs` on the root parent plan before completing the goal.
+  The checker follows `Linked plans`, `Linked goal plans`, or `Child plans`
+  sections recursively and fails on missing, incomplete, out-of-tree, or cyclic
+  child plans.
+- Use child plans for independent task packets, not for pass-gated phases that
+  should stay rows in one plan.
+
 Do not pass objective, threshold, verification, constraints, boundaries, or
 blocked condition through CLI flags. The CLI only creates the static plan shell.
 After creation, edit the generated `docs/plans` file and write the active goal
@@ -887,6 +934,9 @@ Primary template:
 Applied packs:
 - <pack or none>
 
+Linked plans:
+- <child docs/plans path or None>
+
 Completion threshold:
 - <quantitative or auditable done row>
 
@@ -1038,6 +1088,8 @@ Mark a goal complete only when:
 - every required goal-plan checklist item is checked or marked N/A with reason
 - `node .agents/skills/autogoal/scripts/check-complete.mjs <docs/plans/path>` passes
   after the final evidence is recorded
+- every linked child plan is complete when the root plan has `Linked plans`,
+  `Linked goal plans`, or `Child plans` entries
 - constraints and boundaries were respected, or deviations were explicitly
   accepted
 - required artifacts were created or updated
