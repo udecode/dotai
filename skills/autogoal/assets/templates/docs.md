@@ -87,7 +87,6 @@ Completion Gates:
 | Docs source-backed claim audit | pending | Verify docs claims against current source | pending |
 | Docs links / routes / previews | pending | Verify or record N/A | pending |
 | Docs parser/build | pending | Run relevant docs parser/build or record N/A | pending |
-| Autoreview | pending | Review final docs against objective, constraints, source truth, and newest user request | pending |
 | Timed checkpoint | pending | If duration was requested, keep improving until elapsed, then finish the current loop cleanly; otherwise N/A | pending |
 | Goal plan complete | yes | Run `node .agents/skills/autogoal/scripts/check-complete.mjs {{PLAN_PATH}}` | pending |
 

@@ -83,10 +83,12 @@ parents:
 - `package-api`: package exports, public API, release artifacts, package
   boundaries, or package-level checks changed
 
-Core execution and review gates belong in the primary template. Every primary
-template must include `Autoreview` as the last human-readable gate before
-`Goal plan complete`. Packs are only for optional touched surfaces that would
-otherwise be absent from that template.
+Core execution and proof gates belong in the primary template. `Autoreview` is
+never a universal goal or completion gate. Only after a complete end-to-end
+feature is already verified may the final handoff recommend it as an optional
+second pass; run it only when the user explicitly requests or accepts it.
+Packs are only for optional touched surfaces that would otherwise be absent
+from that template.
 
 Do not create runtime inheritance between templates. The helper copies pack rows
 into the generated plan's `Start Gates`, `Work Checklist`, and
@@ -866,8 +868,9 @@ Template quality bar:
   facts.
 - No template may let a goal finish from polished prose, score alone, or a
   completed phase table without fresh evidence.
-- Every primary template must include an `Autoreview` completion gate before
-  the final `Goal plan complete` check.
+- No primary template may require `Autoreview`. A complete end-to-end feature
+  may end with an optional recommendation after normal proof, but declining it
+  never blocks `Goal plan complete`.
 - Every required checklist item must map to evidence, an explicit N/A reason,
   or a blocker.
 - Every required section is either present in the template or omitted with a

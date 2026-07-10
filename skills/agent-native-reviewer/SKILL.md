@@ -80,8 +80,9 @@ to repeat.
   repo boundaries. Shared behavior belongs in dotai; repo policy stays local.
 - Use `sync-vision` when the missing parity is reusable taste or doctrine, not
   just one task's mechanics.
-- Use `resolve-pr-feedback` for PR review feedback. It must end with
-  `autoreview` in the destination repo when that repo owns an autoreview gate.
+- Use `resolve-pr-feedback` for PR review feedback. Do not nest mandatory
+  `autoreview`; only recommend it after a complete end-to-end feature when an
+  optional independent second pass could materially help.
 - Use `hard-cut` when stale compatibility, fake aliases, dead commands, or
   duplicate agent routes should be deleted rather than wrapped.
 - Use `tdd` or `diagnosing-bugs` when the parity gap is a real behavior bug,

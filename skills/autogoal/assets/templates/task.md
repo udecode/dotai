@@ -135,8 +135,7 @@ Work Checklist:
 - [ ] Nearby implementation patterns are read before edits.
 - [ ] Implementation fixes the right ownership boundary, or the narrower choice
       is recorded with reason.
-- [ ] Review/autoreview target selected from actual diff state for non-trivial
-      implementation work, or marked N/A with reason.
+- [ ] Scoped self-check findings are fixed or recorded with reason.
 - [ ] Verification evidence is recorded beside each relevant gate.
 
 Completion Gates:
@@ -151,7 +150,6 @@ Completion Gates:
 | Build-sensitive behavior changed | pending | Run relevant build/check | pending |
 | Browser surface changed | pending | Capture Browser proof for normal app surfaces, or Chrome/Computer proof for native browser/OS surfaces | pending |
 | Final lint/format | pending | Run relevant lint/format command or record N/A | pending |
-| Autoreview | pending | Review final diff/output against objective, acceptance criteria, constraints, and newest user request | pending |
 | Timed checkpoint | pending | If duration was requested, keep improving until elapsed, then finish the current loop cleanly; otherwise N/A | pending |
 | Goal plan complete | yes | Run `node .agents/skills/autogoal/scripts/check-complete.mjs {{PLAN_PATH}}` | pending |
 
