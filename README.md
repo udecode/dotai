@@ -15,8 +15,9 @@ Skills are the main routing layer. This repo is the canonical source for reusabl
     `resolve-pr-feedback`, `hard-cut`, `tdd`, and `diagnosing-bugs` for routed
     follow-up work.
 - `hard-cut`: delete-first repo cleanup workflow.
-- `orchestrator`: route branch work to reusable child threads.
-  - Deps: durable Codex thread tools.
+- `orchestrator`: route implementation through durable child threads and
+  disposable worktrees targeting `main`.
+  - Deps: durable Codex thread and project tools; Git worktrees.
 - `resolve-pr-feedback`: GitHub PR review feedback closure with source-backed
   triage, proof, replies, and thread resolution.
   - Deps: `gh`, `jq`; optional project-owned `docs/plans/templates/resolve-pr-feedback.md`.
