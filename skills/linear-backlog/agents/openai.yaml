@@ -1,0 +1,4 @@
+interface:
+  display_name: "Linear Backlog"
+  short_description: "Run Linear issues one at a time"
+  default_prompt: "Use $linear-backlog to execute this Linear backlog one issue at a time until no eligible work remains."

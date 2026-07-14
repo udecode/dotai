@@ -15,6 +15,10 @@ Skills are the main routing layer. This repo is the canonical source for reusabl
     `resolve-pr-feedback`, `hard-cut`, `tdd`, and `diagnosing-bugs` for routed
     follow-up work.
 - `hard-cut`: delete-first repo cleanup workflow.
+- `linear-backlog`: execute a scoped Linear queue serially without asking for
+  each next issue.
+  - Deps: `orchestrator`, `autogoal`, repo-local `task`, Linear read/write
+    tools, Git and PR tooling.
 - `orchestrator`: route implementation through durable child threads and
   disposable worktrees targeting `main`.
   - Deps: durable Codex thread and project tools; Git worktrees.
