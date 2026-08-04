@@ -54,7 +54,9 @@ symlink changes, and untracked files without `git status`.
 Keep receipts local. Do not publish file hashes. If an older packet has no
 baseline, reconstruct it from the recorded starting commit or base ref and the
 packet's changed-file ledger. Mark the receipt as reconstructed. New packets
-must capture the baseline before mutation.
+must capture the baseline before mutation. The helper excludes its own baseline
+and receipt paths from the comparison, but the output directory should still be
+ignored by the repo.
 
 ## Read The Minimum Evidence
 

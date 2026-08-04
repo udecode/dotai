@@ -83,6 +83,27 @@ test('ignores an empty commit', () => {
   }
 });
 
+test('does not count its own unignored receipt files', () => {
+  const repo = createRepo();
+
+  try {
+    const baselinePath = path.join(repo, 'evidence', 'baseline.json');
+    const receiptPath = path.join(repo, 'evidence', 'receipt.json');
+
+    runHelper(['capture', '--output', baselinePath], repo);
+    runHelper(
+      ['compare', '--baseline', baselinePath, '--output', receiptPath],
+      repo
+    );
+
+    const receipt = readReceipt(receiptPath);
+    assert.equal(receipt.producedFileDiff, false);
+    assert.deepEqual(receipt.changedPaths, []);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
 test('detects executable-bit and untracked-file changes', () => {
   const repo = createRepo();
 

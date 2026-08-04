@@ -89,10 +89,31 @@ function fileRecord(repoRoot, relativePath) {
   };
 }
 
-function snapshot(cwd) {
+function excludedRepoPaths(repoRoot, candidates) {
+  return new Set(
+    candidates
+      .map((candidate) => {
+        const absolutePath = path.resolve(candidate);
+        return path.relative(
+          repoRoot,
+          existsSync(absolutePath) ? realpathSync(absolutePath) : absolutePath
+        );
+      })
+      .filter(
+        (relativePath) =>
+          relativePath &&
+          relativePath !== '..' &&
+          !relativePath.startsWith(`..${path.sep}`) &&
+          !path.isAbsolute(relativePath)
+      )
+  );
+}
+
+function snapshot(cwd, excludedPaths = []) {
   const repoRoot = realpathSync(
     runGit(cwd, ['rev-parse', '--show-toplevel']).toString('utf8').trim()
   );
+  const excluded = excludedRepoPaths(repoRoot, excludedPaths);
   const head = runGit(repoRoot, ['rev-parse', 'HEAD']).toString('utf8').trim();
   const trackedPatch = runGit(repoRoot, [
     'diff',
@@ -104,13 +125,15 @@ function snapshot(cwd) {
   const trackedWorkingPaths = splitNull(
     runGit(repoRoot, ['diff', '--name-only', '-z', 'HEAD', '--', '.'])
   );
-  const trackedPaths = splitNull(runGit(repoRoot, ['ls-files', '-z']));
+  const trackedPaths = splitNull(runGit(repoRoot, ['ls-files', '-z'])).filter(
+    (relativePath) => !excluded.has(relativePath)
+  );
   const trackedFiles = trackedPaths.map((relativePath) =>
     fileRecord(repoRoot, relativePath)
   );
   const untrackedPaths = splitNull(
     runGit(repoRoot, ['ls-files', '--others', '--exclude-standard', '-z'])
-  );
+  ).filter((relativePath) => !excluded.has(relativePath));
   const untrackedFiles = untrackedPaths.map((relativePath) =>
     fileRecord(repoRoot, relativePath)
   );
@@ -156,7 +179,7 @@ if (command === 'capture') {
   writeJson(output, {
     version: 1,
     capturedAt: new Date().toISOString(),
-    snapshot: snapshot(process.cwd()),
+    snapshot: snapshot(process.cwd(), [output]),
   });
   process.exit(0);
 }
@@ -172,7 +195,7 @@ if (command === 'compare') {
     fail('unsupported baseline format');
   }
 
-  const current = snapshot(process.cwd());
+  const current = snapshot(process.cwd(), [baselinePath, output]);
   if (realpathSync(baseline.snapshot.repoRoot) !== current.repoRoot) {
     fail('baseline belongs to a different checkout');
   }
