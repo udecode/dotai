@@ -68,6 +68,7 @@ Start Gates:
 | Decision criteria stated | pending | pending |
 | Existing repo patterns / prior decisions checked | pending | pending |
 | External research decision recorded | pending | pending |
+| Walkthrough baseline for possible UI change | pending | Before the first mutation, capture `.agents/skills/walkthrough/scripts/diff-baseline.mjs` or record N/A because UI/rendered output cannot change |
 
 Work Checklist:
 - [ ] First checkpoint complete: every explicit prompt requirement, scope
@@ -89,6 +90,7 @@ Completion Gates:
 | Decision criteria satisfied | pending | Map evidence to each criterion | pending |
 | Source audit complete | pending | Record repo evidence and external evidence | pending |
 | Review / pressure pass | pending | Record review lens or N/A | pending |
+| UI walkthrough | pending | If implementation changed UI or rendered output, run `.agents/skills/walkthrough/SKILL.md` after final proof and show annotated images in the final handoff; otherwise record N/A | pending |
 | Timed checkpoint | pending | If duration was requested, keep improving until elapsed, then finish the current loop cleanly; otherwise N/A | pending |
 | Goal plan complete | yes | Run `node .agents/skills/autogoal/scripts/check-complete.mjs {{PLAN_PATH}}` | pending |
 

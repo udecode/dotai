@@ -32,6 +32,10 @@ Skills are the main routing layer. This repo is the canonical source for reusabl
 - `video-transcripts`: generate XML transcripts for tracker video evidence.
   - Deps: `GEMINI_API_KEY` or `GOOGLE_API_KEY`; `curl`, `jq`, `file`, and
     `ffmpeg`; optional `gh` for private GitHub attachments.
+- `walkthrough`: explain completed UI or rendered-output changes with concise
+  annotated visuals from real final-state artifacts.
+  - Deps: Git and Node.js for diff receipts; a repo-approved screenshot tool;
+    `imagegen` or another safe image editor for annotations.
 
 ## Quick Start
 

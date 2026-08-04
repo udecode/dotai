@@ -100,6 +100,7 @@ Start Gates:
 | TDD decision before behavior change or bug fix | pending | pending |
 | Browser proof decision for browser surface | pending | pending |
 | Chrome/Computer decision for native browser surface | pending | pending |
+| Walkthrough baseline for possible UI change | pending | Before the first mutation, capture `.agents/skills/walkthrough/scripts/diff-baseline.mjs` or record N/A because UI/rendered output cannot change |
 
 Work Checklist:
 - [ ] First checkpoint complete: every explicit prompt requirement, scope
@@ -149,6 +150,7 @@ Completion Gates:
 | TypeScript or typed config changed | pending | Run relevant typecheck | pending |
 | Build-sensitive behavior changed | pending | Run relevant build/check | pending |
 | Browser surface changed | pending | Capture Browser proof for normal app surfaces, or Chrome/Computer proof for native browser/OS surfaces | pending |
+| UI walkthrough | pending | If UI or rendered output changed, run `.agents/skills/walkthrough/SKILL.md` after final proof and show annotated images in the final handoff; otherwise record N/A | pending |
 | Final lint/format | pending | Run relevant lint/format command or record N/A | pending |
 | Timed checkpoint | pending | If duration was requested, keep improving until elapsed, then finish the current loop cleanly; otherwise N/A | pending |
 | Goal plan complete | yes | Run `node .agents/skills/autogoal/scripts/check-complete.mjs {{PLAN_PATH}}` | pending |
