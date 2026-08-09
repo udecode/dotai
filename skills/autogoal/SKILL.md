@@ -82,6 +82,8 @@ parents:
   interaction proof is required
 - `package-api`: package exports, public API, release artifacts, package
   boundaries, or package-level checks changed
+- `performance-observability`: user-facing latency, payload size, query count,
+  database access, cache behavior, runtime pooling, or throughput can change
 
 Core execution and proof gates belong in the primary template. `Autoreview` is
 never a universal goal or completion gate. Only after a complete end-to-end
@@ -135,6 +137,8 @@ Examples:
 - agent workflow task: `--template task --with agent-native`
 - browser behavior task: `--template task --with browser`
 - public app/API or package-boundary task: `--template task --with package-api`
+- query, cache, database, or runtime performance task:
+  `--template task --with performance-observability`
 - major architecture task: `--template major-task`
 - major architecture task that also changes docs and package API:
   `--template major-task --with docs --with package-api`
