@@ -125,6 +125,31 @@ editor, to add only:
 
 Keep labels to one sentence. Use product language, not implementation terms.
 
+### Show What Changed
+
+When the walkthrough explains a change inside an existing product, classify
+every callout by provenance. Use the same visible legend on every frame:
+
+- **Blue — Changed:** behavior or UI added or changed by the completed work.
+- **Gray — Already there:** existing product context needed to understand the
+  flow.
+- **Orange — Planned, not built:** discussed or approved follow-up work that is
+  not present in the verified artifact.
+
+Classify the exact feature, not the whole screen. An existing page with a new
+row gets a gray callout for the page and a blue callout for the row. Never mark
+an entire screen as changed merely because the screenshot was captured after
+the work.
+
+Put the category name inside every callout, not only in the legend. Keep each
+category color fixed across all frames. If the walkthrough has only one
+category, keep the category label on each callout; the full three-item legend
+may be omitted.
+
+Do not use category colors for severity, status, success, or failure. Product
+colors remain product evidence. Annotation colors explain only whether the
+called-out behavior changed, already existed, or is not built.
+
 Never add, remove, rewrite, beautify, or simulate product content. Compare the
 annotated result with the original. If product text, values, layout, or state
 changed, discard it and regenerate. The original is proof. The annotation is
@@ -167,5 +192,8 @@ Close only when:
 - the frames cover the user action and consequence;
 - originals and annotated copies are saved;
 - every annotation matches its original;
+- every callout classifies the exact behavior as Changed, Already there, or
+  Planned, not built, with the fixed category color;
+- every multi-category frame shows the same visible legend;
 - annotated images appear inline in the final response;
 - the owning proof is named.
