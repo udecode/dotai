@@ -130,12 +130,14 @@ Use paired names:
 Inspect each source image first. Use `imagegen`, or the repo-approved image
 editor, to add only:
 
-- numbered callouts in free margins or calm empty areas;
+- numbered target outlines on the product surface;
+- matching numbered explanations in one fixed side rail outside the product;
 - short plain-English labels;
-- thin arrows that land on the exact control, value, or consequence;
 - a compact title when the frame needs context.
 
 Keep labels to one sentence. Use product language, not implementation terms.
+Keep the product screenshot untouched except for the thin outlines and number
+markers. Never place explanation text over the product.
 
 ### Show What Changed
 
@@ -147,21 +149,17 @@ alone to distinguish provenance:
 - **Gray — existing context:** everything else needed to explain the flow. Do
   not say "already there" or "already existed" in the label.
 
-Use a small two-color legend once per frame. The legend is the only provenance
-text; never repeat `NEW / CHANGED`, `existing context`, or equivalent badges in
-callouts. Classify the exact feature, not the whole screen. An existing page
-with a new row gets gray context and a blue callout on the row. Never mark the
-whole screen blue merely because the screenshot was captured after the work.
+Use one small two-color legend in the side rail. The legend is the only
+provenance text; never repeat `NEW / CHANGED`, `existing context`, or equivalent
+badges in notes. Classify the exact feature, not the whole screen. An existing
+page with a new row gets gray context and a blue outline on the row. Never mark
+the whole screen blue merely because the screenshot was captured after the work.
 
-Start each arrow on the nearest edge of its callout. End it on the exact target.
-Rotate the arrowhead to follow the final line direction; never use a fixed
-left-, right-, up-, or down-facing arrowhead. Keep the line behind the callout
-and keep the arrowhead clear of the value or control it identifies.
-
-Outline the exact UI region the callout explains, then point the arrow to that
-outline. The arrowhead must touch the outline edge, not empty space beside the
-control or a vague coordinate inside the page. Use the same provenance color
-for the outline and arrow. Keep the outline thin and leave product text readable.
+Match each side-rail note to its target with the same number and provenance
+color. Put the number marker just outside the target outline so it never covers
+product text. Use no arrows by default. Add one only when numbered outlines
+cannot disambiguate nearby targets, and make it touch the target outline edge.
+Keep outlines thin and product text readable.
 
 Keep planned or unbuilt work out of completed-product screenshots. Name it in
 caption prose outside the image when it matters.
@@ -220,10 +218,11 @@ Close only when:
 - every annotation matches its original;
 - changed callouts are blue and existing-context callouts are gray;
 - the legend contains the only provenance labels;
-- arrows start on the nearest callout edge, land on the exact target, and use
-  direction-aware arrowheads;
-- every arrow terminates on the edge of a visible target outline, never on
-  empty space;
-- every frame that uses both colors shows the same visible two-color legend;
+- every note sits in one fixed side rail outside the product and matches a
+  numbered target outline;
+- number markers sit outside target borders and do not cover product text;
+- arrows are absent unless target numbers remain ambiguous;
+- every frame that uses both colors shows the same visible two-color legend in
+  the side rail;
 - annotated images appear inline in the final response;
 - the owning proof is named.
