@@ -158,6 +158,11 @@ Rotate the arrowhead to follow the final line direction; never use a fixed
 left-, right-, up-, or down-facing arrowhead. Keep the line behind the callout
 and keep the arrowhead clear of the value or control it identifies.
 
+Outline the exact UI region the callout explains, then point the arrow to that
+outline. The arrowhead must touch the outline edge, not empty space beside the
+control or a vague coordinate inside the page. Use the same provenance color
+for the outline and arrow. Keep the outline thin and leave product text readable.
+
 Keep planned or unbuilt work out of completed-product screenshots. Name it in
 caption prose outside the image when it matters.
 
@@ -217,6 +222,8 @@ Close only when:
 - the legend contains the only provenance labels;
 - arrows start on the nearest callout edge, land on the exact target, and use
   direction-aware arrowheads;
+- every arrow terminates on the edge of a visible target outline, never on
+  empty space;
 - every frame that uses both colors shows the same visible two-color legend;
 - annotated images appear inline in the final response;
 - the owning proof is named.
