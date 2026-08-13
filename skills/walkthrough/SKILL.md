@@ -70,6 +70,12 @@ Read only what explains the completed result:
 Reuse valid final-state screenshots. Do not rerun an expensive flow only to
 capture the same state.
 
+Do not stop at a link or button that promises a result. Open the result and
+show the saved record, receipt, message, packet, or other final artifact. When a
+preview and its downloadable or readable artifact both exist, inspect both and
+fail the walkthrough if their material claims disagree. Report the
+contradiction instead of choosing the friendlier surface.
+
 ## Pick The Shortest Story
 
 Use one to four frames. Each frame should explain one point:
@@ -81,6 +87,12 @@ Use one to four frames. Each frame should explain one point:
 
 Prefer the shortest sequence a non-developer can understand in under one
 minute. Do not turn every field or test into a callout.
+
+For QA, product-owner, or end-to-end walkthroughs, keep one subject, one user
+goal, one decision scope, and one time context across the whole sequence. If a
+frame changes any of them, label it as a separate example instead of implying
+causality. A screen captured after an action is not proof that the action caused
+that state unless the identity and time boundary match.
 
 ## Capture The Real Artifact
 
@@ -193,6 +205,12 @@ Close only when:
 - the caller's applicability rule was classified correctly;
 - the baseline and receipt exist when the caller uses a diff gate;
 - the frames cover the user action and consequence;
+- QA and product-owner flows keep one subject, goal, decision scope, and time
+  context, or label each discontinuity as a separate example;
+- the final frame shows the saved artifact itself, not only its navigation
+  control;
+- preview and final artifact claims agree, or the walkthrough reports their
+  contradiction as a blocker;
 - originals and annotated copies are saved;
 - every annotation matches its original;
 - changed callouts are blue and existing-context callouts are gray;
