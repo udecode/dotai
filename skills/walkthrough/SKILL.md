@@ -131,14 +131,20 @@ When the walkthrough explains a change inside an existing product, use color
 alone to distinguish provenance:
 
 - **Blue — NEW / CHANGED:** behavior or UI added or changed by the completed
-  work. Put a `NEW / CHANGED` badge inside blue callouts.
+  work.
 - **Gray — existing context:** everything else needed to explain the flow. Do
-  not add a badge or say "already there" or "already existed" in the label.
+  not say "already there" or "already existed" in the label.
 
-Use a small two-color legend once per frame. Classify the exact feature, not
-the whole screen. An existing page with a new row gets gray context and a blue
-callout on the row. Never mark the whole screen blue merely because the
-screenshot was captured after the work.
+Use a small two-color legend once per frame. The legend is the only provenance
+text; never repeat `NEW / CHANGED`, `existing context`, or equivalent badges in
+callouts. Classify the exact feature, not the whole screen. An existing page
+with a new row gets gray context and a blue callout on the row. Never mark the
+whole screen blue merely because the screenshot was captured after the work.
+
+Start each arrow on the nearest edge of its callout. End it on the exact target.
+Rotate the arrowhead to follow the final line direction; never use a fixed
+left-, right-, up-, or down-facing arrowhead. Keep the line behind the callout
+and keep the arrowhead clear of the value or control it identifies.
 
 Keep planned or unbuilt work out of completed-product screenshots. Name it in
 caption prose outside the image when it matters.
@@ -189,9 +195,10 @@ Close only when:
 - the frames cover the user action and consequence;
 - originals and annotated copies are saved;
 - every annotation matches its original;
-- changed callouts are blue and carry a `NEW / CHANGED` badge;
-- existing-context callouts are gray, use no badge, and avoid repetitive
-  provenance wording;
+- changed callouts are blue and existing-context callouts are gray;
+- the legend contains the only provenance labels;
+- arrows start on the nearest callout edge, land on the exact target, and use
+  direction-aware arrowheads;
 - every frame that uses both colors shows the same visible two-color legend;
 - annotated images appear inline in the final response;
 - the owning proof is named.
