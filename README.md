@@ -29,6 +29,9 @@ Skills are the main routing layer. This repo is the canonical source for reusabl
   human/agent inputs.
   - Deps: `autogoal`; optional project-owned `docs/plans/templates/sync-vision.md`.
 - `tdd`: test-first development loop.
+- `unslop`: draft, audit, and edit prose without AI-writing tells while
+  preserving facts and voice.
+  - Deps: optional Node.js for file and repo audits plus preservation checks.
 - `video-transcripts`: generate XML transcripts for tracker video evidence.
   - Deps: `GEMINI_API_KEY` or `GOOGLE_API_KEY`; `curl`, `jq`, `file`, and
     `ffmpeg`; optional `gh` for private GitHub attachments.
