@@ -83,7 +83,16 @@ parents:
 - `package-api`: package exports, public API, release artifacts, package
   boundaries, or package-level checks changed
 - `performance-observability`: user-facing latency, payload size, query count,
-  database access, cache behavior, runtime pooling, or throughput can change
+  database access, cache/index behavior, runtime pooling, repeated-unit work,
+  subscription fan-out, or throughput can change
+
+A public API or architecture that adds, retains, or changes a runtime layer,
+cache, index, projection, store, subscription, scheduler, geometry owner, or
+other repeated hot work must materialize `performance-observability` before the
+target is accepted. The plan needs an executable comparison against the current
+owner, using a disposable target prototype when the proposed path does not yet
+exist. An asymptotic table, review score, future benchmark plan, or "measure
+during implementation" note is not pre-acceptance evidence.
 
 Core execution and proof gates belong in the primary template. `Autoreview` is
 never a universal goal or completion gate. Only after a complete end-to-end
@@ -140,6 +149,8 @@ Examples:
 - query, cache, database, or runtime performance task:
   `--template task --with performance-observability`
 - major architecture task: `--template major-task`
+- scale-sensitive architecture task:
+  `--template major-task --with performance-observability`
 - major architecture task that also changes docs and package API:
   `--template major-task --with docs --with package-api`
 
@@ -885,6 +896,12 @@ Template quality bar:
   public API, runtime, package-boundary, browser, agent-action, or command
   contract changes. Do not copy a major planning lane's scorecard, issue
   ledger, or full pass schedule into generic execution templates.
+- Architecture and API templates must decide scale applicability before target
+  acceptance. When repeated or hot runtime work can change, materialize the
+  performance pack, require an executable baseline-versus-target probe before
+  accepting the design, and require the same production-path rerun plus a
+  correctness guard after implementation. Only source-backed type-only or
+  zero-runtime work may record N/A.
 - The template should prefer concrete commands, file paths, issue rows,
   browser routes, screenshots, benchmark names, or source-audit rows over vague
   "review" wording.
