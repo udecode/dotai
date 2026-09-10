@@ -1,0 +1,400 @@
+{
+  "skillsCliVersion": "1.5.25",
+  "skills": [
+    {
+      "name": "agent-session-resume",
+      "source": "hacktivist123/agent-session-resume",
+      "revision": "76b025634ddc99b3ee3428fb4464af1c467da291",
+      "path": "skills/agent-session-resume",
+      "description": "Use when continuing, resuming, locating, reading, inspecting, auditing, or reviewing a previous AI coding-agent session, handoff transcript, chat log, exported conversation, saved artifact set, or session summary, on any platform (Claude Code, Codex, Cursor, Antigravity, OpenCode) or across several platforms in one ask, such as reviewing threads across Claude and Codex.",
+      "category": "Understanding and communication",
+      "capabilities": [
+        "Python 3 for helpers; scoped native history or supplied transcript"
+      ],
+      "files": {
+        "SKILL.md": "ec16d27588fb56c14db5cfc3b4c0d8ae587215d4e5352990b165d141a96da5a3",
+        "agents/openai.yaml": "15f357568cf750143d402323fc868a1585cfdc1ed3d29fc6a98324dd3f2c4776",
+        "references/antigravity.md": "f41db01a95755f7fcf1c40c5830b003c9a5ff32040726424f7efe38e20cb799d",
+        "references/claude-code.md": "6b28b67662e69260be9ddd3c2bab238fd9f8d878f9d2bd21f67a6c9208d36ba1",
+        "references/codex.md": "e312bbf54022191e2ec25aa641b1ff2d426bfc0c895e9ff6eb8e82348babc650",
+        "references/cross-platform.md": "c58e78fa84c4bc99980b4d0479222b4e5d9d5d2be285301e5ff96eb9f81ed726",
+        "references/cursor.md": "f2b69a1e510b37afadb27329067e036c192c55065c2a2b0ebfdaf84f7d5e3a44",
+        "references/evidence-and-provenance.md": "7715eec3587a5f3ab5e2580267fff7ffd80004a135844abab7d3a0661eda4b19",
+        "references/github-copilot.md": "f7dd74a5ec64cc9f0b7d09fc4acb5b3f3fce4f256acd767551931096fe645942",
+        "references/opencode.md": "2e8b69130445e3bfac9d3e71891315d3e3d3367db1b5f7abd5b463d749c2f2a0",
+        "scripts/session-candidates.py": "f6a3d4d30e4009c88fde0c25a6a90b998c80b07638bbe0611f32689fbf7613ab",
+        "scripts/session-digest.py": "3aba2df18783186f41e669f7d3b82253f059a4f117757446d0c144e752c178c2",
+        "scripts/session-events.py": "3fe8c52a6dd56a70063b72ed8998ea0db88626c1278a2820ab67dfd37d378cfb",
+        "scripts/skill-provenance.py": "0a4c42f38a2a49127d7a9c34f35a79bab19331eebb73c072f9907a1fe565c56e"
+      }
+    },
+    {
+      "name": "ai-slop-cleaner",
+      "source": "yeachan-heo/oh-my-claudecode",
+      "revision": "4820f5641828cb980b7eb488a3c187f3d01459c3",
+      "path": "skills/ai-slop-cleaner",
+      "description": "Clean AI-generated code slop with a regression-safe, deletion-first workflow and optional reviewer-only mode",
+      "category": "Architecture, diagnosis and review",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "266ed0e1f36214b844dcba4a1c2f6b82dadfc48d09a0cfffe348f7353db77d2c"
+      }
+    },
+    {
+      "name": "diagnosing-bugs",
+      "source": "mattpocock/skills",
+      "revision": "3cca18b368ae95cdbdebbff572ccafa662551015",
+      "path": "skills/engineering/diagnosing-bugs",
+      "description": "Diagnosis loop for hard bugs and performance regressions. Use when the user says \"diagnose\"/\"debug this\", or reports something broken/throwing/failing/slow.",
+      "category": "Architecture, diagnosis and review",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "77f3cf31bc99b2f49af943222526531fcc9fc41d047626d3640e875e85af3e84",
+        "agents/openai.yaml": "3e430dbe4334a87597488c060cb3dc3786bb00c9182877d6f5ec41f62490e90b",
+        "scripts/hitl-loop.template.sh": "35103539fc36873eea36074769ad454f9379d6fc8b2dc0e26ce987fd3bfe5503"
+      }
+    },
+    {
+      "name": "find-skills",
+      "source": "vercel-labs/skills",
+      "revision": "80feb48868972d518436f26711509bc78595b5cb",
+      "path": "skills/find-skills",
+      "description": "Helps users discover and install agent skills when they ask questions like \"how do I do X\", \"find a skill for X\", \"is there a skill that can...\", or express interest in extending capabilities. This skill should be used when the user is looking for functionality that might exist as an installable skill.",
+      "category": "Setup and maintenance",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "c00eeea0e13e74fe4a9d84ba0a8542205a1b736d65f13134fe1a6647eb14976f"
+      }
+    },
+    {
+      "name": "prototype",
+      "source": "mattpocock/skills",
+      "revision": "3cca18b368ae95cdbdebbff572ccafa662551015",
+      "path": "skills/engineering/prototype",
+      "description": "Build a throwaway prototype to answer a design question. Use when the user wants to sanity-check whether a state model or logic feels right, or explore what a UI should look like.",
+      "category": "Product, planning and design",
+      "capabilities": [],
+      "files": {
+        "LOGIC.md": "f61c7d249e786a79ef289018901c348271e1798dd0b0bc5607b5c6f4d4a01ab9",
+        "SKILL.md": "714de632d116bb73f65cdb5a882db15b9369a6713b9a47c0fad827848f0bfbe3",
+        "UI.md": "723211e878acbc7b6ff09755263f3295cde724ba902ff0064da41eed51d45ad3",
+        "agents/openai.yaml": "5af65e43ab41a350436697b81e27b7f848d36782043b73c322bb2c9fa9cc55dc"
+      }
+    },
+    {
+      "name": "resolving-merge-conflicts",
+      "source": "mattpocock/skills",
+      "revision": "3cca18b368ae95cdbdebbff572ccafa662551015",
+      "path": "skills/engineering/resolving-merge-conflicts",
+      "description": "Use when you need to resolve an in-progress git merge/rebase conflict.",
+      "category": "Verification and delivery",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "9d8114f8ef0b31f535a265fc05c364bd8cf2e2895a830040e06c22acb11f54b0",
+        "agents/openai.yaml": "a1f4f96838f2ed6282eb28abbbf99029cb8fadce552baf53da90a025b8bffddf"
+      }
+    },
+    {
+      "name": "show-me",
+      "source": "humanlayer/skills",
+      "revision": "3c2629142c5d437428269b1b722b08c0b87f574d",
+      "path": "plugins/show-me/skills/show-me",
+      "description": "Help the user understand the current topic visually with concise diagrams, code-shape sketches, and focused HTML artifacts.",
+      "category": "Understanding and communication",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "bea6da70a58096730b9aeb0bae293ddf4726103a98efc9ce13c481619942a810"
+      }
+    },
+    {
+      "name": "skill-cleaner",
+      "source": "steipete/agent-scripts",
+      "revision": "15bcfe33f59795ce2421cf7f5a5465094dfbff09",
+      "path": "skills/skill-cleaner",
+      "description": "Codex/OpenClaw skill audit: live budget, usage, duplicates, compact descriptions.",
+      "category": "Setup and maintenance",
+      "capabilities": [
+        "Node.js with TypeScript stripping for its analyzer; optional native prompt diagnostics"
+      ],
+      "files": {
+        "SKILL.md": "32e482ba17945ac7ee1c8d40087346b093193df034391a331da76ca42adeae37",
+        "agents/openai.yaml": "bcc9a1d5d6c91fb2d250dcd38836c9ae8e363741ddb004e20d0bc97f9bc16739",
+        "scripts/skill-cleaner.test.ts": "425095a49e8801be7db43894c65937d18689ca3b892a39edc2db257d149148ef",
+        "scripts/skill-cleaner.ts": "f8ac9ec98bb027d71c3b520e95062c76be2bf1c9d3e5cd68a2b318488c0969f1"
+      }
+    },
+    {
+      "name": "figure-it-out",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/figure-it-out",
+      "description": "Design an auditable playbook when no narrower one fits: a large migration, an ambitious multi-part change, or work a human reviews after stepping away. Scales rigor to the task, runs a hypothesis loop, and logs decisions via show-me-your-work. Use for /figure-it-out, 'figure it out', a large migration, or when no narrower playbook applies.",
+      "category": "Execution and coordination",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "548616d04909de854f36869af2af127ce321fc6aaf95ea5a626997709fd46a2a"
+      },
+      "sourceDirectory": "pstack"
+    },
+    {
+      "name": "principle-boundary-discipline",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-boundary-discipline",
+      "description": "Apply when wiring validation, error handling, or framework adapters. Concentrate guards at system boundaries (CLI, config, network, external APIs); trust internal types and keep business logic in pure functions.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "ab3c690ce361542ca00446b8406f5afd47776f544b8ce06a9ef2eaa2338bde6d"
+      },
+      "sourceDirectory": "pstack"
+    },
+    {
+      "name": "principle-build-the-lever",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-build-the-lever",
+      "description": "Apply to any non-trivial work, not just bulk work: edits, migrations, analyses, checks. Build the tool that does it or proves it (codemod, script, generator, or a skill your subagents follow) instead of working by hand. The tool is the artifact a reviewer can rerun.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "3a0b02b1b890538810f27d00c525b2e677bb5d931f602fd7a774d5cd13b61c93"
+      },
+      "sourceDirectory": "pstack"
+    },
+    {
+      "name": "principle-encode-lessons-in-structure",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-encode-lessons-in-structure",
+      "description": "Apply when you catch yourself writing the same instruction a second time, or notice a recurring correction. Encode the rule as a lint, metadata flag, runtime check, or script instead of more text.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "4acdb3f466efd0a433899aafce3e0f100566228b63ccff43f363a83e80624d81"
+      },
+      "sourceDirectory": "pstack"
+    },
+    {
+      "name": "principle-exhaust-the-design-space",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-exhaust-the-design-space",
+      "description": "Apply when facing a novel UI interaction or architectural decision with no precedent in the codebase. Build 2-3 competing prototypes and compare side by side before committing.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "8583310d7297b7823d75494faa57b003564d436807febecdecbd8321abe5cf6e"
+      },
+      "sourceDirectory": "pstack"
+    },
+    {
+      "name": "principle-experience-first",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-experience-first",
+      "description": "Apply when product, UX, or feature-scope tradeoffs come up. Choose user delight over implementation convenience; ship fewer polished features over more rough ones.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "f8d643ddf2f6aa91d9607d1bb340fd2baf227d702e9738848b85312a312bb971"
+      },
+      "sourceDirectory": "pstack"
+    },
+    {
+      "name": "principle-fix-root-causes",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-fix-root-causes",
+      "description": "Apply when debugging. Trace each symptom to its root cause and fix it there; reproduce first, ask why until you reach it, resist nil-check guards that silence crashes.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "cfae13b5a3e27bc88d069092cae97b3e95246879d5bf14f0e9a4db719c781952"
+      },
+      "sourceDirectory": "pstack"
+    },
+    {
+      "name": "principle-foundational-thinking",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-foundational-thinking",
+      "description": "Apply before writing logic: choosing core types and data structures, sequencing scaffold-vs-feature work, asking what concurrent actors share. Get the data structures right so downstream code becomes obvious.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "a522488c9d4481e8bfcbe35cbf3838169c8e3801ee0738ae2859067684144579"
+      },
+      "sourceDirectory": "pstack"
+    },
+    {
+      "name": "principle-guard-the-context-window",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-guard-the-context-window",
+      "description": "Apply when context is filling up: large outputs, long files, repeated reads, fan-out planning. Route bulk to subagents; keep summaries in the main thread, not raw payloads.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "291d0125125eabbc2109c880b1c1083aa95826187119a648b26c1c8ea6367179"
+      },
+      "sourceDirectory": "pstack"
+    },
+    {
+      "name": "principle-laziness-protocol",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-laziness-protocol",
+      "description": "Apply when refactoring, evaluating diff size, or tempted to add abstractions, layers, or signal threading. Bias toward deletion and the smallest change that solves the problem.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "8999fda9fde65fd905835c86e3bfc64190369a84bba30b1e93769f39ad6580fe"
+      },
+      "sourceDirectory": "pstack"
+    },
+    {
+      "name": "principle-make-operations-idempotent",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-make-operations-idempotent",
+      "description": "Apply when designing commands, lifecycle steps, or processing loops that run amid crashes, restarts, and retries. Converge to the same end state regardless of partial prior runs.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "540738217c3da7bf513b9886924ad6a2bc77e58be867f5bd2e1831c74bf2ce70"
+      },
+      "sourceDirectory": "pstack"
+    },
+    {
+      "name": "principle-migrate-callers-then-delete-legacy-apis",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-migrate-callers-then-delete-legacy-apis",
+      "description": "Apply when introducing a new internal API while old callers still exist. Migrate callers and delete the old API in the same wave instead of preserving compatibility layers.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "e29b6b6534a23dcaf8c7e16fc25d6484000d7b6e289c48eb0a32a97280633c5d"
+      },
+      "sourceDirectory": "pstack"
+    },
+    {
+      "name": "principle-minimize-reader-load",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-minimize-reader-load",
+      "description": "Apply when reviewing or shaping code that's hard to trace. Count layers between question and answer, and hidden state in the reader's head; collapse one-caller wrappers and shrink mutable scope.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "480f4ddec29e7e3058a8f17eb97c0cec4a2c8b4b33ba6401e960167c1fc95a81"
+      },
+      "sourceDirectory": "pstack"
+    },
+    {
+      "name": "principle-model-the-domain",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-model-the-domain",
+      "description": "Apply when writing stateful logic, or when code branches a lot or repeats a shape assumption across files. Encode the domain in a structure instead of scattered conditionals.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "6b359783c5c9be87860d0999321e864940ff17729b9f9a27f38abae449640022"
+      },
+      "sourceDirectory": "pstack"
+    },
+    {
+      "name": "principle-never-block-on-the-human",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-never-block-on-the-human",
+      "description": "Apply when tempted to ask 'should I do X?' on reversible work. Proceed, present the result, let the human course-correct after the fact; reserve confirmation for irreversible actions.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "f656f3b7581df55e79f53cc47df93905c3a940b822c25071ba95f40e530d102a"
+      },
+      "sourceDirectory": "pstack"
+    },
+    {
+      "name": "principle-outcome-oriented-execution",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-outcome-oriented-execution",
+      "description": "Apply during planned rewrites and migrations with explicit phase boundaries. Converge on the target architecture; don't preserve smooth intermediate states with throwaway compatibility code.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "beedcaed75572a6a1662d47f16da203c2bd2c9dbffbbd678d4ba187d67b7e670"
+      },
+      "sourceDirectory": "pstack"
+    },
+    {
+      "name": "principle-prove-it-works",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-prove-it-works",
+      "description": "Apply after completing a task, before declaring done. Verify against the real artifact (run the feature, read the actual value, inspect the diff), not a proxy, self-report, or 'it compiles.'",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "9bbe6138505be34d81e9395d95d3639b384f71d71d65cc1903075126e1da1508"
+      },
+      "sourceDirectory": "pstack"
+    },
+    {
+      "name": "principle-redesign-from-first-principles",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-redesign-from-first-principles",
+      "description": "Apply when integrating a new requirement into an existing design. Redesign as if the requirement had been a foundational assumption from day one, instead of bolting it on.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "9ae97b35d6338cc9e34c7023c995a39cb7afdaf4bfd41e1d3d665da04d7515d5"
+      },
+      "sourceDirectory": "pstack"
+    },
+    {
+      "name": "principle-separate-before-serializing-shared-state",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-separate-before-serializing-shared-state",
+      "description": "Apply when concurrent actors might write to the same file, branch, key, or state object. Eliminate the sharing first; serialize structurally only when one shared writer is a real invariant.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "5b14fd656441580061f760968c828f3f4ba034242d8fa06b544763efb25e89ee"
+      },
+      "sourceDirectory": "pstack"
+    },
+    {
+      "name": "principle-sequence-verifiable-units",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-sequence-verifiable-units",
+      "description": "Apply to multi-step work (sweeps, migrations, runs of similar edits) and to how you stack commits and PRs. Break work into small units that each end in a verifiable state, check each before the next, and order delivery so the sequence proves itself to a reviewer.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "7478f8160ba5701ca40c742a81e90aff12d45f53ac9191e80ad79b9763e4489f"
+      },
+      "sourceDirectory": "pstack"
+    },
+    {
+      "name": "principle-subtract-before-you-add",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-subtract-before-you-add",
+      "description": "Apply when sequencing an addition, refactor, or rewrite. Remove dead weight, redundant validators, and stub references first, then build on the simpler base.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "3999888dc21ced33b86054c2ffde1a3cb438e16bed1213f5dab2b5c000446292"
+      },
+      "sourceDirectory": "pstack"
+    }
+  ]
+}

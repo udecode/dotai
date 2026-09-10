@@ -1,64 +1,38 @@
 # dotai
 
-Shared skills for coding agents.
+The complete generic workflow for coding agents: task completion, product planning, implementation, verification, review, communication and skill maintenance.
 
-Skills are the main routing layer. This repo is the canonical source for reusable udecode workflows; downstream repos should link to these skills instead of copying long `SKILL.md` files around.
+Start with [SETUP.md](SETUP.md). Share its GitHub link or the complete zip/folder and use its one-prompt setup. The setup installs 49 maintained/adapted skills from dotai and 29 unchanged skills directly from their pinned upstream sources using `npx skills add`. It preserves existing instructions and verifies every installed skill. Node.js 18+, npm/npx, Git and network access are required for the complete setup.
 
-## Included Skills
+Read [SKILLS.md](SKILLS.md) for the complete generated inventory, dependencies and capability limits. Skills are discovered individually and loaded when relevant; the whole collection is not one giant prompt.
 
-- `autogoal`: durable goal lifecycle and seeded plan templates.
-  - Deps: Codex goal tools (`get_goal`, `create_goal`, `update_goal`); optional `orchestrator` when `$orchestrator on` is active.
-- `agent-native-reviewer`: review whether agents can discover, perform, and
-  verify the same meaningful actions as maintainers/users across skills,
-  prompts, commands, generated mirrors, repo workflows, and product actions.
-  - Deps: optional `autogoal`, `sync-skills`, `sync-vision`,
-    `resolve-pr-feedback`, `hard-cut`, `tdd`, and `diagnosing-bugs` for routed
-    follow-up work.
-- `hard-cut`: delete-first repo cleanup workflow.
-- `linear-backlog`: execute a scoped Linear queue as maximal safe parallel
-  batches without asking for each next batch.
-  - Deps: `orchestrator`, `autogoal`, repo-local `task`, Linear read/write
-    tools, Git and PR tooling.
-- `orchestrator`: route implementation through durable child threads and
-  disposable worktrees targeting `main`.
-  - Deps: durable Codex thread and project tools; Git worktrees.
-- `resolve-pr-feedback`: GitHub PR review feedback closure with source-backed
-  triage, proof, replies, and thread resolution.
-  - Deps: `gh`, `jq`; optional project-owned `docs/plans/templates/resolve-pr-feedback.md`.
-- `sync-vision`: keep project root `VISION.md` current from changed
-  human/agent inputs.
-  - Deps: `autogoal`; optional project-owned `docs/plans/templates/sync-vision.md`.
-- `tdd`: test-first development loop.
-- `unslop`: draft, audit, and edit prose without AI-writing tells while
-  preserving facts and voice.
-  - Deps: optional Node.js for file and repo audits plus preservation checks.
-- `video-transcripts`: generate XML transcripts for tracker video evidence.
-  - Deps: `GEMINI_API_KEY` or `GOOGLE_API_KEY`; `curl`, `jq`, `file`, and
-    `ffmpeg`; optional `gh` for private GitHub attachments.
-- `walkthrough`: explain completed UI or rendered-output changes with concise
-  annotated visuals from real final-state artifacts.
-  - Deps: Git and Node.js for diff receipts; a repo-approved screenshot tool;
-    `imagegen` or another safe image editor for annotations.
+## Ownership
 
-## Quick Start
+- `skills/` owns reusable methods. Keep product names, private paths, credentials, release environments and infrastructure assumptions out of shared instructions.
+- `setup-workflow` owns installation and first-run project adaptation. `task` owns engineering execution. `maintain-workflow` maintains reusable methods; `sync-skills` reconciles project adaptations.
+- Project instructions and `.agents/workflow.md` own project commands, source/fixture/verification owners and publication policy. Shared plan templates seed missing files only.
+- Native tools, browser access, provider connections, paid models and host-provided skills are separate capabilities. Installing a method does not supply them.
 
-Install with the `skills` CLI:
+The 19 adapted pstack methods retain Lauren Tan's MIT-licensed source, complete references/playbooks, licenses and exact adaptation records at commit `93b00b89ef425a9c1bac0d0b317dfc49c930ac99`. Read their Codex runtime adapter for platform mapping. The 21 unmodified pstack methods and eight other unchanged upstream skills are declared in `upstream-skills.json`; their source is not copied into dotai. Runtime policy belongs in the shared adapter and routing instructions, not a duplicate wrapper skill.
 
-```sh
-npx skills add udecode/dotai
-```
+## Installation and updates
 
-## Validate
+Use Setup Workflow for the complete bundle. It supports project or user scope and explicit Codex or Claude Code destinations. Preview first, apply under the setup request, then verify. It stops on local conflicts instead of overwriting them. It never changes model/security settings, copies credentials or publishes work. The agent runs the printed named `npx skills add` commands for missing upstream skills, then verifies the complete manifest.
 
-Run after edits:
+For a selected skill in an existing Skills CLI-managed setup, use the CLI's named source/skill/agent installation path and include its required skill dependencies. Do not mix that installer with files owned by a dotai bundle record. Global scope and other projects require their own authorization.
+
+When starting from a GitHub setup link, download the complete repository at that link's revision. The setup page alone does not contain the installer or skills.
+
+## Validate and package
 
 ```sh
 scripts/validate-skills
+python3 scripts/check-pstack-preservation.py
+node scripts/build-workflow.mjs
+node scripts/build-workflow.mjs --check
+python3 scripts/package-workflow.py --output /absolute/path/to/dotai-workflow.zip
 ```
 
-## Editing Rules
+`build-workflow.mjs` accounts for bundled and remote skills, rejects duplicate ownership, resolves dependencies and records file checksums/modes. `--forbid '<pattern>'` optionally scans all shipped content for project/private vocabulary before packaging. The archive uses an explicit manifest allowlist: it never includes the surrounding checkout, Git history, local plans, private configuration or temporary files.
 
-- Keep descriptions short and useful for routing.
-- Keep skill bodies operational, not essay-like.
-- Prefer helper scripts for repeatable command logic.
-- Do not include secrets, private hostnames, private account IDs, or private URLs.
+For installer changes, exercise a clean temporary install, repeat run, local-edit conflict, instruction preservation, update and read-back. Static skill validation alone cannot prove these behaviors. Preserve upstream methods and use existing validators; do not add application suites for instruction changes.

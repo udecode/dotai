@@ -1,6 +1,6 @@
 ---
 name: orchestrator
-description: Turn the current Codex thread into a coordination thread that routes implementation work to durable reusable child threads in disposable worktrees with short-lived branches targeting main.
+description: Turn the current Codex thread into a coordination thread that routes explicitly delegated work to durable reusable child tasks with the project's checkout, proof and delivery policy.
 ---
 
 # Orchestrator
@@ -23,8 +23,8 @@ routing command.
 
 Worktrees alone are not orchestrator mode.
 
-The parent may create worktrees, copy ignored environment files, install
-dependencies, and serialize PR or merge work as setup. That is
+Within the active authority, the parent may prepare assigned worktrees, copy
+required environment files, install dependencies and serialize delivery. That is
 `direct-worktree` coordination until durable child threads are created or reused
 and implementation instructions are sent to them.
 
@@ -64,30 +64,13 @@ implementation lane.
 
 When orchestrator mode is on:
 
-- Do not implement product code in the parent thread.
-- Route code-changing work to durable child threads automatically.
-- Reuse the same child thread for the same checkout slot or workstream.
-- Keep the parent for intake, triage, routing, status, summaries, context
-  forwarding, conflict arbitration, push serialization, merge coordination,
-  and closeout.
-- Keep the root checkout for coordination and repo-owned planning or agent
-  guidance unless the repo explicitly assigns another parent-only surface.
-- If implementation or PR work is already on the root checkout, stop before
-  review, push, or PR. Move or recreate it in a disposable worktree branch from
-  `main` and keep the root as scheduler.
-- For every implementation or PR branch, create or reuse a durable child thread
-  first, then assign a disposable worktree with a short-lived branch from
-  `main`, even when work is serial.
-- Fan out independently runnable packets across separate worktrees. Expected
-  merge conflicts are not enough to serialize; record a conflict group and
-  resolve conflicts when they become real.
-- Open ready PRs back to `main` after repo-required checks and relevant proof
-  pass. Merge when repository policy and the hosting service allow it.
-- After merge and tracker or handoff closure, delete the disposable worktree,
-  archive the finished child thread, and release its slot unless a recorded
-  blocker still owns it.
-- If mode state is unclear for implementation work, find or create the child
-  thread before executing.
+- Keep the parent for intake, status, source context, conflict arbitration and authorized delivery.
+- Reuse the durable task for each workstream. Use the current task for ordinary work unless the user explicitly requests durable task coordination.
+- Creating a new task requires an explicit new-task request under the native tool contract. Mode activation alone does not authorize creating tasks or checkouts. Reuse authorized existing tasks; report a missing creation decision when it is required.
+- Never mutate the same checkout concurrently. Serial work can use an explicitly assigned existing checkout. For independently writable work, use permitted separate directories or user-authorized worktrees.
+- Project and user rules own branch, PR target, checkout selection and publication. Do not impose main, move current work, create isolation or ship because this skill lists a possible operation.
+- Preserve the exact proof, runtime/data ownership and handoff for each child. A hidden worker id is not a durable task id.
+- Archive tasks and reclaim disposable slots only within the authorized lifecycle and after their work and evidence are preserved.
 
 ## Implementation Work
 
@@ -111,45 +94,20 @@ Not implementation work by default:
 - Read-only status summaries or reviews.
 - Cross-thread triage.
 - External context intake.
-- Parent-owned plans or agent guidance that repo instructions keep on `main`.
+- Parent-owned plans or agent guidance in the assigned project checkout.
 - Asking which child owns a checkout when the mapping is missing.
 
-## Workspace Modes
+## Workspace and delivery policy
 
-Choose the lightest honest mode:
+Resolve each child's existing project and assigned checkout from returned tool metadata and the active request. Record one of:
 
-- `parent-root`: coordination, non-mutating triage, merge arbitration, and
-  parent-owned planning or agent guidance. It is not an implementation or PR
-  review checkout.
-- `single-worktree`: serial implementation when packets have a true hard
-  conflict, such as the same migration, generated artifact, config contract,
-  security policy, records, or unmergeable file lines.
-- `same-checkout`: non-mutating child coordination only. Never let two child
-  threads mutate the same checkout concurrently.
-- `worktree`: every implementation packet and PR branch. Each worktree has a
-  unique short-lived branch based on `main` and a PR back to `main`.
+- `parent-root`: coordination and project-owned planning.
+- `same-checkout`: one writer at a time in an explicitly assigned existing checkout.
+- `worktree`: a user-authorized independent checkout with its own branch, runtime and data ownership.
 
-Nearby components, the same product area, or a few expected merge conflicts are
-not hard conflicts.
+Read the selected project's isGitRepository metadata from `list_projects` to choose the environment when a new task is explicitly requested. Follow the actual `create_thread` contract: Git projects default to a worktree unless the user requested the saved project directly. Do not invent a starting branch or silently move existing work.
 
-## `main` Policy
-
-- `main` is the default integration branch and PR target.
-- Base every child branch on current `main`.
-- Before opening or updating a PR, fetch `origin main` when it exists, integrate
-  `origin/main` using the repo's required strategy, rerun required checks and
-  proof, then push the short-lived branch.
-- PRs are ready unless the user or repo instructions require draft state.
-- Merge into `main` when checks pass and repository policy allows it.
-- Never force push.
-- If integration conflicts are non-trivial, the child reports them to the
-  parent instead of widening scope.
-- The parent serializes push, PR, merge, and cleanup when concurrent lanes could
-  race.
-- After merge and release, return `main` to the root checkout. Do not leave a
-  disposable scheduler worktree as the long-lived owner of `main`.
-- Never hide active run deliverables in a stash just to switch the root
-  checkout. Park them on an explicit branch or report the blocker.
+The user's request and project rules select the integration branch, PR base and proof requirements. Preserve existing checkout work. Commit, push, PR, merge, cleanup and messages to others need their actual authority. Use the project delivery method and serialize actions that can race. A green check is evidence, not publication authority. Never force-push merely to simplify coordination.
 
 ## Data And Runtime Policy
 
@@ -163,12 +121,12 @@ not hard conflicts.
   or reused by a child without reassignment.
 - Each runtime-owning child gets a unique port and explicit stop condition.
 
-## Slot Conventions
+## Slot conventions for authorized worktrees
 
 - Derive the root checkout name and path at runtime.
 - Name sibling worktrees with numeric suffixes such as `<repo>-1`, `<repo>-2`,
   and `<repo>-N` unless repo instructions define another convention.
-- Reclaim stale merged or abandoned slots before allocation.
+- Reclaim stale slots only when cleanup is authorized and their source, untracked files and evidence are proven disposable.
 - Allocate the lowest reusable suffix first. A lower slot is unavailable only
   while active work, an unmerged branch or PR, a runtime, a review, or cleanup
   risk still owns it.
@@ -183,7 +141,7 @@ not hard conflicts.
   `git rev-parse --show-toplevel` in the target and verify it resolves to the
   assigned worktree before install, dispatch, or mutation.
 - Serialize first-time installs when generated links or caches can collide.
-- Delete disposable worktrees after merge or abandonment. A warm slot needs a
+- Within authorized cleanup, delete disposable worktrees after merge or abandonment. A warm slot needs a
   recorded owner, expiry, and next proof.
 - Archive finished child threads after merge, handoff, and proof closeout. Keep
   active, blocked, or decision-owning threads visible with an owner and next
@@ -199,20 +157,20 @@ not hard conflicts.
    tracker issue, existing thread title, or task name.
 5. Find an existing child thread for that key.
 6. Reuse it when found.
-7. Otherwise create a child thread titled:
+7. If creating a new task is explicitly authorized, create a child thread titled:
 
 ```text
 <CHECKOUT-OR-WORKSTREAM> <short task title>
 ```
 
 8. Send the exact request, source context, acceptance criteria, non-goals,
-   assigned worktree, `main` base and PR target, port, data strategy, runtime
+   assigned checkout, authorized base and PR target, port, data strategy, runtime
    owner, conflict group, proof expectations, and push or tracker expectations.
 9. Tell the child to follow the repo's implementation and review skills and to
    report checkout, branch, PR, tests, runtime proof, blockers, conflict risk,
    and next owner.
 10. Record the cleanup rule: after merge, required deployed or runtime proof,
-    and handoff closure, remove the worktree, archive the child thread, and
+    and handoff closure, perform authorized worktree cleanup, archive the child task, and
     release the slot.
 11. Record the mapping:
 
@@ -223,15 +181,16 @@ not hard conflicts.
 
 ## Thread Tool Boundary
 
-Use durable Codex thread tools only. Search for them by exact
-namespace-qualified name:
+Use the current durable Codex task tools. Discover their current schemas by operation name:
 
-- `codex_app.list_projects`
-- `codex_app.create_thread`
-- `codex_app.list_threads`
-- `codex_app.read_thread`
-- `codex_app.send_message_to_thread`
-- `codex_app.set_thread_archived`
+- `mcp__codex_app__list_projects`
+- `mcp__codex_app__create_thread`
+- `mcp__codex_app__list_threads`
+- `mcp__codex_app__read_thread`
+- `mcp__codex_app__wait_threads`
+- `mcp__codex_app__move_thread_to_sidebar_section`
+- `mcp__codex_app__send_message_to_thread`
+- `mcp__codex_app__set_thread_archived`
 
 Core routing needs project lookup, thread creation, thread listing, thread
 reading, and message sending. Finished-child cleanup needs thread archiving. If
@@ -264,7 +223,7 @@ Run: <exact user request or skill>
 Context from orchestrator:
 - Sources, decisions, blockers, branch and push state.
 - Workspace mode and absolute checkout path.
-- Branch based on `main`; PR target `main`.
+- Branch and PR target from the active request and project policy.
 - Port, data strategy, runtime owner, and conflict group.
 - Acceptance criteria, non-goals, required proof, review, push, and tracker expectations.
 
@@ -278,7 +237,7 @@ Rules:
 - Keep review and PR work inside this child/worktree lane.
 - Report conflicts instead of widening scope.
 - Reuse this thread for future work on this checkout/workstream.
-- Before push, integrate current `origin/main`, rerun required proof, and never force push.
+- Before an authorized push, apply the project's integration policy and rerun affected proof. Never force push by default.
 - Report checkout, branch, PR URL/state, data strategy, push state, tests, runtime proof, blockers, and next owner.
 ```
 
@@ -286,8 +245,8 @@ Rules:
 
 On heartbeat or `$orchestrator status`:
 
-1. Read known child status when tools allow it.
-2. Ask stale child threads for a short update.
+1. Use `wait_threads` with known ids and cursors; `timeoutMs: 0` gives a compact snapshot. Batch up to the tool's supported target limit.
+2. Read a task only when its summary leaves a concrete question unresolved. Wait for progress instead of sending prompts merely to poll status.
 3. Forward new context to the owning child.
 4. Surface only actionable blockers, push-ready work, review-ready work, and
    conflict decisions.
@@ -305,8 +264,7 @@ On heartbeat or `$orchestrator status`:
 - Never let two code-changing children mutate the same checkout concurrently.
 - Never fan out without an independence check, slot table, data strategy,
   runtime ownership, and parent-owned merge plan.
-- Do not impose an arbitrary lane cap. Start every independently runnable lane
-  that has a safe slot, data strategy, runtime owner, and durable child thread.
+- Respect current tool concurrency and resource limits. Queue remaining authorized work without dropping required slices.
 - Never force push.
 - Keep one-line local questions in the parent.
 - If the user says `do it here`, `local`, or `$orchestrator off`, turn mode off
@@ -316,15 +274,15 @@ On heartbeat or `$orchestrator status`:
 
 - Mode can be turned on, off, and reported.
 - Implementation work routes automatically.
-- Every implementation lane has a visible durable child thread and assigned
-  disposable worktree before mutation.
+- Every implementation lane has a visible durable child thread and an explicitly assigned
+  checkout before mutation.
 - Follow-ups reuse the same checkout or workstream thread.
 - Missing durable tools produce a clear blocker, not a hidden-worker fallback.
-- Independently runnable packets can fan out without an arbitrary slot cap.
-- Feature branches and PRs target `main`.
+- Independent packets run within authorized scope and actual concurrency limits.
+- Branches and PRs target the integration branch selected by the user and project.
 - Runtime and data ownership prevent cross-lane collisions.
 - Pushes and merges are coordinated, checked, and never forced.
 - Merged or abandoned worktrees are reclaimed promptly.
 - Finished child threads are archived after closeout.
-- Final handoff leaves the root checkout on `main` or reports the exact blocker.
+- Final handoff preserves the assigned root checkout and reports exact local versus published state.
 - The orchestrator remains a coordination thread, not an implementation thread.

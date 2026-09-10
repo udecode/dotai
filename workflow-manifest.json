@@ -1,0 +1,1979 @@
+{
+  "schemaVersion": 1,
+  "source": "udecode/dotai",
+  "skillsCliVersion": "1.5.25",
+  "skills": [
+    {
+      "name": "agent-native-reviewer",
+      "distribution": "bundled",
+      "description": "Audit changed agent workflows for usable routes, source ownership, discovery, and reproducible proof.",
+      "category": "Architecture, diagnosis and review",
+      "dependencies": [],
+      "capabilities": [],
+      "provenance": null
+    },
+    {
+      "name": "agent-session-resume",
+      "source": "hacktivist123/agent-session-resume",
+      "revision": "76b025634ddc99b3ee3428fb4464af1c467da291",
+      "path": "skills/agent-session-resume",
+      "description": "Use when continuing, resuming, locating, reading, inspecting, auditing, or reviewing a previous AI coding-agent session, handoff transcript, chat log, exported conversation, saved artifact set, or session summary, on any platform (Claude Code, Codex, Cursor, Antigravity, OpenCode) or across several platforms in one ask, such as reviewing threads across Claude and Codex.",
+      "category": "Understanding and communication",
+      "capabilities": [
+        "Python 3 for helpers; scoped native history or supplied transcript"
+      ],
+      "files": {
+        "SKILL.md": "ec16d27588fb56c14db5cfc3b4c0d8ae587215d4e5352990b165d141a96da5a3",
+        "agents/openai.yaml": "15f357568cf750143d402323fc868a1585cfdc1ed3d29fc6a98324dd3f2c4776",
+        "references/antigravity.md": "f41db01a95755f7fcf1c40c5830b003c9a5ff32040726424f7efe38e20cb799d",
+        "references/claude-code.md": "6b28b67662e69260be9ddd3c2bab238fd9f8d878f9d2bd21f67a6c9208d36ba1",
+        "references/codex.md": "e312bbf54022191e2ec25aa641b1ff2d426bfc0c895e9ff6eb8e82348babc650",
+        "references/cross-platform.md": "c58e78fa84c4bc99980b4d0479222b4e5d9d5d2be285301e5ff96eb9f81ed726",
+        "references/cursor.md": "f2b69a1e510b37afadb27329067e036c192c55065c2a2b0ebfdaf84f7d5e3a44",
+        "references/evidence-and-provenance.md": "7715eec3587a5f3ab5e2580267fff7ffd80004a135844abab7d3a0661eda4b19",
+        "references/github-copilot.md": "f7dd74a5ec64cc9f0b7d09fc4acb5b3f3fce4f256acd767551931096fe645942",
+        "references/opencode.md": "2e8b69130445e3bfac9d3e71891315d3e3d3367db1b5f7abd5b463d749c2f2a0",
+        "scripts/session-candidates.py": "f6a3d4d30e4009c88fde0c25a6a90b998c80b07638bbe0611f32689fbf7613ab",
+        "scripts/session-digest.py": "3aba2df18783186f41e669f7d3b82253f059a4f117757446d0c144e752c178c2",
+        "scripts/session-events.py": "3fe8c52a6dd56a70063b72ed8998ea0db88626c1278a2820ab67dfd37d378cfb",
+        "scripts/skill-provenance.py": "0a4c42f38a2a49127d7a9c34f35a79bab19331eebb73c072f9907a1fe565c56e"
+      },
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/hacktivist123/agent-session-resume/tree/76b025634ddc99b3ee3428fb4464af1c467da291"
+    },
+    {
+      "name": "ai-slop-cleaner",
+      "source": "yeachan-heo/oh-my-claudecode",
+      "revision": "4820f5641828cb980b7eb488a3c187f3d01459c3",
+      "path": "skills/ai-slop-cleaner",
+      "description": "Clean AI-generated code slop with a regression-safe, deletion-first workflow and optional reviewer-only mode",
+      "category": "Architecture, diagnosis and review",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "266ed0e1f36214b844dcba4a1c2f6b82dadfc48d09a0cfffe348f7353db77d2c"
+      },
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/yeachan-heo/oh-my-claudecode/tree/4820f5641828cb980b7eb488a3c187f3d01459c3"
+    },
+    {
+      "name": "architect",
+      "distribution": "bundled",
+      "description": "Sketch types, signatures, and module structure before code, then stay in the loop while implementation fills in. Use for /architect, 'architect this', 'design this', or non-trivial work where jumping to code would lock in the wrong shape.",
+      "category": "Architecture, diagnosis and review",
+      "dependencies": [
+        "arena",
+        "poteto-mode",
+        "principle-redesign-from-first-principles"
+      ],
+      "capabilities": [],
+      "provenance": "architect/UPSTREAM.json"
+    },
+    {
+      "name": "architecture-cleanup",
+      "distribution": "bundled",
+      "description": "Simplify code ownership, abstractions and colocation while preserving the requested public behavior and complete caller contracts.",
+      "category": "Architecture, diagnosis and review",
+      "dependencies": [],
+      "capabilities": [],
+      "provenance": null
+    },
+    {
+      "name": "arena",
+      "distribution": "bundled",
+      "description": "Spawn N parallel candidates at the same task, pick a base, graft the strongest parts of the losers into it. Use for /arena, 'arena this', 'throw it in the arena', or when one attempt at a non-trivial artifact would lock in the wrong shape.",
+      "category": "Execution and coordination",
+      "dependencies": [
+        "poteto-mode"
+      ],
+      "capabilities": [],
+      "provenance": "arena/UPSTREAM.json"
+    },
+    {
+      "name": "atlas",
+      "distribution": "bundled",
+      "description": "Maintain an existing review catalog of real application scenes, flows, access prerequisites, fixtures and honest readiness alongside changed product behavior.",
+      "category": "Verification and delivery",
+      "dependencies": [],
+      "capabilities": [
+        "Existing project scene catalog and its fixture/check owners"
+      ],
+      "provenance": null
+    },
+    {
+      "name": "autogoal",
+      "distribution": "bundled",
+      "description": "Manage native Codex goals requested directly or through an explicit standing user instruction, with measurable completion evidence.",
+      "category": "Execution and coordination",
+      "dependencies": [],
+      "capabilities": [
+        "Native goal tools for native goals; otherwise a file plan"
+      ],
+      "provenance": null
+    },
+    {
+      "name": "autoreview",
+      "distribution": "bundled",
+      "description": "Review an explicit code candidate or an actual PR closeout with actionable findings, bounded correction rounds and source-backed adjudication.",
+      "category": "Architecture, diagnosis and review",
+      "dependencies": [],
+      "capabilities": [
+        "Native or project review helper for structured independent review; direct inspection otherwise"
+      ],
+      "provenance": null
+    },
+    {
+      "name": "avoid-feature-creep",
+      "distribution": "bundled",
+      "description": "Challenge proposed scope additions against the actual user outcome, current acceptance and delivery constraints without shrinking already-authorized work.",
+      "category": "Product, planning and design",
+      "dependencies": [],
+      "capabilities": [],
+      "provenance": null
+    },
+    {
+      "name": "best-api-review",
+      "distribution": "bundled",
+      "description": "Judge whether an API or architecture change is worth pursuing, including new primitives and breaking redesigns beyond today's API. Give harsh, source-backed stop, pursue, or defer feedback before detailed design or implementation.",
+      "category": "Architecture, diagnosis and review",
+      "dependencies": [
+        "principle-redesign-from-first-principles"
+      ],
+      "capabilities": [],
+      "provenance": null
+    },
+    {
+      "name": "blast-radius",
+      "distribution": "bundled",
+      "description": "Find what a change could break somewhere else before it ships, beyond the diff, and prove the one fact it's safe because of by running real code instead of writing it up. Use for 'blast radius of X', 'what could this break', or reviewing a small diff you don't trust.",
+      "category": "Architecture, diagnosis and review",
+      "dependencies": [
+        "poteto-mode"
+      ],
+      "capabilities": [],
+      "provenance": "blast-radius/UPSTREAM.json"
+    },
+    {
+      "name": "create-verification-skill",
+      "distribution": "bundled",
+      "description": "Generate a project-local verification skill that drives your app the way a user does — any language, framework, or platform. Use for /create-verification-skill, \\\"make a control skill for this repo\\\", or when a project has no scripted way to prove UI/CLI/service behavior.",
+      "category": "Verification and delivery",
+      "dependencies": [
+        "poteto-mode"
+      ],
+      "capabilities": [],
+      "provenance": "create-verification-skill/UPSTREAM.json"
+    },
+    {
+      "name": "design",
+      "distribution": "bundled",
+      "description": "Create or improve production UI composition, interactions and design standards using the current product and its actual component system.",
+      "category": "Product, planning and design",
+      "dependencies": [],
+      "capabilities": [],
+      "provenance": null
+    },
+    {
+      "name": "diagnosing-bugs",
+      "source": "mattpocock/skills",
+      "revision": "3cca18b368ae95cdbdebbff572ccafa662551015",
+      "path": "skills/engineering/diagnosing-bugs",
+      "description": "Diagnosis loop for hard bugs and performance regressions. Use when the user says \"diagnose\"/\"debug this\", or reports something broken/throwing/failing/slow.",
+      "category": "Architecture, diagnosis and review",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "77f3cf31bc99b2f49af943222526531fcc9fc41d047626d3640e875e85af3e84",
+        "agents/openai.yaml": "3e430dbe4334a87597488c060cb3dc3786bb00c9182877d6f5ec41f62490e90b",
+        "scripts/hitl-loop.template.sh": "35103539fc36873eea36074769ad454f9379d6fc8b2dc0e26ce987fd3bfe5503"
+      },
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/mattpocock/skills/tree/3cca18b368ae95cdbdebbff572ccafa662551015"
+    },
+    {
+      "name": "figure-it-out",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/figure-it-out",
+      "description": "Design an auditable playbook when no narrower one fits: a large migration, an ambitious multi-part change, or work a human reviews after stepping away. Scales rigor to the task, runs a hypothesis loop, and logs decisions via show-me-your-work. Use for /figure-it-out, 'figure it out', a large migration, or when no narrower playbook applies.",
+      "category": "Execution and coordination",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "548616d04909de854f36869af2af127ce321fc6aaf95ea5a626997709fd46a2a"
+      },
+      "sourceDirectory": "pstack",
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack"
+    },
+    {
+      "name": "find-skills",
+      "source": "vercel-labs/skills",
+      "revision": "80feb48868972d518436f26711509bc78595b5cb",
+      "path": "skills/find-skills",
+      "description": "Helps users discover and install agent skills when they ask questions like \"how do I do X\", \"find a skill for X\", \"is there a skill that can...\", or express interest in extending capabilities. This skill should be used when the user is looking for functionality that might exist as an installable skill.",
+      "category": "Setup and maintenance",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "c00eeea0e13e74fe4a9d84ba0a8542205a1b736d65f13134fe1a6647eb14976f"
+      },
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/vercel-labs/skills/tree/80feb48868972d518436f26711509bc78595b5cb"
+    },
+    {
+      "name": "grill-with-vision",
+      "distribution": "bundled",
+      "description": "Resolve unsettled product, domain or source decisions against current user intent and product vision before implementation planning.",
+      "category": "Product, planning and design",
+      "dependencies": [],
+      "capabilities": [],
+      "provenance": null
+    },
+    {
+      "name": "hard-cut",
+      "distribution": "bundled",
+      "description": "Remove a feature completely with no backward compatibility; delete surfaces, callers, tests, docs, fallbacks, stubs, and dead exports.",
+      "category": "Architecture, diagnosis and review",
+      "dependencies": [],
+      "capabilities": [],
+      "provenance": null
+    },
+    {
+      "name": "how",
+      "distribution": "bundled",
+      "description": "Use for \\\"how does X work\\\", code walkthroughs before changing something, and placement / ownership / layering questions (\\\"where should this live\\\", \\\"which package owns this\\\", \\\"is this the right layer\\\"). Explains subsystem architecture, runtime flow, onboarding mental models. Can critique architecture. Use why for motivation.",
+      "category": "Understanding and communication",
+      "dependencies": [
+        "poteto-mode"
+      ],
+      "capabilities": [],
+      "provenance": "how/UPSTREAM.json"
+    },
+    {
+      "name": "improve",
+      "distribution": "bundled",
+      "description": "Audit and repair the current project's strongest evidenced improvement opportunities with one evolving scope, acceptance ledger and verification plan.",
+      "category": "Execution and coordination",
+      "dependencies": [
+        "architecture-cleanup",
+        "autogoal",
+        "maintain-workflow",
+        "task",
+        "verify-app"
+      ],
+      "capabilities": [],
+      "provenance": null
+    },
+    {
+      "name": "interrogate",
+      "distribution": "bundled",
+      "description": "Use for \\\"interrogate\\\", \\\"adversarial review\\\", \\\"multi-model review\\\", \\\"challenge this\\\", \\\"stress test this code\\\", \\\"find blind spots\\\", or \\\"tear this apart\\\". Multiple LLM reviewers challenge changes from independent angles.",
+      "category": "Architecture, diagnosis and review",
+      "dependencies": [
+        "poteto-mode"
+      ],
+      "capabilities": [],
+      "provenance": "interrogate/UPSTREAM.json"
+    },
+    {
+      "name": "linear-backlog",
+      "distribution": "bundled",
+      "description": "Run a scoped Linear backlog autonomously as a sequence of maximal safe parallel batches by composing orchestrator, autogoal, and task. Use when the user wants Codex to execute ordered Linear issues without prompting for each next batch while parallelizing every dependency-ready ticket that lacks a hard conflict.",
+      "category": "Verification and delivery",
+      "dependencies": [
+        "autogoal",
+        "orchestrator",
+        "task"
+      ],
+      "capabilities": [
+        "Connected Linear tools and project Git/delivery tooling"
+      ],
+      "provenance": null
+    },
+    {
+      "name": "maintain-verification-skill",
+      "distribution": "bundled",
+      "description": "Periodic pass that keeps a project's verification skill and feature map honest: parallel source readers per feature, one live session driving every feature, at most one PR of proven corrections. Use for /maintain-verification-skill or \\\"audit the verify skill\\\".",
+      "category": "Verification and delivery",
+      "dependencies": [
+        "poteto-mode"
+      ],
+      "capabilities": [],
+      "provenance": "maintain-verification-skill/UPSTREAM.json"
+    },
+    {
+      "name": "maintain-workflow",
+      "distribution": "bundled",
+      "description": "Maintain reusable agent workflows and compare methodology across projects. Use compare for instruction and execution drift, excluding product-specific differences; use sync to read upstream sources and apply relevant diffs through owned sources and current-project installs. Skip ordinary product edits and wording-only corrections.",
+      "category": "Setup and maintenance",
+      "dependencies": [
+        "agent-native-reviewer",
+        "skills-update",
+        "sync-skills"
+      ],
+      "capabilities": [],
+      "provenance": null
+    },
+    {
+      "name": "no-comments",
+      "distribution": "bundled",
+      "description": "Spawn Comment Sicko, fix accepted findings, and offer encodings for claimed constraints.",
+      "category": "Architecture, diagnosis and review",
+      "dependencies": [
+        "poteto-mode"
+      ],
+      "capabilities": [],
+      "provenance": "no-comments/UPSTREAM.json"
+    },
+    {
+      "name": "openclaw-sync",
+      "distribution": "bundled",
+      "description": "Analyze local OpenClaw repos to sync agent setup into our own skills, AGENTS docs, VISION docs, templates, and workflow rules. Use when asked to pull lessons from ../openclaw, compare current agent setup with latest OpenClaw, or classify potential imports as new, smart-merge, or reject.",
+      "category": "Setup and maintenance",
+      "dependencies": [
+        "setup-workflow"
+      ],
+      "capabilities": [
+        "Node.js, Git and an explicitly selected local reference checkout"
+      ],
+      "provenance": null
+    },
+    {
+      "name": "oracle",
+      "distribution": "bundled",
+      "description": "Obtain an explicitly requested second-model review through the Oracle CLI using a minimal reviewed file bundle, capability checks and resumable sessions.",
+      "category": "Architecture, diagnosis and review",
+      "dependencies": [],
+      "capabilities": [
+        "Oracle CLI and explicitly authorized engine/model access"
+      ],
+      "provenance": null
+    },
+    {
+      "name": "orchestrator",
+      "distribution": "bundled",
+      "description": "Turn the current Codex thread into a coordination thread that routes explicitly delegated work to durable reusable child tasks with the project's checkout, proof and delivery policy.",
+      "category": "Execution and coordination",
+      "dependencies": [],
+      "capabilities": [
+        "Native durable task/project tools"
+      ],
+      "provenance": null
+    },
+    {
+      "name": "poteto-mode",
+      "distribution": "bundled",
+      "description": "poteto's agent style for concise, detailed responses, deliberate subagents, unslopped prose, simple code, and verified work. Use for poteto, /poteto-mode, or requests to work in this style.",
+      "category": "Execution and coordination",
+      "dependencies": [
+        "principle-redesign-from-first-principles"
+      ],
+      "capabilities": [],
+      "provenance": "poteto-mode/UPSTREAM.json"
+    },
+    {
+      "name": "principle-boundary-discipline",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-boundary-discipline",
+      "description": "Apply when wiring validation, error handling, or framework adapters. Concentrate guards at system boundaries (CLI, config, network, external APIs); trust internal types and keep business logic in pure functions.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "ab3c690ce361542ca00446b8406f5afd47776f544b8ce06a9ef2eaa2338bde6d"
+      },
+      "sourceDirectory": "pstack",
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack"
+    },
+    {
+      "name": "principle-build-the-lever",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-build-the-lever",
+      "description": "Apply to any non-trivial work, not just bulk work: edits, migrations, analyses, checks. Build the tool that does it or proves it (codemod, script, generator, or a skill your subagents follow) instead of working by hand. The tool is the artifact a reviewer can rerun.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "3a0b02b1b890538810f27d00c525b2e677bb5d931f602fd7a774d5cd13b61c93"
+      },
+      "sourceDirectory": "pstack",
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack"
+    },
+    {
+      "name": "principle-encode-lessons-in-structure",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-encode-lessons-in-structure",
+      "description": "Apply when you catch yourself writing the same instruction a second time, or notice a recurring correction. Encode the rule as a lint, metadata flag, runtime check, or script instead of more text.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "4acdb3f466efd0a433899aafce3e0f100566228b63ccff43f363a83e80624d81"
+      },
+      "sourceDirectory": "pstack",
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack"
+    },
+    {
+      "name": "principle-exhaust-the-design-space",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-exhaust-the-design-space",
+      "description": "Apply when facing a novel UI interaction or architectural decision with no precedent in the codebase. Build 2-3 competing prototypes and compare side by side before committing.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "8583310d7297b7823d75494faa57b003564d436807febecdecbd8321abe5cf6e"
+      },
+      "sourceDirectory": "pstack",
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack"
+    },
+    {
+      "name": "principle-experience-first",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-experience-first",
+      "description": "Apply when product, UX, or feature-scope tradeoffs come up. Choose user delight over implementation convenience; ship fewer polished features over more rough ones.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "f8d643ddf2f6aa91d9607d1bb340fd2baf227d702e9738848b85312a312bb971"
+      },
+      "sourceDirectory": "pstack",
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack"
+    },
+    {
+      "name": "principle-fix-root-causes",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-fix-root-causes",
+      "description": "Apply when debugging. Trace each symptom to its root cause and fix it there; reproduce first, ask why until you reach it, resist nil-check guards that silence crashes.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "cfae13b5a3e27bc88d069092cae97b3e95246879d5bf14f0e9a4db719c781952"
+      },
+      "sourceDirectory": "pstack",
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack"
+    },
+    {
+      "name": "principle-foundational-thinking",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-foundational-thinking",
+      "description": "Apply before writing logic: choosing core types and data structures, sequencing scaffold-vs-feature work, asking what concurrent actors share. Get the data structures right so downstream code becomes obvious.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "a522488c9d4481e8bfcbe35cbf3838169c8e3801ee0738ae2859067684144579"
+      },
+      "sourceDirectory": "pstack",
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack"
+    },
+    {
+      "name": "principle-guard-the-context-window",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-guard-the-context-window",
+      "description": "Apply when context is filling up: large outputs, long files, repeated reads, fan-out planning. Route bulk to subagents; keep summaries in the main thread, not raw payloads.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "291d0125125eabbc2109c880b1c1083aa95826187119a648b26c1c8ea6367179"
+      },
+      "sourceDirectory": "pstack",
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack"
+    },
+    {
+      "name": "principle-laziness-protocol",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-laziness-protocol",
+      "description": "Apply when refactoring, evaluating diff size, or tempted to add abstractions, layers, or signal threading. Bias toward deletion and the smallest change that solves the problem.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "8999fda9fde65fd905835c86e3bfc64190369a84bba30b1e93769f39ad6580fe"
+      },
+      "sourceDirectory": "pstack",
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack"
+    },
+    {
+      "name": "principle-make-operations-idempotent",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-make-operations-idempotent",
+      "description": "Apply when designing commands, lifecycle steps, or processing loops that run amid crashes, restarts, and retries. Converge to the same end state regardless of partial prior runs.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "540738217c3da7bf513b9886924ad6a2bc77e58be867f5bd2e1831c74bf2ce70"
+      },
+      "sourceDirectory": "pstack",
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack"
+    },
+    {
+      "name": "principle-migrate-callers-then-delete-legacy-apis",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-migrate-callers-then-delete-legacy-apis",
+      "description": "Apply when introducing a new internal API while old callers still exist. Migrate callers and delete the old API in the same wave instead of preserving compatibility layers.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "e29b6b6534a23dcaf8c7e16fc25d6484000d7b6e289c48eb0a32a97280633c5d"
+      },
+      "sourceDirectory": "pstack",
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack"
+    },
+    {
+      "name": "principle-minimize-reader-load",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-minimize-reader-load",
+      "description": "Apply when reviewing or shaping code that's hard to trace. Count layers between question and answer, and hidden state in the reader's head; collapse one-caller wrappers and shrink mutable scope.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "480f4ddec29e7e3058a8f17eb97c0cec4a2c8b4b33ba6401e960167c1fc95a81"
+      },
+      "sourceDirectory": "pstack",
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack"
+    },
+    {
+      "name": "principle-model-the-domain",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-model-the-domain",
+      "description": "Apply when writing stateful logic, or when code branches a lot or repeats a shape assumption across files. Encode the domain in a structure instead of scattered conditionals.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "6b359783c5c9be87860d0999321e864940ff17729b9f9a27f38abae449640022"
+      },
+      "sourceDirectory": "pstack",
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack"
+    },
+    {
+      "name": "principle-never-block-on-the-human",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-never-block-on-the-human",
+      "description": "Apply when tempted to ask 'should I do X?' on reversible work. Proceed, present the result, let the human course-correct after the fact; reserve confirmation for irreversible actions.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "f656f3b7581df55e79f53cc47df93905c3a940b822c25071ba95f40e530d102a"
+      },
+      "sourceDirectory": "pstack",
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack"
+    },
+    {
+      "name": "principle-outcome-oriented-execution",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-outcome-oriented-execution",
+      "description": "Apply during planned rewrites and migrations with explicit phase boundaries. Converge on the target architecture; don't preserve smooth intermediate states with throwaway compatibility code.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "beedcaed75572a6a1662d47f16da203c2bd2c9dbffbbd678d4ba187d67b7e670"
+      },
+      "sourceDirectory": "pstack",
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack"
+    },
+    {
+      "name": "principle-prove-it-works",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-prove-it-works",
+      "description": "Apply after completing a task, before declaring done. Verify against the real artifact (run the feature, read the actual value, inspect the diff), not a proxy, self-report, or 'it compiles.'",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "9bbe6138505be34d81e9395d95d3639b384f71d71d65cc1903075126e1da1508"
+      },
+      "sourceDirectory": "pstack",
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack"
+    },
+    {
+      "name": "principle-redesign-from-first-principles",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-redesign-from-first-principles",
+      "description": "Apply when integrating a new requirement into an existing design. Redesign as if the requirement had been a foundational assumption from day one, instead of bolting it on.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "9ae97b35d6338cc9e34c7023c995a39cb7afdaf4bfd41e1d3d665da04d7515d5"
+      },
+      "sourceDirectory": "pstack",
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack"
+    },
+    {
+      "name": "principle-separate-before-serializing-shared-state",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-separate-before-serializing-shared-state",
+      "description": "Apply when concurrent actors might write to the same file, branch, key, or state object. Eliminate the sharing first; serialize structurally only when one shared writer is a real invariant.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "5b14fd656441580061f760968c828f3f4ba034242d8fa06b544763efb25e89ee"
+      },
+      "sourceDirectory": "pstack",
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack"
+    },
+    {
+      "name": "principle-sequence-verifiable-units",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-sequence-verifiable-units",
+      "description": "Apply to multi-step work (sweeps, migrations, runs of similar edits) and to how you stack commits and PRs. Break work into small units that each end in a verifiable state, check each before the next, and order delivery so the sequence proves itself to a reviewer.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "7478f8160ba5701ca40c742a81e90aff12d45f53ac9191e80ad79b9763e4489f"
+      },
+      "sourceDirectory": "pstack",
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack"
+    },
+    {
+      "name": "principle-subtract-before-you-add",
+      "source": "cursor/plugins",
+      "revision": "93b00b89ef425a9c1bac0d0b317dfc49c930ac99",
+      "path": "pstack/skills/principle-subtract-before-you-add",
+      "description": "Apply when sequencing an addition, refactor, or rewrite. Remove dead weight, redundant validators, and stub references first, then build on the simpler base.",
+      "category": "Engineering principles",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "3999888dc21ced33b86054c2ffde1a3cb438e16bed1213f5dab2b5c000446292"
+      },
+      "sourceDirectory": "pstack",
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/cursor/plugins/tree/93b00b89ef425a9c1bac0d0b317dfc49c930ac99/pstack"
+    },
+    {
+      "name": "principle-type-system-discipline",
+      "distribution": "bundled",
+      "description": "Apply when designing types, reviewing a function signature, or writing code in any statically-typed language. Make illegal states unrepresentable, brand semantic primitives, parse external data at boundaries, refuse to lie to the compiler, exhaust variants, derive from authoritative schemas.",
+      "category": "Engineering principles",
+      "dependencies": [
+        "poteto-mode"
+      ],
+      "capabilities": [],
+      "provenance": "principle-type-system-discipline/UPSTREAM.json"
+    },
+    {
+      "name": "prototype",
+      "source": "mattpocock/skills",
+      "revision": "3cca18b368ae95cdbdebbff572ccafa662551015",
+      "path": "skills/engineering/prototype",
+      "description": "Build a throwaway prototype to answer a design question. Use when the user wants to sanity-check whether a state model or logic feels right, or explore what a UI should look like.",
+      "category": "Product, planning and design",
+      "capabilities": [],
+      "files": {
+        "LOGIC.md": "f61c7d249e786a79ef289018901c348271e1798dd0b0bc5607b5c6f4d4a01ab9",
+        "SKILL.md": "714de632d116bb73f65cdb5a882db15b9369a6713b9a47c0fad827848f0bfbe3",
+        "UI.md": "723211e878acbc7b6ff09755263f3295cde724ba902ff0064da41eed51d45ad3",
+        "agents/openai.yaml": "5af65e43ab41a350436697b81e27b7f848d36782043b73c322bb2c9fa9cc55dc"
+      },
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/mattpocock/skills/tree/3cca18b368ae95cdbdebbff572ccafa662551015"
+    },
+    {
+      "name": "recall",
+      "distribution": "bundled",
+      "description": "Reconstruct your recent working context from your own chat history, live state, and the shared record (user reports, prior fixes, incidents), then hand back a tight current-state brief. Use for 'recall my work on X', 'catch me up', 'what have I been working on', 'where did I leave off', before starting or resuming work.",
+      "category": "Understanding and communication",
+      "dependencies": [
+        "poteto-mode"
+      ],
+      "capabilities": [],
+      "provenance": "recall/UPSTREAM.json"
+    },
+    {
+      "name": "reflect",
+      "distribution": "bundled",
+      "description": "Spawn three parallel review subagents over the active transcript, surface learnings, and route each to a concrete edit on an existing skill. Use when the user says reflect.",
+      "category": "Architecture, diagnosis and review",
+      "dependencies": [
+        "poteto-mode"
+      ],
+      "capabilities": [],
+      "provenance": "reflect/UPSTREAM.json"
+    },
+    {
+      "name": "resolve-pr-feedback",
+      "distribution": "bundled",
+      "description": "Resolve GitHub PR review feedback with source-backed triage, fixes, a scoped feedback ledger, focused proof, replies, and thread resolution.",
+      "category": "Verification and delivery",
+      "dependencies": [],
+      "capabilities": [
+        "GitHub CLI, jq and authorized repository access"
+      ],
+      "provenance": null
+    },
+    {
+      "name": "resolving-merge-conflicts",
+      "source": "mattpocock/skills",
+      "revision": "3cca18b368ae95cdbdebbff572ccafa662551015",
+      "path": "skills/engineering/resolving-merge-conflicts",
+      "description": "Use when you need to resolve an in-progress git merge/rebase conflict.",
+      "category": "Verification and delivery",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "9d8114f8ef0b31f535a265fc05c364bd8cf2e2895a830040e06c22acb11f54b0",
+        "agents/openai.yaml": "a1f4f96838f2ed6282eb28abbbf99029cb8fadce552baf53da90a025b8bffddf"
+      },
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/mattpocock/skills/tree/3cca18b368ae95cdbdebbff572ccafa662551015"
+    },
+    {
+      "name": "security-triage",
+      "distribution": "bundled",
+      "description": "Triage GHSA, CVE, security advisory, and vulnerability reports with shipped-state proof before closing or fixing.",
+      "category": "Architecture, diagnosis and review",
+      "dependencies": [
+        "setup-workflow"
+      ],
+      "capabilities": [
+        "Access to the actual advisory and shipped artifact"
+      ],
+      "provenance": null
+    },
+    {
+      "name": "setup-pstack",
+      "distribution": "bundled",
+      "description": "Configure which models pstack uses per role. Detects your available models and writes the project role configuration that overrides the skill defaults. Use for /setup-pstack, \"configure pstack models\", or changing pstack's model choices.",
+      "category": "Execution and coordination",
+      "dependencies": [
+        "poteto-mode"
+      ],
+      "capabilities": [],
+      "provenance": "setup-pstack/UPSTREAM.json"
+    },
+    {
+      "name": "setup-workflow",
+      "distribution": "bundled",
+      "description": "Install the complete generic dotai workflow for an explicit agent and project or user scope, preserve existing instructions, adapt project commands and verify discovery.",
+      "category": "Setup and maintenance",
+      "dependencies": [
+        "maintain-workflow",
+        "skills-update",
+        "sync-skills",
+        "task"
+      ],
+      "capabilities": [],
+      "provenance": null
+    },
+    {
+      "name": "show-me",
+      "source": "humanlayer/skills",
+      "revision": "3c2629142c5d437428269b1b722b08c0b87f574d",
+      "path": "plugins/show-me/skills/show-me",
+      "description": "Help the user understand the current topic visually with concise diagrams, code-shape sketches, and focused HTML artifacts.",
+      "category": "Understanding and communication",
+      "capabilities": [],
+      "files": {
+        "SKILL.md": "bea6da70a58096730b9aeb0bae293ddf4726103a98efc9ce13c481619942a810"
+      },
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/humanlayer/skills/tree/3c2629142c5d437428269b1b722b08c0b87f574d"
+    },
+    {
+      "name": "show-me-your-work",
+      "distribution": "bundled",
+      "description": "Keep a reviewable decision trail for long-running or unattended work: a TSV log with one row per decision (what, why, evidence, result). Local by default; commit it when a reviewer needs the trail to trust the result. Use for /show-me-your-work, autonomous or multi-phase runs, or work a human reviews after stepping away.",
+      "category": "Understanding and communication",
+      "dependencies": [
+        "poteto-mode"
+      ],
+      "capabilities": [],
+      "provenance": "show-me-your-work/UPSTREAM.json"
+    },
+    {
+      "name": "skill-cleaner",
+      "source": "steipete/agent-scripts",
+      "revision": "15bcfe33f59795ce2421cf7f5a5465094dfbff09",
+      "path": "skills/skill-cleaner",
+      "description": "Codex/OpenClaw skill audit: live budget, usage, duplicates, compact descriptions.",
+      "category": "Setup and maintenance",
+      "capabilities": [
+        "Node.js with TypeScript stripping for its analyzer; optional native prompt diagnostics"
+      ],
+      "files": {
+        "SKILL.md": "32e482ba17945ac7ee1c8d40087346b093193df034391a331da76ca42adeae37",
+        "agents/openai.yaml": "bcc9a1d5d6c91fb2d250dcd38836c9ae8e363741ddb004e20d0bc97f9bc16739",
+        "scripts/skill-cleaner.test.ts": "425095a49e8801be7db43894c65937d18689ca3b892a39edc2db257d149148ef",
+        "scripts/skill-cleaner.ts": "f8ac9ec98bb027d71c3b520e95062c76be2bf1c9d3e5cd68a2b318488c0969f1"
+      },
+      "distribution": "remote",
+      "dependencies": [],
+      "installSource": "https://github.com/steipete/agent-scripts/tree/15bcfe33f59795ce2421cf7f5a5465094dfbff09"
+    },
+    {
+      "name": "skills-update",
+      "distribution": "bundled",
+      "description": "Refresh a named skill or explicitly requested configured set using dry-run preflight, source provenance and explicit repository and agent destinations.",
+      "category": "Setup and maintenance",
+      "dependencies": [
+        "setup-workflow",
+        "sync-skills"
+      ],
+      "capabilities": [],
+      "provenance": null
+    },
+    {
+      "name": "swarm",
+      "distribution": "bundled",
+      "description": "Fan out N parallel workers, drain them, and return one report. Use for /swarm, 'swarm this', or parallel coverage, races, gauntlets, and exploration.",
+      "category": "Execution and coordination",
+      "dependencies": [
+        "poteto-mode"
+      ],
+      "capabilities": [],
+      "provenance": "swarm/UPSTREAM.json"
+    },
+    {
+      "name": "sync-skills",
+      "distribution": "bundled",
+      "description": "Reconcile named skills, rules, templates and routing between explicit sources and destinations while preserving project adaptations and generated-source ownership.",
+      "category": "Setup and maintenance",
+      "dependencies": [
+        "setup-workflow",
+        "skills-update"
+      ],
+      "capabilities": [],
+      "provenance": null
+    },
+    {
+      "name": "sync-vision",
+      "distribution": "bundled",
+      "description": "Sync root VISION.md from changed human and agent inputs; use when project taste, doctrine, or maintainer judgment should learn from recent plans, docs, skills, reviews, or repeated misses.",
+      "category": "Product, planning and design",
+      "dependencies": [],
+      "capabilities": [],
+      "provenance": null
+    },
+    {
+      "name": "task",
+      "distribution": "bundled",
+      "description": "Carry an engineering request through source investigation, implementation, proportionate verification, and authorized delivery; also supports explicit plan-only and PRD work.",
+      "category": "Execution and coordination",
+      "dependencies": [
+        "architecture-cleanup",
+        "autogoal",
+        "autoreview",
+        "diagnosing-bugs",
+        "maintain-workflow",
+        "verify-app"
+      ],
+      "capabilities": [],
+      "provenance": null
+    },
+    {
+      "name": "tdd",
+      "distribution": "bundled",
+      "description": "Test-driven development with red-green-refactor loop. Use when user wants to build features or fix bugs using TDD, mentions \"red-green-refactor\", wants integration tests, or asks for test-first development.",
+      "category": "Verification and delivery",
+      "dependencies": [],
+      "capabilities": [],
+      "provenance": null
+    },
+    {
+      "name": "teach",
+      "distribution": "bundled",
+      "description": "Explain a body of work plainly so a person actually understands it. Runs the `how` and `why` skills and weaves what they find into one clear explanation. Use for 'teach me this', 'help me really understand X', 'explain this change or subsystem to me'.",
+      "category": "Understanding and communication",
+      "dependencies": [
+        "poteto-mode"
+      ],
+      "capabilities": [],
+      "provenance": "teach/UPSTREAM.json"
+    },
+    {
+      "name": "technical-writing",
+      "distribution": "bundled",
+      "description": "Write, edit, and audit clear prose while preserving facts and house style. Use for docs, RFCs, READMEs, PR descriptions, commit messages, prose cleanup, and writing reviews. Includes document structure, anti-slop editing, and preservation checks.",
+      "category": "Understanding and communication",
+      "dependencies": [],
+      "capabilities": [],
+      "provenance": "technical-writing/UPSTREAM.json"
+    },
+    {
+      "name": "to-issues",
+      "distribution": "bundled",
+      "description": "Slice a settled PRD or plan into the fewest self-contained delivery issues and publish them only within explicit tracker authority.",
+      "category": "Product, planning and design",
+      "dependencies": [],
+      "capabilities": [
+        "Connected tracker only for requested publication"
+      ],
+      "provenance": null
+    },
+    {
+      "name": "to-milestone",
+      "distribution": "bundled",
+      "description": "Build or maintain an evidence-backed milestone map and ordered PRD ladder for a coherent product outcome.",
+      "category": "Product, planning and design",
+      "dependencies": [],
+      "capabilities": [
+        "Connected tracker only for requested publication"
+      ],
+      "provenance": null
+    },
+    {
+      "name": "to-prd",
+      "distribution": "bundled",
+      "description": "Turn settled product scope into a buildable PRD with source-backed acceptance, dependency ownership and explicit proof and publication boundaries.",
+      "category": "Product, planning and design",
+      "dependencies": [
+        "design",
+        "grill-with-vision",
+        "task",
+        "to-milestone"
+      ],
+      "capabilities": [
+        "Connected document/tracker only for requested publication"
+      ],
+      "provenance": null
+    },
+    {
+      "name": "typescript-best-practices",
+      "distribution": "bundled",
+      "description": "TypeScript best practices. Use when reading or editing any .ts or .tsx file.",
+      "category": "Setup and maintenance",
+      "dependencies": [
+        "poteto-mode"
+      ],
+      "capabilities": [],
+      "provenance": "typescript-best-practices/UPSTREAM.json"
+    },
+    {
+      "name": "verify-app",
+      "distribution": "bundled",
+      "description": "Verify real runtime operations, user journeys, copy/design, capability coverage or catalog scenes with evidence bound to the candidate and environment.",
+      "category": "Verification and delivery",
+      "dependencies": [],
+      "capabilities": [
+        "Project runtime, sanctioned fixtures and relevant browser/native/provider tools"
+      ],
+      "provenance": null
+    },
+    {
+      "name": "video-transcripts",
+      "distribution": "bundled",
+      "description": "Generate structured video transcripts from local files or video URLs using Gemini Files API. Use when a GitHub or Linear tracker item, comment, or attachment includes a screen recording, .mov, .mp4, or tracker-hosted video and you need a <video-transcripts> block instead of hand-written notes.",
+      "category": "Understanding and communication",
+      "dependencies": [],
+      "capabilities": [
+        "ffmpeg, curl, jq and authorized Gemini credentials"
+      ],
+      "provenance": null
+    },
+    {
+      "name": "walkthrough",
+      "distribution": "bundled",
+      "description": "Create a short annotated visual walkthrough from real final-state screenshots or rendered artifacts. Use when a user asks for demo screenshots or a caller requires visual evidence after UI or rendered-output changes.",
+      "category": "Understanding and communication",
+      "dependencies": [],
+      "capabilities": [
+        "Real final-state captures, Node.js and the configured annotation tool"
+      ],
+      "provenance": null
+    },
+    {
+      "name": "why",
+      "distribution": "bundled",
+      "description": "Use for 'why does X work this way', 'why we picked Y', design rationale, regressions, postmortems, or data-backed thresholds. Discovers available MCPs and queries each evidence category (source control, issue tracker, long-form docs, real-time chat, infrastructure observability, error tracking, product analytics warehouse) in parallel, then returns a cited read on decisions and tradeoffs. Use how for runtime behavior.",
+      "category": "Understanding and communication",
+      "dependencies": [
+        "poteto-mode"
+      ],
+      "capabilities": [],
+      "provenance": "why/UPSTREAM.json"
+    }
+  ],
+  "files": {
+    "README.md": {
+      "sha256": "4a2f63cbf5431c13f9a0a7f19c893545f3c5e7e3c11377649d6318101f09ffda",
+      "mode": 420
+    },
+    "SETUP.md": {
+      "sha256": "a58e884e97e3e68bc8b3e5a4f8626005d7d89fa2300bd744b03e5038a94199b2",
+      "mode": 420
+    },
+    "SKILLS.md": {
+      "sha256": "8952b8874a4a80f2104385734ab811455c867ccd542655e7206f9b20a7ec711b",
+      "mode": 420
+    },
+    "scripts/build-workflow.mjs": {
+      "sha256": "9c295d3f50b46c681749ac94383a4e47339f4904d0cbcef906d029ca5bc6d776",
+      "mode": 420
+    },
+    "scripts/check-pstack-preservation.py": {
+      "sha256": "e2ced2ab80a324e288ed8d38700f9cc3430a4711e238b3444c135c9a643659a7",
+      "mode": 420
+    },
+    "scripts/package-workflow.py": {
+      "sha256": "8c419ccde817b817885fcd50e829cba9dfb9d7ddd65c26f98f80a88e7fe5bd50",
+      "mode": 420
+    },
+    "scripts/setup-workflow.mjs": {
+      "sha256": "d8206720b65a23d53f06779862902f4d05578371d7231608a3b121105e155597",
+      "mode": 420
+    },
+    "scripts/validate-skills": {
+      "sha256": "b0937cec95febf0e028c2f5e69a66fb0d5d67885853d7b5811c573f3a2919ec9",
+      "mode": 493
+    },
+    "skills/agent-native-reviewer/SKILL.md": {
+      "sha256": "362778b510ad5172a644eefb9ab23d9510bf7625b8595880d4fdb73efc18cb9c",
+      "mode": 420
+    },
+    "skills/agent-native-reviewer/references/method.md": {
+      "sha256": "c8ee21b981601958cd084107ed544f254c2a18f021945e29c1f98df797ea0c01",
+      "mode": 420
+    },
+    "skills/architect/LICENSE": {
+      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
+      "mode": 420
+    },
+    "skills/architect/SKILL.md": {
+      "sha256": "cd43890d055035c310ef99acbf2eeca9c3a3cdcbbe492ee50b6b8652fde1c7cf",
+      "mode": 420
+    },
+    "skills/architect/UPSTREAM.json": {
+      "sha256": "9c7fd5492350f7d377e50d5e152ecda50af0d0199873256a96122c455555407b",
+      "mode": 420
+    },
+    "skills/architect/UPSTREAM.md": {
+      "sha256": "997721f7bf74efde48bde6c90aa89541de7df1ee35e2689b33167e4504dcc4ca",
+      "mode": 420
+    },
+    "skills/architect/references/comparison.md": {
+      "sha256": "474defbcb33ba82adce5f8b0ac5824bf9fdeac9148070420bdde7894ef9b634a",
+      "mode": 420
+    },
+    "skills/architect/references/design-red-flags.md": {
+      "sha256": "905066f9bbac81c573c2b325be47751d2c0f9325e0a0772bd4384e82dafe9336",
+      "mode": 420
+    },
+    "skills/architect/references/rationale-template.md": {
+      "sha256": "6645a0e5f68c003298ec95b85a23262bdda0c79f998b926060169b54d9f23fbb",
+      "mode": 420
+    },
+    "skills/architect/references/runner-prompt.md": {
+      "sha256": "3ef8c1452a0382a15b7601c7c94f2a16a00954170d705b7af8cc49ac78080ec9",
+      "mode": 420
+    },
+    "skills/architecture-cleanup/SKILL.md": {
+      "sha256": "f95b194e64e4f5bbfa9e2252a32696cf49b2951bec198c752d11ff0f4640323e",
+      "mode": 420
+    },
+    "skills/arena/LICENSE": {
+      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
+      "mode": 420
+    },
+    "skills/arena/SKILL.md": {
+      "sha256": "6041a5fb38d9c1623e3319d643c6c909027ab4b123362a1eef5f0b69a808bfc2",
+      "mode": 420
+    },
+    "skills/arena/UPSTREAM.json": {
+      "sha256": "178a569d8ff9c8374c977e49df36d43432b7f2f59f9be705c704c9a5cdf9cce4",
+      "mode": 420
+    },
+    "skills/arena/UPSTREAM.md": {
+      "sha256": "092098481cafbe2eb8a08b829d8f5b4863053d0114329eafd400fa10f685d1ea",
+      "mode": 420
+    },
+    "skills/atlas/SKILL.md": {
+      "sha256": "4c6cb53006a2277968ecedf57c32e19e08db163e6aca0a19c670cccc283ddae0",
+      "mode": 420
+    },
+    "skills/autogoal/README.md": {
+      "sha256": "a0e98f5791419740f66ab5e31ba39f399c5cf1476e1e785bab4cbbd9630323ef",
+      "mode": 420
+    },
+    "skills/autogoal/SKILL.md": {
+      "sha256": "ffe3e6dbec49e4148919eb72d8322e69b5ca19f7a835d5a098a88b5f080d4253",
+      "mode": 420
+    },
+    "skills/autogoal/assets/templates/docs.md": {
+      "sha256": "82ca01791768b4c17da98740671b9af8c77948558478505eb27bf97dde0712bf",
+      "mode": 420
+    },
+    "skills/autogoal/assets/templates/goal-repair.md": {
+      "sha256": "eac486f42c656192ec3b8915d73bf5c110c5f6114509070859f6619762005e76",
+      "mode": 420
+    },
+    "skills/autogoal/assets/templates/goal.md": {
+      "sha256": "a1a910f416bf60968ad48b0577183b3a8442b2bd83630dbe76ed6ecebb4c4c2c",
+      "mode": 420
+    },
+    "skills/autogoal/assets/templates/major-task.md": {
+      "sha256": "a506f95f7a437591aeb8e595b6d40dc1994bb7b5b9bb5183976a5b1fcf8228b6",
+      "mode": 420
+    },
+    "skills/autogoal/assets/templates/packs/agent-native.md": {
+      "sha256": "c48cd476a43f20ce0472242cae47de0950e6a998958b7c23cb509bbd7a196246",
+      "mode": 420
+    },
+    "skills/autogoal/assets/templates/packs/browser.md": {
+      "sha256": "9fd2f77fce35ca1be8142e65074e69bdc6c52c7b6970795c570bd6b36b8d0491",
+      "mode": 420
+    },
+    "skills/autogoal/assets/templates/packs/docs.md": {
+      "sha256": "9d91954aef8c26cde5f2f82ade9f1b2f4681db4a0530ba97a9d6a8456e6962b1",
+      "mode": 420
+    },
+    "skills/autogoal/assets/templates/packs/package-api.md": {
+      "sha256": "07cae5d404cffa9ed4fd01092cc93c389074087f2ff05c8d5c3af00ef5c87af3",
+      "mode": 420
+    },
+    "skills/autogoal/assets/templates/packs/performance-observability.md": {
+      "sha256": "7952723d560f9d9378153567389dacd6363881461672fb0e017d877011baaf8f",
+      "mode": 420
+    },
+    "skills/autogoal/assets/templates/task.md": {
+      "sha256": "ae2be79cc2331d8afd289df2063a4575a47e98f9e92329396c4d74a4b8f723f8",
+      "mode": 420
+    },
+    "skills/autogoal/references/method.md": {
+      "sha256": "61087bbcc53c47e3adfa3140c929257d38db00fa3223bf4e2ffe974d9feca158",
+      "mode": 420
+    },
+    "skills/autogoal/scripts/check-complete.mjs": {
+      "sha256": "46bec788a07f2a037e6732cb9eb3b7f02650c7b47de339801588e82d0095bd6a",
+      "mode": 420
+    },
+    "skills/autogoal/scripts/create-goal-scratchpad.mjs": {
+      "sha256": "6bfbdbb5566bd7cde464281d4055789709640c1c9cbf9355d21669b2d56b85ac",
+      "mode": 493
+    },
+    "skills/autogoal/scripts/create-goal-scratchpad.test.mjs": {
+      "sha256": "69953abd21ece38a3c4a010b2625ef66b53e1b9f41f698ddd97935a6026651e4",
+      "mode": 420
+    },
+    "skills/autogoal/scripts/create-goal-template.mjs": {
+      "sha256": "5fe3f75c2da57a70adc2e492258c584150462563db11af5bd130a7770f623868",
+      "mode": 420
+    },
+    "skills/autogoal/scripts/init-templates.mjs": {
+      "sha256": "060c95c028af598e1be8cd8a947aa09866e7f4b9ee7ed8e514f9e4afb789e622",
+      "mode": 420
+    },
+    "skills/autoreview/SKILL.md": {
+      "sha256": "20b8d2c69d9eb9992a5d43c201aa620695db72faae3e620f16257a695593d4fd",
+      "mode": 420
+    },
+    "skills/avoid-feature-creep/SKILL.md": {
+      "sha256": "8f7fbf1003cc059214887def977d10380bb180c7edc6e2fe0413f8dbc0434d18",
+      "mode": 420
+    },
+    "skills/best-api-review/SKILL.md": {
+      "sha256": "818916ef2f8227a9ad1690b6d0486ce4d870d692778a6d059503cc2b4eb96205",
+      "mode": 420
+    },
+    "skills/blast-radius/LICENSE": {
+      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
+      "mode": 420
+    },
+    "skills/blast-radius/SKILL.md": {
+      "sha256": "fb95376b3b05ff80ca53079c3ec4d29d0273bfd4d99528a2f199c10a39e7d328",
+      "mode": 420
+    },
+    "skills/blast-radius/UPSTREAM.json": {
+      "sha256": "d6a00be2576c645c1d83f073548468b716672e59a32d1bc92d0e4e5c108a17f1",
+      "mode": 420
+    },
+    "skills/blast-radius/UPSTREAM.md": {
+      "sha256": "47309f4948eed2dbc2a46a95c69af769ac9c6e37383164f3007fbee6165f220e",
+      "mode": 420
+    },
+    "skills/create-verification-skill/LICENSE": {
+      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
+      "mode": 420
+    },
+    "skills/create-verification-skill/SKILL.md": {
+      "sha256": "14b55801e91eb3ceca2998dbf876d28126f7107853347a920eb7d07bb6423de3",
+      "mode": 420
+    },
+    "skills/create-verification-skill/UPSTREAM.json": {
+      "sha256": "9415108feffc790f5cfbed00c68c953d229baca2ab1fa792db79e61adefd57ad",
+      "mode": 420
+    },
+    "skills/create-verification-skill/UPSTREAM.md": {
+      "sha256": "43ab0c0501ef76c35177c949c87fd080ca8181a1eaf4edc4ab3d0274f801b54a",
+      "mode": 420
+    },
+    "skills/create-verification-skill/references/feature-map-example/README.md": {
+      "sha256": "cb7bd782cf89968a4ba3d58a5151db837430db92d19a6f52a906973b77b516ba",
+      "mode": 420
+    },
+    "skills/create-verification-skill/references/feature-map-example/create-note.md": {
+      "sha256": "644a44c74f35d38c2feb7cd05a0121fdebbb623e8dc376c185b565a581d1ccf7",
+      "mode": 420
+    },
+    "skills/create-verification-skill/references/feature-map-example/search.md": {
+      "sha256": "6e87b9e7f2791a7776ba1bb83f371cd285c306c67f19d245cc4dd6ca3015c823",
+      "mode": 420
+    },
+    "skills/design/SKILL.md": {
+      "sha256": "f713867f9ad3e63cc5aa46df6983a1c5bd90cafde27ea910bbbad89a23db0bf1",
+      "mode": 420
+    },
+    "skills/grill-with-vision/SKILL.md": {
+      "sha256": "bd7af947dcac16559774fa5212d3aac5440b35a9f43801ea201672ad57aabaa4",
+      "mode": 420
+    },
+    "skills/hard-cut/SKILL.md": {
+      "sha256": "bd6b912593522b383424db4318b22b19df547965cbedd89cdfe054f0dfe753a7",
+      "mode": 420
+    },
+    "skills/how/LICENSE": {
+      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
+      "mode": 420
+    },
+    "skills/how/SKILL.md": {
+      "sha256": "a97872eb9e0ee266231058855dc40a5c9a61a0365ad0a8bc8385affdee657d89",
+      "mode": 420
+    },
+    "skills/how/UPSTREAM.json": {
+      "sha256": "a5b87ba3a678360d693eacaa68fd911fea0d0011d914867fab6294ae875cf350",
+      "mode": 420
+    },
+    "skills/how/UPSTREAM.md": {
+      "sha256": "5f585c7d72495eb41e6be6277aa2a7d614ab86615a6b1ae9dffd980139cb5cc2",
+      "mode": 420
+    },
+    "skills/how/references/critic-prompt.md": {
+      "sha256": "aa77a15590814c814bd5cb074842029ab7b790c2e8379050525bdbc20739d1bb",
+      "mode": 420
+    },
+    "skills/how/references/critique-rubric.md": {
+      "sha256": "5774ff2caf51796e54c4a61b63620a165de5801f23c8f47406e527abfbe9addc",
+      "mode": 420
+    },
+    "skills/how/references/explainer-prompt.md": {
+      "sha256": "04336086e7c415394459ca2f461717d920e15339517dbf5a56ca042f8b4fead3",
+      "mode": 420
+    },
+    "skills/how/references/explorer-prompt.md": {
+      "sha256": "fd1218b8cf1f467c644d4ce6fa5e54e6089ede65a28fbbae61f6ee7a2d462f85",
+      "mode": 420
+    },
+    "skills/improve/SKILL.md": {
+      "sha256": "2c0b470ab5094b1a5400732e1e7a8b7117db178a4236aed8d23acfe1f9c9d4a4",
+      "mode": 420
+    },
+    "skills/interrogate/LICENSE": {
+      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
+      "mode": 420
+    },
+    "skills/interrogate/SKILL.md": {
+      "sha256": "3a09b0db7e37d32e295669e21508a77977a061f1a2575324d192a7c548c497c4",
+      "mode": 420
+    },
+    "skills/interrogate/UPSTREAM.json": {
+      "sha256": "c01cd347e93b9227fd497ceaddf69853eafc1e939ad82c30851e5cd28e6c2105",
+      "mode": 420
+    },
+    "skills/interrogate/UPSTREAM.md": {
+      "sha256": "4334b7df3d7cda6ea2406ccbb72696fe994522531607909e60ccce4fc852641e",
+      "mode": 420
+    },
+    "skills/interrogate/references/code-quality-review.md": {
+      "sha256": "2462f1347b99b412b04fcb0577b96d8744c801f792f2651746f9409fd4465dc9",
+      "mode": 420
+    },
+    "skills/interrogate/references/lead-judgment.md": {
+      "sha256": "d2cea6cc308758201c6b8b82baf780947645f1ab752707ddf97fab374bf473f9",
+      "mode": 420
+    },
+    "skills/interrogate/references/reviewer-prompt.md": {
+      "sha256": "a397cc61102add709803d917fb23d726920525bf23e7c06dc4ed0b5cbeb00e54",
+      "mode": 420
+    },
+    "skills/interrogate/references/rubric.md": {
+      "sha256": "a67bf02426f88714634ff481d667db821d4b2cea7b335bcd165fe3126e427fb5",
+      "mode": 420
+    },
+    "skills/linear-backlog/SKILL.md": {
+      "sha256": "1334a83164875773bc85e049b3be89b0a7792a5e65c33194db2796c74e495c10",
+      "mode": 420
+    },
+    "skills/linear-backlog/agents/openai.yaml": {
+      "sha256": "4ef066a20803e0a06585337a918bf9cd446cb2ae97bbcea616bdd5823a06d4c6",
+      "mode": 420
+    },
+    "skills/maintain-verification-skill/LICENSE": {
+      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
+      "mode": 420
+    },
+    "skills/maintain-verification-skill/SKILL.md": {
+      "sha256": "862f812fd57fbce8ae31cc1362e2ff3b8721b2f4d1902fda547624a54c915d1c",
+      "mode": 420
+    },
+    "skills/maintain-verification-skill/UPSTREAM.json": {
+      "sha256": "67ccb06173173aa48bf6dcb7e00dad512237dbfcc8a6798254530d102aa9ccad",
+      "mode": 420
+    },
+    "skills/maintain-verification-skill/UPSTREAM.md": {
+      "sha256": "73d155054306708133a59fbb099a41ecb2221e60f5cfcf30ee710a2b8f6cff27",
+      "mode": 420
+    },
+    "skills/maintain-verification-skill/references/interface-coverage.md": {
+      "sha256": "1faf083a70c7938fab8e8be7c078b69448a28cdf4eb629208f67d765d0a35532",
+      "mode": 420
+    },
+    "skills/maintain-verification-skill/references/journey-coverage.md": {
+      "sha256": "c6c805ec9cb28797799faa7ce2c6e496fa993b146e6a62edb4f32bf1ab384e8c",
+      "mode": 420
+    },
+    "skills/maintain-verification-skill/scripts/check-interface-coverage.mjs": {
+      "sha256": "bbd97ca2794fed38a4dbbb9d36e0594a2bcc30c01126025287e6bab92caabe2c",
+      "mode": 493
+    },
+    "skills/maintain-workflow/SKILL.md": {
+      "sha256": "c459f337fac104103480651522f0ff4fd1c10cbe6caf798427ed0e2def3cd3f3",
+      "mode": 420
+    },
+    "skills/maintain-workflow/agents/openai.yaml": {
+      "sha256": "d43b1406e96ac4f6a928a652201038a22a6f751121985e4c65c26318f6892905",
+      "mode": 420
+    },
+    "skills/maintain-workflow/references/audit.md": {
+      "sha256": "c9af664d7f0a502de42405fa2c38a1b004f83123d8d375d32cbb37f0e5d88931",
+      "mode": 420
+    },
+    "skills/maintain-workflow/references/commands.md": {
+      "sha256": "60562bf586c73741bc72920fbcdadd29c08a4de3e2bf347cd95ebf1ccae40e81",
+      "mode": 420
+    },
+    "skills/maintain-workflow/references/compare.md": {
+      "sha256": "f7ff1e9c14eec9e471da217c69ee5401bbfba3e40176365774b7eabfcff5458f",
+      "mode": 420
+    },
+    "skills/maintain-workflow/references/sync.md": {
+      "sha256": "861a8a5c994f069990f75a5f546777b3c485f06c47cb507b94765e1395a720d4",
+      "mode": 420
+    },
+    "skills/no-comments/LICENSE": {
+      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
+      "mode": 420
+    },
+    "skills/no-comments/SKILL.md": {
+      "sha256": "0fe5d2a9c17c994242023f7c5e38eb73b59d80b2f487aa7ed5c1b8816c0abfb6",
+      "mode": 420
+    },
+    "skills/no-comments/UPSTREAM.json": {
+      "sha256": "90feea561d441d9ba3842683ce8c920e4fd07d4f8d2c4ce736b718bbec6e84f9",
+      "mode": 420
+    },
+    "skills/no-comments/UPSTREAM.md": {
+      "sha256": "b4c6658356fb9e7f5f9a783d87709fbc846b7eee742118f7ecf50f5e246cf322",
+      "mode": 420
+    },
+    "skills/openclaw-sync/SKILL.md": {
+      "sha256": "f15c6449ae3e45194816fcd8fac27cee272b798f7228f72bc9763a9e10c43e60",
+      "mode": 420
+    },
+    "skills/openclaw-sync/agents/openai.yaml": {
+      "sha256": "4690cd498d8c6b66b268f1a0be536214ec37304b080068bbbbd7fdf61bd8c42b",
+      "mode": 420
+    },
+    "skills/openclaw-sync/scripts/openclaw-sync-report.mjs": {
+      "sha256": "44efcf4cb3002a43133c45c5d184656413ccc18d3cda3b18ef110ae8e4a6eec1",
+      "mode": 420
+    },
+    "skills/oracle/SKILL.md": {
+      "sha256": "c23185cbf9ad6d54b40f9f762cd23f151d989e7603270c0d358c200e789e3dba",
+      "mode": 420
+    },
+    "skills/orchestrator/SKILL.md": {
+      "sha256": "7f423692c8139fb4dbbd1beb2fc7ed1902bff3a44e95f6e4989d12409cd41f37",
+      "mode": 420
+    },
+    "skills/poteto-mode/LICENSE": {
+      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
+      "mode": 420
+    },
+    "skills/poteto-mode/SKILL.md": {
+      "sha256": "6ac9ea186485dcd7480fa5c51c3a4f548bec8b8c1c4144cd5694c90e5bba04b7",
+      "mode": 420
+    },
+    "skills/poteto-mode/UPSTREAM.json": {
+      "sha256": "6f111c5a73e497fbd996dc88c91674b0a6b53266965c42461cfe24c635929053",
+      "mode": 420
+    },
+    "skills/poteto-mode/UPSTREAM.md": {
+      "sha256": "2fd636dd4705caf5a331ff073d0301ff86b359d6d3e3574b09774e6be16782ed",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/authoring-a-skill.md": {
+      "sha256": "88d2a75d8ec438ff90467093e63e3e072f0b8a725a368693ffdfda2ca36f0d21",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/autonomous-run.md": {
+      "sha256": "5892da7b1ef39076b19bb466f80eff6ba9085bd88e080e41c2b551de2691a2cd",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/autopilot-full.md": {
+      "sha256": "d9cad3982890d0cfae2e3a932b4a0468192a141e1fd511bd81a96c190541b612",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/autopilot-stack.md": {
+      "sha256": "af961b7ce77d92d21404b93dc8275e2e6cb6db2841510e9150eb485828bdc7ba",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/babysit.md": {
+      "sha256": "9b790f343197033d19bf7cb49f80378a247a04993ad93baad0d92097382c7996",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/bug-fix.md": {
+      "sha256": "5e3d879f0e6a1e125b020ee0fda2a0321200489cfc600e074ca98c49d8dba9fc",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/eval.md": {
+      "sha256": "bb63c022e4edab03c90366bcb7467e2064996a092c47c9fb7804adf5d2621397",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/feature.md": {
+      "sha256": "0e6e73bbef782118ede538df60710e76d1a3c3c21cdc602ab3c1fce078b100c7",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/hillclimb.md": {
+      "sha256": "3de4d31c2e17c6fcc6dee854f3d7c7dad35e7865e9e55eb9e7ccf8041cbb94fa",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/investigation.md": {
+      "sha256": "8d0aeac6f3ccbe85358699744ae04a7fd5a35e53fa72b7326b387182918e9dee",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/multi-phase-plan.md": {
+      "sha256": "02422c82bbb5da78f6a5834b6dc20034e4bfac6fe3780f1aa27291196a253ca6",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/opening-a-pr.md": {
+      "sha256": "c7cbeef07da8ab7b23d04fca1316a8cf81ebd26c7bd6c972b75a0812c1d106cf",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/orchestrate.md": {
+      "sha256": "0aa2e058f408fc84280cd145e56148bf79c8ee39713a01331a3c75d62889fa46",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/pause-safely.md": {
+      "sha256": "d58506c56d2014bc413f26dd358c5f949c0a8613aa200be2c1ba8271ef21131a",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/perf-issue.md": {
+      "sha256": "9295c24ad4e43d4da20286b4b67850118953fd72e84b50f55b181c4bcf280e8f",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/prototype.md": {
+      "sha256": "04bef5ac43b76c1739a8fd68684d3c1761b22f99336f9666584c2075177fd22e",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/refactoring.md": {
+      "sha256": "31f0b8f1a7fa2894b87c01edad993703f827322cdef45a06f00734dd56e8eb99",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/runtime-forensics.md": {
+      "sha256": "baa8102ccabb5ba65ffccc637408230feff2b867cb1a6904ab77642de20886e2",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/session-pickup.md": {
+      "sha256": "ca90c176c362839758e00e0968e426e2a0f2e086fcbc30e767e2c1f45dafa6b7",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/shipping.md": {
+      "sha256": "01a7f953a80f5709814d7f91404dacca8209e856304a719238f3277cb818aecd",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/trace-forensics.md": {
+      "sha256": "a15c69c4596528bbcbc90fc2faf8838f1ca3f1103ebbe8f293a26325bb157e4f",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/visual-parity.md": {
+      "sha256": "8d606b5b3a28141650b7b14607d028b7bb2c28ebfafdc21616c4e483a6ec8491",
+      "mode": 420
+    },
+    "skills/poteto-mode/playbooks/worktree-cleanup.md": {
+      "sha256": "940543d0a25873e1db04fe3f759fccc50c05a13f5435a5849105d17697d78b58",
+      "mode": 420
+    },
+    "skills/poteto-mode/references/agents/comment-sicko.md": {
+      "sha256": "2c2b6997fb0cb4bc569319c6028d62dfc0571fa8789039f25414b6afd65e0f2a",
+      "mode": 420
+    },
+    "skills/poteto-mode/references/agents/poteto-agent.md": {
+      "sha256": "ab1ce7d96a520ea710c6c63ff87bf0210a12fd72e23690b6f0682bb10d3535ce",
+      "mode": 420
+    },
+    "skills/poteto-mode/references/bugbot-triage.md": {
+      "sha256": "b2d146c770d8d3593e1ef3d77b668039b8e1f78093ea1a86f1d45d7f99614309",
+      "mode": 420
+    },
+    "skills/poteto-mode/references/codex-playbooks.md": {
+      "sha256": "e94fea2a1830cd571bbfacba74d97d254b6767b194840849d28c5c8226cbdc8e",
+      "mode": 420
+    },
+    "skills/poteto-mode/references/codex-runtime.md": {
+      "sha256": "bd2483aa2dd7974b0e30c2b8cc692066f93d983ff9d5f972e63af795f108a873",
+      "mode": 420
+    },
+    "skills/principle-type-system-discipline/LICENSE": {
+      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
+      "mode": 420
+    },
+    "skills/principle-type-system-discipline/SKILL.md": {
+      "sha256": "9bad779d21c9066e22b1eaff6cf0ff7053a4c97763198e608a45f9f55f0baa1b",
+      "mode": 420
+    },
+    "skills/principle-type-system-discipline/UPSTREAM.json": {
+      "sha256": "4df2bceab7ddd9778fa4fddc38d82a9c1b3dc0cae40c5f2d0cc9e7aeb98d2b29",
+      "mode": 420
+    },
+    "skills/principle-type-system-discipline/UPSTREAM.md": {
+      "sha256": "6df0e484579a0f6584c286dc7567c9885de02114378b71375f93db1447eec595",
+      "mode": 420
+    },
+    "skills/recall/LICENSE": {
+      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
+      "mode": 420
+    },
+    "skills/recall/SKILL.md": {
+      "sha256": "f3c16c398aabed53227bc51d591153658fc2001c06b4ed0a519980cf9d01b4b8",
+      "mode": 420
+    },
+    "skills/recall/UPSTREAM.json": {
+      "sha256": "668cc1661e3e095ee77d0d2c194288bf839201be4e3236c6ffe00188da6ce779",
+      "mode": 420
+    },
+    "skills/recall/UPSTREAM.md": {
+      "sha256": "b2927e6247ae2cfec2332131769cf4ecbbd19c970478023ca4c63e99bf9fd5a5",
+      "mode": 420
+    },
+    "skills/reflect/LICENSE": {
+      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
+      "mode": 420
+    },
+    "skills/reflect/SKILL.md": {
+      "sha256": "aefa465775a72960efa1317cf563a5b6f5daa20024082d577da51dd80b58535f",
+      "mode": 420
+    },
+    "skills/reflect/UPSTREAM.json": {
+      "sha256": "e6c01b47fbf606a775a7f54d83e9e039ee7c34b46f76d32143903f5475e95493",
+      "mode": 420
+    },
+    "skills/reflect/UPSTREAM.md": {
+      "sha256": "63d0ac8302de8e1c3c65a54b3404184c9a942fe7345934e86dc397dbaa43cc9e",
+      "mode": 420
+    },
+    "skills/reflect/references/divergent-reviewer.md": {
+      "sha256": "823167d485c8fc424530ac4eff447f132a10e318a2db35380312c7e843f17683",
+      "mode": 420
+    },
+    "skills/reflect/references/judgment-reviewer.md": {
+      "sha256": "8db7a315ccf9280486b4df08b1277ba0fe4c4ac533ad3719945aa1aab2ebddea",
+      "mode": 420
+    },
+    "skills/reflect/references/synthesizer.md": {
+      "sha256": "0c52e701d20e2e3a21c5f4832ee9842246079dbb1c0bae252b23853ca7de5bae",
+      "mode": 420
+    },
+    "skills/reflect/references/tooling-reviewer.md": {
+      "sha256": "3a4dc9e87d0d74b46d0d0bc2c1af6acba10be7c95d1adafeab6ec5701e247933",
+      "mode": 420
+    },
+    "skills/resolve-pr-feedback/SKILL.md": {
+      "sha256": "b5645c54753a2298026644c934330fb2717aef93a802df9a5133b1f89bd9da98",
+      "mode": 420
+    },
+    "skills/resolve-pr-feedback/scripts/get-pr-comments": {
+      "sha256": "489c71d9831f00f22a1cc2f2d28f4dd9439039b6d9d6c030bdc1e357fdc3dbf8",
+      "mode": 493
+    },
+    "skills/resolve-pr-feedback/scripts/get-thread-for-comment": {
+      "sha256": "797c0670a7abd752df1b12ef7924811ed012ba41cb8362ff513c58c5dcf56104",
+      "mode": 493
+    },
+    "skills/resolve-pr-feedback/scripts/reply-to-pr-thread": {
+      "sha256": "58cad480e86226c693631c51d478cb2a3356df0d4a5b5da6104c907a98a26e55",
+      "mode": 493
+    },
+    "skills/resolve-pr-feedback/scripts/resolve-pr-thread": {
+      "sha256": "3870729bc4f6db9b45f3c54122bcd2ab7d3ef68dd6a73810c3a81d37d475c8d0",
+      "mode": 493
+    },
+    "skills/security-triage/SKILL.md": {
+      "sha256": "1ed66af3fa1856539532cba97ad4deb46a8f367fd5d6776bdc95242287114a1b",
+      "mode": 420
+    },
+    "skills/setup-pstack/LICENSE": {
+      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
+      "mode": 420
+    },
+    "skills/setup-pstack/SKILL.md": {
+      "sha256": "76de9a000c1f6cbfa32b604b559d492a60d8dd213524d3adc1638b4a100857d1",
+      "mode": 420
+    },
+    "skills/setup-pstack/UPSTREAM.json": {
+      "sha256": "779860961a7ead26a4faf9047e33ad014d2fe48291e8cc43de380e91771d37ea",
+      "mode": 420
+    },
+    "skills/setup-pstack/UPSTREAM.md": {
+      "sha256": "8c7398fac749deb36d32100aea011e0578205200d88853324da27e2eac5cd58a",
+      "mode": 420
+    },
+    "skills/setup-workflow/SKILL.md": {
+      "sha256": "dfb10d148dbb29f74a2ede3859fda6f03bc5908ee98c526e7c142bdb49f39266",
+      "mode": 420
+    },
+    "skills/setup-workflow/references/runtime.md": {
+      "sha256": "dda013d1e8af6ebeeb5e14727c231bcecf06dd71e121dc81848c5cc43a6686f9",
+      "mode": 420
+    },
+    "skills/show-me-your-work/LICENSE": {
+      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
+      "mode": 420
+    },
+    "skills/show-me-your-work/SKILL.md": {
+      "sha256": "6659ded2b92806b57d119b8fc69fa1f9a6e0a8a685723a9a9109e44e3cf32e6f",
+      "mode": 420
+    },
+    "skills/show-me-your-work/UPSTREAM.json": {
+      "sha256": "8d33ce83ce8aefc4fc2851e91468a7796777bd4cf8616bf638167a50a7dce5dd",
+      "mode": 420
+    },
+    "skills/show-me-your-work/UPSTREAM.md": {
+      "sha256": "2acc68e4cf4a2acec8756f4965632b51a514f7dcd44cf751449de86b64ab351a",
+      "mode": 420
+    },
+    "skills/show-me-your-work/references/decision-log-template.tsv": {
+      "sha256": "6779378006a2f5225e8c06deb84f1d913fb532041ebbb6e50d94600bfe3f4b76",
+      "mode": 420
+    },
+    "skills/show-me-your-work/scripts/log.sh": {
+      "sha256": "1601bc18f9aba0af3f5d6375e4f2d5dc6102334d1bca935026c0e3547cdadbbf",
+      "mode": 493
+    },
+    "skills/skills-update/SKILL.md": {
+      "sha256": "ecdeef18653e9ab55c4172302d05657572d9d6de6f68a81ba87a663450bfa99c",
+      "mode": 420
+    },
+    "skills/skills-update/scripts/update-skill.mjs": {
+      "sha256": "4e90788692021bbabfdd05fafa40aced35fd6283b74c19b00c3c6c1f80c4eec5",
+      "mode": 493
+    },
+    "skills/skills-update/scripts/update-skill.test.mjs": {
+      "sha256": "c3118a6ca7ab7eb86f39a5132b9e50736082a2c41ea4cbc6fd24dce1eede0c96",
+      "mode": 420
+    },
+    "skills/swarm/LICENSE": {
+      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
+      "mode": 420
+    },
+    "skills/swarm/SKILL.md": {
+      "sha256": "efaa9d7f8d8f7856309ec140eb4acca0643faee28f6268b2b49669e466bcb85e",
+      "mode": 420
+    },
+    "skills/swarm/UPSTREAM.json": {
+      "sha256": "81a47b8761721807a56686dd28b5e7c579e0abe0b38e3bbfa24a1c638aaf781f",
+      "mode": 420
+    },
+    "skills/swarm/UPSTREAM.md": {
+      "sha256": "af420016a84d46d4fb750514c7b3512cead011cc8b7787352d0e15df56530215",
+      "mode": 420
+    },
+    "skills/sync-skills/SKILL.md": {
+      "sha256": "6c6185f06926baa6ccef398b0252f58e308f817ca6c29ae86013a50e75b916d1",
+      "mode": 420
+    },
+    "skills/sync-vision/SKILL.md": {
+      "sha256": "6c37785713838f1a7e9dfb28a99a05ac61e48e3a44ef22cfa11f7dce01680f0e",
+      "mode": 420
+    },
+    "skills/sync-vision/scripts/collect-vision-diff.mjs": {
+      "sha256": "2e5dbb4073434eda51f0a994136a6cce302ddaaeade9e794a2747f6c87aff72d",
+      "mode": 420
+    },
+    "skills/task/SKILL.md": {
+      "sha256": "dda27168b26ac5dbb090ecd47db670b8f355322799e4caac2bd6ced33aac57c5",
+      "mode": 420
+    },
+    "skills/task/references/coordination.md": {
+      "sha256": "77dbe819d2384abddc10e831366e86461ecf6bbbc86fefa4a57edad65b502e27",
+      "mode": 420
+    },
+    "skills/task/references/delivery.md": {
+      "sha256": "94129f9ba01b7774db1c17f88fb5c433d81f871b665144349a7397d9f8e32f03",
+      "mode": 420
+    },
+    "skills/task/references/diagnosis.md": {
+      "sha256": "a4ead9aa17fce6b71eb8e7f223ca203dc8865fdd07551ea109981118a54b8934",
+      "mode": 420
+    },
+    "skills/task/references/planning.md": {
+      "sha256": "276509619f17a89a6955454f88466a90bbb7b8e08e85d09540d5610f4c111dd6",
+      "mode": 420
+    },
+    "skills/task/references/verification.md": {
+      "sha256": "9470b858939aee6213ac38f2aeb2bb63b4f8da9ada252b55ff0d81e968023a50",
+      "mode": 420
+    },
+    "skills/tdd/SKILL.md": {
+      "sha256": "40a1febaa3d62547395b2df41e79737f21fbe237c0b71bc324a0978a9a37e7eb",
+      "mode": 420
+    },
+    "skills/teach/LICENSE": {
+      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
+      "mode": 420
+    },
+    "skills/teach/SKILL.md": {
+      "sha256": "5cb7c1ad3eb65f16be1da10eaf1370f800fb8098917fda0fd9ed9fc9ba503830",
+      "mode": 420
+    },
+    "skills/teach/UPSTREAM.json": {
+      "sha256": "007c76929161fcc6e0f0f35d7aa298fb8c0d093ebcdb40579f9013fad0a7ef7d",
+      "mode": 420
+    },
+    "skills/teach/UPSTREAM.md": {
+      "sha256": "24cb1c835718a490f71e13388e31aeb2ecb463cc4ac320fb4eb2893d78f96cde",
+      "mode": 420
+    },
+    "skills/technical-writing/LICENSE": {
+      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
+      "mode": 420
+    },
+    "skills/technical-writing/SKILL.md": {
+      "sha256": "e1f5fef2b42a6118940a8a162a2462d50d65da0793e9b5f6e0996ba54652cadf",
+      "mode": 420
+    },
+    "skills/technical-writing/UPSTREAM.json": {
+      "sha256": "8b6b78f6bf5d09069235d7db5202a9d00c3f97fb2ef600596c0047f05c777811",
+      "mode": 420
+    },
+    "skills/technical-writing/UPSTREAM.md": {
+      "sha256": "169a63f9b3a53edd426aad191f467178b8e15614c400669abc386ee038028e7b",
+      "mode": 420
+    },
+    "skills/technical-writing/references/anti-slop-sources.md": {
+      "sha256": "7d25a9afad6fce867cb81a30a079353cd2150a8f9541c85b2b8eeacb7d84699c",
+      "mode": 420
+    },
+    "skills/technical-writing/references/modes-and-media.md": {
+      "sha256": "8880853e518126d2b78cb7b07842cdde0e34268e10720dc0eaa7dc68c70d9ef8",
+      "mode": 420
+    },
+    "skills/technical-writing/references/patterns.md": {
+      "sha256": "a2529065d1fbe133a75425514b2c55a9bbc90aeec0daab08f7308ee952a4b874",
+      "mode": 420
+    },
+    "skills/technical-writing/references/voice-and-preservation.md": {
+      "sha256": "19ddc4fdba1feef531e88dd2b5a3a90ba815a0fdc9b51176a0abd474c30c4fd1",
+      "mode": 420
+    },
+    "skills/technical-writing/scripts/audit-prose.mjs": {
+      "sha256": "bbf53d0ddcc88000daca931e37d08ce2419fb2e075cba86e95e4b0c1e23b7138",
+      "mode": 493
+    },
+    "skills/technical-writing/scripts/audit-prose.test.mjs": {
+      "sha256": "f1cb066815ecb07dbfdaefe4947c3177dfe0e09eaa689451724fbf3470109e91",
+      "mode": 420
+    },
+    "skills/to-issues/SKILL.md": {
+      "sha256": "d44028b6e2b6e846023085eaa9c38d5580f2436d64f69764a8995d410407930b",
+      "mode": 420
+    },
+    "skills/to-milestone/SKILL.md": {
+      "sha256": "c5e8b2639fb08625ae6e6c0993ac2f5fcee637318672bea230ab82d59fe65adf",
+      "mode": 420
+    },
+    "skills/to-prd/SKILL.md": {
+      "sha256": "2ad74930c2fd971b38a99fd8c4f5744684ffdff5e60fadea7a57c4863bdc0bb9",
+      "mode": 420
+    },
+    "skills/to-prd/references/authoring.md": {
+      "sha256": "61a6252977127769e6bc860e5917e3666a5545898a15cfe50587b9579b44c2ff",
+      "mode": 420
+    },
+    "skills/typescript-best-practices/LICENSE": {
+      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
+      "mode": 420
+    },
+    "skills/typescript-best-practices/SKILL.md": {
+      "sha256": "1b00ad93df0b6fa5292b08cfc8e3f7f43dfb3a902eaaabef15247f399f37f350",
+      "mode": 420
+    },
+    "skills/typescript-best-practices/UPSTREAM.json": {
+      "sha256": "b983a3d04eb09b1342b88f68e3309c04001c455f400acf928df1f21f5207f458",
+      "mode": 420
+    },
+    "skills/typescript-best-practices/UPSTREAM.md": {
+      "sha256": "3b0fae1f67decd2749274b7d01c541cd7dcc5beb7e639f6f50f6d499092fc636",
+      "mode": 420
+    },
+    "skills/typescript-best-practices/references/patterns.md": {
+      "sha256": "ff21ada6eb172e3cc3d524058acf5cac3288bbdc0a7b0d70d011f8e28b8ccdb2",
+      "mode": 420
+    },
+    "skills/verify-app/SKILL.md": {
+      "sha256": "0bcce434b4ff635d81c6793d4422cbc8e415b244cc52d2031257e91908da2f23",
+      "mode": 420
+    },
+    "skills/verify-app/references/profiles.md": {
+      "sha256": "ee189c91eb101b7eb5cf08626b54b8ff3871b5d7255d724c3917c0bda89c9dd1",
+      "mode": 420
+    },
+    "skills/video-transcripts/SKILL.md": {
+      "sha256": "f7a752503648c2cffcdf9f0a947d0d5c29e78e5775691266824288280113149e",
+      "mode": 420
+    },
+    "skills/video-transcripts/scripts/generate_video_transcript.sh": {
+      "sha256": "0f55898655e1e3c3637e2ba57eaa9e5c4bd75f4064ea78c73c18ed515d37b2f3",
+      "mode": 493
+    },
+    "skills/walkthrough/SKILL.md": {
+      "sha256": "3ff680af744d2438e9425831d8da46e200964e8818cb56f27163e049dcf28934",
+      "mode": 420
+    },
+    "skills/walkthrough/agents/openai.yaml": {
+      "sha256": "62d278e677b76fd02fc65dc4bd9422ac9b3d03b5548dc22a6aeb20fd649de9bb",
+      "mode": 420
+    },
+    "skills/walkthrough/references/annotation.md": {
+      "sha256": "78d999852cfbd3b70166c44e939a6b73e8477184169898d32b68cdab03d44dc0",
+      "mode": 420
+    },
+    "skills/walkthrough/references/baseline.md": {
+      "sha256": "c8a74120404a4976ddfe6ccdc15d9c53261d5180ee0a3facfbd36e787fc33f7d",
+      "mode": 420
+    },
+    "skills/walkthrough/scripts/diff-baseline.mjs": {
+      "sha256": "5c7d00edd4c6125641dd78bd5a1c82b3538fbb0d261b999aea2f2f3c277d217a",
+      "mode": 420
+    },
+    "skills/walkthrough/scripts/diff-baseline.test.mjs": {
+      "sha256": "1854f5fd89047169edbd8b909870a37dd28c68e910924c941be4cdf5f23558df",
+      "mode": 420
+    },
+    "skills/why/LICENSE": {
+      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
+      "mode": 420
+    },
+    "skills/why/SKILL.md": {
+      "sha256": "2b4f8a0868bdd855f007b15173a78bf755b63e604e6faa5ce2927af388de93f2",
+      "mode": 420
+    },
+    "skills/why/UPSTREAM.json": {
+      "sha256": "e02a462aeaffe850959af5249d3d24c9a4e933a2790b1a58b06dec812f4bbbc0",
+      "mode": 420
+    },
+    "skills/why/UPSTREAM.md": {
+      "sha256": "6b63986bd36056f5a6ab8d8cfb0c7695edd536546062879a413d99663d984458",
+      "mode": 420
+    },
+    "skills/why/references/epistemics.md": {
+      "sha256": "ba99dcdc4fbce91a83b50fc0c9b2c5769febd95540b1722c6b87fe8f900bb60a",
+      "mode": 420
+    },
+    "skills/why/references/evidence.md": {
+      "sha256": "4ea42c626039bb8df2d54b4111727fcb21053f5a70b50058f5a895a51693aeab",
+      "mode": 420
+    },
+    "skills/why/references/investigator-prompt.md": {
+      "sha256": "e35d8eaea13f0a027dd35572d525e9f66e8f8918ca9e555237dc228f26278d5f",
+      "mode": 420
+    },
+    "skills/why/references/source-playbook.md": {
+      "sha256": "3cfb0245d5b2019eeeaa7a0e023579d390f2cdcdff6942d2fe009b9efac0eb11",
+      "mode": 420
+    },
+    "skills/why/references/sources/code-archaeology.md": {
+      "sha256": "8c14aa382f0de40829b2668d43e3f54814480bb93a486c9282ada4003f6b9dbd",
+      "mode": 420
+    },
+    "skills/why/references/sources/databricks.md": {
+      "sha256": "269a22032f027ee30a33c1b5e30443d13dd6d127ff20d8d1e8a20715b06a69cc",
+      "mode": 420
+    },
+    "skills/why/references/sources/datadog.md": {
+      "sha256": "db80803f1635a5015e3190f4753c4228083e6cebf222c84e24fc3c3919aa5574",
+      "mode": 420
+    },
+    "skills/why/references/sources/incident-postmortem.md": {
+      "sha256": "486132457d3782eea64292ce7a2d3bbe3b24b372b20ca00de4329e820f74cd42",
+      "mode": 420
+    },
+    "skills/why/references/sources/linear.md": {
+      "sha256": "7e1b72ba459089168efd701502f8c268d2481154aeeda1ddd84f840f7e974760",
+      "mode": 420
+    },
+    "skills/why/references/sources/notion.md": {
+      "sha256": "2ce336dd3052967187a56ec33d308c7a69e7ef3b04ba7b17386a8b3914a0f000",
+      "mode": 420
+    },
+    "skills/why/references/sources/sentry.md": {
+      "sha256": "0eef902cb0f835f7fa9bd85a8e19ba1505d05e59a0173dfe852d8d52d828266d",
+      "mode": 420
+    },
+    "skills/why/references/sources/slack.md": {
+      "sha256": "60e4c8dbb941f563c86aec7267cde66443b1dc651422569c8d112bc9da7551f6",
+      "mode": 420
+    },
+    "skills/why/references/synthesizer-prompt.md": {
+      "sha256": "fcdc69ede22f94da9e22f510bb0c4a75a63820f0b49b8d5fd54a196b4010bf2a",
+      "mode": 420
+    },
+    "upstream-skills.json": {
+      "sha256": "99863d0c3261b5ff0201b425c7657f2cce54c7777cf6b20cd4756259468cbdc0",
+      "mode": 420
+    }
+  }
+}
