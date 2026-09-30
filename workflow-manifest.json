@@ -58,19 +58,6 @@
       "installSource": "https://github.com/yeachan-heo/oh-my-claudecode/tree/4820f5641828cb980b7eb488a3c187f3d01459c3"
     },
     {
-      "name": "architect",
-      "distribution": "bundled",
-      "description": "Compare architecture sketches for an unsettled public contract, ownership or data model; use when asked to architect a change.",
-      "category": "Architecture, diagnosis and review",
-      "dependencies": [
-        "arena",
-        "poteto-mode",
-        "principle-redesign-from-first-principles"
-      ],
-      "capabilities": [],
-      "provenance": "architect/UPSTREAM.json"
-    },
-    {
       "name": "architecture-cleanup",
       "distribution": "bundled",
       "description": "Simplify code ownership, abstractions and colocation while preserving public behavior and complete caller contracts.",
@@ -78,17 +65,6 @@
       "dependencies": [],
       "capabilities": [],
       "provenance": null
-    },
-    {
-      "name": "arena",
-      "distribution": "bundled",
-      "description": "Compare independent candidate artifacts and synthesize the strongest result when a design choice needs competing attempts.",
-      "category": "Execution and coordination",
-      "dependencies": [
-        "poteto-mode"
-      ],
-      "capabilities": [],
-      "provenance": "arena/UPSTREAM.json"
     },
     {
       "name": "atlas",
@@ -148,33 +124,9 @@
       "distribution": "bundled",
       "description": "Judge whether a proposed API or architecture direction merits pursuit before detailed design or implementation.",
       "category": "Architecture, diagnosis and review",
-      "dependencies": [
-        "principle-redesign-from-first-principles"
-      ],
+      "dependencies": [],
       "capabilities": [],
       "provenance": null
-    },
-    {
-      "name": "blast-radius",
-      "distribution": "bundled",
-      "description": "Investigate consequential assumptions about what a change could break beyond its diff.",
-      "category": "Architecture, diagnosis and review",
-      "dependencies": [
-        "poteto-mode"
-      ],
-      "capabilities": [],
-      "provenance": "blast-radius/UPSTREAM.json"
-    },
-    {
-      "name": "create-verification-skill",
-      "distribution": "bundled",
-      "description": "Create a project verification skill when the user requests one or required UI, CLI or service proof has no owner.",
-      "category": "Verification and delivery",
-      "dependencies": [
-        "poteto-mode"
-      ],
-      "capabilities": [],
-      "provenance": "create-verification-skill/UPSTREAM.json"
     },
     {
       "name": "design",
@@ -201,17 +153,6 @@
       "distribution": "remote",
       "dependencies": [],
       "installSource": "https://github.com/mattpocock/skills/tree/3cca18b368ae95cdbdebbff572ccafa662551015"
-    },
-    {
-      "name": "figure-it-out",
-      "distribution": "bundled",
-      "description": "Design an evidence-based workflow when no accepted plan or existing playbook fits the requested outcome.",
-      "category": "Execution and coordination",
-      "dependencies": [
-        "poteto-mode"
-      ],
-      "capabilities": [],
-      "provenance": "figure-it-out/UPSTREAM.json"
     },
     {
       "name": "find-skills",
@@ -245,17 +186,6 @@
       "dependencies": [],
       "capabilities": [],
       "provenance": null
-    },
-    {
-      "name": "how",
-      "distribution": "bundled",
-      "description": "Trace subsystem behavior, ownership and runtime flow for an explanation or unresolved source question. Use why for rationale.",
-      "category": "Understanding and communication",
-      "dependencies": [
-        "poteto-mode"
-      ],
-      "capabilities": [],
-      "provenance": "how/UPSTREAM.json"
     },
     {
       "name": "improve",
@@ -318,17 +248,6 @@
       "provenance": null
     },
     {
-      "name": "interrogate",
-      "distribution": "bundled",
-      "description": "Challenge a contested design or explicitly requested candidate through independent adversarial reviews.",
-      "category": "Architecture, diagnosis and review",
-      "dependencies": [
-        "poteto-mode"
-      ],
-      "capabilities": [],
-      "provenance": "interrogate/UPSTREAM.json"
-    },
-    {
       "name": "linear-backlog",
       "distribution": "bundled",
       "description": "Execute an explicitly scoped Linear backlog in dependency-ready batches with durable coordination and per-issue proof.",
@@ -344,17 +263,6 @@
       "provenance": null
     },
     {
-      "name": "maintain-verification-skill",
-      "distribution": "bundled",
-      "description": "Repair a verification workflow or audit its feature coverage when requested.",
-      "category": "Verification and delivery",
-      "dependencies": [
-        "poteto-mode"
-      ],
-      "capabilities": [],
-      "provenance": "maintain-verification-skill/UPSTREAM.json"
-    },
-    {
       "name": "maintain-workflow",
       "distribution": "bundled",
       "description": "Maintain reusable workflow rules; compare project methodology or sync named sources when requested.",
@@ -366,17 +274,6 @@
       ],
       "capabilities": [],
       "provenance": null
-    },
-    {
-      "name": "no-comments",
-      "distribution": "bundled",
-      "description": "Audit comments and suppressions when requested or when they conceal structural debt; preserve non-obvious constraints.",
-      "category": "Architecture, diagnosis and review",
-      "dependencies": [
-        "poteto-mode"
-      ],
-      "capabilities": [],
-      "provenance": "no-comments/UPSTREAM.json"
     },
     {
       "name": "openclaw-sync",
@@ -414,214 +311,6 @@
       "provenance": null
     },
     {
-      "name": "poteto-mode",
-      "distribution": "bundled",
-      "description": "Apply Poteto’s engineering style when requested; select deeper methods for unresolved decisions.",
-      "category": "Execution and coordination",
-      "dependencies": [
-        "principle-redesign-from-first-principles"
-      ],
-      "capabilities": [],
-      "provenance": "poteto-mode/UPSTREAM.json"
-    },
-    {
-      "name": "principle-boundary-discipline",
-      "distribution": "bundled",
-      "description": "Place validation and error handling when an external boundary or framework adapter has unclear ownership.",
-      "category": "Engineering principles",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": "principle-boundary-discipline/UPSTREAM.json"
-    },
-    {
-      "name": "principle-build-the-lever",
-      "distribution": "bundled",
-      "description": "Build a small rerunnable tool when repeated edits or a verification problem need consistent execution.",
-      "category": "Engineering principles",
-      "dependencies": [
-        "principle-encode-lessons-in-structure",
-        "principle-laziness-protocol",
-        "principle-prove-it-works"
-      ],
-      "capabilities": [],
-      "provenance": "principle-build-the-lever/UPSTREAM.json"
-    },
-    {
-      "name": "principle-encode-lessons-in-structure",
-      "distribution": "bundled",
-      "description": "Turn an evidenced recurring correction into the smallest effective structural check or owned rule.",
-      "category": "Engineering principles",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": "principle-encode-lessons-in-structure/UPSTREAM.json"
-    },
-    {
-      "name": "principle-exhaust-the-design-space",
-      "distribution": "bundled",
-      "description": "Compare concrete alternatives when a consequential interaction or architecture choice remains unsettled.",
-      "category": "Engineering principles",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": "principle-exhaust-the-design-space/UPSTREAM.json"
-    },
-    {
-      "name": "principle-experience-first",
-      "distribution": "bundled",
-      "description": "Resolve a product tradeoff where implementation convenience competes with the user’s experience.",
-      "category": "Engineering principles",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": "principle-experience-first/UPSTREAM.json"
-    },
-    {
-      "name": "principle-fix-root-causes",
-      "distribution": "bundled",
-      "description": "Trace an unresolved failure mechanism or recurring workaround to its owning cause.",
-      "category": "Engineering principles",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": "principle-fix-root-causes/UPSTREAM.json"
-    },
-    {
-      "name": "principle-foundational-thinking",
-      "distribution": "bundled",
-      "description": "Choose core structures or prerequisite work when downstream behavior depends on an unsettled foundation.",
-      "category": "Engineering principles",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": "principle-foundational-thinking/UPSTREAM.json"
-    },
-    {
-      "name": "principle-guard-the-context-window",
-      "distribution": "bundled",
-      "description": "Reduce large or repeated context loads while preserving the current task, latest corrections and evidence.",
-      "category": "Engineering principles",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": "principle-guard-the-context-window/UPSTREAM.json"
-    },
-    {
-      "name": "principle-laziness-protocol",
-      "distribution": "bundled",
-      "description": "Evaluate proposed layers, abstractions or signal threading when a simpler design may satisfy the same outcome.",
-      "category": "Engineering principles",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": "principle-laziness-protocol/UPSTREAM.json"
-    },
-    {
-      "name": "principle-make-operations-idempotent",
-      "distribution": "bundled",
-      "description": "Design commands and lifecycle operations whose retries or partial prior runs can change the outcome.",
-      "category": "Engineering principles",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": "principle-make-operations-idempotent/UPSTREAM.json"
-    },
-    {
-      "name": "principle-migrate-callers-then-delete-legacy-apis",
-      "distribution": "bundled",
-      "description": "Coordinate an accepted internal API replacement across its callers and remove the obsolete path.",
-      "category": "Engineering principles",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": "principle-migrate-callers-then-delete-legacy-apis/UPSTREAM.json"
-    },
-    {
-      "name": "principle-minimize-reader-load",
-      "distribution": "bundled",
-      "description": "Simplify code whose indirection or hidden state makes ownership and behavior hard to trace.",
-      "category": "Engineering principles",
-      "dependencies": [
-        "principle-guard-the-context-window"
-      ],
-      "capabilities": [],
-      "provenance": "principle-minimize-reader-load/UPSTREAM.json"
-    },
-    {
-      "name": "principle-model-the-domain",
-      "distribution": "bundled",
-      "description": "Resolve state models with repeated branching, synchronized booleans or duplicated shape assumptions.",
-      "category": "Engineering principles",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": "principle-model-the-domain/UPSTREAM.json"
-    },
-    {
-      "name": "principle-never-block-on-the-human",
-      "distribution": "bundled",
-      "description": "Resolve an unnecessary permission pause when reversible work is already authorized and intent is clear.",
-      "category": "Engineering principles",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": "principle-never-block-on-the-human/UPSTREAM.json"
-    },
-    {
-      "name": "principle-outcome-oriented-execution",
-      "distribution": "bundled",
-      "description": "Sequence an accepted migration with explicit temporary breakage and a verifiable final state.",
-      "category": "Engineering principles",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": "principle-outcome-oriented-execution/UPSTREAM.json"
-    },
-    {
-      "name": "principle-prove-it-works",
-      "distribution": "bundled",
-      "description": "Choose direct evidence when a completion claim relies on proxies, a self-report or an uncertain verifier.",
-      "category": "Engineering principles",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": "principle-prove-it-works/UPSTREAM.json"
-    },
-    {
-      "name": "principle-redesign-from-first-principles",
-      "distribution": "bundled",
-      "description": "Reconsider an unsettled design when current requirements conflict with inherited structure.",
-      "category": "Engineering principles",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": "principle-redesign-from-first-principles/UPSTREAM.json"
-    },
-    {
-      "name": "principle-separate-before-serializing-shared-state",
-      "distribution": "bundled",
-      "description": "Resolve concurrent writes by separating independent state or enforcing one shared writer.",
-      "category": "Engineering principles",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": "principle-separate-before-serializing-shared-state/UPSTREAM.json"
-    },
-    {
-      "name": "principle-sequence-verifiable-units",
-      "distribution": "bundled",
-      "description": "Sequence dependent migration or sweep work into coherent units with meaningful verification boundaries.",
-      "category": "Engineering principles",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": "principle-sequence-verifiable-units/UPSTREAM.json"
-    },
-    {
-      "name": "principle-subtract-before-you-add",
-      "distribution": "bundled",
-      "description": "Remove evidenced dead or duplicate structure before an authorized addition or redesign.",
-      "category": "Engineering principles",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": "principle-subtract-before-you-add/UPSTREAM.json"
-    },
-    {
-      "name": "principle-type-system-discipline",
-      "distribution": "bundled",
-      "description": "Resolve type designs that admit impossible states, mismatched primitives or unhandled variants.",
-      "category": "Engineering principles",
-      "dependencies": [
-        "poteto-mode"
-      ],
-      "capabilities": [],
-      "provenance": "principle-type-system-discipline/UPSTREAM.json"
-    },
-    {
       "name": "prototype",
       "source": "mattpocock/skills",
       "revision": "3cca18b368ae95cdbdebbff572ccafa662551015",
@@ -638,28 +327,6 @@
       "distribution": "remote",
       "dependencies": [],
       "installSource": "https://github.com/mattpocock/skills/tree/3cca18b368ae95cdbdebbff572ccafa662551015"
-    },
-    {
-      "name": "recall",
-      "distribution": "bundled",
-      "description": "Reconstruct recent working context across in-scope sessions when asked to recall, catch up or locate unfinished work.",
-      "category": "Understanding and communication",
-      "dependencies": [
-        "poteto-mode"
-      ],
-      "capabilities": [],
-      "provenance": "recall/UPSTREAM.json"
-    },
-    {
-      "name": "reflect",
-      "distribution": "bundled",
-      "description": "Review the active conversation for reusable workflow lessons when the user asks to reflect.",
-      "category": "Architecture, diagnosis and review",
-      "dependencies": [
-        "poteto-mode"
-      ],
-      "capabilities": [],
-      "provenance": "reflect/UPSTREAM.json"
     },
     {
       "name": "resolve-pr-feedback",
@@ -711,17 +378,6 @@
       "provenance": null
     },
     {
-      "name": "setup-pstack",
-      "distribution": "bundled",
-      "description": "Configure pstack model roles when requested, using models available in the current runtime.",
-      "category": "Execution and coordination",
-      "dependencies": [
-        "poteto-mode"
-      ],
-      "capabilities": [],
-      "provenance": "setup-pstack/UPSTREAM.json"
-    },
-    {
       "name": "setup-workflow",
       "distribution": "bundled",
       "description": "Install the complete Dotai workflow into explicitly selected project or global agent destinations.",
@@ -749,17 +405,6 @@
       "distribution": "remote",
       "dependencies": [],
       "installSource": "https://github.com/humanlayer/skills/tree/3c2629142c5d437428269b1b722b08c0b87f574d"
-    },
-    {
-      "name": "show-me-your-work",
-      "distribution": "bundled",
-      "description": "Keep a separate decision trail when requested or needed to audit competing experiments and consequential choices.",
-      "category": "Understanding and communication",
-      "dependencies": [
-        "poteto-mode"
-      ],
-      "capabilities": [],
-      "provenance": "show-me-your-work/UPSTREAM.json"
     },
     {
       "name": "skill-cleaner",
@@ -792,17 +437,6 @@
       ],
       "capabilities": [],
       "provenance": null
-    },
-    {
-      "name": "swarm",
-      "distribution": "bundled",
-      "description": "Run explicitly selected parallel coverage, races, gauntlets or exploration and collect every worker’s result.",
-      "category": "Execution and coordination",
-      "dependencies": [
-        "poteto-mode"
-      ],
-      "capabilities": [],
-      "provenance": "swarm/UPSTREAM.json"
     },
     {
       "name": "sync-skills",
@@ -840,35 +474,6 @@
       ],
       "capabilities": [],
       "provenance": null
-    },
-    {
-      "name": "tdd",
-      "distribution": "bundled",
-      "description": "Use test-driven development when explicitly requested, with a focused red-green-refactor loop.",
-      "category": "Verification and delivery",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
-      "name": "teach",
-      "distribution": "bundled",
-      "description": "Explain a body of work through source-grounded behavior and rationale when asked to teach or build understanding.",
-      "category": "Understanding and communication",
-      "dependencies": [
-        "poteto-mode"
-      ],
-      "capabilities": [],
-      "provenance": "teach/UPSTREAM.json"
-    },
-    {
-      "name": "technical-writing",
-      "distribution": "bundled",
-      "description": "Draft, edit or audit substantive prose while preserving facts and house style. Small wording fixes stay local.",
-      "category": "Understanding and communication",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": "technical-writing/UPSTREAM.json"
     },
     {
       "name": "to-issues",
@@ -909,17 +514,6 @@
       "provenance": null
     },
     {
-      "name": "typescript-best-practices",
-      "distribution": "bundled",
-      "description": "Resolve TypeScript modeling, narrowing, schema and inference choices using concrete language patterns.",
-      "category": "Setup and maintenance",
-      "dependencies": [
-        "poteto-mode"
-      ],
-      "capabilities": [],
-      "provenance": "typescript-best-practices/UPSTREAM.json"
-    },
-    {
       "name": "verify-app",
       "distribution": "bundled",
       "description": "Prove requested runtime operations, journeys or review scenes against the actual candidate and environment.",
@@ -951,22 +545,11 @@
         "Real final-state captures, Node.js and the configured annotation tool"
       ],
       "provenance": null
-    },
-    {
-      "name": "why",
-      "distribution": "bundled",
-      "description": "Investigate missing design rationale, regressions or historical decisions across available evidence sources.",
-      "category": "Understanding and communication",
-      "dependencies": [
-        "poteto-mode"
-      ],
-      "capabilities": [],
-      "provenance": "why/UPSTREAM.json"
     }
   ],
   "files": {
     "README.md": {
-      "sha256": "610572c2a850568320795aa18257ecc4393d184ca7ecade006be90ea2a6cf946",
+      "sha256": "c534bdfa365863df2556d2058f95bc71ac876326933a7860648dc7b90880b775",
       "mode": 420
     },
     "SETUP.md": {
@@ -974,15 +557,11 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "bb029fa36b8ef826316a0a628fff486501e347f046edb164133f2bbde55032bc",
+      "sha256": "d976fd322865846bf5ee8f958fae6db488893efa1b227df3d870429aa56b5042",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
-      "sha256": "494293075469f4e48833f7d29d5ca7229328791f175d9b1fa3def970bacd1782",
-      "mode": 420
-    },
-    "scripts/check-pstack-preservation.py": {
-      "sha256": "e2ced2ab80a324e288ed8d38700f9cc3430a4711e238b3444c135c9a643659a7",
+      "sha256": "8257f513fe8a4de8fd25a4e35630ab551350b310f6fab0184c351a67a267d2a3",
       "mode": 420
     },
     "scripts/package-workflow.py": {
@@ -1002,59 +581,11 @@
       "mode": 420
     },
     "skills/agent-native-reviewer/references/method.md": {
-      "sha256": "e3ef0cdf979e85c2eeb4d24d4954f08cb3a4ce59f59bfcabc24c2eac5fa440c8",
-      "mode": 420
-    },
-    "skills/architect/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/architect/SKILL.md": {
-      "sha256": "6634ea39add022cb8700edda2b3496ebc1b631fe63f5f7d9f568da6fc87cbe2e",
-      "mode": 420
-    },
-    "skills/architect/UPSTREAM.json": {
-      "sha256": "75dd03968b0a5133ea505f6d3c2f3270bc85cca1cf340d46e151a062d3f20364",
-      "mode": 420
-    },
-    "skills/architect/UPSTREAM.md": {
-      "sha256": "997721f7bf74efde48bde6c90aa89541de7df1ee35e2689b33167e4504dcc4ca",
-      "mode": 420
-    },
-    "skills/architect/references/comparison.md": {
-      "sha256": "474defbcb33ba82adce5f8b0ac5824bf9fdeac9148070420bdde7894ef9b634a",
-      "mode": 420
-    },
-    "skills/architect/references/design-red-flags.md": {
-      "sha256": "905066f9bbac81c573c2b325be47751d2c0f9325e0a0772bd4384e82dafe9336",
-      "mode": 420
-    },
-    "skills/architect/references/rationale-template.md": {
-      "sha256": "6645a0e5f68c003298ec95b85a23262bdda0c79f998b926060169b54d9f23fbb",
-      "mode": 420
-    },
-    "skills/architect/references/runner-prompt.md": {
-      "sha256": "3ef8c1452a0382a15b7601c7c94f2a16a00954170d705b7af8cc49ac78080ec9",
+      "sha256": "24a0d60bbf36c0152d2c37bf06e14922fe41247a9f4f657b668f9ca0678de283",
       "mode": 420
     },
     "skills/architecture-cleanup/SKILL.md": {
       "sha256": "b564274b50c14e9cff4789402b1bc7e893e47b06b1cac97d7b746565ba0548e4",
-      "mode": 420
-    },
-    "skills/arena/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/arena/SKILL.md": {
-      "sha256": "ee5349454bcfcd9ce0a1d785c0720349612db601635201c82c0f59d5f0bbd37a",
-      "mode": 420
-    },
-    "skills/arena/UPSTREAM.json": {
-      "sha256": "633db8b1eeaec7f52428961f0a1c8ef2ea3e56037c40ca1fabcbc3e8fcefc384",
-      "mode": 420
-    },
-    "skills/arena/UPSTREAM.md": {
-      "sha256": "092098481cafbe2eb8a08b829d8f5b4863053d0114329eafd400fa10f685d1ea",
       "mode": 420
     },
     "skills/atlas/SKILL.md": {
@@ -1150,71 +681,11 @@
       "mode": 420
     },
     "skills/best-api-review/SKILL.md": {
-      "sha256": "cfb7ff732219ceebc1adb604a0eb0cc04c7e1ccecb7f70a2eb5bff5d7e0e5ea9",
-      "mode": 420
-    },
-    "skills/blast-radius/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/blast-radius/SKILL.md": {
-      "sha256": "715404ee81484f933ac23340e899b0f48a3fdb76a961bfe1c9182bdf9e1959bb",
-      "mode": 420
-    },
-    "skills/blast-radius/UPSTREAM.json": {
-      "sha256": "e4484afdd48652799e32cfbf7cdb656ab601ce745128cfb1b096b52648dc7037",
-      "mode": 420
-    },
-    "skills/blast-radius/UPSTREAM.md": {
-      "sha256": "47309f4948eed2dbc2a46a95c69af769ac9c6e37383164f3007fbee6165f220e",
-      "mode": 420
-    },
-    "skills/create-verification-skill/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/create-verification-skill/SKILL.md": {
-      "sha256": "9716a58ff6a7d5942ea8e2158cdb630153c1b4f06301eb61b50d2360ea4d480b",
-      "mode": 420
-    },
-    "skills/create-verification-skill/UPSTREAM.json": {
-      "sha256": "016555c6813e77088ff1e10dee4e9dac4fd9ca9bfd7ef3195b1a96d479d7d458",
-      "mode": 420
-    },
-    "skills/create-verification-skill/UPSTREAM.md": {
-      "sha256": "43ab0c0501ef76c35177c949c87fd080ca8181a1eaf4edc4ab3d0274f801b54a",
-      "mode": 420
-    },
-    "skills/create-verification-skill/references/feature-map-example/README.md": {
-      "sha256": "cb7bd782cf89968a4ba3d58a5151db837430db92d19a6f52a906973b77b516ba",
-      "mode": 420
-    },
-    "skills/create-verification-skill/references/feature-map-example/create-note.md": {
-      "sha256": "644a44c74f35d38c2feb7cd05a0121fdebbb623e8dc376c185b565a581d1ccf7",
-      "mode": 420
-    },
-    "skills/create-verification-skill/references/feature-map-example/search.md": {
-      "sha256": "6e87b9e7f2791a7776ba1bb83f371cd285c306c67f19d245cc4dd6ca3015c823",
+      "sha256": "bed548157e3a8914e391a609ccb0db559aa0bc323d3eec0742f310e1c305680e",
       "mode": 420
     },
     "skills/design/SKILL.md": {
       "sha256": "ec06506b6654ff99e1f43e7c24facb47e928130720950c79f6f6b5587323a4ba",
-      "mode": 420
-    },
-    "skills/figure-it-out/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/figure-it-out/SKILL.md": {
-      "sha256": "91edb1f5c00b5b42329bbeb4c6c39f8ab1b3d21291a65ef050f65731f7902dcb",
-      "mode": 420
-    },
-    "skills/figure-it-out/UPSTREAM.json": {
-      "sha256": "873e42b8ce0a2c007e25f2c9c9bc98005abcc4f70ff34e4a274ff17ac601218b",
-      "mode": 420
-    },
-    "skills/figure-it-out/UPSTREAM.md": {
-      "sha256": "8d8a79b8d13b83fe6dc91c16f8ea168abc67d598e366d075fe2b5ecd447ae921",
       "mode": 420
     },
     "skills/grill-with-vision/SKILL.md": {
@@ -1225,40 +696,8 @@
       "sha256": "2682318aa5d57ff700054e97a9aa6b682f11666ed8c854e2ac48683874ccadb6",
       "mode": 420
     },
-    "skills/how/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/how/SKILL.md": {
-      "sha256": "8788f078d6c21c9b1ea8284674333bbad2364380bdedcede6465c02d229de256",
-      "mode": 420
-    },
-    "skills/how/UPSTREAM.json": {
-      "sha256": "e58757258b9b833446806d79ac3d4226c2a1d45d64b5be586169acc5b22f7832",
-      "mode": 420
-    },
-    "skills/how/UPSTREAM.md": {
-      "sha256": "5f585c7d72495eb41e6be6277aa2a7d614ab86615a6b1ae9dffd980139cb5cc2",
-      "mode": 420
-    },
-    "skills/how/references/critic-prompt.md": {
-      "sha256": "aa77a15590814c814bd5cb074842029ab7b790c2e8379050525bdbc20739d1bb",
-      "mode": 420
-    },
-    "skills/how/references/critique-rubric.md": {
-      "sha256": "5774ff2caf51796e54c4a61b63620a165de5801f23c8f47406e527abfbe9addc",
-      "mode": 420
-    },
-    "skills/how/references/explainer-prompt.md": {
-      "sha256": "04336086e7c415394459ca2f461717d920e15339517dbf5a56ca042f8b4fead3",
-      "mode": 420
-    },
-    "skills/how/references/explorer-prompt.md": {
-      "sha256": "fd1218b8cf1f467c644d4ce6fa5e54e6089ede65a28fbbae61f6ee7a2d462f85",
-      "mode": 420
-    },
     "skills/improve/SKILL.md": {
-      "sha256": "ca847576fdad0429d15e6061fb73f6342c31a38bc12fa19c2e0ea6ce4c3eeb92",
+      "sha256": "8e48eb44888487ee02e5bdbb69832ad682233c7821afe0de6aa720b6a6b1ddfa",
       "mode": 420
     },
     "skills/install-skill-catalog-global/SKILL.md": {
@@ -1301,38 +740,6 @@
       "sha256": "127e2a7e5cae73d8e30523bf97f2c92c9949cfbd275a21d0c6e884a2b125ca7b",
       "mode": 420
     },
-    "skills/interrogate/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/interrogate/SKILL.md": {
-      "sha256": "b4b13c0cb4c96619ad93341a81be4742bdc28724b36678e5af29142922a09791",
-      "mode": 420
-    },
-    "skills/interrogate/UPSTREAM.json": {
-      "sha256": "b0bcdf6a20f81d489b0380008ab895a96d071f0d62d5a1c986c47b05dfca0e02",
-      "mode": 420
-    },
-    "skills/interrogate/UPSTREAM.md": {
-      "sha256": "4334b7df3d7cda6ea2406ccbb72696fe994522531607909e60ccce4fc852641e",
-      "mode": 420
-    },
-    "skills/interrogate/references/code-quality-review.md": {
-      "sha256": "2462f1347b99b412b04fcb0577b96d8744c801f792f2651746f9409fd4465dc9",
-      "mode": 420
-    },
-    "skills/interrogate/references/lead-judgment.md": {
-      "sha256": "d2cea6cc308758201c6b8b82baf780947645f1ab752707ddf97fab374bf473f9",
-      "mode": 420
-    },
-    "skills/interrogate/references/reviewer-prompt.md": {
-      "sha256": "a397cc61102add709803d917fb23d726920525bf23e7c06dc4ed0b5cbeb00e54",
-      "mode": 420
-    },
-    "skills/interrogate/references/rubric.md": {
-      "sha256": "a67bf02426f88714634ff481d667db821d4b2cea7b335bcd165fe3126e427fb5",
-      "mode": 420
-    },
     "skills/linear-backlog/SKILL.md": {
       "sha256": "320499d871d232e16887e12f1d1d7ab1f253dc6ed015ce4aebcb8aa320524bab",
       "mode": 420
@@ -1340,38 +747,6 @@
     "skills/linear-backlog/agents/openai.yaml": {
       "sha256": "4ef066a20803e0a06585337a918bf9cd446cb2ae97bbcea616bdd5823a06d4c6",
       "mode": 420
-    },
-    "skills/maintain-verification-skill/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/maintain-verification-skill/SKILL.md": {
-      "sha256": "04cfdb5a81a6389e1b887ee858026f7b789a0161c8eb5fe84d998cbe9b1b334f",
-      "mode": 420
-    },
-    "skills/maintain-verification-skill/UPSTREAM.json": {
-      "sha256": "cf72331fe06ee7c4b3bae387250bad30cd29f213c6067789de1cb691a9ff1482",
-      "mode": 420
-    },
-    "skills/maintain-verification-skill/UPSTREAM.md": {
-      "sha256": "73d155054306708133a59fbb099a41ecb2221e60f5cfcf30ee710a2b8f6cff27",
-      "mode": 420
-    },
-    "skills/maintain-verification-skill/references/feature-pass.md": {
-      "sha256": "553a1b972e5a387d7481c172d05aa1ccd06ecaebc1538da3a61aa2c652760880",
-      "mode": 420
-    },
-    "skills/maintain-verification-skill/references/interface-coverage.md": {
-      "sha256": "1faf083a70c7938fab8e8be7c078b69448a28cdf4eb629208f67d765d0a35532",
-      "mode": 420
-    },
-    "skills/maintain-verification-skill/references/journey-coverage.md": {
-      "sha256": "879f142f6ad1428225984b47ac5d03e8c36d8e91fbb2e6739af3f89eec897ca4",
-      "mode": 420
-    },
-    "skills/maintain-verification-skill/scripts/check-interface-coverage.mjs": {
-      "sha256": "bbd97ca2794fed38a4dbbb9d36e0594a2bcc30c01126025287e6bab92caabe2c",
-      "mode": 493
     },
     "skills/maintain-workflow/SKILL.md": {
       "sha256": "360f6c34d5f7be979cd15aff41188489ba14b61311ff3fce910732cce0b92f90",
@@ -1401,22 +776,6 @@
       "sha256": "861a8a5c994f069990f75a5f546777b3c485f06c47cb507b94765e1395a720d4",
       "mode": 420
     },
-    "skills/no-comments/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/no-comments/SKILL.md": {
-      "sha256": "97de1e729a86e80960396b4134938f92d7c31590fb6e9d2993aef9090dee0311",
-      "mode": 420
-    },
-    "skills/no-comments/UPSTREAM.json": {
-      "sha256": "27d977c214f77142cd1a958defcef989a46f4a074cba6a1e131bc649ce4ee6a1",
-      "mode": 420
-    },
-    "skills/no-comments/UPSTREAM.md": {
-      "sha256": "b4c6658356fb9e7f5f9a783d87709fbc846b7eee742118f7ecf50f5e246cf322",
-      "mode": 420
-    },
     "skills/openclaw-sync/SKILL.md": {
       "sha256": "292ab00bc2fff96b7390b1ae6867dd77366f18232cf02104225dcc2b281013bf",
       "mode": 420
@@ -1439,538 +798,6 @@
     },
     "skills/orchestrator/SKILL.md": {
       "sha256": "8722bc254c956bdf3611009697aef08182f5115ebe8fdacdd3ded91588df6790",
-      "mode": 420
-    },
-    "skills/poteto-mode/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/poteto-mode/SKILL.md": {
-      "sha256": "24927596225785fab59750335c3d3821adede6b5f3c51955929ec2fa1aeb5a52",
-      "mode": 420
-    },
-    "skills/poteto-mode/UPSTREAM.json": {
-      "sha256": "d496dadc5f89c71b90350278b986977f7b4d80747fcd06116c3422893f63de72",
-      "mode": 420
-    },
-    "skills/poteto-mode/UPSTREAM.md": {
-      "sha256": "2fd636dd4705caf5a331ff073d0301ff86b359d6d3e3574b09774e6be16782ed",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/authoring-a-skill.md": {
-      "sha256": "88d2a75d8ec438ff90467093e63e3e072f0b8a725a368693ffdfda2ca36f0d21",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/autonomous-run.md": {
-      "sha256": "5892da7b1ef39076b19bb466f80eff6ba9085bd88e080e41c2b551de2691a2cd",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/autopilot-full.md": {
-      "sha256": "d9cad3982890d0cfae2e3a932b4a0468192a141e1fd511bd81a96c190541b612",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/autopilot-stack.md": {
-      "sha256": "af961b7ce77d92d21404b93dc8275e2e6cb6db2841510e9150eb485828bdc7ba",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/babysit.md": {
-      "sha256": "9b790f343197033d19bf7cb49f80378a247a04993ad93baad0d92097382c7996",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/bug-fix.md": {
-      "sha256": "5e3d879f0e6a1e125b020ee0fda2a0321200489cfc600e074ca98c49d8dba9fc",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/eval.md": {
-      "sha256": "bb63c022e4edab03c90366bcb7467e2064996a092c47c9fb7804adf5d2621397",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/feature.md": {
-      "sha256": "479d83d1a4eca1abddc2de574e3a2b859b2906dff161339facad43a4182d56f8",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/hillclimb.md": {
-      "sha256": "3de4d31c2e17c6fcc6dee854f3d7c7dad35e7865e9e55eb9e7ccf8041cbb94fa",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/investigation.md": {
-      "sha256": "8d0aeac6f3ccbe85358699744ae04a7fd5a35e53fa72b7326b387182918e9dee",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/multi-phase-plan.md": {
-      "sha256": "02422c82bbb5da78f6a5834b6dc20034e4bfac6fe3780f1aa27291196a253ca6",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/opening-a-pr.md": {
-      "sha256": "684383b0b7152e7f546bd2d318869d7b0cdef3bc821821cc856c74c9ad32b3cc",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/orchestrate.md": {
-      "sha256": "0aa2e058f408fc84280cd145e56148bf79c8ee39713a01331a3c75d62889fa46",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/pause-safely.md": {
-      "sha256": "d58506c56d2014bc413f26dd358c5f949c0a8613aa200be2c1ba8271ef21131a",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/perf-issue.md": {
-      "sha256": "9295c24ad4e43d4da20286b4b67850118953fd72e84b50f55b181c4bcf280e8f",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/prototype.md": {
-      "sha256": "04bef5ac43b76c1739a8fd68684d3c1761b22f99336f9666584c2075177fd22e",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/refactoring.md": {
-      "sha256": "31f0b8f1a7fa2894b87c01edad993703f827322cdef45a06f00734dd56e8eb99",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/runtime-forensics.md": {
-      "sha256": "baa8102ccabb5ba65ffccc637408230feff2b867cb1a6904ab77642de20886e2",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/session-pickup.md": {
-      "sha256": "ca90c176c362839758e00e0968e426e2a0f2e086fcbc30e767e2c1f45dafa6b7",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/shipping.md": {
-      "sha256": "01a7f953a80f5709814d7f91404dacca8209e856304a719238f3277cb818aecd",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/trace-forensics.md": {
-      "sha256": "a15c69c4596528bbcbc90fc2faf8838f1ca3f1103ebbe8f293a26325bb157e4f",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/visual-parity.md": {
-      "sha256": "8d606b5b3a28141650b7b14607d028b7bb2c28ebfafdc21616c4e483a6ec8491",
-      "mode": 420
-    },
-    "skills/poteto-mode/playbooks/worktree-cleanup.md": {
-      "sha256": "940543d0a25873e1db04fe3f759fccc50c05a13f5435a5849105d17697d78b58",
-      "mode": 420
-    },
-    "skills/poteto-mode/references/agents/comment-sicko.md": {
-      "sha256": "2c2b6997fb0cb4bc569319c6028d62dfc0571fa8789039f25414b6afd65e0f2a",
-      "mode": 420
-    },
-    "skills/poteto-mode/references/agents/poteto-agent.md": {
-      "sha256": "2d188d6eecc68882ea55e4e176145874def47e3af39b0fc3d17531faa4fe634e",
-      "mode": 420
-    },
-    "skills/poteto-mode/references/bugbot-triage.md": {
-      "sha256": "b2d146c770d8d3593e1ef3d77b668039b8e1f78093ea1a86f1d45d7f99614309",
-      "mode": 420
-    },
-    "skills/poteto-mode/references/codex-decision-trail.md": {
-      "sha256": "882b26e5f041a401e977daf127f9232146380111b5c661c026b62ca2bb57d404",
-      "mode": 420
-    },
-    "skills/poteto-mode/references/codex-design.md": {
-      "sha256": "4386c9fa51e717b95425de8de122a43d3184ebb3b1ee6ad4d0fa3bfc5b9f6098",
-      "mode": 420
-    },
-    "skills/poteto-mode/references/codex-playbooks.md": {
-      "sha256": "e94fea2a1830cd571bbfacba74d97d254b6767b194840849d28c5c8226cbdc8e",
-      "mode": 420
-    },
-    "skills/poteto-mode/references/codex-reference-comparison.md": {
-      "sha256": "a3e1bded3efd26385f367ca9d1c3f78367ce72265ffff0aab31f1da7499b07df",
-      "mode": 420
-    },
-    "skills/poteto-mode/references/codex-runtime.md": {
-      "sha256": "cea14193f479d6b07756677a3c45aac93beca89a6fb70a87ae2443befb552ec1",
-      "mode": 420
-    },
-    "skills/poteto-mode/references/codex-sessions.md": {
-      "sha256": "0790cca1159a92373f6cfaa91d61306d7fd72acdeb43507e795bd41fbd9d70a3",
-      "mode": 420
-    },
-    "skills/poteto-mode/references/codex-verification.md": {
-      "sha256": "a74fedc2164fca74aeb05a9e59fc3fa59d13bcbcec0a8ddcd19d425c65ee8852",
-      "mode": 420
-    },
-    "skills/principle-boundary-discipline/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/principle-boundary-discipline/SKILL.md": {
-      "sha256": "7b79dead179166fc73fca56287765b4b57e588927dee6778a66beec92bd5b83e",
-      "mode": 420
-    },
-    "skills/principle-boundary-discipline/UPSTREAM.json": {
-      "sha256": "ffe7a3d8ab645db6484950439e64e57f7e99e3fc21adabef0476b768523d7fe6",
-      "mode": 420
-    },
-    "skills/principle-boundary-discipline/UPSTREAM.md": {
-      "sha256": "08f64a226fbf2ce147ee99d8c7cdefe8b3b47fe320ac73a559ddc85a81574a36",
-      "mode": 420
-    },
-    "skills/principle-build-the-lever/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/principle-build-the-lever/SKILL.md": {
-      "sha256": "f2fe174bcac508c061a073d5de1a4f8d286725ef931d08e067c1e63c18c44836",
-      "mode": 420
-    },
-    "skills/principle-build-the-lever/UPSTREAM.json": {
-      "sha256": "1724fb2609016d474b12913a80c1175bbdb704d5189c2a79de637af828718682",
-      "mode": 420
-    },
-    "skills/principle-build-the-lever/UPSTREAM.md": {
-      "sha256": "0f3c56f5a7c5d5fc52dd1ae7fd2f44d76fa056f114134c256fe38ef0c257dea0",
-      "mode": 420
-    },
-    "skills/principle-encode-lessons-in-structure/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/principle-encode-lessons-in-structure/SKILL.md": {
-      "sha256": "13fd4d9ef05d6469382188e7e489a3ccc3faa8e8fc01edbc067a7ab9cf0537fb",
-      "mode": 420
-    },
-    "skills/principle-encode-lessons-in-structure/UPSTREAM.json": {
-      "sha256": "c803543ecf175d1f6d41b4f95c4430846ccc6434e33e23374b7893f18e47c324",
-      "mode": 420
-    },
-    "skills/principle-encode-lessons-in-structure/UPSTREAM.md": {
-      "sha256": "e754a7b4d491dcef568ff96e451757ccf5dad87c3b68ee0dcf80cfbc359e7561",
-      "mode": 420
-    },
-    "skills/principle-exhaust-the-design-space/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/principle-exhaust-the-design-space/SKILL.md": {
-      "sha256": "2e33c92eef2afad795dc206fcb86a581a35971dcd1f036c37432cc0e867d81c2",
-      "mode": 420
-    },
-    "skills/principle-exhaust-the-design-space/UPSTREAM.json": {
-      "sha256": "920ce5c7f21c01df5ae4f679e5bf4a5eaca3637545ac82cde184248f5042d321",
-      "mode": 420
-    },
-    "skills/principle-exhaust-the-design-space/UPSTREAM.md": {
-      "sha256": "e55f39059efa29eaaeb4a99f869f32de495c442835a63b8cda83b9a7bd08ea41",
-      "mode": 420
-    },
-    "skills/principle-experience-first/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/principle-experience-first/SKILL.md": {
-      "sha256": "114610dae53286cbaf6dd60a8b7eafdc45f873d8b3ceef01ee0f2e99fd402b36",
-      "mode": 420
-    },
-    "skills/principle-experience-first/UPSTREAM.json": {
-      "sha256": "f27d19b587127a8a818ecb5bdb0e12f2778987516671ad596beb0622857cf211",
-      "mode": 420
-    },
-    "skills/principle-experience-first/UPSTREAM.md": {
-      "sha256": "80b5381ab70f374851b563299f43b525e86b0b1795a4ac2c2c2b5035c475b5cf",
-      "mode": 420
-    },
-    "skills/principle-fix-root-causes/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/principle-fix-root-causes/SKILL.md": {
-      "sha256": "f9af701b8ab9e3339fe7cae382be6da5564aab6f7e2fcbc0a006f860a0592167",
-      "mode": 420
-    },
-    "skills/principle-fix-root-causes/UPSTREAM.json": {
-      "sha256": "ec6ce32ed228e54c28535508e0da4c34733718c6c240e1418e4ac91e8b1f1883",
-      "mode": 420
-    },
-    "skills/principle-fix-root-causes/UPSTREAM.md": {
-      "sha256": "7af011494e5ba7f320b467a777d31766255b4b1465d7e58da1286746406055d2",
-      "mode": 420
-    },
-    "skills/principle-foundational-thinking/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/principle-foundational-thinking/SKILL.md": {
-      "sha256": "c4fbd32d9711b084820b9f149e00fa5ac326bfe30b94521c95aadddad1c5c691",
-      "mode": 420
-    },
-    "skills/principle-foundational-thinking/UPSTREAM.json": {
-      "sha256": "5e08b1b181ebf2703daf3b014496ddc5b1b92f80b9823c2358eb6c2ee4943835",
-      "mode": 420
-    },
-    "skills/principle-foundational-thinking/UPSTREAM.md": {
-      "sha256": "f78bd606ee14eafa0330b56520a6a926a7c71ab16039d61e04b2839dedb4425d",
-      "mode": 420
-    },
-    "skills/principle-guard-the-context-window/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/principle-guard-the-context-window/SKILL.md": {
-      "sha256": "697488f9a909e705994e814754e98d7007bf74cb669f8de944a408d35901431f",
-      "mode": 420
-    },
-    "skills/principle-guard-the-context-window/UPSTREAM.json": {
-      "sha256": "066de01ecb1bf5a71161e99f456dc8ed81c8322596a3c93ebe230a99e6763676",
-      "mode": 420
-    },
-    "skills/principle-guard-the-context-window/UPSTREAM.md": {
-      "sha256": "9297af34017594334820a167c32ae2784fa06bef97b93a7da34b0a755f2375ca",
-      "mode": 420
-    },
-    "skills/principle-laziness-protocol/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/principle-laziness-protocol/SKILL.md": {
-      "sha256": "3e24279777ac411ed59c883b4fff4b0b5d2a031c2281d2d6eb835a5ecff1af43",
-      "mode": 420
-    },
-    "skills/principle-laziness-protocol/UPSTREAM.json": {
-      "sha256": "ac7f97d72cc2ada1ffdeded6a7b87a052fd3bebd5673a27d1d258e7b99ea4df8",
-      "mode": 420
-    },
-    "skills/principle-laziness-protocol/UPSTREAM.md": {
-      "sha256": "8b142a656a891010a52708ae1d90aa63f68401ed320d346fcebb2856fdd8cce8",
-      "mode": 420
-    },
-    "skills/principle-make-operations-idempotent/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/principle-make-operations-idempotent/SKILL.md": {
-      "sha256": "5d0ab11155217941ddf44aed3bddbb4767a34d18777be2ff911173f460a11659",
-      "mode": 420
-    },
-    "skills/principle-make-operations-idempotent/UPSTREAM.json": {
-      "sha256": "893d67c00d778c6a35450320836b8b43b6336c673a72d799e76759aaeff05245",
-      "mode": 420
-    },
-    "skills/principle-make-operations-idempotent/UPSTREAM.md": {
-      "sha256": "c1cd18c3d9e9557fc09230390714a8a4946d1305f45cfffe58c2f21a6e7ff0da",
-      "mode": 420
-    },
-    "skills/principle-migrate-callers-then-delete-legacy-apis/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/principle-migrate-callers-then-delete-legacy-apis/SKILL.md": {
-      "sha256": "95fccf0565abf5ed2b90f42b24895dae9c36aa9627cb3b7e0d9541f237e27057",
-      "mode": 420
-    },
-    "skills/principle-migrate-callers-then-delete-legacy-apis/UPSTREAM.json": {
-      "sha256": "b174a20eca97a6d68c507d1f4bed31fd9fb7e66e32cb5fab3faab1582a5372d7",
-      "mode": 420
-    },
-    "skills/principle-migrate-callers-then-delete-legacy-apis/UPSTREAM.md": {
-      "sha256": "ed81a68c999f2f16eef4ff6cbeef2ab7467648b094036321e568ea615f3a8b13",
-      "mode": 420
-    },
-    "skills/principle-minimize-reader-load/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/principle-minimize-reader-load/SKILL.md": {
-      "sha256": "393662821adb7742720610c49fb59cfaeb638ade6e774d55af02ab1ec35ffe1e",
-      "mode": 420
-    },
-    "skills/principle-minimize-reader-load/UPSTREAM.json": {
-      "sha256": "674bd745ed665193a545350f5068e279bcfe400808601855d4daa7f15ab06754",
-      "mode": 420
-    },
-    "skills/principle-minimize-reader-load/UPSTREAM.md": {
-      "sha256": "bb3d1dd567b83897736e6d772fd4cb9c6e562865354b70e3f5f0fdc29457f007",
-      "mode": 420
-    },
-    "skills/principle-model-the-domain/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/principle-model-the-domain/SKILL.md": {
-      "sha256": "ddb500bbe8a9cc0d2adbb24385e2d22fb6e83bb6e05becfae3c4d62077122d24",
-      "mode": 420
-    },
-    "skills/principle-model-the-domain/UPSTREAM.json": {
-      "sha256": "dfe60ac5fac9b0dfd7b1c685603fe1aa46de5b194b3156aa6887a5a4e037f5d7",
-      "mode": 420
-    },
-    "skills/principle-model-the-domain/UPSTREAM.md": {
-      "sha256": "e6100422dfa9337d25a3a4da7fac2b7498a4e5b59e37591f3e3ee2a0d5a80b93",
-      "mode": 420
-    },
-    "skills/principle-never-block-on-the-human/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/principle-never-block-on-the-human/SKILL.md": {
-      "sha256": "7b1162bc69dfa2438e2c51aa8a2f9e70389c9c8795faae9550f23ede2b6c3469",
-      "mode": 420
-    },
-    "skills/principle-never-block-on-the-human/UPSTREAM.json": {
-      "sha256": "2ae1d0008c1cc74d07afd9d3fb9003c24e6cd96de5932a341e3a843ea4101508",
-      "mode": 420
-    },
-    "skills/principle-never-block-on-the-human/UPSTREAM.md": {
-      "sha256": "31fa99474d8a32752d1a32dea2510f54f2a7d7fe70eb27e1a88ec284e964d965",
-      "mode": 420
-    },
-    "skills/principle-outcome-oriented-execution/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/principle-outcome-oriented-execution/SKILL.md": {
-      "sha256": "4fc679bd3131ae8af494710920fd20f63bd6e46ebf6043d868f55e23c7c9ea74",
-      "mode": 420
-    },
-    "skills/principle-outcome-oriented-execution/UPSTREAM.json": {
-      "sha256": "9526e6416e381ec1242902583b2f003be0fd7cfdf2bbf994272505f9f38878b9",
-      "mode": 420
-    },
-    "skills/principle-outcome-oriented-execution/UPSTREAM.md": {
-      "sha256": "580564458ff2e1e1496d1de7467db892cfc302f2f46f90c3a6a1e5089fa51ab1",
-      "mode": 420
-    },
-    "skills/principle-prove-it-works/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/principle-prove-it-works/SKILL.md": {
-      "sha256": "2ea479da2a8357cbe28339331242bf25c1108fbaacce1cb521a16a9ff60b4831",
-      "mode": 420
-    },
-    "skills/principle-prove-it-works/UPSTREAM.json": {
-      "sha256": "9e9bf8340b6c2d9dac013419655fb5eed6094b8cd0a31b9350606bdac237c67b",
-      "mode": 420
-    },
-    "skills/principle-prove-it-works/UPSTREAM.md": {
-      "sha256": "18551db17d6d6a7e84310661a425e06737be28c17b32ac3f6999c2993eba8b9e",
-      "mode": 420
-    },
-    "skills/principle-redesign-from-first-principles/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/principle-redesign-from-first-principles/SKILL.md": {
-      "sha256": "939ff7899540f2f89d70aa00575dde0cd9b34f3a7a674e1453dcdabb0fb15fee",
-      "mode": 420
-    },
-    "skills/principle-redesign-from-first-principles/UPSTREAM.json": {
-      "sha256": "36ed2a357cea05b6c495c6736d4788f434a49eb8927398c00e43d776b6cc2799",
-      "mode": 420
-    },
-    "skills/principle-redesign-from-first-principles/UPSTREAM.md": {
-      "sha256": "b86309f252417e984d65314d22c2081fc09c770e9be786d8c74340229a970ad2",
-      "mode": 420
-    },
-    "skills/principle-separate-before-serializing-shared-state/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/principle-separate-before-serializing-shared-state/SKILL.md": {
-      "sha256": "30f733795bad07277aaf477d4eebd7bc21b27340dab609035b83ac786cfe7725",
-      "mode": 420
-    },
-    "skills/principle-separate-before-serializing-shared-state/UPSTREAM.json": {
-      "sha256": "36ce462d4da6f131653c0cb7afddfb5189f00b892858c4be4352fcd6da6692a1",
-      "mode": 420
-    },
-    "skills/principle-separate-before-serializing-shared-state/UPSTREAM.md": {
-      "sha256": "1714e72a3942c83397004420204b6a42fb1993562781696201378256dfac4c64",
-      "mode": 420
-    },
-    "skills/principle-sequence-verifiable-units/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/principle-sequence-verifiable-units/SKILL.md": {
-      "sha256": "acc98bd4dee94810fde10450a3308c3ac44db1eca7411421e76568343a71f6b2",
-      "mode": 420
-    },
-    "skills/principle-sequence-verifiable-units/UPSTREAM.json": {
-      "sha256": "418c722d6b1e14d414f8fc83efb59800d3a29d2bd21441300d5f660bd14330b8",
-      "mode": 420
-    },
-    "skills/principle-sequence-verifiable-units/UPSTREAM.md": {
-      "sha256": "8bf7d600d7350618125c1612f3ee00b4399839792dc4451957cdf675940ab079",
-      "mode": 420
-    },
-    "skills/principle-subtract-before-you-add/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/principle-subtract-before-you-add/SKILL.md": {
-      "sha256": "417452459a7ef086d04c4cba6eed15873db309fa7a7d90399022b5dbd094c849",
-      "mode": 420
-    },
-    "skills/principle-subtract-before-you-add/UPSTREAM.json": {
-      "sha256": "134aafd950bac66c84bd881e195ed1126acb3beb83664b30ae377410a4bbca60",
-      "mode": 420
-    },
-    "skills/principle-subtract-before-you-add/UPSTREAM.md": {
-      "sha256": "9a9c3f1caa60fd74b48f2dcb68c1ffd717c0e00b525d06ed53e3fa20aefc604e",
-      "mode": 420
-    },
-    "skills/principle-type-system-discipline/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/principle-type-system-discipline/SKILL.md": {
-      "sha256": "b18d45c77bd43ebef50770166e6d64dde4c2e732a184ff502dcfee8815353967",
-      "mode": 420
-    },
-    "skills/principle-type-system-discipline/UPSTREAM.json": {
-      "sha256": "d1cafa289ed90ad7c4c13f6390ba250f64d7f69d8bf9cdffbc9641e6c31f723d",
-      "mode": 420
-    },
-    "skills/principle-type-system-discipline/UPSTREAM.md": {
-      "sha256": "6df0e484579a0f6584c286dc7567c9885de02114378b71375f93db1447eec595",
-      "mode": 420
-    },
-    "skills/recall/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/recall/SKILL.md": {
-      "sha256": "c8ad5c8aea4b1fef8a9f2643da8521f01c1f02baaf7f12c209623b6adb0e5fa9",
-      "mode": 420
-    },
-    "skills/recall/UPSTREAM.json": {
-      "sha256": "1b80cd68435df9f1118de347718f6b246377acf62a1042f63861cf0cb14b666a",
-      "mode": 420
-    },
-    "skills/recall/UPSTREAM.md": {
-      "sha256": "b2927e6247ae2cfec2332131769cf4ecbbd19c970478023ca4c63e99bf9fd5a5",
-      "mode": 420
-    },
-    "skills/reflect/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/reflect/SKILL.md": {
-      "sha256": "5a75320909d7af3f7596a5157e1ea243e712f6b58db576b5915bfa95927dd52c",
-      "mode": 420
-    },
-    "skills/reflect/UPSTREAM.json": {
-      "sha256": "1601df26f19331ee697535b608cd534df81a81816bdb4e13bcadcea066696ebc",
-      "mode": 420
-    },
-    "skills/reflect/UPSTREAM.md": {
-      "sha256": "63d0ac8302de8e1c3c65a54b3404184c9a942fe7345934e86dc397dbaa43cc9e",
-      "mode": 420
-    },
-    "skills/reflect/references/divergent-reviewer.md": {
-      "sha256": "823167d485c8fc424530ac4eff447f132a10e318a2db35380312c7e843f17683",
-      "mode": 420
-    },
-    "skills/reflect/references/judgment-reviewer.md": {
-      "sha256": "8db7a315ccf9280486b4df08b1277ba0fe4c4ac533ad3719945aa1aab2ebddea",
-      "mode": 420
-    },
-    "skills/reflect/references/synthesizer.md": {
-      "sha256": "0c52e701d20e2e3a21c5f4832ee9842246079dbb1c0bae252b23853ca7de5bae",
-      "mode": 420
-    },
-    "skills/reflect/references/tooling-reviewer.md": {
-      "sha256": "3a4dc9e87d0d74b46d0d0bc2c1af6acba10be7c95d1adafeab6ec5701e247933",
       "mode": 420
     },
     "skills/resolve-pr-feedback/SKILL.md": {
@@ -2005,22 +832,6 @@
       "sha256": "9a67377397518ffd477a0855ba167353a8c78bd8ee58e2fab055f56bc17007b5",
       "mode": 420
     },
-    "skills/setup-pstack/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/setup-pstack/SKILL.md": {
-      "sha256": "1d0dceee10a531aad3608e8faadebedb99edd688a7e884a4ce620c8fc10cfc8d",
-      "mode": 420
-    },
-    "skills/setup-pstack/UPSTREAM.json": {
-      "sha256": "76c753804e2fc1aa597d07f04cb29c94e64d0a70b7aabae2ee9eaa76a320df93",
-      "mode": 420
-    },
-    "skills/setup-pstack/UPSTREAM.md": {
-      "sha256": "8c7398fac749deb36d32100aea011e0578205200d88853324da27e2eac5cd58a",
-      "mode": 420
-    },
     "skills/setup-workflow/SKILL.md": {
       "sha256": "088b3a244e1eb2d07063ef2b26c0ce735f380aca8c54330dbe2a50e9a7f121e4",
       "mode": 420
@@ -2028,30 +839,6 @@
     "skills/setup-workflow/references/runtime.md": {
       "sha256": "dda013d1e8af6ebeeb5e14727c231bcecf06dd71e121dc81848c5cc43a6686f9",
       "mode": 420
-    },
-    "skills/show-me-your-work/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/show-me-your-work/SKILL.md": {
-      "sha256": "cb07000421c808c8f59b4ceb2387f060e8e8d9f9e3a301917e8a7bfeb12a9262",
-      "mode": 420
-    },
-    "skills/show-me-your-work/UPSTREAM.json": {
-      "sha256": "7964160232064a37726748ed65c05135890509529c2332f4ad270b7bf71a15da",
-      "mode": 420
-    },
-    "skills/show-me-your-work/UPSTREAM.md": {
-      "sha256": "2acc68e4cf4a2acec8756f4965632b51a514f7dcd44cf751449de86b64ab351a",
-      "mode": 420
-    },
-    "skills/show-me-your-work/references/decision-log-template.tsv": {
-      "sha256": "6779378006a2f5225e8c06deb84f1d913fb532041ebbb6e50d94600bfe3f4b76",
-      "mode": 420
-    },
-    "skills/show-me-your-work/scripts/log.sh": {
-      "sha256": "1601bc18f9aba0af3f5d6375e4f2d5dc6102334d1bca935026c0e3547cdadbbf",
-      "mode": 493
     },
     "skills/skills-update/SKILL.md": {
       "sha256": "7c08129a953ac24a3f2e2ceb7ba25be0fd1fda4a323886c640728d7648f44f7c",
@@ -2063,22 +850,6 @@
     },
     "skills/skills-update/scripts/update-skill.test.mjs": {
       "sha256": "c3118a6ca7ab7eb86f39a5132b9e50736082a2c41ea4cbc6fd24dce1eede0c96",
-      "mode": 420
-    },
-    "skills/swarm/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/swarm/SKILL.md": {
-      "sha256": "3d5d96435835934b91fca561a8ecceee4eac7e83d5c77b6d6371265dd8bc89cb",
-      "mode": 420
-    },
-    "skills/swarm/UPSTREAM.json": {
-      "sha256": "ba7ea72d43a145c4c3e734e8d2ba6dc2c8daae56699d6f4fb81f54ac45c12c22",
-      "mode": 420
-    },
-    "skills/swarm/UPSTREAM.md": {
-      "sha256": "af420016a84d46d4fb750514c7b3512cead011cc8b7787352d0e15df56530215",
       "mode": 420
     },
     "skills/sync-skills/SKILL.md": {
@@ -2098,7 +869,7 @@
       "mode": 420
     },
     "skills/task/SKILL.md": {
-      "sha256": "a88c9ce950bd0baabf8a16f1e0a2cc847e2a48dac40c709663274f6c9691f70a",
+      "sha256": "9b9ddb67fbd58666a1d5d2d7691834084e654f672bb5275b86b2c02bbc9b0a67",
       "mode": 420
     },
     "skills/task/references/coordination.md": {
@@ -2121,66 +892,6 @@
       "sha256": "9470b858939aee6213ac38f2aeb2bb63b4f8da9ada252b55ff0d81e968023a50",
       "mode": 420
     },
-    "skills/tdd/SKILL.md": {
-      "sha256": "70b627c4bb83c09c72bcc9aee7e8de15a4cb13bd4e785c26d63dabf2b77cb776",
-      "mode": 420
-    },
-    "skills/teach/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/teach/SKILL.md": {
-      "sha256": "ef640400ec80061462f596b96e1244be009ff26a312e5120c107aab9d7896be0",
-      "mode": 420
-    },
-    "skills/teach/UPSTREAM.json": {
-      "sha256": "e0cab3e53547f8fe289377deed0dd7544658d0977656b9d4836f8ae1eb4ce3c8",
-      "mode": 420
-    },
-    "skills/teach/UPSTREAM.md": {
-      "sha256": "24cb1c835718a490f71e13388e31aeb2ecb463cc4ac320fb4eb2893d78f96cde",
-      "mode": 420
-    },
-    "skills/technical-writing/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/technical-writing/SKILL.md": {
-      "sha256": "95bc67fc774847b9efa049ca7ca54ea67f4fa1c21469358d84384c3511443cf3",
-      "mode": 420
-    },
-    "skills/technical-writing/UPSTREAM.json": {
-      "sha256": "e51a3d2a927964a23887875e93756269721d279b91589e83a1579d287ee5a8cb",
-      "mode": 420
-    },
-    "skills/technical-writing/UPSTREAM.md": {
-      "sha256": "169a63f9b3a53edd426aad191f467178b8e15614c400669abc386ee038028e7b",
-      "mode": 420
-    },
-    "skills/technical-writing/references/anti-slop-sources.md": {
-      "sha256": "7d25a9afad6fce867cb81a30a079353cd2150a8f9541c85b2b8eeacb7d84699c",
-      "mode": 420
-    },
-    "skills/technical-writing/references/modes-and-media.md": {
-      "sha256": "8880853e518126d2b78cb7b07842cdde0e34268e10720dc0eaa7dc68c70d9ef8",
-      "mode": 420
-    },
-    "skills/technical-writing/references/patterns.md": {
-      "sha256": "a2529065d1fbe133a75425514b2c55a9bbc90aeec0daab08f7308ee952a4b874",
-      "mode": 420
-    },
-    "skills/technical-writing/references/voice-and-preservation.md": {
-      "sha256": "19ddc4fdba1feef531e88dd2b5a3a90ba815a0fdc9b51176a0abd474c30c4fd1",
-      "mode": 420
-    },
-    "skills/technical-writing/scripts/audit-prose.mjs": {
-      "sha256": "bbf53d0ddcc88000daca931e37d08ce2419fb2e075cba86e95e4b0c1e23b7138",
-      "mode": 493
-    },
-    "skills/technical-writing/scripts/audit-prose.test.mjs": {
-      "sha256": "f1cb066815ecb07dbfdaefe4947c3177dfe0e09eaa689451724fbf3470109e91",
-      "mode": 420
-    },
     "skills/to-issues/SKILL.md": {
       "sha256": "1aa30bb9fec3a1139d2f49969dae8e4a8253810facb2659c8228f507020bd37d",
       "mode": 420
@@ -2195,26 +906,6 @@
     },
     "skills/to-prd/references/authoring.md": {
       "sha256": "61a6252977127769e6bc860e5917e3666a5545898a15cfe50587b9579b44c2ff",
-      "mode": 420
-    },
-    "skills/typescript-best-practices/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/typescript-best-practices/SKILL.md": {
-      "sha256": "56b6cc332e207d76f491312d8f04496bd81e789d3fecf7245287ea1e20ecdd22",
-      "mode": 420
-    },
-    "skills/typescript-best-practices/UPSTREAM.json": {
-      "sha256": "29c1d1b1cdc77377c0633a6c6c4cad169e23406caf7b885e6e501d220e061b4b",
-      "mode": 420
-    },
-    "skills/typescript-best-practices/UPSTREAM.md": {
-      "sha256": "3b0fae1f67decd2749274b7d01c541cd7dcc5beb7e639f6f50f6d499092fc636",
-      "mode": 420
-    },
-    "skills/typescript-best-practices/references/patterns.md": {
-      "sha256": "ff21ada6eb172e3cc3d524058acf5cac3288bbdc0a7b0d70d011f8e28b8ccdb2",
       "mode": 420
     },
     "skills/verify-app/SKILL.md": {
@@ -2255,74 +946,6 @@
     },
     "skills/walkthrough/scripts/diff-baseline.test.mjs": {
       "sha256": "1854f5fd89047169edbd8b909870a37dd28c68e910924c941be4cdf5f23558df",
-      "mode": 420
-    },
-    "skills/why/LICENSE": {
-      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
-      "mode": 420
-    },
-    "skills/why/SKILL.md": {
-      "sha256": "47ff252e3514bc7a16df3d7945cbf29cd825eabeef50e984d0447c2145a0a490",
-      "mode": 420
-    },
-    "skills/why/UPSTREAM.json": {
-      "sha256": "75c8db75d5d3e9bbc69ecea59e4e9dea8573d2b899c32cdd0135a54330757426",
-      "mode": 420
-    },
-    "skills/why/UPSTREAM.md": {
-      "sha256": "6b63986bd36056f5a6ab8d8cfb0c7695edd536546062879a413d99663d984458",
-      "mode": 420
-    },
-    "skills/why/references/epistemics.md": {
-      "sha256": "ba99dcdc4fbce91a83b50fc0c9b2c5769febd95540b1722c6b87fe8f900bb60a",
-      "mode": 420
-    },
-    "skills/why/references/evidence.md": {
-      "sha256": "4ea42c626039bb8df2d54b4111727fcb21053f5a70b50058f5a895a51693aeab",
-      "mode": 420
-    },
-    "skills/why/references/investigator-prompt.md": {
-      "sha256": "e35d8eaea13f0a027dd35572d525e9f66e8f8918ca9e555237dc228f26278d5f",
-      "mode": 420
-    },
-    "skills/why/references/source-playbook.md": {
-      "sha256": "3cfb0245d5b2019eeeaa7a0e023579d390f2cdcdff6942d2fe009b9efac0eb11",
-      "mode": 420
-    },
-    "skills/why/references/sources/code-archaeology.md": {
-      "sha256": "8c14aa382f0de40829b2668d43e3f54814480bb93a486c9282ada4003f6b9dbd",
-      "mode": 420
-    },
-    "skills/why/references/sources/databricks.md": {
-      "sha256": "269a22032f027ee30a33c1b5e30443d13dd6d127ff20d8d1e8a20715b06a69cc",
-      "mode": 420
-    },
-    "skills/why/references/sources/datadog.md": {
-      "sha256": "db80803f1635a5015e3190f4753c4228083e6cebf222c84e24fc3c3919aa5574",
-      "mode": 420
-    },
-    "skills/why/references/sources/incident-postmortem.md": {
-      "sha256": "486132457d3782eea64292ce7a2d3bbe3b24b372b20ca00de4329e820f74cd42",
-      "mode": 420
-    },
-    "skills/why/references/sources/linear.md": {
-      "sha256": "7e1b72ba459089168efd701502f8c268d2481154aeeda1ddd84f840f7e974760",
-      "mode": 420
-    },
-    "skills/why/references/sources/notion.md": {
-      "sha256": "2ce336dd3052967187a56ec33d308c7a69e7ef3b04ba7b17386a8b3914a0f000",
-      "mode": 420
-    },
-    "skills/why/references/sources/sentry.md": {
-      "sha256": "0eef902cb0f835f7fa9bd85a8e19ba1505d05e59a0173dfe852d8d52d828266d",
-      "mode": 420
-    },
-    "skills/why/references/sources/slack.md": {
-      "sha256": "60e4c8dbb941f563c86aec7267cde66443b1dc651422569c8d112bc9da7551f6",
-      "mode": 420
-    },
-    "skills/why/references/synthesizer-prompt.md": {
-      "sha256": "fcdc69ede22f94da9e22f510bb0c4a75a63820f0b49b8d5fd54a196b4010bf2a",
       "mode": 420
     },
     "upstream-skills.json": {

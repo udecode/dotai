@@ -11,12 +11,12 @@ const forbidden = forbiddenIndex < 0 ? null : new RegExp(process.argv[forbiddenI
 const sha = (data) => createHash('sha256').update(data).digest('hex');
 const upstream = JSON.parse(readFileSync(join(root, 'upstream-skills.json'), 'utf8'));
 const groups = {
-  'Execution and coordination': ['task', 'autoclosure', 'autogoal', 'improve', 'orchestrator', 'poteto-mode', 'figure-it-out', 'arena', 'swarm', 'setup-pstack'],
-  'Architecture, diagnosis and review': ['architect', 'architecture-cleanup', 'best-api-review', 'blast-radius', 'interrogate', 'autoreview', 'agent-native-reviewer', 'hard-cut', 'no-comments', 'reflect', 'diagnosing-bugs', 'ai-slop-cleaner', 'security-triage', 'oracle'],
+  'Execution and coordination': ['task', 'autoclosure', 'autogoal', 'improve', 'orchestrator'],
+  'Architecture, diagnosis and review': ['architecture-cleanup', 'best-api-review', 'autoreview', 'agent-native-reviewer', 'hard-cut', 'diagnosing-bugs', 'ai-slop-cleaner', 'security-triage', 'oracle'],
   'Product, planning and design': ['grill-with-vision', 'to-prd', 'to-milestone', 'to-issues', 'design', 'prototype', 'avoid-feature-creep', 'sync-vision'],
-  'Verification and delivery': ['verify-app', 'atlas', 'create-verification-skill', 'maintain-verification-skill', 'tdd', 'resolve-pr-feedback', 'resolving-merge-conflicts', 'linear-backlog'],
-  'Understanding and communication': ['how', 'why', 'teach', 'restate', 'recall', 'agent-session-resume', 'technical-writing', 'show-me', 'show-me-your-work', 'walkthrough', 'video-transcripts'],
-  'Setup and maintenance': ['setup-workflow', 'install-skill-dotai-project', 'install-skill-dotai-global', 'install-skill-skiller-project', 'install-skill-catalog-project', 'install-skill-catalog-global', 'maintain-workflow', 'sync-skills', 'skills-update', 'find-skills', 'skill-cleaner', 'openclaw-sync', 'typescript-best-practices'],
+  'Verification and delivery': ['verify-app', 'atlas', 'resolve-pr-feedback', 'resolving-merge-conflicts', 'linear-backlog'],
+  'Understanding and communication': ['restate', 'agent-session-resume', 'show-me', 'walkthrough', 'video-transcripts'],
+  'Setup and maintenance': ['setup-workflow', 'install-skill-dotai-project', 'install-skill-dotai-global', 'install-skill-skiller-project', 'install-skill-catalog-project', 'install-skill-catalog-global', 'maintain-workflow', 'sync-skills', 'skills-update', 'find-skills', 'skill-cleaner', 'openclaw-sync'],
 };
 const explicitDependencies = {
   task: ['autogoal', 'diagnosing-bugs', 'verify-app', 'autoreview', 'architecture-cleanup', 'maintain-workflow'],
@@ -125,7 +125,7 @@ for (const skill of skills.filter((skill) => skill.capabilities.length)) catalog
 catalog += '\n## Deliberate boundaries\n\nThe bundle includes the generic engineering, product-planning, verification, review, communication and workflow-maintenance methods. It excludes product-specific database schemas, routes, fixtures, domain/provider adapters, release environments and personal configuration. Their generic behavior is owned by Task, Verify App, Atlas, Design and the project adaptation.\n\nFramework packages (React, Next.js, Prisma, tRPC, AI SDK, authentication, Inngest, Sentry, UI registries and game engines) are stack-specific extensions, not required generic workflow dependencies. Use Find Skills for the actual project and install named official packages through the selected agent after source review. No framework dependency is installed merely because it existed on the original author\'s machine.\n\nPayment, banking, shopping, domain registration, personal health, private session repair, native document/media plugins and account integrations are separate capabilities. This archive contains no accounts, credentials, personal histories, connector configuration or paid-model entitlement. Native skill creation/installation and documentation tools remain supplied by the host agent when available.\n';
 emit('SKILLS.md', catalog);
 
-const distribution = ['README.md', 'SETUP.md', 'SKILLS.md', 'upstream-skills.json', 'scripts/setup-workflow.mjs', 'scripts/build-workflow.mjs', 'scripts/validate-skills', 'scripts/check-pstack-preservation.py', 'scripts/package-workflow.py'];
+const distribution = ['README.md', 'SETUP.md', 'SKILLS.md', 'upstream-skills.json', 'scripts/setup-workflow.mjs', 'scripts/build-workflow.mjs', 'scripts/validate-skills', 'scripts/package-workflow.py'];
 const all = [...files, ...distribution.map((file) => join(root, file))].sort();
 const manifest = { schemaVersion: 1, source: 'udecode/dotai', skillsCliVersion: upstream.skillsCliVersion, skills, files: {} };
 for (const file of all) {

@@ -59,7 +59,7 @@ Use the repository's required runtime and test-value policy. Choose the stronges
   optional independent second pass could materially help.
 - Use `hard-cut` when stale compatibility, fake aliases, dead commands, or
   duplicate agent routes should be deleted rather than wrapped.
-- Use `diagnosing-bugs` for an unresolved failure mechanism. Use `tdd` only when explicitly requested and subject to the project test-value policy.
+- Use `diagnosing-bugs` for an unresolved failure mechanism. Use pstack's `tdd` only when explicitly requested and subject to the project test-value policy.
 
 ## Review Process
 

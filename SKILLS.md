@@ -1,8 +1,8 @@
 # Complete generic workflow
 
-85 skills: 77 maintained or adapted in dotai, plus 8 unchanged upstream skills installed with named npx skills add commands. Upstream sources are not duplicated here. Methods load only when relevant; tool access is separate from installation.
+44 skills: 36 maintained or adapted in dotai, plus 8 unchanged upstream skills installed with named npx skills add commands. Upstream sources are not duplicated here. Methods load only when relevant; tool access is separate from installation.
 
-## Execution and coordination (10)
+## Execution and coordination (5)
 
 | Skill | Purpose |
 | --- | --- |
@@ -11,26 +11,16 @@
 | [autogoal](skills/autogoal/SKILL.md) | Manage native Codex goals under a direct or standing user request, with durable acceptance and completion evidence. |
 | [improve](skills/improve/SKILL.md) | Audit and repair a project’s evidenced improvement opportunities under one evolving scope and acceptance record. |
 | [orchestrator](skills/orchestrator/SKILL.md) | Coordinate explicitly delegated work through durable tasks with exclusive ownership and consumed proof. |
-| [poteto-mode](skills/poteto-mode/SKILL.md) | Apply Poteto’s engineering style when requested; select deeper methods for unresolved decisions. |
-| [figure-it-out](skills/figure-it-out/SKILL.md) | Design an evidence-based workflow when no accepted plan or existing playbook fits the requested outcome. |
-| [arena](skills/arena/SKILL.md) | Compare independent candidate artifacts and synthesize the strongest result when a design choice needs competing attempts. |
-| [swarm](skills/swarm/SKILL.md) | Run explicitly selected parallel coverage, races, gauntlets or exploration and collect every worker’s result. |
-| [setup-pstack](skills/setup-pstack/SKILL.md) | Configure pstack model roles when requested, using models available in the current runtime. |
 
-## Architecture, diagnosis and review (14)
+## Architecture, diagnosis and review (9)
 
 | Skill | Purpose |
 | --- | --- |
-| [architect](skills/architect/SKILL.md) | Compare architecture sketches for an unsettled public contract, ownership or data model; use when asked to architect a change. |
 | [architecture-cleanup](skills/architecture-cleanup/SKILL.md) | Simplify code ownership, abstractions and colocation while preserving public behavior and complete caller contracts. |
 | [best-api-review](skills/best-api-review/SKILL.md) | Judge whether a proposed API or architecture direction merits pursuit before detailed design or implementation. |
-| [blast-radius](skills/blast-radius/SKILL.md) | Investigate consequential assumptions about what a change could break beyond its diff. |
-| [interrogate](skills/interrogate/SKILL.md) | Challenge a contested design or explicitly requested candidate through independent adversarial reviews. |
 | [autoreview](skills/autoreview/SKILL.md) | Review an explicit code candidate or actual PR closeout with actionable findings and bounded correction rounds. |
 | [agent-native-reviewer](skills/agent-native-reviewer/SKILL.md) | Audit changed agent workflows for usable discovery, tool routes, source ownership and reproducible proof. |
 | [hard-cut](skills/hard-cut/SKILL.md) | Remove a named feature completely, including callers, exports, tests, docs and compatibility paths. |
-| [no-comments](skills/no-comments/SKILL.md) | Audit comments and suppressions when requested or when they conceal structural debt; preserve non-obvious constraints. |
-| [reflect](skills/reflect/SKILL.md) | Review the active conversation for reusable workflow lessons when the user asks to reflect. |
 | [diagnosing-bugs](https://github.com/mattpocock/skills/blob/3cca18b368ae95cdbdebbff572ccafa662551015/skills/engineering/diagnosing-bugs/SKILL.md) | Diagnosis loop for hard bugs and performance regressions. Use when the user says "diagnose"/"debug this", or reports something broken/throwing/failing/slow. |
 | [ai-slop-cleaner](https://github.com/yeachan-heo/oh-my-claudecode/blob/4820f5641828cb980b7eb488a3c187f3d01459c3/skills/ai-slop-cleaner/SKILL.md) | Clean AI-generated code slop with a regression-safe, deletion-first workflow and optional reviewer-only mode |
 | [security-triage](skills/security-triage/SKILL.md) | Triage GHSA, CVE or vulnerability reports against shipped behavior before closing or fixing them. |
@@ -49,36 +39,27 @@
 | [avoid-feature-creep](skills/avoid-feature-creep/SKILL.md) | Evaluate proposed scope additions against the requested outcome without shrinking authorized work. |
 | [sync-vision](skills/sync-vision/SKILL.md) | Update VISION.md when attributable evidence changes product doctrine, taste or maintainer judgment. |
 
-## Verification and delivery (8)
+## Verification and delivery (5)
 
 | Skill | Purpose |
 | --- | --- |
 | [verify-app](skills/verify-app/SKILL.md) | Prove requested runtime operations, journeys or review scenes against the actual candidate and environment. |
 | [atlas](skills/atlas/SKILL.md) | Maintain an existing application review catalog when routes, states, fixtures or access requirements change. |
-| [create-verification-skill](skills/create-verification-skill/SKILL.md) | Create a project verification skill when the user requests one or required UI, CLI or service proof has no owner. |
-| [maintain-verification-skill](skills/maintain-verification-skill/SKILL.md) | Repair a verification workflow or audit its feature coverage when requested. |
-| [tdd](skills/tdd/SKILL.md) | Use test-driven development when explicitly requested, with a focused red-green-refactor loop. |
 | [resolve-pr-feedback](skills/resolve-pr-feedback/SKILL.md) | Resolve GitHub PR review feedback through source-backed triage, fixes, focused proof and authorized replies. |
 | [resolving-merge-conflicts](https://github.com/mattpocock/skills/blob/3cca18b368ae95cdbdebbff572ccafa662551015/skills/engineering/resolving-merge-conflicts/SKILL.md) | Use when you need to resolve an in-progress git merge/rebase conflict. |
 | [linear-backlog](skills/linear-backlog/SKILL.md) | Execute an explicitly scoped Linear backlog in dependency-ready batches with durable coordination and per-issue proof. |
 
-## Understanding and communication (11)
+## Understanding and communication (5)
 
 | Skill | Purpose |
 | --- | --- |
-| [how](skills/how/SKILL.md) | Trace subsystem behavior, ownership and runtime flow for an explanation or unresolved source question. Use why for rationale. |
-| [why](skills/why/SKILL.md) | Investigate missing design rationale, regressions or historical decisions across available evidence sources. |
-| [teach](skills/teach/SKILL.md) | Explain a body of work through source-grounded behavior and rationale when asked to teach or build understanding. |
 | [restate](skills/restate/SKILL.md) | Restate the user's goals and underlying problem in your own words. Use when the user asks what you think they are trying to achieve or solve, asks you to confirm or reframe your understanding of their request, or explicitly invokes $restate. |
-| [recall](skills/recall/SKILL.md) | Reconstruct recent working context across in-scope sessions when asked to recall, catch up or locate unfinished work. |
 | [agent-session-resume](https://github.com/hacktivist123/agent-session-resume/blob/76b025634ddc99b3ee3428fb4464af1c467da291/skills/agent-session-resume/SKILL.md) | Use when continuing, resuming, locating, reading, inspecting, auditing, or reviewing a previous AI coding-agent session, handoff transcript, chat log, exported conversation, saved artifact set, or session summary, on any platform (Claude Code, Codex, Cursor, Antigravity, OpenCode) or across several platforms in one ask, such as reviewing threads across Claude and Codex. |
-| [technical-writing](skills/technical-writing/SKILL.md) | Draft, edit or audit substantive prose while preserving facts and house style. Small wording fixes stay local. |
 | [show-me](https://github.com/humanlayer/skills/blob/3c2629142c5d437428269b1b722b08c0b87f574d/plugins/show-me/skills/show-me/SKILL.md) | Help the user understand the current topic visually with concise diagrams, code-shape sketches, and focused HTML artifacts. |
-| [show-me-your-work](skills/show-me-your-work/SKILL.md) | Keep a separate decision trail when requested or needed to audit competing experiments and consequential choices. |
 | [walkthrough](skills/walkthrough/SKILL.md) | Present final screenshots or rendered artifacts as an annotated walkthrough when visual evidence is requested. |
 | [video-transcripts](skills/video-transcripts/SKILL.md) | Transcribe a supplied local or linked video with Gemini Files API when its contents are needed as evidence. |
 
-## Setup and maintenance (13)
+## Setup and maintenance (12)
 
 | Skill | Purpose |
 | --- | --- |
@@ -94,33 +75,11 @@
 | [find-skills](https://github.com/vercel-labs/skills/blob/80feb48868972d518436f26711509bc78595b5cb/skills/find-skills/SKILL.md) | Helps users discover and install agent skills when they ask questions like "how do I do X", "find a skill for X", "is there a skill that can...", or express interest in extending capabilities. This skill should be used when the user is looking for functionality that might exist as an installable skill. |
 | [skill-cleaner](https://github.com/steipete/agent-scripts/blob/15bcfe33f59795ce2421cf7f5a5465094dfbff09/skills/skill-cleaner/SKILL.md) | Codex/OpenClaw skill audit: live budget, usage, duplicates, compact descriptions. |
 | [openclaw-sync](skills/openclaw-sync/SKILL.md) | Compare named OpenClaw sources with current agent workflows and classify or apply authorized reusable improvements. |
-| [typescript-best-practices](skills/typescript-best-practices/SKILL.md) | Resolve TypeScript modeling, narrowing, schema and inference choices using concrete language patterns. |
 
-## Engineering principles (21)
+## Engineering principles (0)
 
 | Skill | Purpose |
 | --- | --- |
-| [principle-boundary-discipline](skills/principle-boundary-discipline/SKILL.md) | Place validation and error handling when an external boundary or framework adapter has unclear ownership. |
-| [principle-build-the-lever](skills/principle-build-the-lever/SKILL.md) | Build a small rerunnable tool when repeated edits or a verification problem need consistent execution. |
-| [principle-encode-lessons-in-structure](skills/principle-encode-lessons-in-structure/SKILL.md) | Turn an evidenced recurring correction into the smallest effective structural check or owned rule. |
-| [principle-exhaust-the-design-space](skills/principle-exhaust-the-design-space/SKILL.md) | Compare concrete alternatives when a consequential interaction or architecture choice remains unsettled. |
-| [principle-experience-first](skills/principle-experience-first/SKILL.md) | Resolve a product tradeoff where implementation convenience competes with the user’s experience. |
-| [principle-fix-root-causes](skills/principle-fix-root-causes/SKILL.md) | Trace an unresolved failure mechanism or recurring workaround to its owning cause. |
-| [principle-foundational-thinking](skills/principle-foundational-thinking/SKILL.md) | Choose core structures or prerequisite work when downstream behavior depends on an unsettled foundation. |
-| [principle-guard-the-context-window](skills/principle-guard-the-context-window/SKILL.md) | Reduce large or repeated context loads while preserving the current task, latest corrections and evidence. |
-| [principle-laziness-protocol](skills/principle-laziness-protocol/SKILL.md) | Evaluate proposed layers, abstractions or signal threading when a simpler design may satisfy the same outcome. |
-| [principle-make-operations-idempotent](skills/principle-make-operations-idempotent/SKILL.md) | Design commands and lifecycle operations whose retries or partial prior runs can change the outcome. |
-| [principle-migrate-callers-then-delete-legacy-apis](skills/principle-migrate-callers-then-delete-legacy-apis/SKILL.md) | Coordinate an accepted internal API replacement across its callers and remove the obsolete path. |
-| [principle-minimize-reader-load](skills/principle-minimize-reader-load/SKILL.md) | Simplify code whose indirection or hidden state makes ownership and behavior hard to trace. |
-| [principle-model-the-domain](skills/principle-model-the-domain/SKILL.md) | Resolve state models with repeated branching, synchronized booleans or duplicated shape assumptions. |
-| [principle-never-block-on-the-human](skills/principle-never-block-on-the-human/SKILL.md) | Resolve an unnecessary permission pause when reversible work is already authorized and intent is clear. |
-| [principle-outcome-oriented-execution](skills/principle-outcome-oriented-execution/SKILL.md) | Sequence an accepted migration with explicit temporary breakage and a verifiable final state. |
-| [principle-prove-it-works](skills/principle-prove-it-works/SKILL.md) | Choose direct evidence when a completion claim relies on proxies, a self-report or an uncertain verifier. |
-| [principle-redesign-from-first-principles](skills/principle-redesign-from-first-principles/SKILL.md) | Reconsider an unsettled design when current requirements conflict with inherited structure. |
-| [principle-separate-before-serializing-shared-state](skills/principle-separate-before-serializing-shared-state/SKILL.md) | Resolve concurrent writes by separating independent state or enforcing one shared writer. |
-| [principle-sequence-verifiable-units](skills/principle-sequence-verifiable-units/SKILL.md) | Sequence dependent migration or sweep work into coherent units with meaningful verification boundaries. |
-| [principle-subtract-before-you-add](skills/principle-subtract-before-you-add/SKILL.md) | Remove evidenced dead or duplicate structure before an authorized addition or redesign. |
-| [principle-type-system-discipline](skills/principle-type-system-discipline/SKILL.md) | Resolve type designs that admit impossible states, mismatched primitives or unhandled variants. |
 
 ## Unchanged upstream installation
 

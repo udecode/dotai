@@ -13,7 +13,7 @@ Read [SKILLS.md](SKILLS.md) for the complete generated inventory, dependencies a
 - Project instructions and `.agents/workflow.md` own project commands, source/fixture/verification owners and publication policy. Shared plan templates seed missing files only.
 - Native tools, browser access, provider connections, paid models and host-provided skills are separate capabilities. Installing a method does not supply them.
 
-The 40 adapted pstack methods retain Lauren Tan's MIT-licensed source, complete useful references/playbooks, licenses and exact adaptation records at commit `93b00b89ef425a9c1bac0d0b317dfc49c930ac99`. Load their Codex runtime adapter when platform mapping or delegation is needed. The eight unchanged upstream skills are declared in `upstream-skills.json`; their source is not copied into dotai. Runtime policy belongs in the shared adapter and routing instructions, not a duplicate wrapper skill.
+pstack's methods (poteto-mode, its playbooks, the principle skills, how, why, architect, arena, interrogate, swarm, reflect, show-me-your-work, tdd and the rest) come from the pstack plugin, `pstack@pstack-claude` from `michael-denyer/pstack-claude`, pinned per project; dotai no longer vendors them. The eight unchanged upstream skills are declared in `upstream-skills.json`; their source is not copied into dotai. Runtime policy belongs in the shared adapter and routing instructions, not a duplicate wrapper skill.
 
 ## Installation and updates
 
@@ -27,7 +27,6 @@ When starting from a GitHub setup link, download the complete repository at that
 
 ```sh
 scripts/validate-skills
-python3 scripts/check-pstack-preservation.py
 node scripts/build-workflow.mjs
 node scripts/build-workflow.mjs --check
 python3 scripts/package-workflow.py --output /absolute/path/to/dotai-workflow.zip

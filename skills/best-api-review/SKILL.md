@@ -78,7 +78,7 @@ path unless erasure has a separate proven job.
 
 ## Compare the full design space
 
-Apply [Redesign from First Principles](../principle-redesign-from-first-principles/SKILL.md)
+Apply pstack's `principle-redesign-from-first-principles` skill
 before judging the proposed direction. Read the full method once; a familiar
 name or a paraphrase does not replace it.
 

@@ -16,7 +16,7 @@ Inventory applicable instruction families and authored areas, not just a conveni
 
 Rank opportunities by correctness and durable user/developer benefit, frequency, evidence, complexity removed and implementation/proof cost. Prefer the strongest justified cut over cheap cosmetic churn. One confirmed defect opens an affected-pattern inspection across its real consumers within the authorized scope; deduplicate overlapping sweeps rather than restarting the whole audit.
 
-Select a coherent batch with source owner, acceptance IDs, proof and safe exit. Use `architecture-cleanup` for code shape, `design`/`verify-app` for UI, `technical-writing` for prose and `maintain-workflow` for reusable instruction defects. Known patterns go straight to implementation; an unresolved consequential design uses its relevant method once.
+Select a coherent batch with source owner, acceptance IDs, proof and safe exit. Use `architecture-cleanup` for code shape, `design`/`verify-app` for UI, pstack's `technical-writing` for prose and `maintain-workflow` for reusable instruction defects. Known patterns go straight to implementation; an unresolved consequential design uses its relevant method once.
 
 Keep useful deep modules and evidence. Do not delete a failing check to erase a real defect, create a test because a file exists or optimize without a comparable baseline for the complete operation. Existing debt is eligible evidence, not an excuse to ignore authorized scope.
 
