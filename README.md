@@ -1,6 +1,6 @@
 # dotai
 
-Shared skills that the pstack plugin does not cover: long-running goals, independent review, API direction review, product planning, communication and workflow maintenance.
+Shared skills that the pstack plugin does not cover: long-running goals, API direction review, visual communication and workflow maintenance. Independent code review comes from openclaw's `autoreview` (`openclaw/agent-skills`), installed per project.
 
 The engineering method comes from the pstack plugin, `pstack@pstack-claude` from `michael-denyer/pstack-claude`, pinned per project: poteto-mode, its playbooks, the principle skills, how, why, architect, arena, interrogate, swarm, reflect, show-me-your-work, tdd, deslop and the rest. dotai does not vendor them.
 

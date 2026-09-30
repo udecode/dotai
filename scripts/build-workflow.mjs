@@ -12,17 +12,13 @@ const sha = (data) => createHash('sha256').update(data).digest('hex');
 const upstream = JSON.parse(readFileSync(join(root, 'upstream-skills.json'), 'utf8'));
 const groups = {
   'Execution': ['autogoal'],
-  'Review': ['autoreview', 'best-api-review'],
-  'Product and planning': ['to-prd', 'to-issues', 'prototype'],
+  'Review and design': ['best-api-review', 'prototype'],
   'Communication': ['show-me', 'walkthrough', 'video-transcripts'],
   'Maintenance': ['maintain-workflow', 'find-skills'],
 };
 const explicitDependencies = {};
 const requirements = {
   autogoal: ['Native goal tools for native goals; otherwise a file plan'],
-  'to-issues': ['Connected tracker only for requested publication'],
-  'to-prd': ['Connected document/tracker only for requested publication'],
-  autoreview: ['Native or project review helper for structured independent review; direct inspection otherwise'],
   'video-transcripts': ['ffmpeg, curl, jq and authorized Gemini credentials'],
   walkthrough: ['Real final-state captures, Node.js and the configured annotation tool'],
 };

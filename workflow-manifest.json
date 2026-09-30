@@ -15,21 +15,10 @@
       "provenance": null
     },
     {
-      "name": "autoreview",
-      "distribution": "bundled",
-      "description": "Review an explicit code candidate or actual PR closeout with actionable findings and bounded correction rounds.",
-      "category": "Review",
-      "dependencies": [],
-      "capabilities": [
-        "Native or project review helper for structured independent review; direct inspection otherwise"
-      ],
-      "provenance": null
-    },
-    {
       "name": "best-api-review",
       "distribution": "bundled",
       "description": "Judge whether a proposed API or architecture direction merits pursuit before detailed design or implementation.",
-      "category": "Review",
+      "category": "Review and design",
       "dependencies": [],
       "capabilities": [],
       "provenance": null
@@ -92,28 +81,6 @@
       "installSource": "https://github.com/humanlayer/skills/tree/3c2629142c5d437428269b1b722b08c0b87f574d"
     },
     {
-      "name": "to-issues",
-      "distribution": "bundled",
-      "description": "Turn settled scope into the fewest complete delivery issues; publish only within tracker authority.",
-      "category": "Product and planning",
-      "dependencies": [],
-      "capabilities": [
-        "Connected tracker only for requested publication"
-      ],
-      "provenance": null
-    },
-    {
-      "name": "to-prd",
-      "distribution": "bundled",
-      "description": "Turn settled product scope into a buildable PRD with acceptance, dependencies and proof boundaries.",
-      "category": "Product and planning",
-      "dependencies": [],
-      "capabilities": [
-        "Connected document/tracker only for requested publication"
-      ],
-      "provenance": null
-    },
-    {
       "name": "video-transcripts",
       "distribution": "bundled",
       "description": "Transcribe a supplied local or linked video with Gemini Files API when its contents are needed as evidence.",
@@ -138,15 +105,15 @@
   ],
   "files": {
     "README.md": {
-      "sha256": "a7d070349fcf9f374e8fa182486ad7c1ef9b767d537318e6034c30c7b3716639",
+      "sha256": "ec2808ab09f918ecc87e5773e653f632ff51664502bd39dccd5b193f9b88e5f9",
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "3f5fb88328a835b497cbeb075ba82d071c24f6f0c0dd43214fbc5cb1fff9c0bd",
+      "sha256": "f9322a2114babd49d515d131db46aef2e858f63dd4047b3635b438ed56d31541",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
-      "sha256": "b4e40ea5b4eb4f80db78b7174311bb1afef826c8ff8e2b8a1d969ae36b868894",
+      "sha256": "3645254d526809b70f283d2ecb0c6a650604160e95cd5ed2cdc9dd03ec04dbcd",
       "mode": 420
     },
     "scripts/validate-skills": {
@@ -229,10 +196,6 @@
       "sha256": "060c95c028af598e1be8cd8a947aa09866e7f4b9ee7ed8e514f9e4afb789e622",
       "mode": 420
     },
-    "skills/autoreview/SKILL.md": {
-      "sha256": "f57322d56070ddc63bf8a2078d3cb913e3749105ab32721f3e5c1ba46a5a692a",
-      "mode": 420
-    },
     "skills/best-api-review/SKILL.md": {
       "sha256": "bed548157e3a8914e391a609ccb0db559aa0bc323d3eec0742f310e1c305680e",
       "mode": 420
@@ -263,18 +226,6 @@
     },
     "skills/maintain-workflow/references/sync.md": {
       "sha256": "861a8a5c994f069990f75a5f546777b3c485f06c47cb507b94765e1395a720d4",
-      "mode": 420
-    },
-    "skills/to-issues/SKILL.md": {
-      "sha256": "1aa30bb9fec3a1139d2f49969dae8e4a8253810facb2659c8228f507020bd37d",
-      "mode": 420
-    },
-    "skills/to-prd/SKILL.md": {
-      "sha256": "59e430fe102ba50cd2b35c072bd5258e4f76d8f984ffb4074c6a8caeba0531d1",
-      "mode": 420
-    },
-    "skills/to-prd/references/authoring.md": {
-      "sha256": "61a6252977127769e6bc860e5917e3666a5545898a15cfe50587b9579b44c2ff",
       "mode": 420
     },
     "skills/video-transcripts/SKILL.md": {

@@ -1,6 +1,6 @@
 # dotai skills
 
-11 skills: 8 maintained in dotai, plus 3 unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from dotai. Methods load only when relevant; tool access is separate from installation.
+8 skills: 5 maintained in dotai, plus 3 unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from dotai. Methods load only when relevant; tool access is separate from installation.
 
 ## Execution (1)
 
@@ -8,19 +8,11 @@
 | --- | --- |
 | [autogoal](skills/autogoal/SKILL.md) | Manage native Codex goals under a direct or standing user request, with durable acceptance and completion evidence. |
 
-## Review (2)
+## Review and design (2)
 
 | Skill | Purpose |
 | --- | --- |
-| [autoreview](skills/autoreview/SKILL.md) | Review an explicit code candidate or actual PR closeout with actionable findings and bounded correction rounds. |
 | [best-api-review](skills/best-api-review/SKILL.md) | Judge whether a proposed API or architecture direction merits pursuit before detailed design or implementation. |
-
-## Product and planning (3)
-
-| Skill | Purpose |
-| --- | --- |
-| [to-prd](skills/to-prd/SKILL.md) | Turn settled product scope into a buildable PRD with acceptance, dependencies and proof boundaries. |
-| [to-issues](skills/to-issues/SKILL.md) | Turn settled scope into the fewest complete delivery issues; publish only within tracker authority. |
 | [prototype](https://github.com/mattpocock/skills/blob/3cca18b368ae95cdbdebbff572ccafa662551015/skills/engineering/prototype/SKILL.md) | Build a throwaway prototype to answer a design question. Use when the user wants to sanity-check whether a state model or logic feels right, or explore what a UI should look like. |
 
 ## Communication (3)
@@ -55,9 +47,6 @@ Project rules govern testing, native tools and publication; do not fork an uncha
 These skills remain installed when a tool is absent; an unavailable live action or independent review is reported, never marked as passed.
 
 - **autogoal:** Native goal tools for native goals; otherwise a file plan.
-- **autoreview:** Native or project review helper for structured independent review; direct inspection otherwise.
-- **to-issues:** Connected tracker only for requested publication.
-- **to-prd:** Connected document/tracker only for requested publication.
 - **video-transcripts:** ffmpeg, curl, jq and authorized Gemini credentials.
 - **walkthrough:** Real final-state captures, Node.js and the configured annotation tool.
 
