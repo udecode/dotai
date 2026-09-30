@@ -1,6 +1,6 @@
 ---
 name: linear-backlog
-description: Run a scoped Linear backlog autonomously as a sequence of maximal safe parallel batches by composing orchestrator, autogoal, and task. Use when the user wants Codex to execute ordered Linear issues without prompting for each next batch while parallelizing every dependency-ready ticket that lacks a hard conflict.
+description: "Execute an explicitly scoped Linear backlog in dependency-ready batches with durable coordination and per-issue proof."
 ---
 
 # Linear Backlog

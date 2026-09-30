@@ -1,6 +1,6 @@
 ---
 name: sync-vision
-description: Sync root VISION.md from changed human and agent inputs; use when project taste, doctrine, or maintainer judgment should learn from recent plans, docs, skills, reviews, or repeated misses.
+description: "Update VISION.md when attributable evidence changes product doctrine, taste or maintainer judgment."
 disable-model-invocation: true
 ---
 

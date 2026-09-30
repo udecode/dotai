@@ -1,0 +1,4 @@
+interface:
+  display_name: "Install Dotai Skill Globally"
+  short_description: "Create and globally install a Dotai skill"
+  default_prompt: "Use $install-skill-dotai-global to create this skill in Dotai and install it globally."

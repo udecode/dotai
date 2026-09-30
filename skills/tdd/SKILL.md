@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: Test-driven development with red-green-refactor loop. Use when user wants to build features or fix bugs using TDD, mentions "red-green-refactor", wants integration tests, or asks for test-first development.
+description: "Use test-driven development when explicitly requested, with a focused red-green-refactor loop."
 ---
 
 # Test-Driven Development
@@ -171,16 +171,16 @@ RIGHT (vertical):
 
 Before writing any code:
 
-- [ ] Confirm with user what interface changes are needed
-- [ ] Confirm with user which behaviors to test (prioritize)
+- [ ] Establish interface changes from the active request and source
+- [ ] Prioritize the requested behavior and high-value regressions
 - [ ] Identify opportunities for deep modules (small interface, deep implementation)
 - [ ] Design interfaces for testability
 - [ ] List the behaviors to test (not implementation steps)
-- [ ] Get user approval on the plan
+- [ ] Reuse existing implementation authority; ask only for a missing product decision or new scope
 
-Ask: "What should the public interface look like? Which behaviors are most important to test?"
+Investigate source-answerable interface and behavior questions before asking the user.
 
-**You can't test everything.** Confirm with the user exactly which behaviors matter most. Focus testing effort on critical paths and complex logic, not every possible edge case.
+**You can't test everything.** Focus on the requested behavior, critical paths and complex logic. Follow the project's test-value policy.
 
 ### 2. Tracer Bullet
 
@@ -191,10 +191,14 @@ RED:   Write test → run test → confirm it FAILS correctly
 GREEN: Write minimal code → run test → confirm it PASSES
 ```
 
-- Test passes immediately? You're testing existing behavior. Fix the test.
-- Test errors (not assertion failure)? Fix the error first — erroring is not the same as failing.
+- Test passes immediately? Confirm the case and boundary before changing it;
+  existing regression coverage may already prove that behavior.
+- Confirm the failure is the reported behavior. A product exception can be valid
+  RED; a syntax, setup or runner error is not reproduction.
 
-This is your tracer bullet - proves the path works end-to-end.
+This proves the boundary actually exercised. It does not certify a browser,
+consumer or external service omitted from the test. Add a distinct integration
+case when that boundary can still fail; do not duplicate a proven assertion.
 
 ### 3. Incremental Loop
 
@@ -224,7 +228,9 @@ After all tests pass, look for refactor candidates:
 
 Refactor candidates: duplication → extract function/class, long methods → break into private helpers, shallow modules → combine or deepen, feature envy → move logic to where data lives, primitive obsession → introduce value objects.
 
-**Never refactor while RED.** Get to GREEN first.
+Keep unrelated refactoring out of RED. When ownership or representation causes
+the defect, repair that design under the same failing behavior test instead of
+adding a temporary workaround solely to reach GREEN.
 
 ## Checklist Per Cycle
 

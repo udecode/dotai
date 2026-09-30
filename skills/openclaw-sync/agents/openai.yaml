@@ -1,0 +1,4 @@
+interface:
+  display_name: "Openclaw Sync"
+  short_description: "Compare OpenClaw agent setup against ours"
+  default_prompt: "Compare latest OpenClaw agent setup with the current repo and suggest new, smart-merge, and reject candidates."

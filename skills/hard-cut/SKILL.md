@@ -1,6 +1,6 @@
 ---
 name: hard-cut
-description: Remove a feature completely with no backward compatibility; delete surfaces, callers, tests, docs, fallbacks, stubs, and dead exports.
+description: "Remove a named feature completely, including callers, exports, tests, docs and compatibility paths."
 ---
 
 # Hard Cut

@@ -25,3 +25,8 @@ node_modules/
 .DS_Store
 
 .codex
+
+# Local verification artifacts and interpreter caches
+tmp/
+__pycache__/
+*.pyc
