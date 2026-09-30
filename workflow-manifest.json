@@ -211,7 +211,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "64d984a0ae8007eedbac602f5284d224f106cefa4809cfeec2e80f4d011296b1",
+      "sha256": "d12e56465fa1f955c45bce5a6cc45be2f35faa78fae8e6c4ce7991c190519133",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
@@ -227,7 +227,7 @@
       "mode": 420
     },
     "skills/sync-pstack/references/interview.md": {
-      "sha256": "fef7909524ad05c06fb2792f77c5c19b397bce236662608d658187ada454b355",
+      "sha256": "e3c65c714c615ecf9969227df0a9b68b02338cf3133702d259aeeb20e8199b93",
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.mjs": {

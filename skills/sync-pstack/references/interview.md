@@ -89,7 +89,7 @@ Write `.agents/pstack.json`. The script adds `synced` on the first apply. This e
 | `plans` | The directory for plans and decision logs, used by the Plans rule and its helpers. Required unless `plans` is skipped. |
 | `risk` | The high-risk categories that trigger autoreview. Empty means review only when asked. |
 | `reviewPr` | `true` to also run autoreview before opening any PR. Optional. |
-| `proof` | The project's proof skill, which replaces pstack's swarm lanes. Optional. |
+| `proof` | The project's proof skill: pstack's driver skill for reproducing and verifying, and the replacement for its swarm lanes. Optional. |
 | `glossary` | A glossary file whose words agents use. Optional. |
 | `skiller` | `true` when the project generates skills from `.agents/rules` with skiller. Optional. |
 | `skip` | Block sections the project keeps as its own rule: `tests`, `review`, `plans`, `long-runs`, `commits`. |

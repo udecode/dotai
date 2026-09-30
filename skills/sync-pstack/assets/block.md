@@ -39,7 +39,7 @@
   Ignore unrelated diffs and never pause to ask about them. Never stash, reset or discard work this run did not write. Run a tree-sensitive tool, such as a review that refuses a changing tree or a check at `HEAD`, from a detached worktree (`git worktree add --detach <path> <sha>`, then `git worktree remove --force <path>`).
 - **The lead writes the code.** The lead agent edits the current checkout and verifies on the running artifact. Subagents do research, review and read-only fan-out. No per-delegate worktrees unless the user asks. This replaces the mandatory delegation in pstack's Feature and Bug fix playbooks.
 <!-- if proof -->
-  The `{{proof}}` skill's proof replaces the swarm lanes of pstack's Multi-phase plan.
+  The `{{proof}}` skill is pstack's driver skill here. Bug fixes reproduce and verify through it, and its proof replaces the swarm lanes of pstack's Multi-phase plan.
 <!-- end -->
 - **Messages and shared resources.** Never send a message to another person, such as a chat message, an email, an SMS, an issue, PR or tracker comment addressed to someone, or a send to customers, without explicit authorization for that message. A "can we X?" question gets a measured answer and a proposal, not the action. An action that spends a shared resource, such as a migration on a shared environment, paid quota or another person's access, needs the user's go-ahead for that target, and neither a context summary nor "continue without asking" is that go-ahead. An access grant is approved per target and runs as its own command; never widen an approved grant to a new target. pstack's "external actions proceed without asking" does not apply to messages, shared resources or access.
 <!-- section tests -->
