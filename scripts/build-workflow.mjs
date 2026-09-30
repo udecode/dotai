@@ -14,11 +14,12 @@ const groups = {
   'Execution': ['autogoal'],
   'Review and design': ['best-api-review', 'prototype'],
   'Communication': ['show-me', 'walkthrough', 'video-transcripts'],
-  'Maintenance': ['maintain-workflow', 'find-skills'],
+  'Maintenance': ['sync-pstack', 'find-skills'],
 };
 const explicitDependencies = {};
 const requirements = {
   autogoal: ['Native goal tools for native goals; otherwise a file plan'],
+  'sync-pstack': ['Node.js 18+ and Git; the Claude Code and Codex CLIs for plugin pins and smoke tests'],
   'video-transcripts': ['ffmpeg, curl, jq and authorized Gemini credentials'],
   walkthrough: ['Real final-state captures, Node.js and the configured annotation tool'],
 };

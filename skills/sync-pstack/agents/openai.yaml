@@ -1,0 +1,6 @@
+interface:
+  display_name: "Sync pstack"
+  short_description: "Set up pstack in a project and keep pstack projects in sync"
+  default_prompt: "Use $sync-pstack to show which local projects use pstack and whether they are in sync."
+policy:
+  allow_implicit_invocation: true

@@ -27,7 +27,7 @@
 
 | Skill | Purpose |
 | --- | --- |
-| [maintain-workflow](skills/maintain-workflow/SKILL.md) | Maintain reusable workflow rules; compare project methodology or sync named sources when requested. |
+| [sync-pstack](skills/sync-pstack/SKILL.md) | Set up the pstack plugin in a project through an interview, and keep every pstack project on one pinned tag and one shared AGENTS.md overrides block. Use to set up or install pstack in a repo, sync, bump or update pstack everywhere, list which projects use pstack or have drifted, compare setups, or move a workflow lesson into every project. Not for choosing pstack's per-role models, which setup-pstack owns. |
 | [find-skills](https://github.com/vercel-labs/skills/blob/80feb48868972d518436f26711509bc78595b5cb/skills/find-skills/SKILL.md) | Helps users discover and install agent skills when they ask questions like "how do I do X", "find a skill for X", "is there a skill that can...", or express interest in extending capabilities. This skill should be used when the user is looking for functionality that might exist as an installable skill. |
 
 ## Unchanged upstream installation
@@ -47,6 +47,7 @@ Project rules govern testing, native tools and publication; do not fork an uncha
 These skills remain installed when a tool is absent; an unavailable live action or independent review is reported, never marked as passed.
 
 - **autogoal:** Native goal tools for native goals; otherwise a file plan.
+- **sync-pstack:** Node.js 18+ and Git; the Claude Code and Codex CLIs for plugin pins and smoke tests.
 - **video-transcripts:** ffmpeg, curl, jq and authorized Gemini credentials.
 - **walkthrough:** Real final-state captures, Node.js and the configured annotation tool.
 

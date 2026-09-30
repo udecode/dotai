@@ -39,15 +39,6 @@
       "installSource": "https://github.com/vercel-labs/skills/tree/80feb48868972d518436f26711509bc78595b5cb"
     },
     {
-      "name": "maintain-workflow",
-      "distribution": "bundled",
-      "description": "Maintain reusable workflow rules; compare project methodology or sync named sources when requested.",
-      "category": "Maintenance",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
       "name": "prototype",
       "source": "mattpocock/skills",
       "revision": "3cca18b368ae95cdbdebbff572ccafa662551015",
@@ -81,6 +72,17 @@
       "installSource": "https://github.com/humanlayer/skills/tree/3c2629142c5d437428269b1b722b08c0b87f574d"
     },
     {
+      "name": "sync-pstack",
+      "distribution": "bundled",
+      "description": "Set up the pstack plugin in a project through an interview, and keep every pstack project on one pinned tag and one shared AGENTS.md overrides block. Use to set up or install pstack in a repo, sync, bump or update pstack everywhere, list which projects use pstack or have drifted, compare setups, or move a workflow lesson into every project. Not for choosing pstack's per-role models, which setup-pstack owns.",
+      "category": "Maintenance",
+      "dependencies": [],
+      "capabilities": [
+        "Node.js 18+ and Git; the Claude Code and Codex CLIs for plugin pins and smoke tests"
+      ],
+      "provenance": null
+    },
+    {
       "name": "video-transcripts",
       "distribution": "bundled",
       "description": "Transcribe a supplied local or linked video with Gemini Files API when its contents are needed as evidence.",
@@ -105,15 +107,15 @@
   ],
   "files": {
     "README.md": {
-      "sha256": "ec2808ab09f918ecc87e5773e653f632ff51664502bd39dccd5b193f9b88e5f9",
+      "sha256": "c093c3295d51a2d52302dbaf7a85c2eaf3ac7d9fa917d72718ac445c13d9f21d",
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "f9322a2114babd49d515d131db46aef2e858f63dd4047b3635b438ed56d31541",
+      "sha256": "247bb73721cece4ea317c9a19ff78ce51d6f948ffa22b9c8968fc0590167a735",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
-      "sha256": "3645254d526809b70f283d2ecb0c6a650604160e95cd5ed2cdc9dd03ec04dbcd",
+      "sha256": "27be6c9f28b2fbb6345c0fd4aa86db70f9e4252cf25694053b65505bdcdeb53b",
       "mode": 420
     },
     "scripts/validate-skills": {
@@ -200,32 +202,40 @@
       "sha256": "bed548157e3a8914e391a609ccb0db559aa0bc323d3eec0742f310e1c305680e",
       "mode": 420
     },
-    "skills/maintain-workflow/SKILL.md": {
-      "sha256": "5b274f90d18bac1cb673a6dd7e7bb5ef5cba1da7dd1cc602cc59409204aa3723",
+    "skills/sync-pstack/SKILL.md": {
+      "sha256": "3335a3ede93e52e362034396ff3c27eecf710e0619ddc90f6e58f059644ff76a",
       "mode": 420
     },
-    "skills/maintain-workflow/agents/openai.yaml": {
-      "sha256": "d43b1406e96ac4f6a928a652201038a22a6f751121985e4c65c26318f6892905",
+    "skills/sync-pstack/agents/openai.yaml": {
+      "sha256": "729843dc101893fc7f41ae2094f3399bf5a9138b966589ec0c2c92dd631fbd65",
       "mode": 420
     },
-    "skills/maintain-workflow/references/audit.md": {
-      "sha256": "b971d97c1cfaa36421336e9ddfe849f9b2d46388e732b192bc9b03d3ebdc286b",
+    "skills/sync-pstack/assets/block.md": {
+      "sha256": "3072924c8d8dcbb63450bce28c5ef5ed0b23196578590a55df80aa4f55cdb1eb",
       "mode": 420
     },
-    "skills/maintain-workflow/references/commands.md": {
-      "sha256": "60562bf586c73741bc72920fbcdadd29c08a4de3e2bf347cd95ebf1ccae40e81",
+    "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
+      "sha256": "b312b33baa3da83426af8831a7ebaab77e2f359eb3ccc5c02bee7978163bd596",
       "mode": 420
     },
-    "skills/maintain-workflow/references/compare.md": {
-      "sha256": "f7ff1e9c14eec9e471da217c69ee5401bbfba3e40176365774b7eabfcff5458f",
+    "skills/sync-pstack/assets/pstack/plan-open.mjs": {
+      "sha256": "2e1cba90c93d4c97129f47620d8e612def933bbd0935c0cd0b43dc1df3bd3164",
       "mode": 420
     },
-    "skills/maintain-workflow/references/execution.md": {
-      "sha256": "90a8eb97e396c7e8af36dd3231414bf83ace27e561f09cd5be59b6c2aafb8f96",
+    "skills/sync-pstack/references/adapt.md": {
+      "sha256": "a6cd7da587e7eb4b14b8ca03ec696ed2eab1361e9ecd275b3d85c307ff0fc829",
       "mode": 420
     },
-    "skills/maintain-workflow/references/sync.md": {
-      "sha256": "861a8a5c994f069990f75a5f546777b3c485f06c47cb507b94765e1395a720d4",
+    "skills/sync-pstack/references/interview.md": {
+      "sha256": "dc03d69f2dc65c11305609609d0e60076baf4ad236ad90a25777d098ee4e851b",
+      "mode": 420
+    },
+    "skills/sync-pstack/scripts/sync-pstack.mjs": {
+      "sha256": "1fce0329c8f5ba6a46f451aacd3094055a7bc0b2e3cf6da70b69578f2241a1a2",
+      "mode": 420
+    },
+    "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
+      "sha256": "6edb958e9198f12f22ab96575158f05526461a665c4be33f58b0a757b58d7892",
       "mode": 420
     },
     "skills/video-transcripts/SKILL.md": {
