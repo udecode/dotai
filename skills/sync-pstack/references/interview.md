@@ -32,7 +32,7 @@ The interview is the first step the user sees in a setup. Prepare it from eviden
 | 1 | How finished work lands | Push `<branch>` after each task. A PR into `<branch>` per change, from a topic branch. The user commits, and the agent leaves changes in the working tree. | Commit and PR rules in `AGENTS.md`; Stop hooks that stage paths; `merges90d`; `authors90d` | `delivery`, `branch`, `protected` |
 | 2 | Who owns engineering intake, asked only when a local controller exists (a task-like rule that owns intake, implementation and proof, a standing goal controller, an orchestrator) | poteto-mode owns intake and the controller is retired. The controller stays as a typed entry point that hands work to poteto-mode. The controller stays the owner and pstack skills are methods it selects. | The routing table in `AGENTS.md`; `typed.counts` for the controller | Adaptation only |
 | 3 | Tests | The shared Tests rule: pstack's test-first bug fixes without redundant tests. Keep the project's test rule. | The project's test rule, quoted | `skip: ["tests"]` |
-| 4 | Review | autoreview on high-risk changes, with categories drafted from the codebase (auth or access, data writes, migrations, payments, customer sends, public API, releases). Only when the user asks. Never. | Existing review rules; the autoreview install source | `risk`, `skip: ["review"]` |
+| 4 | Review | autoreview on high-risk changes, with categories drafted from the codebase (auth or access, data writes, migrations, payments, customer sends, public API, releases). Only when the user asks. Never. Either of the first two can add a review before every PR. | Existing review rules; the autoreview install source | `risk`, `reviewPr`, `skip: ["review"]` |
 | 5 | Plans and trails | The shared plan and decision-log rules in `<plans dir>`. Keep the project's plan system. | `plans` from discover; the project's plan rules | `plans`, `skip: ["plans"]` |
 | 6 | Long runs | pstack's Autonomous run with `/loop` in Claude Code and `/goal` in Codex. Keep the project's goal controller, such as a standing autogoal request. | Goal and pause rules in `AGENTS.md` | `skip: ["long-runs"]` |
 | 7 | Commit and PR text, asked when the commit style or a PR template conflicts with the shared shape | The shared Conventional Commits and PR sections, with the template rewritten to match. The project's own convention. | `conventionalCommits` and `prTemplates` from discover, with the template's sections | `skip: ["commits"]` |
@@ -88,6 +88,7 @@ Write `.agents/pstack.json`. The script adds `synced` on the first apply. This e
 | `check` | The broad check for a settled change, used by the Tests and Commit rules. Required. |
 | `plans` | The directory for plans and decision logs, used by the Plans rule and its helpers. Required unless `plans` is skipped. |
 | `risk` | The high-risk categories that trigger autoreview. Empty means review only when asked. |
+| `reviewPr` | `true` to also run autoreview before opening any PR. Optional. |
 | `proof` | The project's proof skill, which replaces pstack's swarm lanes. Optional. |
 | `glossary` | A glossary file whose words agents use. Optional. |
 | `skiller` | `true` when the project generates skills from `.agents/rules` with skiller. Optional. |

@@ -101,8 +101,10 @@ test('render refuses a missing value or an unknown skipped section instead of re
 
 test('the shipped template renders cleanly for every delivery', () => {
   for (const delivery of ['push', 'pr', 'user']) {
-    const block = render(TEMPLATE, { ...CONFIG, delivery });
-    assert.doesNotMatch(block, /<!--|\{\{|\}\}/, delivery);
+    for (const reviewPr of [false, true]) {
+      const block = render(TEMPLATE, { ...CONFIG, delivery, reviewPr });
+      assert.doesNotMatch(block, /<!--|\{\{|\}\}/, `${delivery} reviewPr=${reviewPr}`);
+    }
   }
 });
 

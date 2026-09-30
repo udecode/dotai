@@ -50,7 +50,17 @@
 - **Review.** Run the `autoreview` skill on a high-risk change before it is pushed, opened as a PR or handed back. High risk means {{risk}}. Judge risk by what the code gates, not by what the diff touches. A fix for an unintended write, invite or send counts as that write, invite or send, even when the diff only changes rendering. Never run it for docs, agent instructions, skills, copy or other low-risk changes.
 <!-- end -->
 <!-- if !risk -->
+<!-- if reviewPr -->
+- **Review.** Run the `autoreview` skill before opening any PR, and otherwise only when the user asks for a review.
+<!-- end -->
+<!-- if !reviewPr -->
 - **Review.** Run the `autoreview` skill only when the user asks for a review.
+<!-- end -->
+<!-- end -->
+<!-- if risk -->
+<!-- if reviewPr -->
+  Run it before opening any PR as well, whatever the risk.
+<!-- end -->
 <!-- end -->
 <!-- if delivery=push -->
   Another session's push ships every local commit, so a reviewed change reaches `{{branch}}` only once its review is clean. Save its diff, commit it in a detached worktree at `HEAD`, review that commit there with `--mode commit --commit <sha>`, and fix and recommit until clean. Then revert this run's own uncommitted edits to those paths, keeping any other session's, and `git cherry-pick` the reviewed commit onto `{{branch}}`.
@@ -60,6 +70,11 @@
 <!-- end -->
 <!-- if delivery=user -->
   Review the working tree with `--mode local`.
+<!-- end -->
+<!-- if reviewPr -->
+<!-- if delivery!=pr -->
+  Review a PR's branch with `--mode branch --base <base>`, or with `--mode local --base <merge-base>` while it has uncommitted work.
+<!-- end -->
 <!-- end -->
   The command is `.agents/skills/autoreview/scripts/autoreview --engine codex --model gpt-6.1-sol --thinking high --max-priority P1` plus that mode. In commit or branch mode, pass each caller or entry-point file whose behavior the change can break as `--source-context <path>`, such as every wrapper of a changed shared primitive; local mode takes no source context. The `--prompt` states the invariant that must hold and the entry points or callers to attack, never the author's conclusion that they are safe. A verdict that says something cannot be verified leaves that concern unreviewed. Rerun with its files as source context in commit or branch mode, or prove it at runtime, before calling it fixed. Verify each P0 and P1 finding against the code, fix the real ones, and rerun. Stop when no P0 or P1 remains or every remaining one is dismissed with a concrete reason; P2 and lower never block. When `/pstack:interrogate` runs, this Codex review is its cross-model reviewer. Use the Claude engine only when Codex is unavailable, and then pass `--model opus`.
 <!-- end -->
