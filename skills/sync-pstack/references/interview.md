@@ -10,7 +10,7 @@ The interview is the first step the user sees in a setup. Prepare it from eviden
    - rules, installed skills with their sources, and pstack pins;
    - vendored pstack copies and skills orphaned by dotai cuts;
    - the autoreview install, plan directories, a glossary and proof skills;
-   - every local skill or rule the user typed as `/name` or `$name`, over all history and the last seven days.
+   - every local skill or rule the user typed as `/name` or `$name`, over all history and the last seven days, and every skill added in the last two weeks (`recent`).
 2. Read the project's `AGENTS.md` in full, plus every workflow rule it routes work through, such as a task, patch, improve or maintain-workflow rule. Skim domain rules (framework, product, API law) only far enough to classify them.
 3. Classify each workflow rule, skill and hook as one of these.
    - Covered by pstack: a vendored copy of a plugin skill, or a method poteto-mode owns (intake, playbooks, principles, reflection).
@@ -38,7 +38,7 @@ The interview is the first step the user sees in a setup. Prepare it from eviden
 | 7 | Commit and PR text, asked when the commit style or a PR template conflicts with the shared shape | The shared Conventional Commits and PR sections, with the template rewritten to match. The project's own convention. | `conventionalCommits` and `prTemplates` from discover, with the template's sections | `skip: ["commits"]` |
 | 8 | What to retire, as one multi-select | Each local workflow skill or rule that pstack or the block now covers, each skill orphaned by a dotai cut, and each project rule named like a plugin skill; never a domain method | Typed counts over all history and the last seven days; `dotaiOrphans`; rule names that match `pstack.vendored` | Adaptation only |
 
-For question 8, a method the user has typed keeps a typed entry point. Retire it only into a replacement that already works in this setup, per the block's Agent files rule. A vendored copy of a plugin skill installed by the Skills CLI is not a question: it duplicates the plugin, so setup removes it.
+For question 8, show each candidate's typed count (`typed.counts`, which covers archived Codex history and skips forks, subagent briefs and pasted text) and mark any skill in `recent`, added in the last two weeks. A typed or recent method is offered as "keep as a thin entry point" (recommended) or "drop the command"; only the owner's "drop the command" removes it, and even then only into a replacement that already works in this setup, per the block's Agent files rule. A vendored copy of a plugin skill installed by the Skills CLI is not a question: it duplicates the plugin, so setup removes it.
 
 ## Settled, never asked
 
@@ -92,6 +92,7 @@ Write `.agents/pstack.json`. The script adds `synced` on the first apply. This e
 | `proof` | The project's proof skill: pstack's driver skill for reproducing and verifying, and the replacement for its swarm lanes. Optional. |
 | `glossary` | A glossary file whose words agents use. Optional. |
 | `skiller` | `true` when the project generates skills from `.agents/rules` with skiller. Optional. |
+| `regen` | The project's command that regenerates skills from rules when `bunx skiller@latest apply` alone is not enough, such as `pnpm install` when a prepare script also syncs rule resources. Optional; used only with `skiller`. |
 | `skip` | Block sections the project keeps as its own rule: `tests`, `review`, `plans`, `long-runs`, `commits`. |
 
 Answers to questions 2 and 8 have no field. Carry them into the adaptation and the setup summary.

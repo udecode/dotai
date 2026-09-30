@@ -392,28 +392,44 @@ function* codexSessions(dir) {
   }
 }
 
-function sessionCwd(path) {
-  const buffer = Buffer.alloc(8192);
+// Yields a file's lines through a fixed buffer, because Codex sessions can
+// exceed the largest string V8 can hold.
+function* fileLines(path) {
   const fd = openSync(path, 'r');
+  const buffer = Buffer.alloc(1 << 20);
+  let rest = '';
   try {
-    const read = readSync(fd, buffer, 0, buffer.length, 0);
-    const match = buffer.subarray(0, read).toString('utf8').match(/"cwd":"((?:[^"\\]|\\.)*)"/u);
-    return match ? JSON.parse(`"${match[1]}"`) : null;
+    for (let read; (read = readSync(fd, buffer, 0, buffer.length, null)) > 0; ) {
+      const lines = (rest + buffer.subarray(0, read).toString('utf8')).split('\n');
+      rest = lines.pop();
+      yield* lines;
+    }
+    if (rest) yield rest;
   } finally {
     closeSync(fd);
   }
 }
 
+function sessionMeta(path) {
+  for (const line of fileLines(path)) {
+    const payload = parseLine(line)?.payload ?? {};
+    return { cwd: payload.cwd ?? null, subagent: payload.thread_source === 'subagent' || JSON.stringify(payload.source ?? '').includes('subagent') };
+  }
+  return { cwd: null, subagent: false };
+}
+
 // Counts the commands and skills the user typed (`/name` or `$name`) in this
 // project's Claude Code transcripts and Codex sessions, over all history and
-// the last seven days. Injected skill bodies, summaries and tool output are
-// not typed, so they do not count.
+// the last seven days. Injected skill bodies, summaries, tool output, subagent
+// briefs and pasted text are not typed, so they do not count. A forked Codex
+// session replays its parent's turns, so a turn counts once across files.
 export function typedInvocations(root, names, now = Date.now()) {
   const wanted = new Set(names);
   const counts = Object.fromEntries(names.map((name) => [name, { all: 0, week: 0 }]));
   const files = { claude: 0, codex: 0 };
   const count = (text, time) => {
-    for (const match of text.matchAll(/(?:^|[\s([>"'`])[/$]([a-z][\w:-]*)/gu)) {
+    const request = text.includes('## My request:') ? text.slice(text.lastIndexOf('## My request:')) : text;
+    for (const match of request.matchAll(/(?:^|[\s([>"'`])[/$]([a-z][\w:-]*)/gu)) {
       if (!wanted.has(match[1])) continue;
       counts[match[1]].all += 1;
       if (time >= now - 7 * DAY) counts[match[1]].week += 1;
@@ -424,7 +440,7 @@ export function typedInvocations(root, names, now = Date.now()) {
   if (existsSync(claudeDir)) {
     for (const name of readdirSync(claudeDir).filter((file) => file.endsWith('.jsonl'))) {
       files.claude += 1;
-      for (const line of readFileSync(join(claudeDir, name), 'utf8').split('\n')) {
+      for (const line of fileLines(join(claudeDir, name))) {
         if (!line.includes('"type":"user"') || line.includes('"tool_use_id"')) continue;
         const record = parseLine(line);
         if (!record || record.type !== 'user' || record.isMeta || record.isCompactSummary || record.isSidechain) continue;
@@ -437,24 +453,27 @@ export function typedInvocations(root, names, now = Date.now()) {
 
   // Codex records a typed message as a `user_message` event (older CLIs) or a
   // completed `UserMessage` item, sometimes twice within one turn.
-  for (const path of codexSessions(join(homedir(), '.codex/sessions'))) {
-    const cwd = sessionCwd(path);
-    if (cwd !== root && !cwd?.startsWith(`${root}/`)) continue;
-    files.codex += 1;
-    const seen = new Set();
-    for (const line of readFileSync(path, 'utf8').split('\n')) {
-      if (!line.includes('"user_message"') && !line.includes('"UserMessage"')) continue;
-      const record = parseLine(line);
-      const payload = record?.payload;
-      const text =
-        payload?.type === 'user_message'
-          ? payload.message
-          : payload?.item?.type === 'UserMessage'
-            ? (payload.item.content ?? []).map((block) => block.text ?? '').join('\n')
-            : null;
-      if (!text || seen.has(`${payload.turn_id}\0${text}`)) continue;
-      seen.add(`${payload.turn_id}\0${text}`);
-      count(text, Date.parse(record.timestamp));
+  const seen = new Set();
+  for (const dir of ['.codex/sessions', '.codex/archived_sessions']) {
+    for (const path of codexSessions(join(homedir(), dir))) {
+      const { cwd, subagent } = sessionMeta(path);
+      if (subagent || (cwd !== root && !cwd?.startsWith(`${root}/`))) continue;
+      files.codex += 1;
+      for (const line of fileLines(path)) {
+        if (!line.includes('"user_message"') && !line.includes('"UserMessage"')) continue;
+        const record = parseLine(line);
+        const payload = record?.payload;
+        const text =
+          payload?.type === 'user_message'
+            ? payload.message
+            : payload?.item?.type === 'UserMessage'
+              ? (payload.item.content ?? []).map((block) => block.text ?? '').join('\n')
+              : null;
+        const key = `${payload?.turn_id ?? record?.timestamp}\0${text}`;
+        if (!text || seen.has(key)) continue;
+        seen.add(key);
+        count(text, Date.parse(record.timestamp));
+      }
     }
   }
   return { files, counts };
@@ -486,6 +505,15 @@ export function discover(root) {
   const catalog = dotaiCatalog();
   const agents = existsSync(join(root, 'AGENTS.md')) ? readFileSync(join(root, 'AGENTS.md'), 'utf8') : '';
   const typed = typedInvocations(root, [...new Set([...skills, ...rules])].sort());
+  const added = [
+    git(root, 'log', '--since=14.days', '--diff-filter=A', '--name-only', '--format=', '--', '.agents/rules', '.agents/skills'),
+    git(root, 'ls-files', '--others', '--exclude-standard', '--', '.agents/rules', '.agents/skills'),
+  ].join('\n');
+  const recent = new Set();
+  for (const path of added.split('\n')) {
+    const match = path.match(/^\.agents\/(?:rules\/([^/]+?)(?:\.mdc$|\/)|skills\/([^/]+)\/)/u);
+    if (match) recent.add(match[1] ?? match[2]);
+  }
   return {
     root,
     branch: git(root, 'branch', '--show-current'),
@@ -531,6 +559,7 @@ export function discover(root) {
     plans: ['docs/plans', 'plans', '.plans']
       .filter((dir) => existsSync(join(root, dir)))
       .map((dir) => ({ dir, files: readdirSync(join(root, dir)).length })),
+    recent: [...recent].sort(),
     typed: {
       files: typed.files,
       counts: Object.fromEntries(Object.entries(typed.counts).filter(([, count]) => count.all > 0)),

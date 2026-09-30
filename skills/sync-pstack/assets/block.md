@@ -102,6 +102,11 @@
 - **Improve the workflow mid-task.** When a skill, rule, script or helper gets in the way, fix it then, separately from the task's change, and keep working. When applying a lesson, reread the destination section for a rule the new text contradicts and resolve it in the same edit. After an Autonomous run, an audit, or any session where the user corrected the workflow, run `/pstack:reflect` before the final reply and apply its accepted lessons. A lesson that changes a rule in this block goes to its shared source through the `sync-pstack` skill; without that skill, write it outside the block for the owner to upstream.
 - **Agent files.** Before cutting or folding a skill, command or plugin, count the user's typed invocations over all history, not load counts. Keep every typed command and every working integration as an entry point, and count a replacement only once it works in this setup. Never edit a vendor skill installed from another repository; override it in this file or a project rule instead.
 <!-- if skiller -->
+<!-- if regen -->
+  After editing a rule in `.agents/rules`, run `{{regen}}` and check the generated `.agents/skills/<name>/SKILL.md`; never edit a generated skill.
+<!-- end -->
+<!-- if !regen -->
   After editing a rule in `.agents/rules`, run `bunx skiller@latest apply` and check the generated `.agents/skills/<name>/SKILL.md`; never edit a generated skill.
+<!-- end -->
 <!-- end -->
   Run user-scope `claude plugin` commands from the home directory; from the repository they rewrite `.claude/settings.json`. After any plugin command, check `git diff .claude/settings.json`. Changes to agent instructions, plugin settings or the skill set reach every teammate and runtime on the next pull. Before sharing one, run a fresh read-only session (`claude -p --permission-mode plan` with a fake task) to confirm routing, and state which runtimes and people gain or lose what, in the commit body or, when the user owns commits, in the reply.

@@ -1,6 +1,6 @@
 ---
 name: best-api-review
-description: "Judge whether a proposed API or architecture direction merits pursuit before detailed design or implementation."
+description: "Reconcile earlier work, then judge whether an API or architecture direction merits pursuit before detailed design or implementation."
 metadata:
   source: udecode/dotai
   source-path: skills/best-api-review
@@ -22,18 +22,36 @@ code review, or implementation. Read the project's routing instructions and
 applicable design methods when present. Do not turn every ordinary
 implementation request into another architecture review.
 
-## Resolve the question
+## Reconcile history before recommending work
 
-Before expensive investigation, use the project's existing decision index,
-research ledgers and review artifacts to find earlier work on the same user
-job. Match the question and constraints, not only its feature name. Read the
-current decision and the earlier material alternatives, including rejected
-leads. Reconcile later implementation and proof with that decision: a completed
-design is not adopted behavior, a completed implementation can outdate its
-summary, and missing or stale evidence stays explicit. Inspect relevant
-historical candidates before associating them; a filename match is only a lead.
-Follow project routing for storage and lookup; do not create another history
-system or independently maintained progress tracker.
+Do this before recommending a ledger item, answering "what is next?", or
+starting any review, including a feature's first indexed audit. Queue position
+and an unassessed label describe review bookkeeping, not whether work exists.
+
+1. Look up each selected or recommended item's history through the project's
+   existing index. Inspect earlier reviews, decisions, plans, later execution,
+   proof limits and unresolved historical candidates. Follow omitted-record
+   counts to the detailed history when they can affect the recommendation.
+2. Search the retained plans and review artifacts for the same user job under
+   older names and related scopes. Broad audits and completed repairs can
+   contain the governing decision even when no dedicated review is indexed.
+   Inspect relevant candidates; a filename or text match is only a lead.
+3. Compare material earlier conclusions and rejected alternatives with later
+   execution and the current owner and consumer. State what is settled, what
+   was adopted, what remains unproved and the question that further work earns.
+   For a queue answer, summarize that history briefly without starting an audit.
+
+An empty compact review list, missing current decision, unbound execution or
+stale fingerprint does not establish that no work happened. Say "no prior work
+found" only after the history lookup and relevant search. Keep the search's
+limits explicit. A completed design is not adoption, and an implementation
+claim is not current proof. Preserve valid conclusions and evidence without
+freezing them against a stronger argument.
+
+Follow project routing for lookup and reconciliation storage. Do not create
+another history system or independently maintained progress tracker.
+
+## Resolve the question
 
 Invoking this skill again requests another review, including when the source
 is unchanged. No special flag or model change is required. Reuse source

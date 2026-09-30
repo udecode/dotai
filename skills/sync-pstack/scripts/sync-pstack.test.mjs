@@ -239,6 +239,42 @@ test('discover counts only what the user typed in Claude Code and Codex', () => 
   assert.deepEqual(JSON.parse(result.stdout).typed.counts, { patch: { all: 1, week: 1 }, task: { all: 2, week: 1 } });
 });
 
+test('discover counts archived Codex history once and ignores forks, subagent briefs and pasted text', () => {
+  const { dir, home, cli } = sandbox();
+  const root = project(dir, 'app', { files: { '.agents/rules/task.mdc': '---\n---\n', '.agents/rules/patch.mdc': '---\n---\n' } });
+  const old = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const session = (path, meta, ...messages) => {
+    mkdirSync(join(home, path, '..'), { recursive: true });
+    writeFileSync(
+      join(home, path),
+      [{ type: 'session_meta', payload: { cwd: root, ...meta } }, ...messages.map(([turn_id, message]) => ({ timestamp: old, type: 'event_msg', payload: { type: 'user_message', turn_id, message } }))]
+        .map((line) => JSON.stringify(line))
+        .join('\n'),
+    );
+  };
+  const typedTask = ['a1', 'go [$task](/x/SKILL.md)'];
+  const pasted = ['a2', '# Files pasted by the user:\n## "use [$patch](/x/SKILL.md) next…": /tmp/Pasted text.txt\n## My request: hhf'];
+  session('.codex/archived_sessions/2026/08/01/rollout-a.jsonl', {}, typedTask, pasted);
+  session('.codex/sessions/2026/09/30/rollout-fork.jsonl', {}, typedTask);
+  session('.codex/sessions/2026/09/30/rollout-sub.jsonl', { thread_source: 'subagent' }, ['b1', 'brief: run [$patch](/x/SKILL.md)']);
+  const result = cli('discover', root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout).typed.counts, { task: { all: 1, week: 0 } });
+});
+
+test('discover flags skills added in the last two weeks, even untyped ones', () => {
+  const { dir, cli } = sandbox();
+  const root = project(dir, 'app', { files: { '.agents/rules/old.mdc': '---\n---\n' } });
+  const past = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  spawnSync('git', ['-C', root, 'add', '-A']);
+  spawnSync('git', ['-C', root, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'old'], { env: { ...process.env, GIT_AUTHOR_DATE: past, GIT_COMMITTER_DATE: past } });
+  mkdirSync(join(root, '.agents/skills/fresh'), { recursive: true });
+  writeFileSync(join(root, '.agents/skills/fresh/SKILL.md'), '---\nname: fresh\n---\n');
+  const result = cli('discover', root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout).recent, ['fresh']);
+});
+
 test('plan-open reports an open box outside code and ignores one inside a fence', () => {
   const { dir, run } = sandbox();
   const root = project(dir, 'app', { files: { 'plan.md': '# Plan\n\n- [x] done\n- [ ] ship it\n\n```md\n- [ ] example\n```\n' } });

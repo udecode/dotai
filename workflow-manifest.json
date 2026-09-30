@@ -17,7 +17,7 @@
     {
       "name": "best-api-review",
       "distribution": "bundled",
-      "description": "Judge whether a proposed API or architecture direction merits pursuit before detailed design or implementation.",
+      "description": "Reconcile earlier work, then judge whether an API or architecture direction merits pursuit before detailed design or implementation.",
       "category": "Review and design",
       "dependencies": [],
       "capabilities": [],
@@ -111,7 +111,7 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "247bb73721cece4ea317c9a19ff78ce51d6f948ffa22b9c8968fc0590167a735",
+      "sha256": "349e0b7aab1174bc8f3f58f1de1b67fb3951711cfe7479fe0178796b4328742e",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
@@ -199,7 +199,7 @@
       "mode": 420
     },
     "skills/best-api-review/SKILL.md": {
-      "sha256": "bed548157e3a8914e391a609ccb0db559aa0bc323d3eec0742f310e1c305680e",
+      "sha256": "b8d7c370bbbcfac9f05555e7c5b7358e62a9a717ef8fbb4805474ba427bf6e87",
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
@@ -211,7 +211,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "d12e56465fa1f955c45bce5a6cc45be2f35faa78fae8e6c4ce7991c190519133",
+      "sha256": "6c5be6932421107abd4eab110712266e75dab51e49fddbd8b3c566542e464431",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
@@ -227,15 +227,15 @@
       "mode": 420
     },
     "skills/sync-pstack/references/interview.md": {
-      "sha256": "e3c65c714c615ecf9969227df0a9b68b02338cf3133702d259aeeb20e8199b93",
+      "sha256": "fed03f811be2cd8aff1ca4c9db302cd83e11761b388e729d2b30ca57080682bc",
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.mjs": {
-      "sha256": "1fce0329c8f5ba6a46f451aacd3094055a7bc0b2e3cf6da70b69578f2241a1a2",
+      "sha256": "547e53d2af04a89bdf71b9e0d16559b1c916f2603b5b4faf4bb5bd6c34e0d859",
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "ef7dad0a703fd6f5d8dfe86717b2f8f912f9304930fbfa24253e4527b0351218",
+      "sha256": "f9ab9d98345b552ce2f27bc397fd0b48392f48e841bac6e56408012e5fef956c",
       "mode": 420
     },
     "skills/video-transcripts/SKILL.md": {

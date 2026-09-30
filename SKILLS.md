@@ -12,7 +12,7 @@
 
 | Skill | Purpose |
 | --- | --- |
-| [best-api-review](skills/best-api-review/SKILL.md) | Judge whether a proposed API or architecture direction merits pursuit before detailed design or implementation. |
+| [best-api-review](skills/best-api-review/SKILL.md) | Reconcile earlier work, then judge whether an API or architecture direction merits pursuit before detailed design or implementation. |
 | [prototype](https://github.com/mattpocock/skills/blob/3cca18b368ae95cdbdebbff572ccafa662551015/skills/engineering/prototype/SKILL.md) | Build a throwaway prototype to answer a design question. Use when the user wants to sanity-check whether a state model or logic feels right, or explore what a UI should look like. |
 
 ## Communication (3)
