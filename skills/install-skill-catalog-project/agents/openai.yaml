@@ -1,4 +1,0 @@
-interface:
-  display_name: "Install Catalog Skill for Project"
-  short_description: "Project-install a published catalog skill"
-  default_prompt: "Use $install-skill-catalog-project to install this published skill in the current project."

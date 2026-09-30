@@ -1,4 +1,0 @@
-interface:
-  display_name: "Install Dotai Skill for Project"
-  short_description: "Create and project-install a Dotai skill"
-  default_prompt: "Use $install-skill-dotai-project to create this skill in Dotai and install it in the current project."

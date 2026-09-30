@@ -60,6 +60,6 @@ Find candidate projects from configured repository sets and installation records
 
 Suggest the named skill/rule, verified source and target, and any adaptation conflict. A source edit is not an installation; an uninspected configured project is not confirmed current.
 
-For authorized propagation, follow current `sync-skills` and `skills-update` instructions. Inspect the named dry run and preserve project forks and explicit destinations. Avoid wildcard/all-project refreshes and old remote revisions over unpublished local changes. Global scope is a separate destination; preserve personal instructions.
+For authorized propagation, reinstall the named skill with the Skills CLI (`npx skills add`) or the project's skiller setup. Inspect a dry run first and preserve project forks and explicit destinations. Avoid wildcard/all-project refreshes and old remote revisions over unpublished local changes. Global scope is a separate destination; preserve personal instructions.
 
 Ordinary maintenance creates no automation, commit, push or publication. Close with changes, verification, actual installations and useful named sync suggestions.

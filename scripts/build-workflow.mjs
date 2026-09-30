@@ -11,41 +11,20 @@ const forbidden = forbiddenIndex < 0 ? null : new RegExp(process.argv[forbiddenI
 const sha = (data) => createHash('sha256').update(data).digest('hex');
 const upstream = JSON.parse(readFileSync(join(root, 'upstream-skills.json'), 'utf8'));
 const groups = {
-  'Execution and coordination': ['task', 'autoclosure', 'autogoal', 'improve', 'orchestrator'],
-  'Architecture, diagnosis and review': ['architecture-cleanup', 'best-api-review', 'autoreview', 'agent-native-reviewer', 'hard-cut', 'diagnosing-bugs', 'ai-slop-cleaner', 'security-triage', 'oracle'],
-  'Product, planning and design': ['grill-with-vision', 'to-prd', 'to-milestone', 'to-issues', 'design', 'prototype', 'avoid-feature-creep', 'sync-vision'],
-  'Verification and delivery': ['verify-app', 'atlas', 'resolve-pr-feedback', 'resolving-merge-conflicts', 'linear-backlog'],
-  'Understanding and communication': ['restate', 'agent-session-resume', 'show-me', 'walkthrough', 'video-transcripts'],
-  'Setup and maintenance': ['setup-workflow', 'install-skill-dotai-project', 'install-skill-dotai-global', 'install-skill-skiller-project', 'install-skill-catalog-project', 'install-skill-catalog-global', 'maintain-workflow', 'sync-skills', 'skills-update', 'find-skills', 'skill-cleaner', 'openclaw-sync'],
+  'Execution': ['autogoal'],
+  'Review': ['autoreview', 'best-api-review'],
+  'Product and planning': ['to-prd', 'to-issues', 'prototype'],
+  'Communication': ['show-me', 'walkthrough', 'video-transcripts'],
+  'Maintenance': ['maintain-workflow', 'find-skills'],
 };
-const explicitDependencies = {
-  task: ['autogoal', 'diagnosing-bugs', 'verify-app', 'autoreview', 'architecture-cleanup', 'maintain-workflow'],
-  improve: ['task', 'autogoal', 'architecture-cleanup', 'verify-app', 'maintain-workflow'],
-  'setup-workflow': ['task', 'maintain-workflow', 'sync-skills', 'skills-update'],
-  'maintain-workflow': ['sync-skills', 'skills-update', 'agent-native-reviewer'],
-  'to-prd': ['grill-with-vision', 'to-milestone', 'design', 'task'],
-  'linear-backlog': ['task', 'orchestrator', 'autogoal'],
-  'skills-update': ['setup-workflow', 'sync-skills'],
-  'sync-skills': ['setup-workflow', 'skills-update'],
-};
+const explicitDependencies = {};
 const requirements = {
   autogoal: ['Native goal tools for native goals; otherwise a file plan'],
-  orchestrator: ['Native durable task/project tools'],
-  'linear-backlog': ['Connected Linear tools and project Git/delivery tooling'],
   'to-issues': ['Connected tracker only for requested publication'],
   'to-prd': ['Connected document/tracker only for requested publication'],
-  'to-milestone': ['Connected tracker only for requested publication'],
-  'verify-app': ['Project runtime, sanctioned fixtures and relevant browser/native/provider tools'],
-  atlas: ['Existing project scene catalog and its fixture/check owners'],
   autoreview: ['Native or project review helper for structured independent review; direct inspection otherwise'],
-  oracle: ['Oracle CLI and explicitly authorized engine/model access'],
-  'resolve-pr-feedback': ['GitHub CLI, jq and authorized repository access'],
-  'security-triage': ['Access to the actual advisory and shipped artifact'],
   'video-transcripts': ['ffmpeg, curl, jq and authorized Gemini credentials'],
   walkthrough: ['Real final-state captures, Node.js and the configured annotation tool'],
-  'skill-cleaner': ['Node.js with TypeScript stripping for its analyzer; optional native prompt diagnostics'],
-  'agent-session-resume': ['Python 3 for helpers; scoped native history or supplied transcript'],
-  'openclaw-sync': ['Node.js, Git and an explicitly selected local reference checkout'],
 };
 
 function walk(dir) {
@@ -71,7 +50,6 @@ function emit(path, text) {
 const bundled = readdirSync(join(root, 'skills'), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
 if (upstream.skills.some((skill) => bundled.includes(skill.name))) throw new Error('Unchanged upstream skills must not have duplicate local skill directories');
 const entries = [...bundled, ...upstream.skills.map((skill) => skill.name)].sort();
-groups['Engineering principles'] = entries.filter((name) => name.startsWith('principle-'));
 const categorized = Object.values(groups).flat();
 if (new Set(categorized).size !== categorized.length || JSON.stringify([...categorized].sort()) !== JSON.stringify(entries)) throw new Error('Catalog must classify every actual skill exactly once');
 const files = walk(join(root, 'skills'));
@@ -108,7 +86,7 @@ const skills = entries.map((name) => {
   return { name, distribution: 'bundled', description, category: Object.entries(groups).find(([, names]) => names.includes(name))[0], dependencies: [...dependencyNames].sort(), capabilities: requirements[name] || [], provenance };
 });
 
-let catalog = `# Complete generic workflow\n\n${skills.length} skills: ${bundled.length} maintained or adapted in dotai, plus ${upstream.skills.length} unchanged upstream skills installed with named npx skills add commands. Upstream sources are not duplicated here. Methods load only when relevant; tool access is separate from installation.\n`;
+let catalog = `# dotai skills\n\n${skills.length} skills: ${bundled.length} maintained in dotai, plus ${upstream.skills.length} unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from dotai. Methods load only when relevant; tool access is separate from installation.\n`;
 for (const [category, names] of Object.entries(groups)) {
   catalog += `\n## ${category} (${names.length})\n\n| Skill | Purpose |\n| --- | --- |\n`;
   for (const name of names) {
@@ -117,15 +95,15 @@ for (const [category, names] of Object.entries(groups)) {
     catalog += `| [${name}](${url}) | ${skill.description.replaceAll('|', '\\|')} |\n`;
   }
 }
-catalog += '\n## Unchanged upstream installation\n\nThe setup helper prints exact commands for the selected agent and scope. For project-local Codex, run these from the project directory; use `--global` only for an explicitly requested user-wide installation. Skip a skill whose pinned contents already match.\n\n```sh\n';
+catalog += '\n## Unchanged upstream installation\n\nFor a project-local install, run these from the project directory and name each agent; use `--global` only for an explicitly requested user-wide install. Skip a skill whose pinned contents already match.\n\n```sh\n';
 for (const skill of upstream.skills) catalog += `npx --yes skills@${upstream.skillsCliVersion} add https://github.com/${skill.source}/tree/${skill.revision}${skill.sourceDirectory ? '/' + skill.sourceDirectory : ''} --skill ${skill.name} --agent codex -y\n`;
-catalog += '```\n\nLoad the distribution runtime adapter when a selected method needs platform mapping or delegation. Project rules govern testing, native tools and publication; do not fork an unchanged method just to add a routing sentence.\n';
-catalog += '\n## Capability requirements\n\nThese skills remain installed when a tool is absent. Setup reports the missing capability; it never marks an unavailable live action or independent review as passed.\n\n';
+catalog += '```\n\nProject rules govern testing, native tools and publication; do not fork an unchanged method just to add a routing sentence.\n';
+catalog += '\n## Capability requirements\n\nThese skills remain installed when a tool is absent; an unavailable live action or independent review is reported, never marked as passed.\n\n';
 for (const skill of skills.filter((skill) => skill.capabilities.length)) catalog += `- **${skill.name}:** ${skill.capabilities.join('; ')}.\n`;
-catalog += '\n## Deliberate boundaries\n\nThe bundle includes the generic engineering, product-planning, verification, review, communication and workflow-maintenance methods. It excludes product-specific database schemas, routes, fixtures, domain/provider adapters, release environments and personal configuration. Their generic behavior is owned by Task, Verify App, Atlas, Design and the project adaptation.\n\nFramework packages (React, Next.js, Prisma, tRPC, AI SDK, authentication, Inngest, Sentry, UI registries and game engines) are stack-specific extensions, not required generic workflow dependencies. Use Find Skills for the actual project and install named official packages through the selected agent after source review. No framework dependency is installed merely because it existed on the original author\'s machine.\n\nPayment, banking, shopping, domain registration, personal health, private session repair, native document/media plugins and account integrations are separate capabilities. This archive contains no accounts, credentials, personal histories, connector configuration or paid-model entitlement. Native skill creation/installation and documentation tools remain supplied by the host agent when available.\n';
+catalog += '\n## Deliberate boundaries\n\ndotai holds shared methods that pstack does not cover. It excludes product-specific schemas, routes, fixtures, provider adapters, release environments and personal configuration; those belong to each project. Framework packages (React, Next.js, Prisma, tRPC and the like) are stack-specific: use Find Skills and install named official packages after source review. The skills contain no accounts, credentials, personal histories or connector configuration.\n';
 emit('SKILLS.md', catalog);
 
-const distribution = ['README.md', 'SETUP.md', 'SKILLS.md', 'upstream-skills.json', 'scripts/setup-workflow.mjs', 'scripts/build-workflow.mjs', 'scripts/validate-skills', 'scripts/package-workflow.py'];
+const distribution = ['README.md', 'SKILLS.md', 'upstream-skills.json', 'scripts/build-workflow.mjs', 'scripts/validate-skills'];
 const all = [...files, ...distribution.map((file) => join(root, file))].sort();
 const manifest = { schemaVersion: 1, source: 'udecode/dotai', skillsCliVersion: upstream.skillsCliVersion, skills, files: {} };
 for (const file of all) {

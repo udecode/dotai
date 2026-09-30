@@ -1,4 +1,0 @@
-interface:
-  display_name: "Install Project Skill with Skiller"
-  short_description: "Create a project skill through Skiller"
-  default_prompt: "Use $install-skill-skiller-project to create this project-owned skill and regenerate its agent copies."

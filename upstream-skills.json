@@ -2,59 +2,6 @@
   "skillsCliVersion": "1.5.25",
   "skills": [
     {
-      "name": "agent-session-resume",
-      "source": "hacktivist123/agent-session-resume",
-      "revision": "76b025634ddc99b3ee3428fb4464af1c467da291",
-      "path": "skills/agent-session-resume",
-      "description": "Use when continuing, resuming, locating, reading, inspecting, auditing, or reviewing a previous AI coding-agent session, handoff transcript, chat log, exported conversation, saved artifact set, or session summary, on any platform (Claude Code, Codex, Cursor, Antigravity, OpenCode) or across several platforms in one ask, such as reviewing threads across Claude and Codex.",
-      "category": "Understanding and communication",
-      "capabilities": [
-        "Python 3 for helpers; scoped native history or supplied transcript"
-      ],
-      "files": {
-        "SKILL.md": "ec16d27588fb56c14db5cfc3b4c0d8ae587215d4e5352990b165d141a96da5a3",
-        "agents/openai.yaml": "15f357568cf750143d402323fc868a1585cfdc1ed3d29fc6a98324dd3f2c4776",
-        "references/antigravity.md": "f41db01a95755f7fcf1c40c5830b003c9a5ff32040726424f7efe38e20cb799d",
-        "references/claude-code.md": "6b28b67662e69260be9ddd3c2bab238fd9f8d878f9d2bd21f67a6c9208d36ba1",
-        "references/codex.md": "e312bbf54022191e2ec25aa641b1ff2d426bfc0c895e9ff6eb8e82348babc650",
-        "references/cross-platform.md": "c58e78fa84c4bc99980b4d0479222b4e5d9d5d2be285301e5ff96eb9f81ed726",
-        "references/cursor.md": "f2b69a1e510b37afadb27329067e036c192c55065c2a2b0ebfdaf84f7d5e3a44",
-        "references/evidence-and-provenance.md": "7715eec3587a5f3ab5e2580267fff7ffd80004a135844abab7d3a0661eda4b19",
-        "references/github-copilot.md": "f7dd74a5ec64cc9f0b7d09fc4acb5b3f3fce4f256acd767551931096fe645942",
-        "references/opencode.md": "2e8b69130445e3bfac9d3e71891315d3e3d3367db1b5f7abd5b463d749c2f2a0",
-        "scripts/session-candidates.py": "f6a3d4d30e4009c88fde0c25a6a90b998c80b07638bbe0611f32689fbf7613ab",
-        "scripts/session-digest.py": "3aba2df18783186f41e669f7d3b82253f059a4f117757446d0c144e752c178c2",
-        "scripts/session-events.py": "3fe8c52a6dd56a70063b72ed8998ea0db88626c1278a2820ab67dfd37d378cfb",
-        "scripts/skill-provenance.py": "0a4c42f38a2a49127d7a9c34f35a79bab19331eebb73c072f9907a1fe565c56e"
-      }
-    },
-    {
-      "name": "ai-slop-cleaner",
-      "source": "yeachan-heo/oh-my-claudecode",
-      "revision": "4820f5641828cb980b7eb488a3c187f3d01459c3",
-      "path": "skills/ai-slop-cleaner",
-      "description": "Clean AI-generated code slop with a regression-safe, deletion-first workflow and optional reviewer-only mode",
-      "category": "Architecture, diagnosis and review",
-      "capabilities": [],
-      "files": {
-        "SKILL.md": "266ed0e1f36214b844dcba4a1c2f6b82dadfc48d09a0cfffe348f7353db77d2c"
-      }
-    },
-    {
-      "name": "diagnosing-bugs",
-      "source": "mattpocock/skills",
-      "revision": "3cca18b368ae95cdbdebbff572ccafa662551015",
-      "path": "skills/engineering/diagnosing-bugs",
-      "description": "Diagnosis loop for hard bugs and performance regressions. Use when the user says \"diagnose\"/\"debug this\", or reports something broken/throwing/failing/slow.",
-      "category": "Architecture, diagnosis and review",
-      "capabilities": [],
-      "files": {
-        "SKILL.md": "77f3cf31bc99b2f49af943222526531fcc9fc41d047626d3640e875e85af3e84",
-        "agents/openai.yaml": "3e430dbe4334a87597488c060cb3dc3786bb00c9182877d6f5ec41f62490e90b",
-        "scripts/hitl-loop.template.sh": "35103539fc36873eea36074769ad454f9379d6fc8b2dc0e26ce987fd3bfe5503"
-      }
-    },
-    {
       "name": "find-skills",
       "source": "vercel-labs/skills",
       "revision": "80feb48868972d518436f26711509bc78595b5cb",
@@ -82,19 +29,6 @@
       }
     },
     {
-      "name": "resolving-merge-conflicts",
-      "source": "mattpocock/skills",
-      "revision": "3cca18b368ae95cdbdebbff572ccafa662551015",
-      "path": "skills/engineering/resolving-merge-conflicts",
-      "description": "Use when you need to resolve an in-progress git merge/rebase conflict.",
-      "category": "Verification and delivery",
-      "capabilities": [],
-      "files": {
-        "SKILL.md": "9d8114f8ef0b31f535a265fc05c364bd8cf2e2895a830040e06c22acb11f54b0",
-        "agents/openai.yaml": "a1f4f96838f2ed6282eb28abbbf99029cb8fadce552baf53da90a025b8bffddf"
-      }
-    },
-    {
       "name": "show-me",
       "source": "humanlayer/skills",
       "revision": "3c2629142c5d437428269b1b722b08c0b87f574d",
@@ -104,23 +38,6 @@
       "capabilities": [],
       "files": {
         "SKILL.md": "bea6da70a58096730b9aeb0bae293ddf4726103a98efc9ce13c481619942a810"
-      }
-    },
-    {
-      "name": "skill-cleaner",
-      "source": "steipete/agent-scripts",
-      "revision": "15bcfe33f59795ce2421cf7f5a5465094dfbff09",
-      "path": "skills/skill-cleaner",
-      "description": "Codex/OpenClaw skill audit: live budget, usage, duplicates, compact descriptions.",
-      "category": "Setup and maintenance",
-      "capabilities": [
-        "Node.js with TypeScript stripping for its analyzer; optional native prompt diagnostics"
-      ],
-      "files": {
-        "SKILL.md": "32e482ba17945ac7ee1c8d40087346b093193df034391a331da76ca42adeae37",
-        "agents/openai.yaml": "bcc9a1d5d6c91fb2d250dcd38836c9ae8e363741ddb004e20d0bc97f9bc16739",
-        "scripts/skill-cleaner.test.ts": "425095a49e8801be7db43894c65937d18689ca3b892a39edc2db257d149148ef",
-        "scripts/skill-cleaner.ts": "f8ac9ec98bb027d71c3b520e95062c76be2bf1c9d3e5cd68a2b318488c0969f1"
       }
     }
   ]

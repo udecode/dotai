@@ -4,95 +4,10 @@
   "skillsCliVersion": "1.5.25",
   "skills": [
     {
-      "name": "agent-native-reviewer",
-      "distribution": "bundled",
-      "description": "Audit changed agent workflows for usable discovery, tool routes, source ownership and reproducible proof.",
-      "category": "Architecture, diagnosis and review",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
-      "name": "agent-session-resume",
-      "source": "hacktivist123/agent-session-resume",
-      "revision": "76b025634ddc99b3ee3428fb4464af1c467da291",
-      "path": "skills/agent-session-resume",
-      "description": "Use when continuing, resuming, locating, reading, inspecting, auditing, or reviewing a previous AI coding-agent session, handoff transcript, chat log, exported conversation, saved artifact set, or session summary, on any platform (Claude Code, Codex, Cursor, Antigravity, OpenCode) or across several platforms in one ask, such as reviewing threads across Claude and Codex.",
-      "category": "Understanding and communication",
-      "capabilities": [
-        "Python 3 for helpers; scoped native history or supplied transcript"
-      ],
-      "files": {
-        "SKILL.md": "ec16d27588fb56c14db5cfc3b4c0d8ae587215d4e5352990b165d141a96da5a3",
-        "agents/openai.yaml": "15f357568cf750143d402323fc868a1585cfdc1ed3d29fc6a98324dd3f2c4776",
-        "references/antigravity.md": "f41db01a95755f7fcf1c40c5830b003c9a5ff32040726424f7efe38e20cb799d",
-        "references/claude-code.md": "6b28b67662e69260be9ddd3c2bab238fd9f8d878f9d2bd21f67a6c9208d36ba1",
-        "references/codex.md": "e312bbf54022191e2ec25aa641b1ff2d426bfc0c895e9ff6eb8e82348babc650",
-        "references/cross-platform.md": "c58e78fa84c4bc99980b4d0479222b4e5d9d5d2be285301e5ff96eb9f81ed726",
-        "references/cursor.md": "f2b69a1e510b37afadb27329067e036c192c55065c2a2b0ebfdaf84f7d5e3a44",
-        "references/evidence-and-provenance.md": "7715eec3587a5f3ab5e2580267fff7ffd80004a135844abab7d3a0661eda4b19",
-        "references/github-copilot.md": "f7dd74a5ec64cc9f0b7d09fc4acb5b3f3fce4f256acd767551931096fe645942",
-        "references/opencode.md": "2e8b69130445e3bfac9d3e71891315d3e3d3367db1b5f7abd5b463d749c2f2a0",
-        "scripts/session-candidates.py": "f6a3d4d30e4009c88fde0c25a6a90b998c80b07638bbe0611f32689fbf7613ab",
-        "scripts/session-digest.py": "3aba2df18783186f41e669f7d3b82253f059a4f117757446d0c144e752c178c2",
-        "scripts/session-events.py": "3fe8c52a6dd56a70063b72ed8998ea0db88626c1278a2820ab67dfd37d378cfb",
-        "scripts/skill-provenance.py": "0a4c42f38a2a49127d7a9c34f35a79bab19331eebb73c072f9907a1fe565c56e"
-      },
-      "distribution": "remote",
-      "dependencies": [],
-      "installSource": "https://github.com/hacktivist123/agent-session-resume/tree/76b025634ddc99b3ee3428fb4464af1c467da291"
-    },
-    {
-      "name": "ai-slop-cleaner",
-      "source": "yeachan-heo/oh-my-claudecode",
-      "revision": "4820f5641828cb980b7eb488a3c187f3d01459c3",
-      "path": "skills/ai-slop-cleaner",
-      "description": "Clean AI-generated code slop with a regression-safe, deletion-first workflow and optional reviewer-only mode",
-      "category": "Architecture, diagnosis and review",
-      "capabilities": [],
-      "files": {
-        "SKILL.md": "266ed0e1f36214b844dcba4a1c2f6b82dadfc48d09a0cfffe348f7353db77d2c"
-      },
-      "distribution": "remote",
-      "dependencies": [],
-      "installSource": "https://github.com/yeachan-heo/oh-my-claudecode/tree/4820f5641828cb980b7eb488a3c187f3d01459c3"
-    },
-    {
-      "name": "architecture-cleanup",
-      "distribution": "bundled",
-      "description": "Simplify code ownership, abstractions and colocation while preserving public behavior and complete caller contracts.",
-      "category": "Architecture, diagnosis and review",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
-      "name": "atlas",
-      "distribution": "bundled",
-      "description": "Maintain an existing application review catalog when routes, states, fixtures or access requirements change.",
-      "category": "Verification and delivery",
-      "dependencies": [],
-      "capabilities": [
-        "Existing project scene catalog and its fixture/check owners"
-      ],
-      "provenance": null
-    },
-    {
-      "name": "autoclosure",
-      "distribution": "bundled",
-      "description": "Take an existing pull request or local candidate from candid assessment through authorized repair, cleanup, proof, and an honest merge-ready handoff. Use when asked to perfect, finish, or fully close a candidate; use review skills for read-only feedback, PR monitoring for status-only work, and shipping for merge-only work.",
-      "category": "Execution and coordination",
-      "dependencies": [
-        "task"
-      ],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
       "name": "autogoal",
       "distribution": "bundled",
       "description": "Manage native Codex goals under a direct or standing user request, with durable acceptance and completion evidence.",
-      "category": "Execution and coordination",
+      "category": "Execution",
       "dependencies": [],
       "capabilities": [
         "Native goal tools for native goals; otherwise a file plan"
@@ -103,7 +18,7 @@
       "name": "autoreview",
       "distribution": "bundled",
       "description": "Review an explicit code candidate or actual PR closeout with actionable findings and bounded correction rounds.",
-      "category": "Architecture, diagnosis and review",
+      "category": "Review",
       "dependencies": [],
       "capabilities": [
         "Native or project review helper for structured independent review; direct inspection otherwise"
@@ -111,48 +26,13 @@
       "provenance": null
     },
     {
-      "name": "avoid-feature-creep",
-      "distribution": "bundled",
-      "description": "Evaluate proposed scope additions against the requested outcome without shrinking authorized work.",
-      "category": "Product, planning and design",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
       "name": "best-api-review",
       "distribution": "bundled",
       "description": "Judge whether a proposed API or architecture direction merits pursuit before detailed design or implementation.",
-      "category": "Architecture, diagnosis and review",
+      "category": "Review",
       "dependencies": [],
       "capabilities": [],
       "provenance": null
-    },
-    {
-      "name": "design",
-      "distribution": "bundled",
-      "description": "Create or improve UI composition, interactions and design standards using the product’s component system.",
-      "category": "Product, planning and design",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
-      "name": "diagnosing-bugs",
-      "source": "mattpocock/skills",
-      "revision": "3cca18b368ae95cdbdebbff572ccafa662551015",
-      "path": "skills/engineering/diagnosing-bugs",
-      "description": "Diagnosis loop for hard bugs and performance regressions. Use when the user says \"diagnose\"/\"debug this\", or reports something broken/throwing/failing/slow.",
-      "category": "Architecture, diagnosis and review",
-      "capabilities": [],
-      "files": {
-        "SKILL.md": "77f3cf31bc99b2f49af943222526531fcc9fc41d047626d3640e875e85af3e84",
-        "agents/openai.yaml": "3e430dbe4334a87597488c060cb3dc3786bb00c9182877d6f5ec41f62490e90b",
-        "scripts/hitl-loop.template.sh": "35103539fc36873eea36074769ad454f9379d6fc8b2dc0e26ce987fd3bfe5503"
-      },
-      "distribution": "remote",
-      "dependencies": [],
-      "installSource": "https://github.com/mattpocock/skills/tree/3cca18b368ae95cdbdebbff572ccafa662551015"
     },
     {
       "name": "find-skills",
@@ -170,144 +50,12 @@
       "installSource": "https://github.com/vercel-labs/skills/tree/80feb48868972d518436f26711509bc78595b5cb"
     },
     {
-      "name": "grill-with-vision",
-      "distribution": "bundled",
-      "description": "Resolve unsettled product, domain or source decisions against current user intent and product vision.",
-      "category": "Product, planning and design",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
-      "name": "hard-cut",
-      "distribution": "bundled",
-      "description": "Remove a named feature completely, including callers, exports, tests, docs and compatibility paths.",
-      "category": "Architecture, diagnosis and review",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
-      "name": "improve",
-      "distribution": "bundled",
-      "description": "Audit and repair a project’s evidenced improvement opportunities under one evolving scope and acceptance record.",
-      "category": "Execution and coordination",
-      "dependencies": [
-        "architecture-cleanup",
-        "autogoal",
-        "maintain-workflow",
-        "task",
-        "verify-app"
-      ],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
-      "name": "install-skill-catalog-global",
-      "distribution": "bundled",
-      "description": "Install an already-published skills.sh skill globally for Codex and Claude Code. Use when the catalog skill should be available user-wide; do not use to author a custom skill, modify Dotai or install only one project.",
-      "category": "Setup and maintenance",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
-      "name": "install-skill-catalog-project",
-      "distribution": "bundled",
-      "description": "Install an already-published skills.sh skill only in the current project for Codex and Claude Code. Use when the skill already exists in the catalog; do not use to author a custom skill, modify Dotai or install globally.",
-      "category": "Setup and maintenance",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
-      "name": "install-skill-dotai-global",
-      "distribution": "bundled",
-      "description": "Create or update a custom skill in the shared Dotai source and install it globally for Codex and Claude Code. Use for a user-wide Dotai-owned skill; do not use for project-only, Skiller-owned or already-published catalog skills.",
-      "category": "Setup and maintenance",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
-      "name": "install-skill-dotai-project",
-      "distribution": "bundled",
-      "description": "Create or update a custom skill in the shared Dotai source and install it only in the current project for Codex and Claude Code. Use for a project-scoped Dotai-owned skill; do not use for global, Skiller-owned or already-published catalog skills.",
-      "category": "Setup and maintenance",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
-      "name": "install-skill-skiller-project",
-      "distribution": "bundled",
-      "description": "Create or update a custom project-owned skill and generate its Codex and Claude Code copies with Skiller. Use when the skill belongs only to the current project and must not be added to Dotai or installed from a published catalog.",
-      "category": "Setup and maintenance",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
-      "name": "linear-backlog",
-      "distribution": "bundled",
-      "description": "Execute an explicitly scoped Linear backlog in dependency-ready batches with durable coordination and per-issue proof.",
-      "category": "Verification and delivery",
-      "dependencies": [
-        "autogoal",
-        "orchestrator",
-        "task"
-      ],
-      "capabilities": [
-        "Connected Linear tools and project Git/delivery tooling"
-      ],
-      "provenance": null
-    },
-    {
       "name": "maintain-workflow",
       "distribution": "bundled",
       "description": "Maintain reusable workflow rules; compare project methodology or sync named sources when requested.",
-      "category": "Setup and maintenance",
-      "dependencies": [
-        "agent-native-reviewer",
-        "skills-update",
-        "sync-skills"
-      ],
+      "category": "Maintenance",
+      "dependencies": [],
       "capabilities": [],
-      "provenance": null
-    },
-    {
-      "name": "openclaw-sync",
-      "distribution": "bundled",
-      "description": "Compare named OpenClaw sources with current agent workflows and classify or apply authorized reusable improvements.",
-      "category": "Setup and maintenance",
-      "dependencies": [
-        "setup-workflow"
-      ],
-      "capabilities": [
-        "Node.js, Git and an explicitly selected local reference checkout"
-      ],
-      "provenance": null
-    },
-    {
-      "name": "oracle",
-      "distribution": "bundled",
-      "description": "Run an explicitly requested second-model review through Oracle CLI with a scoped file bundle and resumable session.",
-      "category": "Architecture, diagnosis and review",
-      "dependencies": [],
-      "capabilities": [
-        "Oracle CLI and explicitly authorized engine/model access"
-      ],
-      "provenance": null
-    },
-    {
-      "name": "orchestrator",
-      "distribution": "bundled",
-      "description": "Coordinate explicitly delegated work through durable tasks with exclusive ownership and consumed proof.",
-      "category": "Execution and coordination",
-      "dependencies": [],
-      "capabilities": [
-        "Native durable task/project tools"
-      ],
       "provenance": null
     },
     {
@@ -329,69 +77,6 @@
       "installSource": "https://github.com/mattpocock/skills/tree/3cca18b368ae95cdbdebbff572ccafa662551015"
     },
     {
-      "name": "resolve-pr-feedback",
-      "distribution": "bundled",
-      "description": "Resolve GitHub PR review feedback through source-backed triage, fixes, focused proof and authorized replies.",
-      "category": "Verification and delivery",
-      "dependencies": [],
-      "capabilities": [
-        "GitHub CLI, jq and authorized repository access"
-      ],
-      "provenance": null
-    },
-    {
-      "name": "resolving-merge-conflicts",
-      "source": "mattpocock/skills",
-      "revision": "3cca18b368ae95cdbdebbff572ccafa662551015",
-      "path": "skills/engineering/resolving-merge-conflicts",
-      "description": "Use when you need to resolve an in-progress git merge/rebase conflict.",
-      "category": "Verification and delivery",
-      "capabilities": [],
-      "files": {
-        "SKILL.md": "9d8114f8ef0b31f535a265fc05c364bd8cf2e2895a830040e06c22acb11f54b0",
-        "agents/openai.yaml": "a1f4f96838f2ed6282eb28abbbf99029cb8fadce552baf53da90a025b8bffddf"
-      },
-      "distribution": "remote",
-      "dependencies": [],
-      "installSource": "https://github.com/mattpocock/skills/tree/3cca18b368ae95cdbdebbff572ccafa662551015"
-    },
-    {
-      "name": "restate",
-      "distribution": "bundled",
-      "description": "Restate the user's goals and underlying problem in your own words. Use when the user asks what you think they are trying to achieve or solve, asks you to confirm or reframe your understanding of their request, or explicitly invokes $restate.",
-      "category": "Understanding and communication",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
-      "name": "security-triage",
-      "distribution": "bundled",
-      "description": "Triage GHSA, CVE or vulnerability reports against shipped behavior before closing or fixing them.",
-      "category": "Architecture, diagnosis and review",
-      "dependencies": [
-        "setup-workflow"
-      ],
-      "capabilities": [
-        "Access to the actual advisory and shipped artifact"
-      ],
-      "provenance": null
-    },
-    {
-      "name": "setup-workflow",
-      "distribution": "bundled",
-      "description": "Install the complete Dotai workflow into explicitly selected project or global agent destinations.",
-      "category": "Setup and maintenance",
-      "dependencies": [
-        "maintain-workflow",
-        "skills-update",
-        "sync-skills",
-        "task"
-      ],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
       "name": "show-me",
       "source": "humanlayer/skills",
       "revision": "3c2629142c5d437428269b1b722b08c0b87f574d",
@@ -407,90 +92,10 @@
       "installSource": "https://github.com/humanlayer/skills/tree/3c2629142c5d437428269b1b722b08c0b87f574d"
     },
     {
-      "name": "skill-cleaner",
-      "source": "steipete/agent-scripts",
-      "revision": "15bcfe33f59795ce2421cf7f5a5465094dfbff09",
-      "path": "skills/skill-cleaner",
-      "description": "Codex/OpenClaw skill audit: live budget, usage, duplicates, compact descriptions.",
-      "category": "Setup and maintenance",
-      "capabilities": [
-        "Node.js with TypeScript stripping for its analyzer; optional native prompt diagnostics"
-      ],
-      "files": {
-        "SKILL.md": "32e482ba17945ac7ee1c8d40087346b093193df034391a331da76ca42adeae37",
-        "agents/openai.yaml": "bcc9a1d5d6c91fb2d250dcd38836c9ae8e363741ddb004e20d0bc97f9bc16739",
-        "scripts/skill-cleaner.test.ts": "425095a49e8801be7db43894c65937d18689ca3b892a39edc2db257d149148ef",
-        "scripts/skill-cleaner.ts": "f8ac9ec98bb027d71c3b520e95062c76be2bf1c9d3e5cd68a2b318488c0969f1"
-      },
-      "distribution": "remote",
-      "dependencies": [],
-      "installSource": "https://github.com/steipete/agent-scripts/tree/15bcfe33f59795ce2421cf7f5a5465094dfbff09"
-    },
-    {
-      "name": "skills-update",
-      "distribution": "bundled",
-      "description": "Refresh a named skill or configured set with source provenance and explicit project and agent destinations.",
-      "category": "Setup and maintenance",
-      "dependencies": [
-        "setup-workflow",
-        "sync-skills"
-      ],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
-      "name": "sync-skills",
-      "distribution": "bundled",
-      "description": "Reconcile named skills and rules between explicit sources and destinations, preserving project adaptations.",
-      "category": "Setup and maintenance",
-      "dependencies": [
-        "setup-workflow",
-        "skills-update"
-      ],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
-      "name": "sync-vision",
-      "distribution": "bundled",
-      "description": "Update VISION.md when attributable evidence changes product doctrine, taste or maintainer judgment.",
-      "category": "Product, planning and design",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
-      "name": "task",
-      "distribution": "bundled",
-      "description": "Complete an engineering request through investigation, implementation, proportionate proof and authorized delivery.",
-      "category": "Execution and coordination",
-      "dependencies": [
-        "architecture-cleanup",
-        "autogoal",
-        "autoreview",
-        "diagnosing-bugs",
-        "maintain-workflow",
-        "verify-app"
-      ],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
       "name": "to-issues",
       "distribution": "bundled",
       "description": "Turn settled scope into the fewest complete delivery issues; publish only within tracker authority.",
-      "category": "Product, planning and design",
-      "dependencies": [],
-      "capabilities": [
-        "Connected tracker only for requested publication"
-      ],
-      "provenance": null
-    },
-    {
-      "name": "to-milestone",
-      "distribution": "bundled",
-      "description": "Build or maintain an evidence-backed milestone map and ordered PRD ladder for a product outcome.",
-      "category": "Product, planning and design",
+      "category": "Product and planning",
       "dependencies": [],
       "capabilities": [
         "Connected tracker only for requested publication"
@@ -501,26 +106,10 @@
       "name": "to-prd",
       "distribution": "bundled",
       "description": "Turn settled product scope into a buildable PRD with acceptance, dependencies and proof boundaries.",
-      "category": "Product, planning and design",
-      "dependencies": [
-        "design",
-        "grill-with-vision",
-        "task",
-        "to-milestone"
-      ],
-      "capabilities": [
-        "Connected document/tracker only for requested publication"
-      ],
-      "provenance": null
-    },
-    {
-      "name": "verify-app",
-      "distribution": "bundled",
-      "description": "Prove requested runtime operations, journeys or review scenes against the actual candidate and environment.",
-      "category": "Verification and delivery",
+      "category": "Product and planning",
       "dependencies": [],
       "capabilities": [
-        "Project runtime, sanctioned fixtures and relevant browser/native/provider tools"
+        "Connected document/tracker only for requested publication"
       ],
       "provenance": null
     },
@@ -528,7 +117,7 @@
       "name": "video-transcripts",
       "distribution": "bundled",
       "description": "Transcribe a supplied local or linked video with Gemini Files API when its contents are needed as evidence.",
-      "category": "Understanding and communication",
+      "category": "Communication",
       "dependencies": [],
       "capabilities": [
         "ffmpeg, curl, jq and authorized Gemini credentials"
@@ -539,7 +128,7 @@
       "name": "walkthrough",
       "distribution": "bundled",
       "description": "Present final screenshots or rendered artifacts as an annotated walkthrough when visual evidence is requested.",
-      "category": "Understanding and communication",
+      "category": "Communication",
       "dependencies": [],
       "capabilities": [
         "Real final-state captures, Node.js and the configured annotation tool"
@@ -549,52 +138,20 @@
   ],
   "files": {
     "README.md": {
-      "sha256": "c534bdfa365863df2556d2058f95bc71ac876326933a7860648dc7b90880b775",
-      "mode": 420
-    },
-    "SETUP.md": {
-      "sha256": "f7f2ae5f4960388bb5a2d17b67a1d9b697d829c79f9c60eb7c314bd8dd8f9c4e",
+      "sha256": "a7d070349fcf9f374e8fa182486ad7c1ef9b767d537318e6034c30c7b3716639",
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "d976fd322865846bf5ee8f958fae6db488893efa1b227df3d870429aa56b5042",
+      "sha256": "3f5fb88328a835b497cbeb075ba82d071c24f6f0c0dd43214fbc5cb1fff9c0bd",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
-      "sha256": "8257f513fe8a4de8fd25a4e35630ab551350b310f6fab0184c351a67a267d2a3",
-      "mode": 420
-    },
-    "scripts/package-workflow.py": {
-      "sha256": "8c419ccde817b817885fcd50e829cba9dfb9d7ddd65c26f98f80a88e7fe5bd50",
-      "mode": 420
-    },
-    "scripts/setup-workflow.mjs": {
-      "sha256": "d8206720b65a23d53f06779862902f4d05578371d7231608a3b121105e155597",
+      "sha256": "b4e40ea5b4eb4f80db78b7174311bb1afef826c8ff8e2b8a1d969ae36b868894",
       "mode": 420
     },
     "scripts/validate-skills": {
       "sha256": "b0937cec95febf0e028c2f5e69a66fb0d5d67885853d7b5811c573f3a2919ec9",
       "mode": 493
-    },
-    "skills/agent-native-reviewer/SKILL.md": {
-      "sha256": "54969d8adb057ecf1bfa31f84bb17ede0eabd0639da96e865a530dc54a1a46d0",
-      "mode": 420
-    },
-    "skills/agent-native-reviewer/references/method.md": {
-      "sha256": "24a0d60bbf36c0152d2c37bf06e14922fe41247a9f4f657b668f9ca0678de283",
-      "mode": 420
-    },
-    "skills/architecture-cleanup/SKILL.md": {
-      "sha256": "b564274b50c14e9cff4789402b1bc7e893e47b06b1cac97d7b746565ba0548e4",
-      "mode": 420
-    },
-    "skills/atlas/SKILL.md": {
-      "sha256": "f5b6706477b3958c42d3c601da62d96262c6cbe56840dc677135da9a452a1c6c",
-      "mode": 420
-    },
-    "skills/autoclosure/SKILL.md": {
-      "sha256": "40fcf836239577470cdf6e07671e68e910eba60d1968fe50fd023aebe215d278",
-      "mode": 420
     },
     "skills/autogoal/README.md": {
       "sha256": "a0e98f5791419740f66ab5e31ba39f399c5cf1476e1e785bab4cbbd9630323ef",
@@ -673,83 +230,15 @@
       "mode": 420
     },
     "skills/autoreview/SKILL.md": {
-      "sha256": "6ede680ec94e9eace36539bfd801b429c3b42b85bdc835cdce74010d4c9ef7af",
-      "mode": 420
-    },
-    "skills/avoid-feature-creep/SKILL.md": {
-      "sha256": "aacef1e29a82bf960db6fefdf28426fa698938a95ed779ba1b0c2dd9916a8dfd",
+      "sha256": "f57322d56070ddc63bf8a2078d3cb913e3749105ab32721f3e5c1ba46a5a692a",
       "mode": 420
     },
     "skills/best-api-review/SKILL.md": {
       "sha256": "bed548157e3a8914e391a609ccb0db559aa0bc323d3eec0742f310e1c305680e",
       "mode": 420
     },
-    "skills/design/SKILL.md": {
-      "sha256": "ec06506b6654ff99e1f43e7c24facb47e928130720950c79f6f6b5587323a4ba",
-      "mode": 420
-    },
-    "skills/grill-with-vision/SKILL.md": {
-      "sha256": "c4db4dac43088f872c125ef9028f21e8d66e1e142302ba835c6a7278986711f9",
-      "mode": 420
-    },
-    "skills/hard-cut/SKILL.md": {
-      "sha256": "2682318aa5d57ff700054e97a9aa6b682f11666ed8c854e2ac48683874ccadb6",
-      "mode": 420
-    },
-    "skills/improve/SKILL.md": {
-      "sha256": "8e48eb44888487ee02e5bdbb69832ad682233c7821afe0de6aa720b6a6b1ddfa",
-      "mode": 420
-    },
-    "skills/install-skill-catalog-global/SKILL.md": {
-      "sha256": "e61a90a451ad9c460fb74c5c2df3139c0544657d6ed514c252c654694cd1a638",
-      "mode": 420
-    },
-    "skills/install-skill-catalog-global/agents/openai.yaml": {
-      "sha256": "839716ea94f763f60c0fbcb046ae036669b53aaa1f9a545a5accbe939ecd9bb9",
-      "mode": 420
-    },
-    "skills/install-skill-catalog-project/SKILL.md": {
-      "sha256": "1edb82b42959ca6ab7fd4848ed752a09eb9c99eecf6f8722bbfc1515e72b2de4",
-      "mode": 420
-    },
-    "skills/install-skill-catalog-project/agents/openai.yaml": {
-      "sha256": "2bbe4d0b3a92814a518761d5c346390ef076867763195ccdcd61fa44f6881af0",
-      "mode": 420
-    },
-    "skills/install-skill-dotai-global/SKILL.md": {
-      "sha256": "a04d88983313f0bb1c1e3367657d61d4f2ec8ea2d34039dc2d0962eafcc2d57d",
-      "mode": 420
-    },
-    "skills/install-skill-dotai-global/agents/openai.yaml": {
-      "sha256": "d06aa1b2975c34c67edbf31eaca449180fe5f0bd116e76b3095c2eb55bb396b1",
-      "mode": 420
-    },
-    "skills/install-skill-dotai-project/SKILL.md": {
-      "sha256": "ef30f2d2d0a60d529f74ac02d7248de8257221f70f881ef2d020a052ec6f50ee",
-      "mode": 420
-    },
-    "skills/install-skill-dotai-project/agents/openai.yaml": {
-      "sha256": "c6bde0b12af1a2fc602d6edb5822c25eee33aed77eb815377dde2e63507978c3",
-      "mode": 420
-    },
-    "skills/install-skill-skiller-project/SKILL.md": {
-      "sha256": "d85c7893dc37a5b4d79a8d8d89ebb4294421f2e045900f65e4e5c6ac437a69f8",
-      "mode": 420
-    },
-    "skills/install-skill-skiller-project/agents/openai.yaml": {
-      "sha256": "127e2a7e5cae73d8e30523bf97f2c92c9949cfbd275a21d0c6e884a2b125ca7b",
-      "mode": 420
-    },
-    "skills/linear-backlog/SKILL.md": {
-      "sha256": "320499d871d232e16887e12f1d1d7ab1f253dc6ed015ce4aebcb8aa320524bab",
-      "mode": 420
-    },
-    "skills/linear-backlog/agents/openai.yaml": {
-      "sha256": "4ef066a20803e0a06585337a918bf9cd446cb2ae97bbcea616bdd5823a06d4c6",
-      "mode": 420
-    },
     "skills/maintain-workflow/SKILL.md": {
-      "sha256": "360f6c34d5f7be979cd15aff41188489ba14b61311ff3fce910732cce0b92f90",
+      "sha256": "5b274f90d18bac1cb673a6dd7e7bb5ef5cba1da7dd1cc602cc59409204aa3723",
       "mode": 420
     },
     "skills/maintain-workflow/agents/openai.yaml": {
@@ -776,144 +265,16 @@
       "sha256": "861a8a5c994f069990f75a5f546777b3c485f06c47cb507b94765e1395a720d4",
       "mode": 420
     },
-    "skills/openclaw-sync/SKILL.md": {
-      "sha256": "292ab00bc2fff96b7390b1ae6867dd77366f18232cf02104225dcc2b281013bf",
-      "mode": 420
-    },
-    "skills/openclaw-sync/agents/openai.yaml": {
-      "sha256": "4690cd498d8c6b66b268f1a0be536214ec37304b080068bbbbd7fdf61bd8c42b",
-      "mode": 420
-    },
-    "skills/openclaw-sync/scripts/openclaw-sync-report.mjs": {
-      "sha256": "44efcf4cb3002a43133c45c5d184656413ccc18d3cda3b18ef110ae8e4a6eec1",
-      "mode": 420
-    },
-    "skills/oracle/SKILL.md": {
-      "sha256": "57a7c2b23161f93d7ff2d239fb837217b50b70e1dbdd19db25a46b2799852efd",
-      "mode": 420
-    },
-    "skills/oracle/references/commands.md": {
-      "sha256": "d501d23c6d46cf7f736038d834e656ec99f4e266ecadb15de0bb8d66952d8317",
-      "mode": 420
-    },
-    "skills/orchestrator/SKILL.md": {
-      "sha256": "8722bc254c956bdf3611009697aef08182f5115ebe8fdacdd3ded91588df6790",
-      "mode": 420
-    },
-    "skills/resolve-pr-feedback/SKILL.md": {
-      "sha256": "771651cbec24c571c181652d64b4ba4028d87f8444dbf9a617c54c4d883d8da8",
-      "mode": 420
-    },
-    "skills/resolve-pr-feedback/scripts/get-pr-comments": {
-      "sha256": "489c71d9831f00f22a1cc2f2d28f4dd9439039b6d9d6c030bdc1e357fdc3dbf8",
-      "mode": 493
-    },
-    "skills/resolve-pr-feedback/scripts/get-thread-for-comment": {
-      "sha256": "797c0670a7abd752df1b12ef7924811ed012ba41cb8362ff513c58c5dcf56104",
-      "mode": 493
-    },
-    "skills/resolve-pr-feedback/scripts/reply-to-pr-thread": {
-      "sha256": "58cad480e86226c693631c51d478cb2a3356df0d4a5b5da6104c907a98a26e55",
-      "mode": 493
-    },
-    "skills/resolve-pr-feedback/scripts/resolve-pr-thread": {
-      "sha256": "3870729bc4f6db9b45f3c54122bcd2ab7d3ef68dd6a73810c3a81d37d475c8d0",
-      "mode": 493
-    },
-    "skills/restate/SKILL.md": {
-      "sha256": "ac424e81587e164b45b319667672edc727f7d86426308bf5e8c4c64b4209efa8",
-      "mode": 420
-    },
-    "skills/restate/agents/openai.yaml": {
-      "sha256": "643d8db6144662908d5dcd25588178745729489ab6259853e46c4d98e3d6ef36",
-      "mode": 420
-    },
-    "skills/security-triage/SKILL.md": {
-      "sha256": "9a67377397518ffd477a0855ba167353a8c78bd8ee58e2fab055f56bc17007b5",
-      "mode": 420
-    },
-    "skills/setup-workflow/SKILL.md": {
-      "sha256": "088b3a244e1eb2d07063ef2b26c0ce735f380aca8c54330dbe2a50e9a7f121e4",
-      "mode": 420
-    },
-    "skills/setup-workflow/references/runtime.md": {
-      "sha256": "dda013d1e8af6ebeeb5e14727c231bcecf06dd71e121dc81848c5cc43a6686f9",
-      "mode": 420
-    },
-    "skills/skills-update/SKILL.md": {
-      "sha256": "7c08129a953ac24a3f2e2ceb7ba25be0fd1fda4a323886c640728d7648f44f7c",
-      "mode": 420
-    },
-    "skills/skills-update/scripts/update-skill.mjs": {
-      "sha256": "4e90788692021bbabfdd05fafa40aced35fd6283b74c19b00c3c6c1f80c4eec5",
-      "mode": 493
-    },
-    "skills/skills-update/scripts/update-skill.test.mjs": {
-      "sha256": "c3118a6ca7ab7eb86f39a5132b9e50736082a2c41ea4cbc6fd24dce1eede0c96",
-      "mode": 420
-    },
-    "skills/sync-skills/SKILL.md": {
-      "sha256": "0bd55709c535fc2e2443e7348ee37bebdcd6c92c27937edb2d9cae826c3f8338",
-      "mode": 420
-    },
-    "skills/sync-skills/references/install-and-promote.md": {
-      "sha256": "25426bc1894278b5243a69eb396c8089a20ddd1d1fcf065b916c96c97ba1bfcd",
-      "mode": 420
-    },
-    "skills/sync-vision/SKILL.md": {
-      "sha256": "8e33c74b008e23b667b335c13c6481413e7504743e3fa0d2e61db67cc15c212d",
-      "mode": 420
-    },
-    "skills/sync-vision/scripts/collect-vision-diff.mjs": {
-      "sha256": "2e5dbb4073434eda51f0a994136a6cce302ddaaeade9e794a2747f6c87aff72d",
-      "mode": 420
-    },
-    "skills/task/SKILL.md": {
-      "sha256": "9b9ddb67fbd58666a1d5d2d7691834084e654f672bb5275b86b2c02bbc9b0a67",
-      "mode": 420
-    },
-    "skills/task/references/coordination.md": {
-      "sha256": "48835e45d1f00863f7d5531f6a9a69763e7fc024c902bb4e6d3e8f5c891e2144",
-      "mode": 420
-    },
-    "skills/task/references/delivery.md": {
-      "sha256": "94129f9ba01b7774db1c17f88fb5c433d81f871b665144349a7397d9f8e32f03",
-      "mode": 420
-    },
-    "skills/task/references/diagnosis.md": {
-      "sha256": "a4ead9aa17fce6b71eb8e7f223ca203dc8865fdd07551ea109981118a54b8934",
-      "mode": 420
-    },
-    "skills/task/references/planning.md": {
-      "sha256": "276509619f17a89a6955454f88466a90bbb7b8e08e85d09540d5610f4c111dd6",
-      "mode": 420
-    },
-    "skills/task/references/verification.md": {
-      "sha256": "9470b858939aee6213ac38f2aeb2bb63b4f8da9ada252b55ff0d81e968023a50",
-      "mode": 420
-    },
     "skills/to-issues/SKILL.md": {
       "sha256": "1aa30bb9fec3a1139d2f49969dae8e4a8253810facb2659c8228f507020bd37d",
       "mode": 420
     },
-    "skills/to-milestone/SKILL.md": {
-      "sha256": "67eb45aadb3284d909a9baf74fe81e0d4a45d52e5239822c864c742de1670ce6",
-      "mode": 420
-    },
     "skills/to-prd/SKILL.md": {
-      "sha256": "843e0554454aec50da141e655ab747c7aeaf89696b7058a3f0be62cfb404ebdf",
+      "sha256": "59e430fe102ba50cd2b35c072bd5258e4f76d8f984ffb4074c6a8caeba0531d1",
       "mode": 420
     },
     "skills/to-prd/references/authoring.md": {
       "sha256": "61a6252977127769e6bc860e5917e3666a5545898a15cfe50587b9579b44c2ff",
-      "mode": 420
-    },
-    "skills/verify-app/SKILL.md": {
-      "sha256": "3565275eb8174dbe01d6c043de7c30488026fd87cc37dd0251986f869f4dd3b8",
-      "mode": 420
-    },
-    "skills/verify-app/references/profiles.md": {
-      "sha256": "ee189c91eb101b7eb5cf08626b54b8ff3871b5d7255d724c3917c0bda89c9dd1",
       "mode": 420
     },
     "skills/video-transcripts/SKILL.md": {
@@ -949,7 +310,7 @@
       "mode": 420
     },
     "upstream-skills.json": {
-      "sha256": "4477cf8700035137721e96ef32b3b2afc414a483822e297a9c565c8e7b6bf669",
+      "sha256": "6e744c80626f6ffeb2523d433ffb114ada3d16c7d407cbbee50b48bc25587b45",
       "mode": 420
     }
   }

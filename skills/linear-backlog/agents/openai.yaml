@@ -1,4 +1,0 @@
-interface:
-  display_name: "Linear Backlog"
-  short_description: "Run Linear issues in safe parallel batches"
-  default_prompt: "Use $linear-backlog to execute this Linear backlog in maximal safe parallel batches until no eligible work remains."

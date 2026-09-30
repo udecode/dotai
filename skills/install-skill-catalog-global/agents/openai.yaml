@@ -1,4 +1,0 @@
-interface:
-  display_name: "Install Catalog Skill Globally"
-  short_description: "Globally install a published catalog skill"
-  default_prompt: "Use $install-skill-catalog-global to install this published skill globally."
