@@ -7,7 +7,11 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const check = process.argv.includes('--check');
 const forbiddenIndex = process.argv.indexOf('--forbid');
-const forbidden = forbiddenIndex < 0 ? null : new RegExp(process.argv[forbiddenIndex + 1], 'i');
+const forbiddenPattern = forbiddenIndex < 0 ? null : process.argv[forbiddenIndex + 1];
+if (forbiddenPattern && (forbiddenPattern.length > 100 || /(\([^)]*[+*][^)]*\)|\[[^\]]*[+*][^\]]*\])[+*?]/.test(forbiddenPattern))) {
+  throw new Error('Unsafe --forbid pattern: too long or contains nested quantifiers that risk catastrophic backtracking');
+}
+const forbidden = forbiddenPattern == null ? null : new RegExp(forbiddenPattern, 'i');
 const sha = (data) => createHash('sha256').update(data).digest('hex');
 const upstream = JSON.parse(readFileSync(join(root, 'upstream-skills.json'), 'utf8'));
 const groups = {
