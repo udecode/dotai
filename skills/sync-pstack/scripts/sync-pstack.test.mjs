@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { overrideAnchors, render } from './sync-pstack.mjs';
+import { hintModes, overrideAnchors, render } from './sync-pstack.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SCRIPT = join(HERE, 'sync-pstack.mjs');
@@ -242,6 +242,131 @@ test('verify flags a playbook that extends a missing pstack playbook, a change w
   assert.match(result.stdout, /\.agents\/playbooks\/ship\.md extends `shipping-v2`, which pstack v0\.9\.52 does not have/);
   assert.match(result.stdout, /\.agents\/playbooks\/fix\.md has a change with no straight-quoted pstack text to anchor on/);
   assert.match(result.stdout, /the block overrides poteto-mode\/playbooks\/feature\.md, which pstack v0\.9\.52 no longer has/);
+});
+
+test('smoke runs each prompt in both runtimes from the project root, without CLAUDECODE, and prints only their answers', () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'claude'), '#!/bin/sh\necho "progress noise" >&2\necho "claude in $(pwd) CLAUDECODE=${CLAUDECODE:-unset}: $*"\n', { mode: 0o755 });
+  const codex = [
+    '#!/bin/sh',
+    'flags="$1 $2 $3"',
+    'while [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; *) prompt="$1"; shift ;; esac; done',
+    'echo "transcript noise"',
+    'echo "progress noise" >&2',
+    'if [ -p /dev/stdin ] || [ -S /dev/stdin ]; then echo "stdin was left open" > "$out"; else echo "codex in $(pwd) with $flags: $prompt" > "$out"; fi',
+  ].join('\n');
+  writeFileSync(join(bin, 'codex'), `${codex}\n`, { mode: 0o755 });
+  const root = realpathSync(project(dir, 'app', { agents: '# App\n' }));
+  const result = spawnSync(process.execPath, [SCRIPT, 'smoke', root, 'the toolbar closes'], {
+    encoding: 'utf8',
+    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1' },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(result.stdout.includes(`claude in ${root} CLAUDECODE=unset: -p --permission-mode plan the toolbar closes`), result.stdout);
+  assert.ok(result.stdout.includes(`codex in ${root} with exec --sandbox read-only: the toolbar closes`), result.stdout);
+  assert.doesNotMatch(result.stdout, /noise/);
+});
+
+test('smoke fails when a runtime exits cleanly with no answer', () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'claude'), '#!/bin/sh\necho "a plan"\n', { mode: 0o755 });
+  writeFileSync(join(bin, 'codex'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+  const root = project(dir, 'app', { agents: '# App\n' });
+  const result = spawnSync(process.execPath, [SCRIPT, 'smoke', root, 'the toolbar closes'], {
+    encoding: 'utf8',
+    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}` },
+  });
+  assert.equal(result.status, 1, result.stdout);
+});
+
+test('argument-hint modes are the literal words that open an alternative, outside placeholders', () => {
+  assert.deepEqual(hintModes("argument-hint: '[<question | plan path to extend> | diagnose <report> | --deep]'"), ['diagnose']);
+  assert.deepEqual(hintModes('argument-hint: [sync [package] | <path>]'), ['sync']);
+});
+
+test('playbook prints each base with the project changes applied at their steps, in order', () => {
+  const upstream = pstackRepo(mkdtempSync(join(tmpdir(), 'sync-pstack-upstream-')), {
+    'v0.9.52': { 'poteto-mode/playbooks/feature.md': '### Feature\n\n1. Read the code.\n2. Design it.\n3. Write the code.\n   Keep it small.\n4. Verify it.\n\n**Reply:** done.\n' },
+  });
+  const { dir, cli } = sandbox({ upstream });
+  const playbook = [
+    '---\nextends: feature\nwhen: Use it to build.\n---\n',
+    '- **Replace** "Design it": skip, the plan settled it.',
+    '- **In** "Write the code": follow the plan slices.',
+    '- **After** "Verify it": record the result.',
+    '- **Before** "Read the code": reread the plan.',
+    '- At the close, report the next item.\n',
+  ].join('\n');
+  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n', files: { '.agents/playbooks/build.md': playbook } });
+  const result = cli('playbook', root, 'build');
+  assert.equal(result.status, 0, result.stderr);
+  const order = ['reread the plan', 'Read the code', 'skip, the plan settled it', 'Keep it small', 'follow the plan slices', 'Verify it', 'record the result', 'report the next item'];
+  const at = order.map((text) => result.stdout.indexOf(text));
+  assert.ok(at.every((index, i) => index >= 0 && (i === 0 || index > at[i - 1])), result.stdout);
+  assert.doesNotMatch(result.stdout.slice(0, at[2]), /2\. Design it/);
+});
+
+test('playbook flags two changes that replace one step, and keeps a change body that wraps', () => {
+  const upstream = pstackRepo(mkdtempSync(join(tmpdir(), 'sync-pstack-upstream-')), {
+    'v0.9.52': { 'poteto-mode/playbooks/feature.md': '1. Design it.\n2. Verify it.\n' },
+  });
+  const { dir, cli } = sandbox({ upstream });
+  const playbook = '---\nextends: feature\nwhen: Use it to build.\n---\n- **Replace** "Design it": use the plan.\n- **Replace** "Design it": skip it.\n- **After** "Verify it": record the result\n  and report it.\n';
+  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n', files: { '.agents/playbooks/build.md': playbook } });
+  const result = cli('playbook', root, 'build');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /two changes replace step 1/);
+  assert.match(result.stdout, /record the result and report it\./);
+});
+
+test('a bump prints the pstack diff of anchored files even when every anchor holds', () => {
+  const upstream = pstackRepo(mkdtempSync(join(tmpdir(), 'sync-pstack-upstream-')), {
+    'v0.9.52': { 'poteto-mode/playbooks/bug-fix.md': '1. Reproduce it yourself on the matching surface.\n2. Plan the fix and review the diff.\n' },
+    'v0.9.53': { 'poteto-mode/playbooks/bug-fix.md': '1. Reproduce it yourself on the matching surface.\n2. Plan the fix.\n' },
+  });
+  const { dir, cli } = sandbox({ upstream });
+  const playbook = '---\nextends: bug-fix\nwhen: Use it for any bug report.\n---\n- **After** "Reproduce it yourself": compare with main.\n';
+  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n', files: { '.agents/playbooks/bug-fix.md': playbook } });
+  cli('apply', root);
+  const result = cli('apply', root, '--tag', 'v0.9.53', '--dry-run');
+  assert.equal(result.status, 0, result.stdout);
+  assert.match(result.stdout, /^ +-2\. Plan the fix and review the diff\.$/m);
+});
+
+test('status flags an upstream VERSION ahead of the newest tag', () => {
+  const upstream = pstackRepo(mkdtempSync(join(tmpdir(), 'sync-pstack-upstream-')), { 'v0.9.52': {} });
+  writeFileSync(join(upstream, 'VERSION'), '0.9.53\n');
+  spawnSync('git', ['-C', upstream, 'add', '-A']);
+  commit(upstream, 'bump without a tag');
+  const { dir, cli } = sandbox({ upstream });
+  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
+  const result = cli('status', root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /upstream VERSION 0\.9\.53 is ahead of the newest tag v0\.9\.52/);
+});
+
+test('verify flags a typed mode cut from an argument hint', () => {
+  const { dir, home, cli } = sandbox();
+  const rule = (hint) => `---\ndescription: fix a bug\nargument-hint: '${hint}'\n---\n# Patch\n`;
+  const root = project(dir, 'app', {
+    config: CONFIG,
+    agents: '# App\n',
+    files: { '.agents/rules/patch.mdc': rule('[<report> | corpus <cases>]'), '.agents/skills/patch/SKILL.md': '---\nname: patch\n---\n# Patch\n' },
+  });
+  spawnSync(process.execPath, [SCRIPT, 'apply', root], { env: { ...process.env, HOME: home, SYNC_PSTACK_UPSTREAM: PSTACK } });
+  spawnSync('git', ['-C', root, 'add', '-A']);
+  commit(root, 'before setup');
+  writeFileSync(join(root, '.agents/rules/patch.mdc'), rule('[<report>]'));
+  const claude = join(home, '.claude/projects', root.replace(/[^a-zA-Z0-9]/g, '-'));
+  mkdirSync(claude, { recursive: true });
+  writeFileSync(join(claude, 'session.jsonl'), JSON.stringify({ type: 'user', timestamp: new Date().toISOString(), message: { role: 'user', content: '/patch corpus the toolbar cases' } }));
+  const result = cli('verify', root);
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stdout, /typed mode `patch corpus` \(typed 1 times\) was cut from its argument hint/);
 });
 
 test('status finds managed, pinned and vendored pstack projects under a root', () => {

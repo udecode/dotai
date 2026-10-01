@@ -4,7 +4,7 @@
 // template and the helper scripts it installs live in ../assets.
 
 import { createHash } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import {
   chmodSync,
   closeSync,
@@ -148,23 +148,45 @@ function playbookLines(root) {
 
 const withPlaybooks = (root, config) => ({ ...config, projectPlaybooks: playbookLines(root) });
 
+const upstreamUrl = () => process.env.SYNC_PSTACK_UPSTREAM ?? `https://github.com/${REPO}.git`;
+
 function upstream() {
-  const url = process.env.SYNC_PSTACK_UPSTREAM ?? `https://github.com/${REPO}.git`;
+  const url = upstreamUrl();
   const cache = join(homedir(), '.cache/sync-pstack', `${sha(url).slice(0, 12)}.git`);
   const has = (tag) => git(cache, 'rev-parse', '-q', '--verify', `refs/tags/${tag}`) !== null;
+  const ensure = () => {
+    if (existsSync(cache)) return;
+    mkdirSync(dirname(cache), { recursive: true });
+    const cloned = spawnSync('git', ['clone', '-q', '--bare', '--filter=blob:none', url, cache], { encoding: 'utf8' });
+    if (cloned.status !== 0) throw new Error(`cannot clone ${url}: ${cloned.stderr.trim()}`);
+  };
   return {
     file(tag, path) {
-      if (!existsSync(cache)) {
-        mkdirSync(dirname(cache), { recursive: true });
-        const cloned = spawnSync('git', ['clone', '-q', '--bare', '--filter=blob:none', url, cache], { encoding: 'utf8' });
-        if (cloned.status !== 0) throw new Error(`cannot clone ${url}: ${cloned.stderr.trim()}`);
-      }
+      ensure();
       if (!has(tag)) spawnSync('git', ['-C', cache, 'fetch', '-q', '--tags', '--force', url]);
       if (!has(tag)) throw new Error(`${url} has no tag ${tag}`);
       return gitRaw(cache, 'show', `${tag}:${UPSTREAM_SKILLS}/${path}`);
     },
     diff: (from, to, path) => gitRaw(cache, 'diff', '--no-color', from, to, '--', `${UPSTREAM_SKILLS}/${path}`)?.trimEnd() || null,
+    version() {
+      ensure();
+      const fetched = spawnSync('git', ['-C', cache, 'fetch', '-q', url, 'HEAD'], { encoding: 'utf8' });
+      if (fetched.status !== 0) throw new Error(`cannot fetch ${url}: ${fetched.stderr.trim()}`);
+      return git(cache, 'show', 'FETCH_HEAD:VERSION');
+    },
   };
+}
+
+const anchoredPaths = (root, template = readFileSync(TEMPLATE, 'utf8')) => [
+  ...new Set([
+    ...overrideAnchors(template).map((note) => note.path),
+    ...projectPlaybooks(root).flatMap((playbook) => playbook.extends.map((stem) => `poteto-mode/playbooks/${stem}.md`)),
+  ]),
+];
+
+function bumpDiff(root, from, to) {
+  const source = upstream();
+  return anchoredPaths(root).map((path) => source.diff(from, to, path)).filter(Boolean).join('\n') || null;
 }
 
 export const overrideAnchors = (template) =>
@@ -173,16 +195,12 @@ export const overrideAnchors = (template) =>
     return match ? [{ path: match[1], anchor: match[2] }] : [];
   });
 
-export function anchorProblems(root, tag, { from, template = readFileSync(TEMPLATE, 'utf8') } = {}) {
+export function anchorProblems(root, tag, { template = readFileSync(TEMPLATE, 'utf8') } = {}) {
   const source = upstream();
   const texts = new Map();
   const read = (path) => {
     if (!texts.has(path)) texts.set(path, source.file(tag, path));
     return texts.get(path);
-  };
-  const diffs = (paths) => {
-    if (!from || from === tag) return undefined;
-    return paths.map((path) => source.diff(from, tag, path)).filter(Boolean).join('\n') || undefined;
   };
   const problems = [];
   try {
@@ -190,7 +208,7 @@ export function anchorProblems(root, tag, { from, template = readFileSync(TEMPLA
       const text = read(path);
       if (text === null) problems.push({ reason: `the block overrides ${path}, which pstack ${tag} no longer has` });
       else if (!flat(text).includes(flat(anchor))) {
-        problems.push({ reason: `the block overrides "${anchor}" in ${path}, which pstack ${tag} no longer says; rewrite or drop that override`, diff: diffs([path]) });
+        problems.push({ reason: `the block overrides "${anchor}" in ${path}, which pstack ${tag} no longer says; rewrite or drop that override` });
       }
     }
     for (const playbook of projectPlaybooks(root)) {
@@ -206,10 +224,7 @@ export function anchorProblems(root, tag, { from, template = readFileSync(TEMPLA
       }
       for (const anchor of playbook.anchors) {
         if (bases.some((base) => base.text && flat(base.text).includes(flat(anchor)))) continue;
-        problems.push({
-          reason: `${playbook.path} anchors a change on "${anchor}", which no playbook it extends says at pstack ${tag}`,
-          diff: diffs(bases.map((base) => base.path)),
-        });
+        problems.push({ reason: `${playbook.path} anchors a change on "${anchor}", which no playbook it extends says at pstack ${tag}` });
       }
     }
   } catch (error) {
@@ -381,8 +396,10 @@ export function apply(root, { tag, force = false, write = true } = {}) {
   const synced = { block: sha(body), files: {} };
   const older = olderSource(stored);
   if (older && !force) refusals.push({ path: 'shared source', reason: older });
+  let pstackDiff = null;
   if (tag && tag !== stored.tag) {
-    for (const problem of anchorProblems(root, tag, { from: stored.tag })) refusals.push({ path: 'pstack anchors', forceable: false, ...problem });
+    for (const problem of anchorProblems(root, tag)) refusals.push({ path: 'pstack anchors', forceable: false, ...problem });
+    pstackDiff = bumpDiff(root, stored.tag, tag);
   }
 
   const agentsPath = join(root, 'AGENTS.md');
@@ -453,7 +470,7 @@ export function apply(root, { tag, force = false, write = true } = {}) {
       if (change.executable) chmodSync(path, 0o755);
     }
   }
-  return { root, changes, refusals };
+  return { root, changes, refusals, pstackDiff };
 }
 
 function pluginSkills() {
@@ -542,10 +559,12 @@ export function typedInvocations(root, names, now = Date.now()) {
   const files = { claude: 0, codex: 0 };
   const count = (text, time) => {
     const request = text.includes('## My request:') ? text.slice(text.lastIndexOf('## My request:')) : text;
-    for (const match of request.matchAll(/(?:^|[\s([>"'`])[/$]([a-z][\w:-]*)/gu)) {
-      if (!wanted.has(match[1])) continue;
-      counts[match[1]].all += 1;
-      if (time >= now - 7 * DAY) counts[match[1]].week += 1;
+    for (const match of request.matchAll(/(?:^|[\s([>"'`])[/$]([a-z][\w:-]*)(?:[ \t]+([a-z][\w-]*))?/gu)) {
+      for (const name of [match[1], match[2] && `${match[1]} ${match[2]}`]) {
+        if (!name || !wanted.has(name)) continue;
+        counts[name].all += 1;
+        if (time >= now - 7 * DAY) counts[name].week += 1;
+      }
     }
   };
 
@@ -617,7 +636,8 @@ export function discover(root) {
   const plugin = pluginSkills();
   const catalog = dotaiCatalog();
   const agents = existsSync(join(root, 'AGENTS.md')) ? readFileSync(join(root, 'AGENTS.md'), 'utf8') : '';
-  const typed = typedInvocations(root, [...new Set([...skills, ...rules])].sort());
+  const modes = rules.flatMap((name) => hintModes(readFileSync(join(rulesDir, `${name}.mdc`), 'utf8')).map((mode) => `${name} ${mode}`));
+  const typed = typedInvocations(root, [...new Set([...skills, ...rules, ...modes])].sort());
   const added = [
     git(root, 'log', '--since=14.days', '--diff-filter=A', '--name-only', '--format=', '--', '.agents/rules', '.agents/skills'),
     git(root, 'ls-files', '--others', '--exclude-standard', '--', '.agents/rules', '.agents/skills'),
@@ -693,6 +713,101 @@ function skillNames(paths) {
   return names;
 }
 
+export function hintModes(rule) {
+  const hint = rule?.match(/^argument-hint:\s*(.*)$/mu)?.[1].trim().replace(/^(['"])(.*)\1$/u, '$2') ?? '';
+  return hint
+    .replace(/^\[(.*)\]$/u, '$1')
+    .replace(/<[^>]*>/gu, '')
+    .split('|')
+    .map((part) => part.trim().split(/\s+/u)[0])
+    .filter((word) => /^[a-z][\w-]*$/u.test(word ?? ''));
+}
+
+function playbookSteps(text) {
+  const steps = [];
+  for (const line of text.split('\n')) {
+    const item = line.match(/^\d+\.\s+(.*)$/u);
+    if (item) steps.push({ lines: [item[1]], before: [], after: [], in: [], replace: null });
+    else if (steps.length > 0 && /^\s+\S/u.test(line)) steps.at(-1).lines.push(line.trim());
+    else if (steps.length > 0 && line.trim()) break;
+  }
+  return steps;
+}
+
+export function renderPlaybook(root, name) {
+  const playbook = projectPlaybooks(root).find((entry) => entry.path === `${PLAYBOOKS}/${name.replace(/\.md$/u, '')}.md`);
+  if (!playbook) throw new Error(`${PLAYBOOKS}/${name}.md does not exist`);
+  const { tag } = readJson(join(root, CONFIG));
+  const changes = [];
+  const loose = [];
+  for (const line of readFileSync(join(root, playbook.path), 'utf8').replace(/^---\n[\s\S]*?\n---\n/u, '').split('\n')) {
+    const change = line.match(/^\s*[-*]\s+\*\*(After|Before|Replace|In)\*\*\s+"([^"]+)":?\s*(.*)$/u);
+    if (change) changes.push({ verb: change[1], anchor: change[2], body: change[3] });
+    else if (/^[-*]\s+\S/u.test(line)) loose.push(line.replace(/^[-*]\s+/u, ''));
+    else if (/^\s+\S/u.test(line) && changes.length > 0) changes.at(-1).body += ` ${line.trim()}`;
+  }
+  const source = upstream();
+  const out = [];
+  for (const stem of playbook.extends) {
+    out.push(`## ${playbook.path} on pstack \`${stem}\` at ${tag}`);
+    const text = source.file(tag, `poteto-mode/playbooks/${stem}.md`);
+    if (text === null) {
+      out.push(`pstack ${tag} has no \`${stem}\` playbook`, '');
+      continue;
+    }
+    const steps = playbookSteps(text);
+    const unplaced = [];
+    const clashes = [];
+    for (const change of changes) {
+      const step = steps.find((entry) => flat(entry.lines.join(' ')).includes(flat(change.anchor)));
+      if (!step) unplaced.push(change.anchor);
+      else if (change.verb !== 'Replace') step[change.verb.toLowerCase()].push(change.body);
+      else if (step.replace) clashes.push(`two changes replace step ${steps.indexOf(step) + 1}; only the first shows`);
+      else step.replace = change.body;
+    }
+    for (const [index, step] of steps.entries()) {
+      out.push(...step.before.map((body) => `+ ${body}`));
+      if (step.replace) out.push(`${index + 1}. ${step.replace} [replaces: ${step.lines[0].slice(0, 70)}]`);
+      else out.push(`${index + 1}. ${step.lines[0]}`, ...step.lines.slice(1).map((line) => `   ${line}`));
+      out.push(...step.in.map((body) => `   + ${body}`), ...step.after.map((body) => `+ ${body}`));
+    }
+    out.push(...clashes);
+    if (unplaced.length > 0) out.push(`Not in this base: ${unplaced.map((anchor) => `"${anchor}"`).join(', ')}`);
+    out.push('');
+  }
+  if (loose.length > 0) out.push('Also from the project playbook:', ...loose.map((line) => `- ${line}`));
+  return out.join('\n').trimEnd();
+}
+
+function runtimeAnswer(root, runtime, prompt, timeout) {
+  const answerFile = join(mkdtempSync(join(tmpdir(), 'sync-pstack-smoke-')), 'answer.txt');
+  const [command, args] =
+    runtime === 'claude'
+      ? ['claude', ['-p', '--permission-mode', 'plan', prompt]]
+      : ['codex', ['exec', '--sandbox', 'read-only', '-o', answerFile, prompt]];
+  const { CLAUDECODE: _, ...env } = process.env;
+  const answer = (stdout) => (runtime === 'codex' && existsSync(answerFile) ? readFileSync(answerFile, 'utf8') : stdout).trim();
+  return new Promise((done) => {
+    const child = spawn(command, args, { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'], timeout: timeout * 1000 });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk) => (stdout += chunk));
+    child.stderr.on('data', (chunk) => (stderr += chunk));
+    child.on('error', (error) => done({ runtime, prompt, ok: false, text: error.message }));
+    child.on('close', (code, signal) =>
+      done(
+        code === 0 && answer(stdout)
+          ? { runtime, prompt, ok: true, text: answer(stdout) }
+          : { runtime, prompt, ok: false, text: `${code === 0 ? 'no answer' : `exit ${code ?? signal}`}: ${stderr.trim().split('\n').slice(-5).join('\n')}` },
+      ),
+    );
+  });
+}
+
+export function smoke(root, prompts, { timeout = 600 } = {}) {
+  return Promise.all(prompts.flatMap((prompt) => ['claude', 'codex'].map((runtime) => runtimeAnswer(root, runtime, prompt, timeout))));
+}
+
 function* markdownFiles(dir) {
   if (!existsSync(dir)) return;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -734,6 +849,18 @@ export function verify(root) {
           if (pattern.test(line)) problems.push(`${rel(path)}:${index + 1}: names retired \`${name}\``);
         }
       }
+    }
+  }
+
+  const cutModes = rules.flatMap((name) => {
+    const path = `.agents/rules/${name}.mdc`;
+    const kept = new Set(hintModes(readFileSync(join(root, path), 'utf8')));
+    return hintModes(gitRaw(root, 'show', `HEAD:./${path}`)).filter((mode) => !kept.has(mode)).map((mode) => `${name} ${mode}`);
+  }).filter((name) => !dropped.has(name));
+  if (cutModes.length > 0) {
+    const typed = typedInvocations(root, cutModes).counts;
+    for (const name of cutModes) {
+      if (typed[name].all > 0) problems.push(`typed mode \`${name}\` (typed ${typed[name].all} times) was cut from its argument hint; keep it, or list it under "dropped" in ${CONFIG} once the owner says to drop it`);
     }
   }
 
@@ -829,12 +956,19 @@ function preflight(root, { allowDirty }) {
   return refusals;
 }
 
+const versionParts = (version) => version.replace(/^v/u, '').split('.').map(Number);
+const compareVersions = (a, b) => versionParts(a).reduce((order, part, index) => order || part - versionParts(b)[index], 0);
+
+function untaggedVersion(latest) {
+  const version = upstream().version();
+  return version && compareVersions(version, latest) > 0 ? version : null;
+}
+
 export function latestTag() {
-  const result = spawnSync('git', ['ls-remote', '--tags', '--refs', `https://github.com/${REPO}.git`], { encoding: 'utf8' });
+  const result = spawnSync('git', ['ls-remote', '--tags', '--refs', upstreamUrl()], { encoding: 'utf8' });
   if (result.status !== 0) throw new Error(`git ls-remote failed: ${result.stderr.trim()}`);
-  const version = (tag) => tag.slice(1).split('.').map(Number);
   const tags = [...result.stdout.matchAll(/refs\/tags\/(v\d+\.\d+\.\d+)$/gmu)].map((match) => match[1]);
-  return tags.sort((a, b) => version(a).reduce((order, part, index) => order || part - version(b)[index], 0)).at(-1) ?? null;
+  return tags.sort(compareVersions).at(-1) ?? null;
 }
 
 function userPin(tag, { write }) {
@@ -862,8 +996,12 @@ function source() {
   return `rendering from ${SKILL}${revision ? ` (git ${revision}${dirty ? ', uncommitted changes' : ''})` : ' (not a git checkout)'}`;
 }
 
-function report({ root, changes, refusals }, mode) {
+function report({ root, changes, refusals, pstackDiff }, mode) {
   const lines = [root];
+  if (pstackDiff && mode !== 'check') {
+    lines.push('  pstack changed in files this project anchors on; read it for steps that kept their quoted text:');
+    lines.push(pstackDiff.replace(/^/gmu, '    '));
+  }
   for (const refusal of refusals) {
     lines.push(`  refused ${refusal.path}: ${refusal.reason}`);
     if (refusal.diff) lines.push(refusal.diff.replace(/^/gmu, '    '));
@@ -886,10 +1024,12 @@ const HELP = `Usage: node sync-pstack.mjs <command> [options]
   apply <project>                  Render the block, helpers and plugin pin from <project>/${CONFIG}.
                                    A bump refuses when pstack dropped text an override or playbook anchors on.
   check <project>                  Exit 1 when apply would change anything. Read-only.
-  verify <project>                 Exit 1 when typed commands, skill links, retired names, public skills,
+  verify <project>                 Exit 1 when typed commands or modes, skill links, retired names, public skills,
                                    the block or pstack anchors are broken. Read-only.
   sync --tag <tag> [project...]    apply --tag to every managed project, or to the named ones. Refuses a checkout
                                    off its branch or with uncommitted edits to the files it writes.
+  playbook <project> <name>        Print each pstack base of .agents/playbooks/<name>.md with its changes applied.
+  smoke <project> <prompt>...      Run each prompt read-only in Claude Code and Codex from <project>; print the answers.
   user-pin --tag <tag>             Pin the user-scope Claude Code marketplace; print the refresh commands.
   latest                           Newest upstream ${REPO} tag.
 
@@ -905,15 +1045,16 @@ const HELP = `Usage: node sync-pstack.mjs <command> [options]
 function main(argv) {
   const [command, ...rest] = argv;
   const flags = { roots: [] };
-  const projects = [];
+  const positional = [];
   for (let index = 0; index < rest.length; index += 1) {
     const arg = rest[index];
     if (arg === '--tag') flags.tag = rest[++index];
     else if (arg === '--root') flags.roots.push(resolve(rest[++index]));
     else if (SWITCHES[arg]) flags[SWITCHES[arg]] = true;
     else if (arg.startsWith('--')) throw new Error(`Unknown option ${arg}`);
-    else projects.push(resolve(arg));
+    else positional.push(arg);
   }
+  const projects = positional.map((arg) => resolve(arg));
   const needTag = () => {
     if (!flags.tag) throw new Error(`${command} needs --tag <tag>`);
     return flags.tag;
@@ -938,12 +1079,22 @@ function main(argv) {
           latest = `unknown (${error.message})`;
         }
       }
-      const result = { latest, userPins: userPins(), projects: list };
+      let ahead = null;
+      if (latest && !latest.startsWith('unknown')) {
+        try {
+          ahead = untaggedVersion(latest);
+        } catch (error) {
+          ahead = `unknown (${error.message})`;
+        }
+      }
+      const result = { latest, untagged: ahead, userPins: userPins(), projects: list };
       if (flags.json) {
         console.info(json(result).trimEnd());
         return 0;
       }
       console.info(`latest ${REPO} tag: ${latest ?? 'not checked'}`);
+      if (ahead?.startsWith('unknown')) console.info(`upstream VERSION: ${ahead}`);
+      else if (ahead) console.info(`upstream VERSION ${ahead} is ahead of the newest tag ${latest}; pin only a pushed tag`);
       console.info(`user pins: Claude Code ${result.userPins.claude ?? 'none'}, Codex ${result.userPins.codex ?? 'none'}`);
       for (const state of list) {
         const facts = state.managed
@@ -961,7 +1112,7 @@ function main(argv) {
     }
     case 'verify': {
       const problems = verify(one());
-      console.info(problems.length > 0 ? `${problems.length} problem(s):\n${problems.join('\n')}` : 'verified: typed commands resolve, skill links resolve, no retired names, public skills self-contained, block in sync, pstack anchors hold');
+      console.info(problems.length > 0 ? `${problems.length} problem(s):\n${problems.join('\n')}` : 'verified: typed commands and modes resolve, skill links resolve, no retired names, public skills self-contained, block in sync, pstack anchors hold');
       return problems.length > 0 ? 1 : 0;
     }
     case 'check': {
@@ -999,6 +1150,18 @@ function main(argv) {
     case 'user-pin':
       console.info(userPin(needTag(), { write: !flags.dryRun }).join('\n'));
       return 0;
+    case 'playbook': {
+      if (positional.length !== 2) throw new Error('playbook takes a project path and a playbook name');
+      console.info(renderPlaybook(resolve(positional[0]), positional[1]));
+      return 0;
+    }
+    case 'smoke': {
+      if (positional.length < 2) throw new Error('smoke takes a project path and at least one prompt');
+      return smoke(resolve(positional[0]), positional.slice(1)).then((answers) => {
+        for (const answer of answers) console.info(`## ${answer.runtime}: ${answer.prompt.slice(0, 80)}\n${answer.text}\n`);
+        return answers.every((answer) => answer.ok) ? 0 : 1;
+      });
+    }
     case 'latest':
       console.info(latestTag() ?? 'no tags found');
       return 0;
@@ -1014,10 +1177,13 @@ function main(argv) {
 
 // Node runs a symlinked install from its real path, so compare real paths.
 if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try {
-    process.exitCode = main(process.argv.slice(2));
-  } catch (error) {
-    console.error(error.message);
-    process.exitCode = 2;
-  }
+  Promise.resolve()
+    .then(() => main(process.argv.slice(2)))
+    .then((code) => {
+      process.exitCode = code;
+    })
+    .catch((error) => {
+      console.error(error.message);
+      process.exitCode = 2;
+    });
 }
