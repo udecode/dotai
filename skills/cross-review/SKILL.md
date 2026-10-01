@@ -32,6 +32,12 @@ It searches sessions from the last 30 days; `--days <n>` widens that. It prints 
 | A plan that is executing or done, or a session without a plan | The session's commits against the plan, if any, and the user's asks; findings only |
 | A PR | Its plan file, description and diff against the reasons in its plan; findings only |
 
+## Know the round
+
+The first review covers all of the work. A later round is a re-review: the decision log already has rows from an earlier review (phase `review` or `review-1`), or the lead's last reply answers one. A re-review checks only the fixes for the previous round's blockers and the edits the lead reverted. Anything else it finds is a should-fix at most. Raise a finding the lead rejected with a reason again only with new evidence; otherwise report it as a disagreement. There are two rounds at most, so on a re-review report each blocker that remains as a disagreement for the user, with both positions.
+
+## Review a PR
+
 For a PR, run `gh pr view <n> --json title,body,files` and `gh pr diff <n>`. Without network, as in Codex's read-only sandbox, use a local ref (`pr-<n>` or `refs/pull/<n>/head`): `git log` and `git diff $(git merge-base origin/<base> pr-<n>) pr-<n>`, where `<base>` is the branch the PR targets. The description is unavailable offline, so say the review covers the plan and the diff only. When no local ref exists, stop and ask the user to run `git fetch origin pull/<n>/head:pr-<n>`. A PR without a plan file in the plans directory is your first finding.
 
 ## Read
@@ -55,10 +61,16 @@ Rerun a cheap read-only check when it can settle a finding. Fix or report gaps; 
 
 ## Fix a plan in planning
 
-The session that wrote the plan has stopped, so the file is yours until the user returns to it. Fix each gap in the plan itself: a missing case, step or proof, a rename the steps miss, a contradiction, or a step order that breaks the repository. For each change, append one row to the decision log beside the plan, phase `review`, with a result that starts with `applied:`. Use the project's helper when it has one (`node .agents/pstack/decisions-check.mjs append`). Leave every edit uncommitted for the lead.
+The session that wrote the plan has stopped, so the file is yours until the user returns to it. Fix each gap in the plan itself: a missing case, step or proof, a rename the steps miss, a contradiction, or a step order that breaks the repository. For each change, append one row to the decision log beside the plan, phase `review-1` or `review-2` for the round, with a result that starts with `applied:`. Use the project's helper when it has one (`node .agents/pstack/decisions-check.mjs append`). Leave every edit uncommitted for the lead.
 
 Never change a decision the user's asks settle, or the plan's outcome, scope or status. When you disagree with one, leave the file as it is and say why in the report.
 
 ## Report
 
-Name the session or PR you reviewed first. In the planning lane, list each edit in one line, then the decisions you would challenge. Then at most ten numbered findings, most severe first, for the gaps you did not fix. Each names its severity (blocker, should-fix or note), the file and line or the command that shows it, and one sentence on what to change. Stay under 500 words. When there are none, say "no findings" and name what you checked.
+Name the session or PR you reviewed and the round, then the verdict: ready when no blocker remains, or the number of blockers. In the planning lane, list each edit in one line, then the decisions you would challenge. Then at most ten numbered findings, most severe first, for the gaps you did not fix. Each names its severity, the file and line or the command that shows it, and one sentence on what to change.
+
+- A blocker means the work as written would build the wrong thing, break the build or a public contract, or depend on a step nothing specifies.
+- A should-fix is a real gap the lead fixes without another review.
+- A note is optional.
+
+Stay under 500 words. When there are none, say "no findings" and name what you checked.

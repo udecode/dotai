@@ -210,7 +210,7 @@
       "mode": 420
     },
     "skills/cross-review/SKILL.md": {
-      "sha256": "c119c97d60871eb538dee128977806fd378f2f2ff53aefae238222462c936f1b",
+      "sha256": "6e5770746690e33ef6d3bd4578c819fda3bbf8446ca2f1e1bfa69d48d944ca80",
       "mode": 420
     },
     "skills/cross-review/scripts/session.mjs": {
@@ -234,7 +234,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "1fbeb2f74772da4c41f21fe26a407d2523267a7737ad81d87f7355dd9d015ed7",
+      "sha256": "d32b62a788d93d48c5be68391ad53960f9c55478d017fb561a07696bbae55d83",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/cross.mjs": {
