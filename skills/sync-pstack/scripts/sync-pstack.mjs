@@ -4,7 +4,7 @@
 // template and the helper scripts it installs live in ../assets.
 
 import { createHash } from 'node:crypto';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import {
   chmodSync,
   closeSync,
@@ -22,13 +22,14 @@ import {
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ask } from '../assets/pstack/cross.mjs';
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const TEMPLATE = join(SKILL, 'assets/block.md');
 const HELPERS = join(SKILL, 'assets/pstack');
 const CONFIG = '.agents/pstack.json';
 const HELPER_DIR = '.agents/pstack';
-const SECTION_HELPERS = { plans: ['decisions-check.mjs', 'plan-open.mjs'] };
+const SECTION_HELPERS = { plans: ['decisions-check.mjs', 'plan-open.mjs'], review: ['cross.mjs'] };
 const PLUGIN = 'pstack@pstack-claude';
 const MARKETPLACE = 'pstack-claude';
 const REPO = 'michael-denyer/pstack-claude';
@@ -779,33 +780,10 @@ export function renderPlaybook(root, name) {
   return out.join('\n').trimEnd();
 }
 
-function runtimeAnswer(root, runtime, prompt, timeout) {
-  const answerFile = join(mkdtempSync(join(tmpdir(), 'sync-pstack-smoke-')), 'answer.txt');
-  const [command, args] =
-    runtime === 'claude'
-      ? ['claude', ['-p', '--permission-mode', 'plan', prompt]]
-      : ['codex', ['exec', '--sandbox', 'read-only', '-o', answerFile, prompt]];
-  const { CLAUDECODE: _, ...env } = process.env;
-  const answer = (stdout) => (runtime === 'codex' && existsSync(answerFile) ? readFileSync(answerFile, 'utf8') : stdout).trim();
-  return new Promise((done) => {
-    const child = spawn(command, args, { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'], timeout: timeout * 1000 });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', (chunk) => (stdout += chunk));
-    child.stderr.on('data', (chunk) => (stderr += chunk));
-    child.on('error', (error) => done({ runtime, prompt, ok: false, text: error.message }));
-    child.on('close', (code, signal) =>
-      done(
-        code === 0 && answer(stdout)
-          ? { runtime, prompt, ok: true, text: answer(stdout) }
-          : { runtime, prompt, ok: false, text: `${code === 0 ? 'no answer' : `exit ${code ?? signal}`}: ${stderr.trim().split('\n').slice(-5).join('\n')}` },
-      ),
-    );
-  });
-}
-
-export function smoke(root, prompts, { timeout = 600 } = {}) {
-  return Promise.all(prompts.flatMap((prompt) => ['claude', 'codex'].map((runtime) => runtimeAnswer(root, runtime, prompt, timeout))));
+export function smoke(root, prompts, { timeout = 900 } = {}) {
+  return Promise.all(
+    prompts.flatMap((prompt) => ['claude', 'codex'].map((runtime) => ask(runtime, prompt, { cwd: root, timeout }).then((answer) => ({ ...answer, prompt })))),
+  );
 }
 
 function* markdownFiles(dir) {

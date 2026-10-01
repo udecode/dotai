@@ -251,7 +251,7 @@ test('smoke runs each prompt in both runtimes from the project root, without CLA
   writeFileSync(join(bin, 'claude'), '#!/bin/sh\necho "progress noise" >&2\necho "claude in $(pwd) CLAUDECODE=${CLAUDECODE:-unset}: $*"\n', { mode: 0o755 });
   const codex = [
     '#!/bin/sh',
-    'flags="$1 $2 $3"',
+    'flags="$1 $2 $3 $4 $5"',
     'while [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; *) prompt="$1"; shift ;; esac; done',
     'echo "transcript noise"',
     'echo "progress noise" >&2',
@@ -264,9 +264,48 @@ test('smoke runs each prompt in both runtimes from the project root, without CLA
     env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1' },
   });
   assert.equal(result.status, 0, result.stderr);
-  assert.ok(result.stdout.includes(`claude in ${root} CLAUDECODE=unset: -p --permission-mode plan the toolbar closes`), result.stdout);
-  assert.ok(result.stdout.includes(`codex in ${root} with exec --sandbox read-only: the toolbar closes`), result.stdout);
+  assert.ok(result.stdout.includes(`claude in ${root} CLAUDECODE=unset: -p --model opus --permission-mode plan -- the toolbar closes`), result.stdout);
+  assert.ok(result.stdout.includes(`codex in ${root} with exec -m gpt-6.1-sol --sandbox read-only: the toolbar closes`), result.stdout);
   assert.doesNotMatch(result.stdout, /noise/);
+});
+
+test('cross runs a prompt file in the other runtime: Codex from Claude Code, Claude from Codex', () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'claude'), '#!/bin/sh\necho "claude: $*"\n', { mode: 0o755 });
+  writeFileSync(join(bin, 'codex'), '#!/bin/sh\nwhile [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; *) last="$1"; shift ;; esac; done\necho "codex: $last" > "$out"\n', { mode: 0o755 });
+  writeFileSync(join(dir, 'brief.md'), 'Review docs/plans/x.md for gaps.');
+  const cross = (env) =>
+    spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--prompt-file', join(dir, 'brief.md')], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '', ...env },
+    });
+  const fromClaude = cross({ CLAUDECODE: '1' });
+  assert.equal(fromClaude.status, 0, fromClaude.stderr);
+  assert.equal(fromClaude.stdout.trim(), 'codex: Review docs/plans/x.md for gaps.');
+  const fromCodex = cross({});
+  assert.equal(fromCodex.stdout.trim(), 'claude: -p --model opus --permission-mode plan -- Review docs/plans/x.md for gaps.');
+});
+
+test('cross passes a prompt that starts with dashes as the prompt, and gives up on a runtime that ignores its timeout', () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'claude'), '#!/bin/sh\nfor arg; do last="$arg"; done\necho "prompt=[$last] terminated=$([ \"$(eval echo \\${$(($#-1))})\" = \"--\" ] && echo yes || echo no)"\n', { mode: 0o755 });
+  writeFileSync(join(bin, 'codex'), "#!/bin/sh\ntrap '' TERM\nsleep 30\n", { mode: 0o755 });
+  const cross = (args) =>
+    spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), ...args], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '' },
+    });
+  assert.equal(cross(['--to', 'claude', '--help me review']).stdout.trim(), 'prompt=[--help me review] terminated=yes');
+  const started = Date.now();
+  const hung = cross(['--to', 'codex', '--timeout', '1', 'review it']);
+  assert.equal(hung.status, 1);
+  assert.ok(Date.now() - started < 15000, `took ${Date.now() - started} ms`);
 });
 
 test('smoke fails when a runtime exits cleanly with no answer', () => {
@@ -274,7 +313,7 @@ test('smoke fails when a runtime exits cleanly with no answer', () => {
   const bin = join(dir, 'bin');
   mkdirSync(bin);
   writeFileSync(join(bin, 'claude'), '#!/bin/sh\necho "a plan"\n', { mode: 0o755 });
-  writeFileSync(join(bin, 'codex'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+  writeFileSync(join(bin, 'codex'), '#!/bin/sh\necho "progress, not an answer"\nexit 0\n', { mode: 0o755 });
   const root = project(dir, 'app', { agents: '# App\n' });
   const result = spawnSync(process.execPath, [SCRIPT, 'smoke', root, 'the toolbar closes'], {
     encoding: 'utf8',

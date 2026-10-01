@@ -33,7 +33,7 @@ Run `node <skill>/scripts/sync-pstack.mjs <command>` from any directory.
 | `verify <project>` | Exits 1 when a command or argument-hint mode typed in this project's history no longer resolves (unless `dropped` lists it), a project skill has a dead link into the skill tree, a rule names a retired skill, a skill the docs tell users to install depends on this project's workflow files, `check` would change anything, or pstack at the pinned tag lacks text an override or a project playbook anchors on. Read-only; it reads chat history only when a skill or a mode was cut since `HEAD`. |
 | `sync --tag <tag> [project...]` | Runs `apply --tag` on the named projects, or on every managed project when none are named, and lists the unmanaged ones. It refuses a checkout that is off the project's branch or has uncommitted edits to the files it writes, unless `--allow-dirty`, and keeps going when one project fails. |
 | `playbook <project> <name>` | Prints the numbered steps of every pstack playbook that `.agents/playbooks/<name>.md` extends, at the project's pin, with its changes applied in order. Text outside the steps, such as the Reply line, is left out. Read-only. |
-| `smoke <project> <prompt>...` | Runs each prompt in a read-only Claude Code session and a read-only Codex session from the project root, in parallel, and prints each runtime's final answer. |
+| `smoke <project> <prompt>...` | Runs each prompt in a read-only Claude Code session on Opus and a read-only Codex session on gpt-6.1-sol from the project root, in parallel, and prints each runtime's final answer. |
 | `user-pin --tag <tag>` | Pins the user-scope Claude Code marketplace and prints the refresh commands for both runtimes. |
 | `latest` | Prints the newest upstream tag. |
 
@@ -128,5 +128,5 @@ Keep project knowledge in skills and the project's rules; a playbook only orders
 - [Interview](references/interview.md): the questions, their evidence and recommendations, and the config fields.
 - [Adapt](references/adapt.md): vendored copies, orphaned skills, rule forks, autoreview, formatters, and rewriting project rules around the block.
 - [`assets/block.md`](assets/block.md): the shared block.
-- `assets/pstack/`: the plan and decision-log helpers the Plans rule runs.
+- `assets/pstack/`: the plan and decision-log helpers the Plans rule runs, and `cross.mjs`, which the Review rule runs to put a prompt to the other runtime (Codex on gpt-6.1-sol from Claude Code, Claude on Opus from Codex).
 - `scripts/sync-pstack.mjs`, with its tests in `scripts/sync-pstack.test.mjs`.
