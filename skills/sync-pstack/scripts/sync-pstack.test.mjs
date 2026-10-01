@@ -277,7 +277,7 @@ test('discover flags skills added in the last two weeks, even untyped ones', () 
 
 test('plan-open reports an open box outside code and ignores one inside a fence', () => {
   const { dir, run } = sandbox();
-  const root = project(dir, 'app', { files: { 'plan.md': '# Plan\n\n- [x] done\n- [ ] ship it\n\n```md\n- [ ] example\n```\n' } });
+  const root = project(dir, 'app', { files: { 'plan.md': '# Plan\n\n- [x] done: `bun test ./a.test.ts`\n- [ ] ship it\n\n```md\n- [ ] example\n```\n' } });
   const result = run(process.execPath, [join(HELPERS, 'plan-open.mjs'), 'plan.md'], root);
   assert.equal(result.status, 1);
   assert.match(result.stderr, /^1 open item\(s\):\nplan\.md:4: - \[ \] ship it$/m);
@@ -297,6 +297,18 @@ test('plan-open makes a newly closed box name its artifact and a deferred findin
   assert.match(result.stderr, /plan\.md:6: .*writing passes ran/);
   assert.match(result.stderr, /plan\.md:12: .*schema check/);
   assert.doesNotMatch(result.stderr, /:5:|:7:|:8:|:13:/);
+});
+
+test('plan-open applies the closure checks before the plan is marked Done', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', { files: { 'plan.md': '# Plan\n\nStatus: In progress.\n' } });
+  run('git', ['add', '.'], root);
+  run('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'plan'], root);
+
+  writeFileSync(join(root, 'plan.md'), '# Plan\n\nStatus: In progress.\n\n- [x] writing passes ran\n');
+  const result = run(process.execPath, [join(HELPERS, 'plan-open.mjs'), 'plan.md'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /plan\.md:5: .*writing passes ran.*name the artifact/);
 });
 
 test('decisions-check append writes only a row that passes the check', () => {
