@@ -1,6 +1,6 @@
 # dotai skills
 
-9 skills: 6 maintained in dotai, plus 3 unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from dotai. Methods load only when relevant; tool access is separate from installation.
+8 skills: 5 maintained in dotai, plus 3 unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from dotai. Methods load only when relevant; tool access is separate from installation.
 
 ## Execution (1)
 
@@ -8,11 +8,10 @@
 | --- | --- |
 | [autogoal](skills/autogoal/SKILL.md) | Manage native Codex goals under a direct or standing user request, with durable acceptance and completion evidence. |
 
-## Review and design (3)
+## Review and design (2)
 
 | Skill | Purpose |
 | --- | --- |
-| [best-api-review](skills/best-api-review/SKILL.md) | Reconcile earlier work, then judge whether an API or architecture direction merits pursuit before detailed design or implementation. |
 | [gpt-pro](skills/gpt-pro/SKILL.md) | Prepare a self-contained, paste-ready prompt for GPT Pro, ChatGPT Pro or another external reviewer with no repository access: exact context, evidence, candidate directions and pointed questions that force a decision. Use for gpt-pro, an external or harsh review prompt, or asking another model. |
 | [prototype](https://github.com/mattpocock/skills/blob/3cca18b368ae95cdbdebbff572ccafa662551015/skills/engineering/prototype/SKILL.md) | Build a throwaway prototype to answer a design question. Use when the user wants to sanity-check whether a state model or logic feels right, or explore what a UI should look like. |
 

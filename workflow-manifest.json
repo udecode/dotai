@@ -15,15 +15,6 @@
       "provenance": null
     },
     {
-      "name": "best-api-review",
-      "distribution": "bundled",
-      "description": "Reconcile earlier work, then judge whether an API or architecture direction merits pursuit before detailed design or implementation.",
-      "category": "Review and design",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
       "name": "find-skills",
       "source": "vercel-labs/skills",
       "revision": "80feb48868972d518436f26711509bc78595b5cb",
@@ -120,11 +111,11 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "3a30152caec8bc839b0be8fbfd82b948a3e09702ce7880ea8d0e69bf71260f0d",
+      "sha256": "67441be4cbee8dcca829f2c3984beb7162b32074514c85f8688aa75b5591c821",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
-      "sha256": "705694275d799a1e8277493f6c105107c6ea79dbeff350c418c63318c88e613f",
+      "sha256": "a2851f4d264bf1af83991a540d4c17c4ff50ad3ccdbf7ebc96a9cc7c70ef3e77",
       "mode": 420
     },
     "scripts/validate-skills": {
@@ -205,10 +196,6 @@
     },
     "skills/autogoal/scripts/init-templates.mjs": {
       "sha256": "060c95c028af598e1be8cd8a947aa09866e7f4b9ee7ed8e514f9e4afb789e622",
-      "mode": 420
-    },
-    "skills/best-api-review/SKILL.md": {
-      "sha256": "b8d7c370bbbcfac9f05555e7c5b7358e62a9a717ef8fbb4805474ba427bf6e87",
       "mode": 420
     },
     "skills/gpt-pro/SKILL.md": {
