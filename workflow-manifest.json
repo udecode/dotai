@@ -210,15 +210,15 @@
       "mode": 420
     },
     "skills/cross-review/SKILL.md": {
-      "sha256": "052e6d674358dc254855dc085120e3d94de698f4ec71202d1c734cb987365c7d",
+      "sha256": "1f11e3090d0051c32d417468fa6c28816fa78eae04b3954a4d5d55162a61e70a",
       "mode": 420
     },
     "skills/cross-review/scripts/session.mjs": {
-      "sha256": "87ea9597fd2659701efab4c38b782fd651a83e3649210835a48aa2b9003af2d6",
+      "sha256": "1e8a5c19e1a33753b15f084b6d9ac4d88f944acd151c4710c24febb32cdeb295",
       "mode": 420
     },
     "skills/cross-review/scripts/session.test.mjs": {
-      "sha256": "11ab4cce76ad9416c5a48982e0a2b61aa85a9d109d254e16e904a52164187aac",
+      "sha256": "ff0541fc8de74b4e76f05c0af56d155a2e57ad3e6b62b204c3bbaff8793ded29",
       "mode": 420
     },
     "skills/gpt-pro/SKILL.md": {
