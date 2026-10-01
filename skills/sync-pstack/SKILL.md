@@ -128,5 +128,5 @@ Keep project knowledge in skills and the project's rules; a playbook only orders
 - [Interview](references/interview.md): the questions, their evidence and recommendations, and the config fields.
 - [Adapt](references/adapt.md): vendored copies, orphaned skills, rule forks, autoreview, formatters, and rewriting project rules around the block.
 - [`assets/block.md`](assets/block.md): the shared block.
-- `assets/pstack/`: the plan and decision-log helpers the Plans rule runs, and `cross.mjs`, which the Review rule runs to put a prompt to the other runtime (Codex on gpt-6.1-sol from Claude Code, Claude on Opus from Codex).
+- `assets/pstack/`: the plan and decision-log helpers the Plans rule runs, and `cross.mjs`, which puts a prompt to the other runtime (Codex on gpt-6.1-sol from Claude Code, Claude on Opus from Codex) when the user asks the lead to run the cross-model review itself.
 - `scripts/sync-pstack.mjs`, with its tests in `scripts/sync-pstack.test.mjs`.
