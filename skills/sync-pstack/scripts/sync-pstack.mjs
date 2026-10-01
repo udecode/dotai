@@ -569,6 +569,101 @@ export function discover(root) {
   };
 }
 
+const resolvesGlobally = (name, plugin) =>
+  ['.agents/skills', '.claude/skills'].some((dir) => existsSync(join(homedir(), dir, name, 'SKILL.md'))) || (plugin ?? []).includes(name);
+
+function skillNames(paths) {
+  const names = new Set();
+  for (const path of paths) {
+    const match = path.match(/^\.agents\/rules\/([^/]+)\.mdc$|^\.(?:agents|claude)\/skills\/([^/]+)\/SKILL\.md$/u);
+    if (match) names.add(match[1] ?? match[2]);
+  }
+  return names;
+}
+
+function* markdownFiles(dir) {
+  if (!existsSync(dir)) return;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) yield* markdownFiles(path);
+    else if (/\.(?:md|mdc)$/u.test(entry.name)) yield path;
+  }
+}
+
+// Checks what setup and sync can break: a typed command cut without an entry
+// point or the owner's word, a dead link into the skill tree, a rule still
+// naming a retired skill, a skill the docs tell users to install that now
+// depends on this project, and a block or helper that differs from the shared
+// source.
+export function verify(root) {
+  const problems = [];
+  const rel = (path) => path.slice(root.length + 1);
+  const config = existsSync(join(root, CONFIG)) ? readJson(join(root, CONFIG)) : {};
+  const dropped = new Set(config.dropped ?? []);
+  if (existsSync(join(root, CONFIG))) {
+    const result = apply(root, { write: false });
+    if (result.changes.length > 0 || result.refusals.length > 0) problems.push('pstack block or helpers differ from the shared source; run `apply`');
+  }
+
+  const plugin = pluginSkills();
+  const lock = existsSync(join(root, 'skills-lock.json')) ? (readJson(join(root, 'skills-lock.json')).skills ?? {}) : {};
+  const rulesDir = join(root, '.agents/rules');
+  const rules = existsSync(rulesDir) ? readdirSync(rulesDir).filter((name) => name.endsWith('.mdc')).map((name) => name.slice(0, -4)) : [];
+  const current = new Set([...localSkills(root), ...rules]);
+  const before = skillNames((git(root, 'ls-tree', '-r', '--name-only', 'HEAD', '--', '.agents/rules', '.agents/skills', '.claude/skills') ?? '').split('\n'));
+  const retired = [...before].filter((name) => !current.has(name) && !dropped.has(name) && !resolvesGlobally(name, plugin)).sort();
+  if (retired.length > 0) {
+    const typed = typedInvocations(root, retired).counts;
+    for (const name of retired) {
+      if (typed[name].all > 0) problems.push(`typed command \`${name}\` (typed ${typed[name].all} times) no longer resolves; keep a thin entry point, or list it under "dropped" in ${CONFIG} once the owner says to drop it`);
+    }
+    for (const path of [join(root, 'AGENTS.md'), ...markdownFiles(rulesDir)]) {
+      if (!existsSync(path)) continue;
+      for (const [index, line] of readFileSync(path, 'utf8').split('\n').entries()) {
+        for (const name of retired) {
+          const escaped = name.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+          const pattern = new RegExp(`(?:\\$|(?:^|[\\s(\`])/)${escaped}\\b|(?:skills|rules|\\.\\.)/${escaped}(?:/|\\.mdc)${name.includes('-') ? `|\`${escaped}\`` : ''}`, 'u');
+          if (pattern.test(line)) problems.push(`${rel(path)}:${index + 1}: names retired \`${name}\``);
+        }
+      }
+    }
+  }
+
+  // In a project that generates skills from rules, only rule-backed skills are
+  // its own; a vendored skill's links point into its upstream repository.
+  const owned = localSkills(root).filter((name) => (rules.length > 0 ? rules.includes(name) : !lock[name]));
+  for (const name of owned) {
+    for (const path of markdownFiles(join(root, '.agents/skills', name))) {
+      const text = readFileSync(path, 'utf8').replace(/```[\s\S]*?```/gu, '');
+      for (const [, target] of text.matchAll(/\]\(([^)\s#]+)(?:#[^)]*)?\)/gu)) {
+        if (/^(?:[a-z]+:|\/|<)/u.test(target)) continue;
+        const resolved = resolve(dirname(path), target);
+        const inSkills = resolved.startsWith(join(root, '.agents')) || resolved.startsWith(join(root, '.claude')) || target.endsWith('SKILL.md');
+        if (inSkills && !existsSync(resolved)) problems.push(`${rel(path)}: dead link ${target}`);
+      }
+    }
+  }
+
+  // Plans are history; an install line there does not make a skill public.
+  const plans = config.plans ?? 'docs/plans';
+  const installs = (git(root, 'grep', '-h', 'skills add', '--', ':!.agents', ':!.claude', `:!${plans}`) ?? '').split('\n');
+  const local = [
+    ['.agents/pstack/', /\.agents\/pstack\//u],
+    ['poteto-mode', /\bpoteto-mode\b/u],
+    ['pstack: skills', /\bpstack:/u],
+    ['AGENTS.md', /\bAGENTS\.md\b/u],
+    [`${plans}/`, new RegExp(`${plans.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')}/`, 'u')],
+  ];
+  for (const name of localSkills(root)) {
+    if (!installs.some((line) => new RegExp(`(?:^|[\\s/=])${name}(?:$|[\\s\`'"])`, 'u').test(line))) continue;
+    for (const path of markdownFiles(join(root, '.agents/skills', name))) {
+      const hit = local.find(([, pattern]) => pattern.test(readFileSync(path, 'utf8')));
+      if (hit) problems.push(`public skill \`${name}\` depends on ${hit[0]} in ${rel(path)}`);
+    }
+  }
+  return problems;
+}
+
 function usesPstack(root) {
   if (existsSync(join(root, CONFIG)) || existsSync(join(root, '.agents/skills/poteto-mode/SKILL.md'))) return true;
   const settings = join(root, '.claude/settings.json');
@@ -751,6 +846,11 @@ function main(argv) {
       const result = apply(one(), { tag: flags.tag, force: flags.force, write: !flags.dryRun });
       console.info(report(result, flags.dryRun ? 'dry-run' : 'write'));
       return result.refusals.length > 0 ? 1 : 0;
+    }
+    case 'verify': {
+      const problems = verify(one());
+      console.info(problems.length > 0 ? `${problems.length} problem(s):\n${problems.join('\n')}` : 'verified: typed commands resolve, skill links resolve, no retired names, public skills self-contained, block in sync');
+      return problems.length > 0 ? 1 : 0;
     }
     case 'check': {
       const result = apply(one(), { write: false });

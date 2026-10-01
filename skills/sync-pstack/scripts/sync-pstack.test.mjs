@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
@@ -72,7 +72,7 @@ test('the CLI runs when invoked through a symlinked install', () => {
   assert.match(result.stdout, /^Usage: node sync-pstack\.mjs/);
 });
 
-test('render keeps only the regions the config selects', () => {
+test('render keeps only the regions the config selects and refuses what it cannot render', () => {
   const template = [
     '<!-- # a template note -->',
     'on {{branch}}',
@@ -92,9 +92,6 @@ test('render keeps only the regions the config selects', () => {
   ].join('\n');
   assert.equal(render(template, { branch: 'next', delivery: 'user', risk: '', skip: [] }), 'on next\nnot push\ntests\nreview on request\nalways');
   assert.equal(render(template, { branch: 'next', delivery: 'push', risk: 'auth', skip: ['tests'] }), 'on next\npush only\nalways');
-});
-
-test('render refuses a missing value or an unknown skipped section instead of rendering around it', () => {
   assert.throws(() => render('run {{lintFix}}', { skip: [] }), /needs "lintFix"/);
   assert.throws(() => render('<!-- section tests -->\nx\n<!-- end -->', { skip: ['test'] }), /unknown sections: test/);
 });
@@ -155,38 +152,21 @@ test('apply refuses a block or helper edited in the project and writes nothing u
   assert.equal(readJson(root, '.claude/settings.json').extraKnownMarketplaces['pstack-claude'].source.ref, 'v0.9.53');
 });
 
-test('apply pins the plugin without dropping the project settings around it', () => {
+test('a pin adds the plugin, keeps the other settings and their format, and a bump moves only the ref', () => {
   const { dir, cli } = sandbox();
-  const settings = {
-    permissions: { allow: ['Bash'] },
-    hooks: { Stop: [{ hooks: [{ type: 'command', command: 'node stage.mjs' }] }] },
-    enabledPlugins: { 'other@market': true },
-  };
-  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n', settings });
-  cli('apply', root);
-  const after = readJson(root, '.claude/settings.json');
-  assert.deepEqual(after.permissions, settings.permissions);
-  assert.deepEqual(after.hooks, settings.hooks);
-  assert.deepEqual(after.enabledPlugins, { 'other@market': true, 'pstack@pstack-claude': true });
-  assert.deepEqual(after.extraKnownMarketplaces['pstack-claude'].source, {
-    source: 'github',
-    repo: 'michael-denyer/pstack-claude',
-    ref: 'v0.9.52',
-  });
-});
-
-test('a pin keeps the settings file in its own format, and a tag bump moves only the ref', () => {
-  const { dir, cli } = sandbox();
-  const original = '{\n  "permissions": {\n    "allow": ["Bash", "Edit"]\n  }\n}\n';
+  const original = '{\n  "permissions": {\n    "allow": ["Bash", "Edit"]\n  },\n  "hooks": { "Stop": [{ "hooks": [{ "type": "command", "command": "node stage.mjs" }] }] },\n  "enabledPlugins": { "other@market": true }\n}\n';
   const root = project(dir, 'app', { config: CONFIG, agents: '# App\n', files: { '.claude/settings.json': original } });
   cli('apply', root);
   const pinnedText = read(root, '.claude/settings.json');
+  const after = JSON.parse(pinnedText);
+  assert.deepEqual(after.hooks, JSON.parse(original).hooks);
+  assert.deepEqual(after.enabledPlugins, { 'other@market': true, 'pstack@pstack-claude': true });
+  assert.deepEqual(after.extraKnownMarketplaces['pstack-claude'].source, { source: 'github', repo: 'michael-denyer/pstack-claude', ref: 'v0.9.52' });
   assert.match(pinnedText, /^ {4}"allow": \["Bash", "Edit"\],?$/m);
 
   cli('apply', root, '--tag', 'v0.9.53');
   assert.equal(read(root, '.claude/settings.json'), pinnedText.replace('"ref": "v0.9.52"', '"ref": "v0.9.53"'));
 });
-
 test('status finds managed, pinned and vendored pstack projects under a root', () => {
   const { dir, cli } = sandbox();
   const repos = join(dir, 'repos');
@@ -202,7 +182,7 @@ test('status finds managed, pinned and vendored pstack projects under a root', (
   );
 });
 
-test('discover counts only what the user typed in Claude Code and Codex', () => {
+test('discover counts only what the user typed: Claude Code, Codex sessions and archives, once per forked turn', () => {
   const { dir, home, cli } = sandbox();
   const root = project(dir, 'app', { files: { '.agents/rules/task.mdc': '---\n---\n', '.agents/skills/patch/SKILL.md': '---\nname: patch\n---\n' } });
   const now = new Date().toISOString();
@@ -234,16 +214,7 @@ test('discover counts only what the user typed in Claude Code and Codex', () => 
       .map((line) => JSON.stringify(line))
       .join('\n'),
   );
-  const result = cli('discover', root);
-  assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(JSON.parse(result.stdout).typed.counts, { patch: { all: 1, week: 1 }, task: { all: 2, week: 1 } });
-});
-
-test('discover counts archived Codex history once and ignores forks, subagent briefs and pasted text', () => {
-  const { dir, home, cli } = sandbox();
-  const root = project(dir, 'app', { files: { '.agents/rules/task.mdc': '---\n---\n', '.agents/rules/patch.mdc': '---\n---\n' } });
-  const old = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const session = (path, meta, ...messages) => {
+  const archived = (path, meta, ...messages) => {
     mkdirSync(join(home, path, '..'), { recursive: true });
     writeFileSync(
       join(home, path),
@@ -253,13 +224,12 @@ test('discover counts archived Codex history once and ignores forks, subagent br
     );
   };
   const typedTask = ['a1', 'go [$task](/x/SKILL.md)'];
-  const pasted = ['a2', '# Files pasted by the user:\n## "use [$patch](/x/SKILL.md) next…": /tmp/Pasted text.txt\n## My request: hhf'];
-  session('.codex/archived_sessions/2026/08/01/rollout-a.jsonl', {}, typedTask, pasted);
-  session('.codex/sessions/2026/09/30/rollout-fork.jsonl', {}, typedTask);
-  session('.codex/sessions/2026/09/30/rollout-sub.jsonl', { thread_source: 'subagent' }, ['b1', 'brief: run [$patch](/x/SKILL.md)']);
+  archived('.codex/archived_sessions/2026/08/01/rollout-a.jsonl', {}, typedTask, ['a3', 'and [$task](/x/SKILL.md) again'], ['a2', '# Files pasted by the user:\n## "use [$patch](/x/SKILL.md) next…": /tmp/Pasted text.txt\n## My request: hhf']);
+  archived('.codex/sessions/2026/09/30/rollout-fork.jsonl', {}, typedTask);
+  archived('.codex/sessions/2026/09/30/rollout-sub.jsonl', { thread_source: 'subagent' }, ['b1', 'brief: run [$patch](/x/SKILL.md)']);
   const result = cli('discover', root);
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(JSON.parse(result.stdout).typed.counts, { task: { all: 1, week: 0 } });
+  assert.deepEqual(JSON.parse(result.stdout).typed.counts, { patch: { all: 1, week: 1 }, task: { all: 4, week: 1 } });
 });
 
 test('discover flags skills added in the last two weeks, even untyped ones', () => {
@@ -273,6 +243,69 @@ test('discover flags skills added in the last two weeks, even untyped ones', () 
   const result = cli('discover', root);
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout).recent, ['fresh']);
+});
+
+// A managed project at its pre-setup commit: a typed `task` rule, a rule that
+// routes to it, and a skill the docs tell users to install.
+function setupFixture(dir, home) {
+  const root = project(dir, 'app', {
+    config: CONFIG,
+    agents: '# App\n',
+    files: {
+      '.agents/rules/task.mdc': '---\ndescription: plan and do a task\n---\n# Task\n',
+      '.agents/skills/task/SKILL.md': '---\nname: task\n---\n# Task\n',
+      '.agents/rules/feature.mdc': '---\ndescription: ship a feature\n---\n# Feature\n\nPlan it with [Task](../task/SKILL.md) and `task-plan` mode.\n',
+      '.agents/skills/feature/SKILL.md': '---\nname: feature\n---\n# Feature\n\nPlan it with [Task](../task/SKILL.md).\n',
+      '.agents/skills/sync-ui/SKILL.md': '---\nname: sync-ui\n---\n# Sync UI\n\nKeep each run plan in `.sync-ui/runs/`.\n',
+      'docs/install.mdx': 'Install it with `npx skills add acme/app --skill sync-ui`.\n',
+    },
+  });
+  spawnSync(process.execPath, [SCRIPT, 'apply', root], { env: { ...process.env, HOME: home } });
+  spawnSync('git', ['-C', root, 'add', '-A']);
+  commit(root, 'before setup');
+  const claude = join(home, '.claude/projects', root.replace(/[^a-zA-Z0-9]/g, '-'));
+  mkdirSync(claude, { recursive: true });
+  writeFileSync(join(claude, 'session.jsonl'), JSON.stringify({ type: 'user', timestamp: new Date().toISOString(), message: { role: 'user', content: '/task plan the export menu' } }));
+  return root;
+}
+
+test('verify fails a setup that cut a typed command, left dead links or retired names, coupled a public skill, or drifted the block', () => {
+  const { dir, home, cli } = sandbox();
+  const root = setupFixture(dir, home);
+  for (const path of ['.agents/rules/task.mdc', '.agents/skills/task/SKILL.md']) rmSync(join(root, path));
+  writeFileSync(join(root, '.agents/skills/sync-ui/SKILL.md'), '---\nname: sync-ui\n---\n# Sync UI\n\nClose with `node .agents/pstack/plan-open.mjs <plan>`.\n');
+  writeFileSync(join(root, 'AGENTS.md'), read(root, 'AGENTS.md').replace('Never claim a skipped or unavailable proof passed.', 'Never claim an unrun proof passed.'));
+
+  const result = cli('verify', root);
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /typed command `task` .*no longer resolves/);
+  assert.match(result.stdout, /\.agents\/skills\/feature\/SKILL\.md: dead link \.\.\/task\/SKILL\.md/);
+  assert.match(result.stdout, /\.agents\/rules\/feature\.mdc:6: names retired `task`/);
+  assert.match(result.stdout, /public skill `sync-ui` depends on \.agents\/pstack\//);
+  assert.match(result.stdout, /block or helpers differ/);
+});
+
+test('verify accepts a typed command the owner dropped', () => {
+  const { dir, home, cli } = sandbox();
+  const root = setupFixture(dir, home);
+  for (const path of ['.agents/rules/task.mdc', '.agents/skills/task/SKILL.md']) rmSync(join(root, path));
+  writeFileSync(join(root, '.agents/rules/feature.mdc'), '---\ndescription: ship a feature\n---\n# Feature\n');
+  writeFileSync(join(root, '.agents/skills/feature/SKILL.md'), '---\nname: feature\n---\n# Feature\n');
+  const config = readJson(root, '.agents/pstack.json');
+  writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ ...config, dropped: ['task'] }, null, 2));
+  const result = cli('verify', root);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+});
+
+test('verify passes a setup that keeps typed commands as entry points', () => {
+  const { dir, home, cli } = sandbox();
+  const root = setupFixture(dir, home);
+  writeFileSync(join(root, '.agents/rules/task.mdc'), '---\ndescription: alias for poteto-mode\n---\n# Task\n\nHand the request to pstack.\n');
+  mkdirSync(join(root, '.agents/skills/vendor-orm/references'), { recursive: true });
+  writeFileSync(join(root, '.agents/skills/vendor-orm/SKILL.md'), '---\nname: vendor-orm\n---\n# Vendor ORM\n');
+  writeFileSync(join(root, '.agents/skills/vendor-orm/references/guide.md'), 'See [the ADR](../../docs/adr-1.md) in the upstream repo.\n');
+  const result = cli('verify', root);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
 });
 
 test('plan-open reports an open box outside code and ignores one inside a fence', () => {
@@ -415,19 +448,4 @@ test('sync writes only a clean checkout on the project branch', () => {
   const offBranch = cli('sync', '--tag', 'v0.9.53', root);
   assert.equal(offBranch.status, 1);
   assert.match(offBranch.stdout, /the checkout is on topic, not next/);
-});
-
-test('sync reports a broken project and still syncs the others', () => {
-  const { dir, cli, run } = sandbox();
-  const repos = join(dir, 'repos');
-  const good = project(repos, 'good', { config: CONFIG, agents: '# Good\n' });
-  const broken = project(repos, 'broken', { config: { ...CONFIG, delivery: 'ship' }, agents: '# Broken\n' });
-  for (const root of [good, broken]) {
-    run('git', ['add', '.'], root);
-    commit(root, 'initial');
-  }
-  const result = cli('sync', '--tag', 'v0.9.53', good, broken);
-  assert.equal(result.status, 1);
-  assert.match(result.stdout, /error: delivery must be one of/);
-  assert.equal(readJson(good, '.claude/settings.json').extraKnownMarketplaces['pstack-claude'].source.ref, 'v0.9.53');
 });

@@ -33,7 +33,9 @@ Walk `AGENTS.md` and each workflow rule, using the interview's classification.
 - **A local controller** that question 2 retired or narrowed. Remove its routing from `AGENTS.md`, or reduce it to a typed entry point that hands work to poteto-mode and keeps only the project's specifics, such as source authority, law stacks and proof owners. Every typed command keeps working.
 - **A reference to a removed skill**, by path (such as `.agents/skills/principle-*/SKILL.md`) or by name. Point it at the plugin skill by name, such as `pstack:principle-redesign-from-first-principles`, or at the block's rule.
 - **A hook**, such as a Stop hook that stages paths. Keep it, and make sure the delivery answer describes what it does.
-- **A domain rule.** Leave it as it is.
+- **A domain rule.** Leave its method as it is: setup only repoints its references to retired skills, templates and controllers. Never trim it on a reviewer's estimate; trimming is a separate measured pass.
+- **The routing table** from interview question 9. Write it outside the block as the project's Routing section, one owner per row, naming the skill by its invocable name.
+- **A public skill**, one the project's docs tell users to install (`skills add`). It must not depend on the project's own workflow files (`.agents/pstack/`, poteto-mode, `AGENTS.md`, the plans directory), because downstream apps have none of them; keep its run state in its own directory.
 
 A retired policy is often repeated far from `AGENTS.md`. Search the whole repository for each retired phrase, controller name and removed skill path: rule references, plan templates, team docs and vision or design docs. Fix every hit.
 

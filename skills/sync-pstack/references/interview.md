@@ -37,8 +37,12 @@ The interview is the first step the user sees in a setup. Prepare it from eviden
 | 6 | Long runs | pstack's Autonomous run with `/loop` in Claude Code and `/goal` in Codex. Keep the project's goal controller, such as a standing autogoal request. | Goal and pause rules in `AGENTS.md` | `skip: ["long-runs"]` |
 | 7 | Commit and PR text, asked when the commit style or a PR template conflicts with the shared shape | The shared Conventional Commits and PR sections, with the template rewritten to match. The project's own convention. | `conventionalCommits` and `prTemplates` from discover, with the template's sections | `skip: ["commits"]` |
 | 8 | What to retire, as one multi-select | Each local workflow skill or rule that pstack or the block now covers, each skill orphaned by a dotai cut, and each project rule named like a plugin skill; never a domain method | Typed counts over all history and the last seven days; `dotaiOrphans`; rule names that match `pstack.vendored` | Adaptation only |
+| 9 | The routing table, as one confirmation with the drafted table as a preview | A table of decision or work type to owner skill, drafted from the project's skills, their descriptions and the routing already in `AGENTS.md`, with the project's domain owners first and poteto-mode playbooks for the rest. Only the owner's corrections are asked. | Skill descriptions; existing routing sections; typed counts | Written outside the block as the project's Routing section |
+| 10 | The proof skill, asked only when `discover` finds none | Create one now with `pstack:create-verification-skill`, named `verify` so pstack finds it. Fall back to pstack's `run` for now. | `proofSkills` from discover; the app's run and test scripts | `proof` |
 
-For question 8, show each candidate's typed count (`typed.counts`, which covers archived Codex history and skips forks, subagent briefs and pasted text) and mark any skill in `recent`, added in the last two weeks. A typed or recent method is offered as "keep as a thin entry point" (recommended) or "drop the command"; only the owner's "drop the command" removes it, and even then only into a replacement that already works in this setup, per the block's Agent files rule. A vendored copy of a plugin skill installed by the Skills CLI is not a question: it duplicates the plugin, so setup removes it.
+For question 9, the routing table is what makes poteto-mode hand domain work to the project's own skills instead of its generic playbooks; a project without one gets the rules but not the routing. Keep each row to one owner. For question 10, a project with a UI or a runnable app gets a proof skill; a library with a test suite may answer the second option.
+
+For question 8, show each candidate's typed count (`typed.counts`, which covers archived Codex history and skips forks, subagent briefs and pasted text) and mark any skill in `recent`, added in the last two weeks. A typed or recent method is offered as "keep as a thin entry point" (recommended) or "drop the command"; only the owner's "drop the command" removes it, recorded under `dropped`, and even then only into a replacement that already works in this setup, per the block's Agent files rule. A vendored copy of a plugin skill installed by the Skills CLI is not a question: it duplicates the plugin, so setup removes it.
 
 ## Settled, never asked
 
@@ -93,6 +97,7 @@ Write `.agents/pstack.json`. The script adds `synced` on the first apply. This e
 | `glossary` | A glossary file whose words agents use. Optional. |
 | `skiller` | `true` when the project generates skills from `.agents/rules` with skiller. Optional. |
 | `regen` | The project's command that regenerates skills from rules when `bunx skiller@latest apply` alone is not enough, such as `pnpm install` when a prepare script also syncs rule resources. Optional; used only with `skiller`. |
+| `dropped` | Typed commands the owner chose to drop without an entry point; `verify` stops flagging them. Optional. |
 | `skip` | Block sections the project keeps as its own rule: `tests`, `review`, `plans`, `long-runs`, `commits`. |
 
 Answers to questions 2 and 8 have no field. Carry them into the adaptation and the setup summary.

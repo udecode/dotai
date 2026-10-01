@@ -10,6 +10,8 @@ metadata:
 
 One skill sets pstack up in a project and keeps every set-up project in step with upstream pstack and with one shared set of overrides. Project-only rules never sync.
 
+Setup brings the shared layer: the plugin pin, the overrides block, its helpers, typed entry points kept for retired controllers, a routing table and a proof skill. It does not bring a project's own knowledge, such as its source authority, domain laws or review scenes; those stay the project's work, and the domain skills come through setup untouched.
+
 ## Layers
 
 | Layer | Lives in | Changed by |
@@ -28,6 +30,7 @@ Run `node <skill>/scripts/sync-pstack.mjs <command>` from any directory.
 | `status [project...]` | Shows the latest upstream tag, the user pins, and each project's pin, drift, vendored copies and last source revision. Without project paths it finds the local pstack projects from the repository sets in `~/.agents/config.json`, their parent directories and each `--root <dir>`. Read-only. |
 | `apply <project>` | Writes the block, the helpers and the project pin from the project's config. `--tag` pins a tag first. `--dry-run` shows the block diff and lists the other writes. `--force` overwrites an edited block or helper, or renders from a source older than the project's last sync. |
 | `check <project>` | Exits 1 when `apply` would change anything. Read-only. |
+| `verify <project>` | Exits 1 when a command typed in this project's history no longer resolves (unless `dropped` lists it), a project skill has a dead link into the skill tree, a rule names a retired skill, a skill the docs tell users to install depends on this project's workflow files, or `check` would change anything. Read-only; it reads chat history only when a skill was retired since `HEAD`. |
 | `sync --tag <tag> [project...]` | Runs `apply --tag` on the named projects, or on every managed project when none are named, and lists the unmanaged ones. It refuses a checkout that is off the project's branch or has uncommitted edits to the files it writes, unless `--allow-dirty`, and keeps going when one project fails. |
 | `user-pin --tag <tag>` | Pins the user-scope Claude Code marketplace and prints the refresh commands for both runtimes. |
 | `latest` | Prints the newest upstream tag. |
@@ -50,12 +53,12 @@ Change only the projects the request names, or every managed project when it ask
 1. **Discover.** Run `discover <project>`, then read `AGENTS.md` and the workflow rules it routes through, in full. Nothing is written yet.
 2. **Interview.** This is the first step the user sees. Follow [the interview](references/interview.md): prepare from evidence, always ask about delivery, recommend the reference answers unless the project's evidence argues otherwise, and never re-ask a settled answer.
 3. **Record** the answers in `.agents/pstack.json`, with `tag` from `latest`.
-4. **Adapt** the project per [adapt](references/adapt.md). Remove vendored pstack copies, settle orphaned skills and rule forks, install upstream autoreview when the review section is kept, keep the formatter off the synced files, rewrite project rules that duplicate or contradict the block, repoint references to removed skills, and regenerate skills from rules.
+4. **Adapt** the project per [adapt](references/adapt.md). Remove vendored pstack copies, settle orphaned skills and rule forks, install upstream autoreview when the review section is kept, keep the formatter off the synced files, rewrite project rules that duplicate or contradict the block, repoint references to removed skills, write the confirmed routing table, create the proof skill when there is none, and regenerate skills from rules.
 5. **Apply.** Run `apply <project> --dry-run`, read the diff, then run `apply <project>`.
 6. **Verify.**
    - `discover` reports no vendored copies, and `status <project>` shows the user pins at the tag. Otherwise run `user-pin` and its commands.
    - Smoke-test both runtimes from the project root with a fake task that names a real feature: `env -u CLAUDECODE claude -p --permission-mode plan "<task>"` and `command codex exec --sandbox read-only "<task>"`. `env -u CLAUDECODE` lets the run start inside another Claude Code session, and `command` skips a shell alias that adds flags. The runs fire the project's hooks, so a Stop hook that stages files stages the setup's changes too. Use "Fake task, do not edit anything: fix a bug where <feature> resets after <action>. Which pstack skill and playbook do you use, which model do subagents run on, do you create a worktree, and how does the finished work land? Four lines." Expect poteto-mode's Bug fix playbook, Opus in Claude Code or the session model in Codex, no worktree, and the delivery answer.
-   - Run the project's `lintFix` over the changed code files, then run `check <project>` last, so a formatter rewrite of a synced file shows up now.
+   - Run the project's `lintFix` over the changed code files, then run `verify <project>` last, so a cut typed command, a dead link, a retired name, a coupled public skill or a formatter rewrite of a synced file shows up now. Fix every problem it lists before delivering.
 7. **Deliver** by the project's delivery answer. When it commits, the commit body says which runtimes and people gain or lose what; in `user` mode the reply says it, for the owner's commit. Close with the answers, the settled defaults applied, the skills removed and kept, and the verification output.
 
 ## Sync
@@ -69,7 +72,7 @@ Change only the projects the request names, or every managed project when it ask
    - **Older source.** Update the dotai checkout and rerun from it.
    - **Error.** A config the template cannot render. Fix the config, then rerun that project.
 5. Run `user-pin --tag <tag>`, then the printed commands from the home directory. Codex asks to trust the pstack hook again when its file changed.
-6. Verify each synced project with `check`, and smoke-test one project per delivery mode in use.
+6. Verify each synced project with `verify`, and smoke-test one project per delivery mode in use.
 7. Deliver each project on its branch by its own delivery answer, committing only the files the sync wrote. A `push` project commits and pushes the sync, a `user` project leaves the change for its owner, and a `pr` project opens a PR.
 
 ## Compare
@@ -102,6 +105,7 @@ A lesson from `/pstack:reflect`, or a correction in one project, changes the sha
 - Never overwrite a refused block or helper without the owner's word, unless its edit has moved to the template or outside the block.
 - Setup and sync deliver only by the project's delivery answer. They never push a protected branch, force-push or open a PR that answer does not call for.
 - The interview's settled answers belong to the owner. Ask again only when a project's evidence contradicts one.
+- Setup and sync never trim, merge or rewrite a domain skill's method. Trimming is its own measured pass: measure the overlap between files before cutting, and keep any rule that has no other owner.
 
 ## Resources
 
