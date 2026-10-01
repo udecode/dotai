@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
@@ -281,6 +281,38 @@ test('plan-open reports an open box outside code and ignores one inside a fence'
   const result = run(process.execPath, [join(HELPERS, 'plan-open.mjs'), 'plan.md'], root);
   assert.equal(result.status, 1);
   assert.match(result.stderr, /^1 open item\(s\):\nplan\.md:4: - \[ \] ship it$/m);
+});
+
+test('plan-open makes a newly closed box name its artifact and a deferred finding name its owner', () => {
+  const { dir, run } = sandbox();
+  const legacy = '# Plan\n\nStatus: Done\n\n- [x] shipped long ago\n';
+  const root = project(dir, 'app', { files: { 'plan.md': legacy } });
+  run('git', ['add', '.'], root);
+  run('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'plan'], root);
+  const check = () => run(process.execPath, [join(HELPERS, 'plan-open.mjs'), 'plan.md'], root);
+
+  writeFileSync(join(root, 'plan.md'), `${legacy}- [x] writing passes ran\n- [x] tests pass: \`bun test ./src/a.test.ts\`\n- [x] docs: skip: no docs changed\n\n## Deferred\n\n- schema check\n- ledger merge, owner: issue-harvester in docs/plans/next.md\n`);
+  const result = check();
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /plan\.md:6: .*writing passes ran/);
+  assert.match(result.stderr, /plan\.md:12: .*schema check/);
+  assert.doesNotMatch(result.stderr, /:5:|:7:|:8:|:13:/);
+});
+
+test('decisions-check append writes only a row that passes the check', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app');
+  const append = (...cells) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', ...cells], root);
+
+  assert.equal(append('fix', 'repair the parser', 'it dropped rows', 'ran the suite', 'verified on all fixtures').status, 1);
+  assert.equal(append('fix', 'repair\tthe parser', 'it dropped rows', 'ran it, scope: fixtures', 'verified').status, 1);
+  assert.equal(existsSync(join(root, 'log.decisions.tsv')), false);
+  const ok = append('fix', 'repair the parser', 'it dropped rows', 'ran it, scope: all fixtures', 'verified');
+  assert.equal(ok.status, 0, ok.stderr);
+  const lines = read(root, 'log.decisions.tsv').trim().split('\n');
+  assert.equal(lines[0], 'ts\tphase\tdecision\twhy\tevidence\tresult');
+  assert.match(lines[1], /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\tfix\trepair the parser\t/);
+  assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'log.decisions.tsv'], root).status, 0);
 });
 
 test('decisions-check requires scope on a proven row and leaves committed rows alone', () => {
