@@ -1,6 +1,6 @@
 ---
 name: cross-review
-description: "Review another agent session's plan or finished work, or a contributor's PR, for gaps, missing cases, unproven claims and contradictions, read-only. Use for cross-review, $cross-review <plan>, /cross-review, a cross-model review hand-off, or a second opinion on a PR."
+description: "Review another agent session's plan or finished work, or a contributor's PR, for gaps, missing cases, unproven claims and contradictions. Fixes a plan still in planning in place; reviews executions and PRs read-only. Use for cross-review, $cross-review <plan>, /cross-review, a cross-model review hand-off, or a second opinion on a PR."
 argument-hint: '[<plan path> | <PR number or URL>]'
 disable-model-invocation: true
 metadata:
@@ -10,7 +10,7 @@ metadata:
 
 # Cross review
 
-Review $ARGUMENTS read-only. Never edit, stage, commit or push, and never comment on a PR or message anyone.
+Review $ARGUMENTS. Edit nothing but a plan in planning and its decision log. Never stage, commit or push, and never comment on a PR or message anyone.
 
 You are the second model on this work. The model that wrote it loses context over a long session, so check the work against what the user asked and what the files show, not against the plan's own account of itself.
 
@@ -28,9 +28,9 @@ It searches sessions from the last 30 days; `--days <n>` widens that. It prints 
 
 | What you have | Review |
 | --- | --- |
-| A plan whose `Status:` says planning | The plan against the user's asks |
-| A plan that is executing or done, or a session without a plan | The session's commits against the plan, if any, and the user's asks |
-| A PR | Its plan file, description and diff against the reasons in its plan |
+| A plan whose `Status:` says planning | The plan against the user's asks; fix its gaps in the file |
+| A plan that is executing or done, or a session without a plan | The session's commits against the plan, if any, and the user's asks; findings only |
+| A PR | Its plan file, description and diff against the reasons in its plan; findings only |
 
 For a PR, run `gh pr view <n> --json title,body,files` and `gh pr diff <n>`. Without network, as in Codex's read-only sandbox, use a local ref (`pr-<n>` or `refs/pull/<n>/head`): `git log` and `git diff $(git merge-base origin/<base> pr-<n>) pr-<n>`, where `<base>` is the branch the PR targets. The description is unavailable offline, so say the review covers the plan and the diff only. When no local ref exists, stop and ask the user to run `git fetch origin pull/<n>/head:pr-<n>`. A PR without a plan file in the plans directory is your first finding.
 
@@ -51,8 +51,14 @@ For a PR, run `gh pr view <n> --json title,body,files` and `gh pr diff <n>`. Wit
 - A step order that leaves the repository broken between steps.
 - A case the plan never mentions but the code reaches: an input, a state or a path.
 
-Rerun a cheap read-only check when it can settle a finding. Report findings; do not redesign the work.
+Rerun a cheap read-only check when it can settle a finding. Fix or report gaps; do not redesign the work.
+
+## Fix a plan in planning
+
+The session that wrote the plan has stopped, so the file is yours until the user returns to it. Fix each gap in the plan itself: a missing case, step or proof, a rename the steps miss, a contradiction, or a step order that breaks the repository. For each change, append one row to the decision log beside the plan, phase `review`, with a result that starts with `applied:`. Use the project's helper when it has one (`node .agents/pstack/decisions-check.mjs append`). Leave every edit uncommitted for the lead.
+
+Never change a decision the user's asks settle, or the plan's outcome, scope or status. When you disagree with one, leave the file as it is and say why in the report.
 
 ## Report
 
-Name the session or PR you reviewed first. Then at most ten numbered findings, most severe first. Each names its severity (blocker, should-fix or note), the file and line or the command that shows it, and one sentence on what to change. Stay under 500 words. When there are none, say "no findings" and name what you checked.
+Name the session or PR you reviewed first. In the planning lane, list each edit in one line, then the decisions you would challenge. Then at most ten numbered findings, most severe first, for the gaps you did not fix. Each names its severity (blocker, should-fix or note), the file and line or the command that shows it, and one sentence on what to change. Stay under 500 words. When there are none, say "no findings" and name what you checked.

@@ -17,7 +17,7 @@
     {
       "name": "cross-review",
       "distribution": "bundled",
-      "description": "Review another agent session's plan or finished work, or a contributor's PR, for gaps, missing cases, unproven claims and contradictions, read-only. Use for cross-review, $cross-review <plan>, /cross-review, a cross-model review hand-off, or a second opinion on a PR.",
+      "description": "Review another agent session's plan or finished work, or a contributor's PR, for gaps, missing cases, unproven claims and contradictions. Fixes a plan still in planning in place; reviews executions and PRs read-only. Use for cross-review, $cross-review <plan>, /cross-review, a cross-model review hand-off, or a second opinion on a PR.",
       "category": "Review and design",
       "dependencies": [],
       "capabilities": [
@@ -122,7 +122,7 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "4a0dbdf26ce037ef4064c32746a79cadd864b3c4b39f22f3e3c0aa113aad9bcc",
+      "sha256": "1174a311ad570bd027518459c29827b3278c0dda66be992a82cefc3dda9c581d",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
@@ -210,7 +210,7 @@
       "mode": 420
     },
     "skills/cross-review/SKILL.md": {
-      "sha256": "1f11e3090d0051c32d417468fa6c28816fa78eae04b3954a4d5d55162a61e70a",
+      "sha256": "c119c97d60871eb538dee128977806fd378f2f2ff53aefae238222462c936f1b",
       "mode": 420
     },
     "skills/cross-review/scripts/session.mjs": {
@@ -234,7 +234,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "94eb0e7378df2d4d44dd12b4bf5f16a6de996b671b08b395ecdc7aa4a5c6db97",
+      "sha256": "1fbeb2f74772da4c41f21fe26a407d2523267a7737ad81d87f7355dd9d015ed7",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/cross.mjs": {
