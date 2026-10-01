@@ -203,7 +203,7 @@
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
-      "sha256": "215faf68bd40aa1a190bfb2ba0e422aac774161543f024e798cd944d8c51aaea",
+      "sha256": "6aadc795607c2bd71025cffe2611b99b0361aa6365ad1c7eef35821fc776ced7",
       "mode": 420
     },
     "skills/sync-pstack/agents/openai.yaml": {
@@ -231,11 +231,11 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.mjs": {
-      "sha256": "899de6a3bfd23aa3038a99425241894f2025f868ad3db46a92b5d66695fbcae5",
+      "sha256": "f13ac7aa46581b7ec051536e406e78d2d178abb3f4da0d182b2d2e0383fe7a67",
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "a50da4ae69e1f3187305fdc8ed164b1cd535151c28275ebe49495b2bb0da0ebb",
+      "sha256": "6d076b8394d835fd8b85e0bf32443cf05cc720c4e80602f7eca9c5cb873a7af6",
       "mode": 420
     },
     "skills/video-transcripts/SKILL.md": {

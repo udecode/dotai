@@ -95,7 +95,7 @@ A lesson from `/pstack:reflect`, or a correction in one project, changes the sha
 A project adds its lifecycle on top of pstack's playbooks instead of in skills only the user can invoke, so plain requests reach it through poteto-mode. Each `.agents/playbooks/<name>.md` holds:
 
 - Frontmatter with `extends`, the pstack playbook stems it builds on (`bug-fix`, or `feature, refactoring`), and `when`, one sentence naming the requests it serves. The block lists each playbook with that sentence, so adding or editing one makes `check` fail until `apply` renders the block again.
-- Changes as list items that start with `**After**`, `**Before**`, `**Replace**` or `**In**` and a quoted run of the pstack step's own words, such as `- **After** "Reproduce it yourself": …`. Quote enough words to name one step; the check collapses whitespace before it matches. An item without one of these verbs adds a step where it says.
+- Changes as list items that start with `**After**`, `**Before**`, `**Replace**` or `**In**` and a quoted run of the pstack step's own words, such as `- **After** "Reproduce it yourself": …`. Quote enough words to name one step; the check collapses whitespace before it matches, and fails a change that uses one of these verbs without a straight-quoted run. An item without one of these verbs adds a step where it says.
 - Its stop points, when it stops where the pstack playbook does not.
 
 Keep project knowledge in skills and the project's rules; a playbook only orders the work. A typed command that used to run the lifecycle stays as an entry point that names the playbook.

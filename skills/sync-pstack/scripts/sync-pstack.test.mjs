@@ -223,16 +223,24 @@ test('a bump refuses when pstack dropped the step a playbook anchors on, and sho
   assert.equal(cli('apply', root, '--tag', 'v0.9.53').status, 0);
 });
 
-test('verify flags a playbook that extends a missing pstack playbook and an override pstack no longer says', () => {
+test('verify flags a playbook that extends a missing pstack playbook, a change with no anchor, and an override pstack no longer says', () => {
   const upstream = pstackRepo(mkdtempSync(join(tmpdir(), 'sync-pstack-upstream-')), {
     'v0.9.52': { 'poteto-mode/playbooks/feature.md': ABSENT },
   });
   const { dir, cli } = sandbox({ upstream });
-  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n', files: { '.agents/playbooks/ship.md': '---\nextends: shipping-v2\nwhen: Use it to ship.\n---\n' } });
+  const root = project(dir, 'app', {
+    config: CONFIG,
+    agents: '# App\n',
+    files: {
+      '.agents/playbooks/ship.md': '---\nextends: shipping-v2\nwhen: Use it to ship.\n---\n',
+      '.agents/playbooks/fix.md': '---\nextends: bug-fix\nwhen: Use it to fix.\n---\n- **After** \u201cReproduce it\u201d: compare with main.\n',
+    },
+  });
   cli('apply', root);
   const result = cli('verify', root);
   assert.equal(result.status, 1);
   assert.match(result.stdout, /\.agents\/playbooks\/ship\.md extends `shipping-v2`, which pstack v0\.9\.52 does not have/);
+  assert.match(result.stdout, /\.agents\/playbooks\/fix\.md has a change with no straight-quoted pstack text to anchor on/);
   assert.match(result.stdout, /the block overrides poteto-mode\/playbooks\/feature\.md, which pstack v0\.9\.52 no longer has/);
 });
 

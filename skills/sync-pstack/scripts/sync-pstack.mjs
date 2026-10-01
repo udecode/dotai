@@ -42,6 +42,7 @@ const SWITCHES = { '--force': 'force', '--dry-run': 'dryRun', '--json': 'json', 
 const PLAYBOOKS = '.agents/playbooks';
 const UPSTREAM_SKILLS = 'plugins/pstack/skills';
 const CHANGE = /^\s*[-*]\s+\*\*(?:After|Before|Replace|In)\*\*\s+"([^"]+)"/u;
+const CHANGE_VERB = /^\s*[-*]\s+\*\*(?:After|Before|Replace|In)\*\*/u;
 const OVERRIDES = /^<!-- # overrides (\S+) "([^"]+)" -->$/u;
 
 const sha = (text) => createHash('sha256').update(text).digest('hex');
@@ -129,6 +130,7 @@ export function projectPlaybooks(root) {
         extends: field('extends').split(',').map((stem) => stem.trim()).filter(Boolean),
         when: field('when'),
         anchors: text.split('\n').flatMap((line) => line.match(CHANGE)?.[1] ?? []),
+        unanchored: text.split('\n').filter((line) => CHANGE_VERB.test(line) && !CHANGE.test(line)).map((line) => line.trim()),
       };
     });
 }
@@ -192,6 +194,9 @@ export function anchorProblems(root, tag, { from, template = readFileSync(TEMPLA
       }
     }
     for (const playbook of projectPlaybooks(root)) {
+      for (const line of playbook.unanchored) {
+        problems.push({ reason: `${playbook.path} has a change with no straight-quoted pstack text to anchor on: ${line.slice(0, 80)}` });
+      }
       const bases = playbook.extends.map((stem) => {
         const path = `poteto-mode/playbooks/${stem}.md`;
         return { path, stem, text: read(path) };
