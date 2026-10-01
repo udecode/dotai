@@ -15,6 +15,17 @@
       "provenance": null
     },
     {
+      "name": "cross-review",
+      "distribution": "bundled",
+      "description": "Review another agent session's plan or finished work, or a contributor's PR, for gaps, missing cases, unproven claims and contradictions, read-only. Use for cross-review, $cross-review <plan>, /cross-review, a cross-model review hand-off, or a second opinion on a PR.",
+      "category": "Review and design",
+      "dependencies": [],
+      "capabilities": [
+        "Node.js 18+ and Git; gh with network for a PR, otherwise a locally fetched PR ref"
+      ],
+      "provenance": null
+    },
+    {
       "name": "find-skills",
       "source": "vercel-labs/skills",
       "revision": "80feb48868972d518436f26711509bc78595b5cb",
@@ -28,15 +39,6 @@
       "distribution": "remote",
       "dependencies": [],
       "installSource": "https://github.com/vercel-labs/skills/tree/80feb48868972d518436f26711509bc78595b5cb"
-    },
-    {
-      "name": "gaps",
-      "distribution": "bundled",
-      "description": "Review a plan, or the execution of one, for gaps, missing cases, unproven claims and contradictions, read-only. Use for gaps <plan path>, a cross-model review hand-off, or a request to check a plan or finished work for completeness.",
-      "category": "Review and design",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": null
     },
     {
       "name": "gpt-pro",
@@ -116,15 +118,15 @@
   ],
   "files": {
     "README.md": {
-      "sha256": "e8cd3f0556fbba7e0dc98046d8546572bc073a8ff3b319388077192d744963b1",
+      "sha256": "87e4d8442d3b41137dde263f4714d486a85e1fe0d3e570f928a65a3d54fbaf9b",
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "d19484383bd6b3551136cde8d67d29708ee0c3d17c6f1a69b48222251cd30bf7",
+      "sha256": "4a0dbdf26ce037ef4064c32746a79cadd864b3c4b39f22f3e3c0aa113aad9bcc",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
-      "sha256": "81360cd806ec917a372c326c822f10ac1f98dddad5f19f0ffe75d3521ff50e66",
+      "sha256": "c09c9b04da50992917d6b22f555ea1b4e092d15405c7d46534c9231eeb07c5a4",
       "mode": 420
     },
     "scripts/validate-skills": {
@@ -207,8 +209,16 @@
       "sha256": "060c95c028af598e1be8cd8a947aa09866e7f4b9ee7ed8e514f9e4afb789e622",
       "mode": 420
     },
-    "skills/gaps/SKILL.md": {
-      "sha256": "5479be06b1e7ed93024423a71baa1365e68a7dd448730353fb8366b4915e77d0",
+    "skills/cross-review/SKILL.md": {
+      "sha256": "987a2cb3a37e6c00f2d4dafa8e1169a5b4ce092e27ef2aae88cd6f5691f12d0e",
+      "mode": 420
+    },
+    "skills/cross-review/scripts/session.mjs": {
+      "sha256": "87ea9597fd2659701efab4c38b782fd651a83e3649210835a48aa2b9003af2d6",
+      "mode": 420
+    },
+    "skills/cross-review/scripts/session.test.mjs": {
+      "sha256": "11ab4cce76ad9416c5a48982e0a2b61aa85a9d109d254e16e904a52164187aac",
       "mode": 420
     },
     "skills/gpt-pro/SKILL.md": {

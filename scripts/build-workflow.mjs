@@ -12,13 +12,14 @@ const sha = (data) => createHash('sha256').update(data).digest('hex');
 const upstream = JSON.parse(readFileSync(join(root, 'upstream-skills.json'), 'utf8'));
 const groups = {
   'Execution': ['autogoal'],
-  'Review and design': ['gpt-pro', 'gaps', 'prototype'],
+  'Review and design': ['gpt-pro', 'cross-review', 'prototype'],
   'Communication': ['show-me', 'walkthrough', 'video-transcripts'],
   'Maintenance': ['sync-pstack', 'find-skills'],
 };
 const explicitDependencies = {};
 const requirements = {
   autogoal: ['Native goal tools for native goals; otherwise a file plan'],
+  'cross-review': ['Node.js 18+ and Git; gh with network for a PR, otherwise a locally fetched PR ref'],
   'sync-pstack': ['Node.js 18+ and Git; the Claude Code and Codex CLIs for plugin pins and smoke tests'],
   'video-transcripts': ['ffmpeg, curl, jq and authorized Gemini credentials'],
   walkthrough: ['Real final-state captures, Node.js and the configured annotation tool'],

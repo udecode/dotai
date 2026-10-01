@@ -13,7 +13,7 @@
 | Skill | Purpose |
 | --- | --- |
 | [gpt-pro](skills/gpt-pro/SKILL.md) | Prepare a self-contained, paste-ready prompt for GPT Pro, ChatGPT Pro or another external reviewer with no repository access: exact context, evidence, candidate directions and pointed questions that force a decision. Use for gpt-pro, an external or harsh review prompt, or asking another model. |
-| [gaps](skills/gaps/SKILL.md) | Review a plan, or the execution of one, for gaps, missing cases, unproven claims and contradictions, read-only. Use for gaps <plan path>, a cross-model review hand-off, or a request to check a plan or finished work for completeness. |
+| [cross-review](skills/cross-review/SKILL.md) | Review another agent session's plan or finished work, or a contributor's PR, for gaps, missing cases, unproven claims and contradictions, read-only. Use for cross-review, $cross-review <plan>, /cross-review, a cross-model review hand-off, or a second opinion on a PR. |
 | [prototype](https://github.com/mattpocock/skills/blob/3cca18b368ae95cdbdebbff572ccafa662551015/skills/engineering/prototype/SKILL.md) | Build a throwaway prototype to answer a design question. Use when the user wants to sanity-check whether a state model or logic feels right, or explore what a UI should look like. |
 
 ## Communication (3)
@@ -48,6 +48,7 @@ Project rules govern testing, native tools and publication; do not fork an uncha
 These skills remain installed when a tool is absent; an unavailable live action or independent review is reported, never marked as passed.
 
 - **autogoal:** Native goal tools for native goals; otherwise a file plan.
+- **cross-review:** Node.js 18+ and Git; gh with network for a PR, otherwise a locally fetched PR ref.
 - **sync-pstack:** Node.js 18+ and Git; the Claude Code and Codex CLIs for plugin pins and smoke tests.
 - **video-transcripts:** ffmpeg, curl, jq and authorized Gemini credentials.
 - **walkthrough:** Real final-state captures, Node.js and the configured annotation tool.
