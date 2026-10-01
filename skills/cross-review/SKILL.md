@@ -34,7 +34,7 @@ It searches sessions from the last 30 days; `--days <n>` widens that. It prints 
 
 ## Know the round
 
-The first review covers all of the work. A later round is a re-review: the decision log already has rows from an earlier review (phase `review` or `review-1`), or the lead's last reply answers one. A re-review checks only the fixes for the previous round's blockers and the edits the lead reverted. Anything else it finds is a should-fix at most. Raise a finding the lead rejected with a reason again only with new evidence; otherwise report it as a disagreement. There are two rounds at most, so on a re-review report each blocker that remains as a disagreement for the user, with both positions.
+The first review covers all of the work. A later round is a re-review: the decision log already has rows from an earlier review (phase `review` or `review-1`), or the lead's last reply answers one. A re-review checks only the fixes for the previous round's P0 and P1 findings and the edits the lead reverted. Anything else it finds is P2 at most. Raise a finding the lead rejected with a reason again only with new evidence; otherwise report it as a disagreement. There are two rounds at most, so on a re-review report each P0 or P1 that remains as a disagreement for the user, with both positions.
 
 ## Review a PR
 
@@ -67,10 +67,11 @@ Never change a decision the user's asks settle, or the plan's outcome, scope or 
 
 ## Report
 
-Name the session or PR you reviewed and the round, then the verdict: ready when no blocker remains, or the number of blockers. In the planning lane, list each edit in one line, then the decisions you would challenge. Then at most ten numbered findings, most severe first, for the gaps you did not fix. Each names its severity, the file and line or the command that shows it, and one sentence on what to change.
+Name the session or PR you reviewed and the round, then the verdict: ready when no P0 or P1 remains, or how many remain. In the planning lane, list each edit in one line, then the decisions you would challenge. Then at most ten numbered findings, most severe first, for the gaps you did not fix. Each names its priority, the file and line or the command that shows it, and one sentence on what to change.
 
-- A blocker means the work as written would build the wrong thing, break the build or a public contract, or depend on a step nothing specifies.
-- A should-fix is a real gap the lead fixes without another review.
-- A note is optional.
+- P0 breaks normal operation or safety: data loss, a security hole, or a broken build or release.
+- P1 builds the wrong thing, breaks a public contract, or depends on a step nothing specifies.
+- P2 is a real gap the lead fixes without another review.
+- P3 is optional.
 
 Stay under 500 words. When there are none, say "no findings" and name what you checked.
