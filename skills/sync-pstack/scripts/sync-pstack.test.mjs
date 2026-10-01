@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { render } from './sync-pstack.mjs';
+import { overrideAnchors, render } from './sync-pstack.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SCRIPT = join(HERE, 'sync-pstack.mjs');
@@ -23,16 +23,41 @@ const CONFIG = {
   skip: [],
 };
 
-function sandbox() {
+const commit = (root, message) =>
+  spawnSync('git', ['-C', root, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qam', message]);
+
+const ABSENT = Symbol('absent at this tag');
+
+function pstackRepo(dir, tags) {
+  const repo = join(dir, 'pstack');
+  spawnSync('git', ['init', '-q', repo]);
+  const base = {};
+  for (const { path, anchor } of overrideAnchors(TEMPLATE)) base[path] = `${base[path] ?? ''}${anchor}\n`;
+  for (const [tag, files] of Object.entries(tags)) {
+    for (const path of new Set([...Object.keys(base), ...Object.keys(files)])) {
+      const file = join(repo, 'plugins/pstack/skills', path);
+      rmSync(file, { force: true });
+      if (files[path] === ABSENT) continue;
+      mkdirSync(dirname(file), { recursive: true });
+      writeFileSync(file, `${base[path] ?? ''}${files[path] ?? ''}`);
+    }
+    spawnSync('git', ['-C', repo, 'add', '-A']);
+    commit(repo, tag);
+    spawnSync('git', ['-C', repo, 'tag', tag]);
+  }
+  return repo;
+}
+
+const PSTACK = pstackRepo(mkdtempSync(join(tmpdir(), 'sync-pstack-upstream-')), { 'v0.9.52': {}, 'v0.9.53': {} });
+
+function sandbox({ upstream = PSTACK } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-test-'));
   const home = join(dir, 'home');
   mkdirSync(home);
-  const run = (command, args, cwd) => spawnSync(command, args, { cwd, encoding: 'utf8', env: { ...process.env, HOME: home } });
+  const env = { ...process.env, HOME: home, SYNC_PSTACK_UPSTREAM: upstream };
+  const run = (command, args, cwd) => spawnSync(command, args, { cwd, encoding: 'utf8', env });
   return { dir, home, run, cli: (...args) => run(process.execPath, [SCRIPT, ...args]) };
 }
-
-const commit = (root, message) =>
-  spawnSync('git', ['-C', root, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qam', message]);
 
 // A git checkout holding a copy of this skill, standing in for the dotai checkout.
 function sharedSource(dir) {
@@ -167,6 +192,50 @@ test('a pin adds the plugin, keeps the other settings and their format, and a bu
   cli('apply', root, '--tag', 'v0.9.53');
   assert.equal(read(root, '.claude/settings.json'), pinnedText.replace('"ref": "v0.9.52"', '"ref": "v0.9.53"'));
 });
+test('project playbooks render into the block, and a new one makes check stale', () => {
+  const { dir, cli } = sandbox();
+  const playbook = '---\nextends: bug-fix\nwhen: Use it for any bug report.\n---\n# Bug fix\n';
+  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n', files: { '.agents/playbooks/bug-fix.md': playbook } });
+  assert.equal(cli('apply', root).status, 0);
+  assert.match(read(root, 'AGENTS.md'), /`\.agents\/playbooks\/bug-fix\.md`, on top of pstack's `bug-fix`\. Use it for any bug report\./);
+  writeFileSync(join(root, '.agents/playbooks/plan.md'), '---\nextends: multi-phase-plan\nwhen: Use it to plan.\n---\n');
+  assert.equal(cli('check', root).status, 1);
+});
+
+test('a bump refuses when pstack dropped the step a playbook anchors on, and shows the upstream diff', () => {
+  const upstream = pstackRepo(mkdtempSync(join(tmpdir(), 'sync-pstack-upstream-')), {
+    'v0.9.52': { 'poteto-mode/playbooks/bug-fix.md': '1. Reproduce it yourself on the matching surface.\n' },
+    'v0.9.53': { 'poteto-mode/playbooks/bug-fix.md': '1. Reproduce on the same surface.\n' },
+  });
+  const { dir, cli } = sandbox({ upstream });
+  const change = (anchor) => `---\nextends: bug-fix\nwhen: Use it for any bug report.\n---\n- **After** "${anchor}": compare with main.\n`;
+  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n', files: { '.agents/playbooks/bug-fix.md': change('Reproduce it yourself') } });
+  assert.equal(cli('apply', root).status, 0);
+
+  const refused = cli('apply', root, '--tag', 'v0.9.53');
+  assert.equal(refused.status, 1);
+  assert.match(refused.stdout, /refused pstack anchors: \.agents\/playbooks\/bug-fix\.md anchors a change on "Reproduce it yourself"/);
+  assert.match(refused.stdout, /^ +-1\. Reproduce it yourself on the matching surface\.$/m);
+  assert.equal(readJson(root, '.claude/settings.json').extraKnownMarketplaces['pstack-claude'].source.ref, 'v0.9.52');
+  assert.equal(cli('apply', root, '--tag', 'v0.9.53', '--force').status, 1);
+
+  writeFileSync(join(root, '.agents/playbooks/bug-fix.md'), change('Reproduce on the same surface'));
+  assert.equal(cli('apply', root, '--tag', 'v0.9.53').status, 0);
+});
+
+test('verify flags a playbook that extends a missing pstack playbook and an override pstack no longer says', () => {
+  const upstream = pstackRepo(mkdtempSync(join(tmpdir(), 'sync-pstack-upstream-')), {
+    'v0.9.52': { 'poteto-mode/playbooks/feature.md': ABSENT },
+  });
+  const { dir, cli } = sandbox({ upstream });
+  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n', files: { '.agents/playbooks/ship.md': '---\nextends: shipping-v2\nwhen: Use it to ship.\n---\n' } });
+  cli('apply', root);
+  const result = cli('verify', root);
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /\.agents\/playbooks\/ship\.md extends `shipping-v2`, which pstack v0\.9\.52 does not have/);
+  assert.match(result.stdout, /the block overrides poteto-mode\/playbooks\/feature\.md, which pstack v0\.9\.52 no longer has/);
+});
+
 test('status finds managed, pinned and vendored pstack projects under a root', () => {
   const { dir, cli } = sandbox();
   const repos = join(dir, 'repos');

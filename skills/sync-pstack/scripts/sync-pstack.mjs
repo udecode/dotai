@@ -39,8 +39,13 @@ const DELIVERIES = ['push', 'pr', 'user'];
 const REQUIRED = ['tag', 'branch', 'delivery', 'lintFix', 'check'];
 const DAY = 24 * 60 * 60 * 1000;
 const SWITCHES = { '--force': 'force', '--dry-run': 'dryRun', '--json': 'json', '--offline': 'offline', '--allow-dirty': 'allowDirty' };
+const PLAYBOOKS = '.agents/playbooks';
+const UPSTREAM_SKILLS = 'plugins/pstack/skills';
+const CHANGE = /^\s*[-*]\s+\*\*(?:After|Before|Replace|In)\*\*\s+"([^"]+)"/u;
+const OVERRIDES = /^<!-- # overrides (\S+) "([^"]+)" -->$/u;
 
 const sha = (text) => createHash('sha256').update(text).digest('hex');
+const flat = (text) => text.replace(/\s+/gu, ' ');
 const readJson = (path) => JSON.parse(readFileSync(path, 'utf8'));
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
 
@@ -107,6 +112,105 @@ function fill(key, config, index) {
     throw new Error(`Template line ${index + 1} needs "${key}" in ${CONFIG}`);
   }
   return String(value);
+}
+
+export function projectPlaybooks(root) {
+  const dir = join(root, PLAYBOOKS);
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((name) => name.endsWith('.md'))
+    .sort()
+    .map((name) => {
+      const text = readFileSync(join(dir, name), 'utf8');
+      const front = text.match(/^---\n([\s\S]*?)\n---\n/u)?.[1] ?? '';
+      const field = (key) => front.match(new RegExp(`^${key}:[ \\t]*(.*)$`, 'mu'))?.[1].trim() ?? '';
+      return {
+        path: `${PLAYBOOKS}/${name}`,
+        extends: field('extends').split(',').map((stem) => stem.trim()).filter(Boolean),
+        when: field('when'),
+        anchors: text.split('\n').flatMap((line) => line.match(CHANGE)?.[1] ?? []),
+      };
+    });
+}
+
+function playbookLines(root) {
+  return projectPlaybooks(root)
+    .map((playbook) => {
+      if (!playbook.when) throw new Error(`${playbook.path} needs a "when:" line in its frontmatter`);
+      const stems = playbook.extends.map((stem) => `\`${stem}\``).join(' and ');
+      const base = stems ? `on top of pstack's ${stems}` : 'standing alone';
+      return `  - \`${playbook.path}\`, ${base}. ${playbook.when}`;
+    })
+    .join('\n');
+}
+
+const withPlaybooks = (root, config) => ({ ...config, projectPlaybooks: playbookLines(root) });
+
+function upstream() {
+  const url = process.env.SYNC_PSTACK_UPSTREAM ?? `https://github.com/${REPO}.git`;
+  const cache = join(homedir(), '.cache/sync-pstack', `${sha(url).slice(0, 12)}.git`);
+  const has = (tag) => git(cache, 'rev-parse', '-q', '--verify', `refs/tags/${tag}`) !== null;
+  return {
+    file(tag, path) {
+      if (!existsSync(cache)) {
+        mkdirSync(dirname(cache), { recursive: true });
+        const cloned = spawnSync('git', ['clone', '-q', '--bare', '--filter=blob:none', url, cache], { encoding: 'utf8' });
+        if (cloned.status !== 0) throw new Error(`cannot clone ${url}: ${cloned.stderr.trim()}`);
+      }
+      if (!has(tag)) spawnSync('git', ['-C', cache, 'fetch', '-q', '--tags', '--force', url]);
+      if (!has(tag)) throw new Error(`${url} has no tag ${tag}`);
+      return gitRaw(cache, 'show', `${tag}:${UPSTREAM_SKILLS}/${path}`);
+    },
+    diff: (from, to, path) => gitRaw(cache, 'diff', '--no-color', from, to, '--', `${UPSTREAM_SKILLS}/${path}`)?.trimEnd() || null,
+  };
+}
+
+export const overrideAnchors = (template) =>
+  template.split('\n').flatMap((line) => {
+    const match = line.trim().match(OVERRIDES);
+    return match ? [{ path: match[1], anchor: match[2] }] : [];
+  });
+
+export function anchorProblems(root, tag, { from, template = readFileSync(TEMPLATE, 'utf8') } = {}) {
+  const source = upstream();
+  const texts = new Map();
+  const read = (path) => {
+    if (!texts.has(path)) texts.set(path, source.file(tag, path));
+    return texts.get(path);
+  };
+  const diffs = (paths) => {
+    if (!from || from === tag) return undefined;
+    return paths.map((path) => source.diff(from, tag, path)).filter(Boolean).join('\n') || undefined;
+  };
+  const problems = [];
+  try {
+    for (const { path, anchor } of overrideAnchors(template)) {
+      const text = read(path);
+      if (text === null) problems.push({ reason: `the block overrides ${path}, which pstack ${tag} no longer has` });
+      else if (!flat(text).includes(flat(anchor))) {
+        problems.push({ reason: `the block overrides "${anchor}" in ${path}, which pstack ${tag} no longer says; rewrite or drop that override`, diff: diffs([path]) });
+      }
+    }
+    for (const playbook of projectPlaybooks(root)) {
+      const bases = playbook.extends.map((stem) => {
+        const path = `poteto-mode/playbooks/${stem}.md`;
+        return { path, stem, text: read(path) };
+      });
+      for (const base of bases) {
+        if (base.text === null) problems.push({ reason: `${playbook.path} extends \`${base.stem}\`, which pstack ${tag} does not have` });
+      }
+      for (const anchor of playbook.anchors) {
+        if (bases.some((base) => base.text && flat(base.text).includes(flat(anchor)))) continue;
+        problems.push({
+          reason: `${playbook.path} anchors a change on "${anchor}", which no playbook it extends says at pstack ${tag}`,
+          diff: diffs(bases.map((base) => base.path)),
+        });
+      }
+    }
+  } catch (error) {
+    problems.push({ reason: `cannot read pstack ${tag}: ${error.message}` });
+  }
+  return problems;
 }
 
 function validate(config) {
@@ -264,7 +368,7 @@ export function apply(root, { tag, force = false, write = true } = {}) {
   const configPath = join(root, CONFIG);
   if (!existsSync(configPath)) throw new Error(`${configPath} is missing; set the project up first`);
   const stored = readJson(configPath);
-  const config = { ...stored, ...(tag ? { tag } : {}) };
+  const config = withPlaybooks(root, { ...stored, ...(tag ? { tag } : {}) });
   validate(config);
   const body = render(readFileSync(TEMPLATE, 'utf8'), config);
   const changes = [];
@@ -272,6 +376,9 @@ export function apply(root, { tag, force = false, write = true } = {}) {
   const synced = { block: sha(body), files: {} };
   const older = olderSource(stored);
   if (older && !force) refusals.push({ path: 'shared source', reason: older });
+  if (tag && tag !== stored.tag) {
+    for (const problem of anchorProblems(root, tag, { from: stored.tag })) refusals.push({ path: 'pstack anchors', forceable: false, ...problem });
+  }
 
   const agentsPath = join(root, 'AGENTS.md');
   const agents = existsSync(agentsPath) ? readFileSync(agentsPath, 'utf8') : '';
@@ -279,7 +386,7 @@ export function apply(root, { tag, force = false, write = true } = {}) {
   if (current?.body !== body) {
     const detail = diff(current?.body ?? '', body);
     if (current && !force && sha(current.body) !== stored.synced?.block) {
-      const last = lastVersion(stored, 'assets/block.md', (text) => render(text, stored), stored.synced?.block);
+      const last = lastVersion(stored, 'assets/block.md', (text) => render(text, withPlaybooks(root, stored)), stored.synced?.block);
       refusals.push({
         path: 'AGENTS.md',
         reason: 'the block was edited since the last sync',
@@ -590,11 +697,6 @@ function* markdownFiles(dir) {
   }
 }
 
-// Checks what setup and sync can break: a typed command cut without an entry
-// point or the owner's word, a dead link into the skill tree, a rule still
-// naming a retired skill, a skill the docs tell users to install that now
-// depends on this project, and a block or helper that differs from the shared
-// source.
 export function verify(root) {
   const problems = [];
   const rel = (path) => path.slice(root.length + 1);
@@ -603,6 +705,7 @@ export function verify(root) {
   if (existsSync(join(root, CONFIG))) {
     const result = apply(root, { write: false });
     if (result.changes.length > 0 || result.refusals.length > 0) problems.push('pstack block or helpers differ from the shared source; run `apply`');
+    problems.push(...anchorProblems(root, config.tag).map((problem) => problem.reason));
   }
 
   const plugin = pluginSkills();
@@ -765,6 +868,7 @@ function report({ root, changes, refusals }, mode) {
     if (mode === 'dry-run' && change.diff) lines.push(change.diff.replace(/^/gmu, '    '));
   }
   if (changes.length === 0 && refusals.length === 0) lines.push('  in sync');
+  else if (refusals.some((refusal) => refusal.forceable === false)) lines.push('  nothing written; resolve each refusal');
   else if (refusals.length > 0) lines.push('  nothing written; resolve each refusal, or rerun with --force to discard the project edit');
   else if (mode === 'dry-run') lines.push('  dry run; nothing written');
   return lines.join('\n');
@@ -775,7 +879,10 @@ const HELP = `Usage: node sync-pstack.mjs <command> [options]
   discover <project>               Facts for the setup interview, as JSON. Read-only.
   status [project...]              State of pstack projects; finds local ones when none are named. Read-only.
   apply <project>                  Render the block, helpers and plugin pin from <project>/${CONFIG}.
+                                   A bump refuses when pstack dropped text an override or playbook anchors on.
   check <project>                  Exit 1 when apply would change anything. Read-only.
+  verify <project>                 Exit 1 when typed commands, skill links, retired names, public skills,
+                                   the block or pstack anchors are broken. Read-only.
   sync --tag <tag> [project...]    apply --tag to every managed project, or to the named ones. Refuses a checkout
                                    off its branch or with uncommitted edits to the files it writes.
   user-pin --tag <tag>             Pin the user-scope Claude Code marketplace; print the refresh commands.
@@ -849,7 +956,7 @@ function main(argv) {
     }
     case 'verify': {
       const problems = verify(one());
-      console.info(problems.length > 0 ? `${problems.length} problem(s):\n${problems.join('\n')}` : 'verified: typed commands resolve, skill links resolve, no retired names, public skills self-contained, block in sync');
+      console.info(problems.length > 0 ? `${problems.length} problem(s):\n${problems.join('\n')}` : 'verified: typed commands resolve, skill links resolve, no retired names, public skills self-contained, block in sync, pstack anchors hold');
       return problems.length > 0 ? 1 : 0;
     }
     case 'check': {

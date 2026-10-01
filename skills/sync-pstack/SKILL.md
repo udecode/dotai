@@ -18,7 +18,7 @@ Setup brings the shared layer: the plugin pin, the overrides block, its helpers,
 | --- | --- | --- |
 | Upstream | The `pstack@pstack-claude` plugin at a pinned tag, in each project's `.claude/settings.json`, the user's `~/.claude/settings.json` and the user's Codex marketplace | `sync --tag` and `user-pin`. pstack itself is never edited. |
 | Shared | [`assets/block.md`](assets/block.md), rendered between the `pstack:begin` and `pstack:end` markers of each project's `AGENTS.md`, plus the helpers in `assets/pstack/`, copied to `.agents/pstack/` | An edit to this skill's source in the dotai checkout, then a sync |
-| Project | `.agents/pstack.json`, which holds the interview's answers, and every rule outside the block, which wins over it | The project, by hand or through setup |
+| Project | `.agents/pstack.json`, which holds the interview's answers, the [project playbooks](#project-playbooks) in `.agents/playbooks/`, which the block lists, and every rule outside the block, which wins over it | The project, by hand or through setup |
 
 ## Run the script
 
@@ -28,14 +28,14 @@ Run `node <skill>/scripts/sync-pstack.mjs <command>` from any directory.
 | --- | --- |
 | `discover <project>` | Prints the facts the interview needs as JSON. Read-only. |
 | `status [project...]` | Shows the latest upstream tag, the user pins, and each project's pin, drift, vendored copies and last source revision. Without project paths it finds the local pstack projects from the repository sets in `~/.agents/config.json`, their parent directories and each `--root <dir>`. Read-only. |
-| `apply <project>` | Writes the block, the helpers and the project pin from the project's config. `--tag` pins a tag first. `--dry-run` shows the block diff and lists the other writes. `--force` overwrites an edited block or helper, or renders from a source older than the project's last sync. |
+| `apply <project>` | Writes the block, the helpers and the project pin from the project's config. `--tag` pins a tag first, and refuses it when pstack at that tag no longer has text an override or a project playbook anchors on; the refusal shows pstack's diff between the two tags. `--dry-run` shows the block diff and lists the other writes. `--force` overwrites an edited block or helper, or renders from a source older than the project's last sync; it never skips an anchor. |
 | `check <project>` | Exits 1 when `apply` would change anything. Read-only. |
-| `verify <project>` | Exits 1 when a command typed in this project's history no longer resolves (unless `dropped` lists it), a project skill has a dead link into the skill tree, a rule names a retired skill, a skill the docs tell users to install depends on this project's workflow files, or `check` would change anything. Read-only; it reads chat history only when a skill was retired since `HEAD`. |
+| `verify <project>` | Exits 1 when a command typed in this project's history no longer resolves (unless `dropped` lists it), a project skill has a dead link into the skill tree, a rule names a retired skill, a skill the docs tell users to install depends on this project's workflow files, `check` would change anything, or pstack at the pinned tag lacks text an override or a project playbook anchors on. Read-only; it reads chat history only when a skill was retired since `HEAD`. |
 | `sync --tag <tag> [project...]` | Runs `apply --tag` on the named projects, or on every managed project when none are named, and lists the unmanaged ones. It refuses a checkout that is off the project's branch or has uncommitted edits to the files it writes, unless `--allow-dirty`, and keeps going when one project fails. |
 | `user-pin --tag <tag>` | Pins the user-scope Claude Code marketplace and prints the refresh commands for both runtimes. |
 | `latest` | Prints the newest upstream tag. |
 
-Run the copy in the dotai checkout when one exists, the checkout whose `origin` is `udecode/dotai`. Its `assets/` are the source of truth. `apply` and `sync` print the source they render from, and record in `synced.source` the shared commit they rendered. With that record, a refusal shows exactly what the project edited, and a copy older than a project's last sync refuses to overwrite it.
+Anchor checks read pstack from a bare clone that the script makes in `~/.cache/sync-pstack/` on first use; `SYNC_PSTACK_UPSTREAM` points them at another clone or URL. Run the copy in the dotai checkout when one exists, the checkout whose `origin` is `udecode/dotai`. Its `assets/` are the source of truth. `apply` and `sync` print the source they render from, and record in `synced.source` the shared commit they rendered. With that record, a refusal shows exactly what the project edited, and a copy older than a project's last sync refuses to overwrite it.
 
 ## Choose the mode
 
@@ -45,6 +45,7 @@ Run the copy in the dotai checkout when one exists, the checkout whose `origin` 
 | Sync, bump or update pstack, here or everywhere | [Sync](#sync) |
 | Compare setups, or list which projects use pstack or have drifted | [Compare](#compare), read-only |
 | A lesson or correction that changes a shared rule | [Lesson](#lesson) |
+| Add or change a project's own playbook | [Project playbooks](#project-playbooks) |
 
 Change only the projects the request names, or every managed project when it asks for all of them. The repository sets in `~/.agents/config.json` name candidates, not authorization.
 
@@ -64,12 +65,13 @@ Change only the projects the request names, or every managed project when it ask
 ## Sync
 
 1. Run `status` to see the managed projects, their pins, drift and last source, and the latest tag.
-2. When a newer tag exists, read pstack-claude's `CHANGES.md` at the new tag (`gh api 'repos/michael-denyer/pstack-claude/contents/CHANGES.md?ref=<tag>' -H 'Accept: application/vnd.github.raw'`) from the pinned tag up. Check each change against the block: a playbook step, skill, principle or hook that an override names. Fix the template first through [Lesson](#lesson) when a change makes an override stale or redundant.
+2. When a newer tag exists, read pstack-claude's `CHANGES.md` at the new tag (`gh api 'repos/michael-denyer/pstack-claude/contents/CHANGES.md?ref=<tag>' -H 'Accept: application/vnd.github.raw'`) from the pinned tag up. Check each change against the block: a playbook step, skill, principle or hook that an override names. Upstream may now do what an override did; propose dropping that override. It may have changed the text an override contradicts; propose the rewrite. Show each proposal to the user and apply it through [Lesson](#lesson) only on their word.
 3. Run `sync --tag <tag> --dry-run` with the projects in scope, then without `--dry-run`. Omit the project list only when the request covers every managed project. Offer Setup for each unmanaged project it lists.
 4. Resolve each refusal.
    - **Edited block or helper.** The refusal shows the project's edit. Move a generic edit into the template through Lesson and a project-only edit outside the block. Nothing is lost then, so rerun with `--force`. Without moving it, use `--force` only when the owner says the edit can go.
    - **Off branch or uncommitted edits.** Switch to the project's branch, or wait for the owner's commit. Use `--allow-dirty` only when the uncommitted edits are this run's own.
    - **Older source.** Update the dotai checkout and rerun from it.
+   - **pstack anchors.** pstack at the new tag no longer has text the block or a project playbook builds on, and the refusal shows pstack's diff. Rewrite the override through Lesson, or the playbook's change in its project, against the new text, then rerun. Drop the change when upstream now does what it did.
    - **Error.** A config the template cannot render. Fix the config, then rerun that project.
 5. Run `user-pin --tag <tag>`, then the printed commands from the home directory. Codex asks to trust the pstack hook again when its file changed.
 6. Verify each synced project with `verify`, and smoke-test one project per delivery mode in use.
@@ -88,6 +90,16 @@ A lesson from `/pstack:reflect`, or a correction in one project, changes the sha
 3. In dotai, run `node --test skills/sync-pstack/scripts/sync-pstack.test.mjs`, `scripts/validate-skills` and `node scripts/build-workflow.mjs`, then commit and push by dotai's rules.
 4. Sync the projects the request covers.
 
+## Project playbooks
+
+A project adds its lifecycle on top of pstack's playbooks instead of in skills only the user can invoke, so plain requests reach it through poteto-mode. Each `.agents/playbooks/<name>.md` holds:
+
+- Frontmatter with `extends`, the pstack playbook stems it builds on (`bug-fix`, or `feature, refactoring`), and `when`, one sentence naming the requests it serves. The block lists each playbook with that sentence, so adding or editing one makes `check` fail until `apply` renders the block again.
+- Changes as list items that start with `**After**`, `**Before**`, `**Replace**` or `**In**` and a quoted run of the pstack step's own words, such as `- **After** "Reproduce it yourself": …`. Quote enough words to name one step; the check collapses whitespace before it matches. An item without one of these verbs adds a step where it says.
+- Its stop points, when it stops where the pstack playbook does not.
+
+Keep project knowledge in skills and the project's rules; a playbook only orders the work. A typed command that used to run the lifecycle stays as an entry point that names the playbook.
+
 ## Template grammar
 
 `assets/block.md` is Markdown with line directives.
@@ -96,7 +108,7 @@ A lesson from `/pstack:reflect`, or a correction in one project, changes the sha
 - `<!-- section id -->` opens a region that is dropped when the config lists `id` under `skip`.
 - `<!-- end -->` closes the innermost region. Regions nest.
 - `{{key}}` inserts a config value. A rendered line whose value is missing fails the render, and so does a `skip` entry that names no section.
-- A line starting with `<!-- #` is a template note and never renders.
+- A line starting with `<!-- #` is a template note and never renders. A note `<!-- # overrides <path> "<text>" -->` names pstack text the next override replaces, with `<path>` relative to pstack's `plugins/pstack/skills/`; `apply --tag` and `verify` fail when that text is gone.
 - An indented line continues the list item above it, so a conditional sentence can join a rule.
 
 ## Boundaries
