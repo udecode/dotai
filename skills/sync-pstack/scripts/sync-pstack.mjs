@@ -322,9 +322,10 @@ export function apply(root, { tag, force = false, write = true } = {}) {
   if (!pinned(settings, config.tag)) changes.push({ path: '.claude/settings.json', text: settingsText(settingsSource, settings, config.tag) });
 
   // Keep the recorded source while the output is unchanged, so an unrelated
-  // shared commit does not make every project's config stale.
+  // shared commit does not make every project's config stale. A null record
+  // came from uncommitted shared edits and is replaced once they land.
   const same = stored.synced?.block === synced.block && JSON.stringify(stored.synced?.files ?? {}) === JSON.stringify(synced.files);
-  synced.source = same && stored.synced?.source !== undefined ? stored.synced.source : sourceRevision();
+  synced.source = same && stored.synced?.source ? stored.synced.source : sourceRevision();
   const next = { ...stored, tag: config.tag, synced };
   if (JSON.stringify(next) !== JSON.stringify(stored)) changes.push({ path: CONFIG, text: json(next) });
 

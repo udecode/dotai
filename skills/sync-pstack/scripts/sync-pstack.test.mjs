@@ -341,6 +341,18 @@ test('an older copy of the shared source refuses to undo a newer sync', () => {
   assert.match(read(root, 'AGENTS.md'), /unrun proof/);
 });
 
+test('a sync from an uncommitted source records the commit once it lands', () => {
+  const { dir, run } = sandbox();
+  const shared = sharedSource(dir);
+  writeFileSync(shared.template, readFileSync(shared.template, 'utf8').replace('Never claim a skipped or unavailable proof passed.', 'Never claim an unrun proof passed.'));
+  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
+  run(process.execPath, [shared.script, 'apply', root]);
+  assert.equal(readJson(root, '.agents/pstack.json').synced.source, null);
+  commit(shared.repo, 'newer rule');
+  run(process.execPath, [shared.script, 'apply', root]);
+  assert.match(readJson(root, '.agents/pstack.json').synced.source ?? '', /^[0-9a-f]{40}$/);
+});
+
 test('sync writes only a clean checkout on the project branch', () => {
   const { dir, cli, run } = sandbox();
   const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
