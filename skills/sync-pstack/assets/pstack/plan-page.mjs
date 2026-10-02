@@ -560,7 +560,7 @@ a { color: var(--accent); }
 .compare .scroll { margin: 0; }
 .side { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 @media (min-width: 1280px) {
-  main > :has(.compare) { box-sizing: border-box; width: min(1200px, calc(100vw - 64px)); justify-self: center; }
+  main > :has(.compare) { --wide: min(1200px, calc(100vw - 64px)); box-sizing: border-box; width: var(--wide); margin-inline: calc((100% - var(--wide)) / 2); }
   .compare { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .details { border-top: 1px solid var(--rule); padding-top: 14px; display: grid; gap: 20px; }
