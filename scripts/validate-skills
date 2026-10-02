@@ -64,4 +64,11 @@ if [ "$fail" -ne 0 ]; then
   exit 1
 fi
 
+# No CI runs these, so the commit gate does.
+node "$ROOT/scripts/build-workflow.mjs" --check >/dev/null
+tests=("$SKILLS_DIR"/*/scripts/*.test.mjs)
+if [ "${#tests[@]}" -gt 0 ]; then
+  node --test "${tests[@]}" >/dev/null
+fi
+
 echo "skills ok"
