@@ -717,8 +717,8 @@ function skillNames(paths) {
 export function hintModes(rule) {
   const hint = rule?.match(/^argument-hint:\s*(.*)$/mu)?.[1].trim().replace(/^(['"])(.*)\1$/u, '$2') ?? '';
   return hint
-    .replace(/^\[(.*)\]$/u, '$1')
     .replace(/<[^>]*>/gu, '')
+    .replace(/[[\]]/gu, ' ')
     .split('|')
     .map((part) => part.trim().split(/\s+/u)[0])
     .filter((word) => /^[a-z][\w-]*$/u.test(word ?? ''));

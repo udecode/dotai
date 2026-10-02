@@ -325,6 +325,7 @@ test('smoke fails when a runtime exits cleanly with no answer', () => {
 test('argument-hint modes are the literal words that open an alternative, outside placeholders', () => {
   assert.deepEqual(hintModes("argument-hint: '[<question | plan path to extend> | diagnose <report> | --deep]'"), ['diagnose']);
   assert.deepEqual(hintModes('argument-hint: [sync [package] | <path>]'), ['sync']);
+  assert.deepEqual(hintModes("argument-hint: '[status | promote] [dry-run] <scope>'"), ['status', 'promote']);
 });
 
 test('playbook prints each base with the project changes applied at their steps, in order', () => {
