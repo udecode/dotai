@@ -937,7 +937,7 @@ test('decisions-check append writes only a row that passes the check', () => {
   assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'log.decisions.tsv'], root).status, 0);
 });
 
-test('decisions-check takes a panel finding only with a severity, after a seats row, and with an applied or dismissed reason', () => {
+test('decisions-check takes a panel finding only with a severity, after a seats row, and with an applied, dismissed or owned deferred reason', () => {
   const { dir, run } = sandbox();
   const root = project(dir, 'app');
   const append = (decision, result) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', 'panel', decision, 'why', 'evidence', result], root);
@@ -947,7 +947,12 @@ test('decisions-check takes a panel finding only with a severity, after a seats 
   assert.equal(append('critical The seat writes files', 'recorded').status, 1, 'a finding with no disposition');
   assert.equal(append('critical The seat writes files', 'applied').status, 1, 'a disposition with no reason');
   assert.equal(append('critical The seat writes files', 'applied: read-only').status, 0);
+  assert.equal(append('warning The fallback lists stale sessions', 'deferred: outside the ask').status, 1, 'a deferral with no owner');
+  assert.equal(append('warning The fallback lists stale sessions', 'deferred: outside the ask, owner:').status, 1, 'a deferral with an empty owner');
+  assert.equal(append('critical The seat writes files', 'deferred: later, owner: user').status, 1, 'a deferred critical finding');
+  assert.equal(append('warning The fallback lists stale sessions', 'deferred: outside the ask, owner: user in docs/plans/next.md').status, 0);
 });
+
 test('decisions-check requires scope on a proven row and leaves committed rows alone', () => {
   const { dir, run } = sandbox();
   const header = 'ts\tphase\tdecision\twhy\tevidence\tresult';
