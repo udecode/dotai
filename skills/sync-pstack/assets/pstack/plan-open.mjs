@@ -40,6 +40,7 @@ function openLines(path) {
   let fenced = false;
   let commented = false;
   let findings = false;
+  let findingsLevel = 0;
   let gate = null;
   for (const [index, raw] of text.split('\n').entries()) {
     if (/^\s*(?:```|~~~)/u.test(raw)) {
@@ -60,7 +61,14 @@ function openLines(path) {
       commented = true;
       line = line.slice(0, start);
     }
-    if (/^#{1,6}\s/u.test(line)) findings = FINDINGS.test(line);
+    const heading = line.match(/^(#{1,6})\s/u);
+    if (heading) {
+      // A heading nested under a findings heading, such as a question under
+      // Open questions, keeps its items open findings.
+      if (findingsLevel && heading[1].length > findingsLevel) continue;
+      findings = FINDINGS.test(line);
+      findingsLevel = findings ? heading[1].length : 0;
+    }
     const where = `${path}:${index + 1}: ${raw.trim()}`;
     if (GATES.test(line.trim())) {
       gate = { header: null };

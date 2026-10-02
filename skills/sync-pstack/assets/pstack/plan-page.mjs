@@ -287,6 +287,63 @@ function blocksHtml(lines) {
   return html.join('\n');
 }
 
+const OPTION = /^\s*[-*+]\s+\*\*(.+?)\*\*(\s*\(recommended\))?\s*(?::\s*(.*))?$/i;
+
+// Open questions written as `### Header`, a one-line question and bold-labeled
+// options render like Claude's question tool; anything else renders as text.
+function needsHtml(lines) {
+  const intro = [];
+  const groups = [];
+  for (const line of lines) {
+    const heading = line.match(/^###\s+(.*)$/);
+    if (heading) groups.push({ header: heading[1].trim(), lines: [] });
+    else (groups.at(-1)?.lines ?? intro).push(line);
+  }
+  if (groups.length === 0) return blocksHtml(lines);
+  const questions = groups.map((group, index) => {
+    const question = [];
+    const options = [];
+    const more = [];
+    let stage = 'question';
+    for (const line of group.lines) {
+      if (stage === 'options' && !line.trim()) stage = 'more';
+      const option = stage === 'more' ? null : line.match(OPTION);
+      if (option) {
+        const description = option[3]?.trim() ?? '';
+        const trailing = /\s*\(recommended\)$/i;
+        options.push({
+          description: description.replace(trailing, ''),
+          label: option[1].trim(),
+          recommended: Boolean(option[2]) || trailing.test(description),
+        });
+        stage = 'options';
+      } else if (stage === 'options' && /^\s+\S/.test(line)) {
+        options.at(-1).description += ` ${line.trim()}`;
+      } else if (stage === 'question' && line.trim()) {
+        question.push(line.trim());
+      } else if (stage === 'more' || line.trim() || question.length > 0) {
+        if (line.trim() || more.length > 0) more.push(line);
+        if (line.trim()) stage = 'more';
+      }
+    }
+    const recommended = options.findIndex((option) => option.recommended);
+    const ordered = recommended < 0 ? options : [options[recommended], ...options.filter((_, i) => i !== recommended)];
+    const id = `needs-${index + 1}`;
+    const optionHtml = ordered
+      .map((option, i) => {
+        const picked = recommended >= 0 && i === 0;
+        const value = picked ? '' : option.label.replace(/[`*]/g, '');
+        return `<label class="option"><input type="radio" name="${id}" value="${escapeHtml(value)}"${picked ? ' checked' : ''}><span class="option-body"><span class="option-label">${inline(option.label)}${picked && ordered.length > 1 ? ' <span class="rec">Recommended</span>' : ''}</span>${option.description ? `<span class="option-desc">${inline(option.description)}</span>` : ''}</span></label>`;
+      })
+      .join('');
+    const moreHtml = more.some((line) => line.trim())
+      ? `<details class="more"><summary>More</summary>${blocksHtml(more)}</details>`
+      : '';
+    return `<div class="question" role="radiogroup" aria-labelledby="${id}" data-header="${escapeHtml(group.header.replace(/[`*]/g, ''))}"><p class="question-text" id="${id}"><span class="chip">${inline(group.header)}</span>${inline(question.join(' '))}</p>${optionHtml}${moreHtml}</div>`;
+  });
+  return `<p><strong>go</strong> takes every recommendation.</p>${blocksHtml(intro)}${questions.join('')}<div class="answer" hidden><code></code><button type="button">Copy answer</button></div>`;
+}
+
 function parsePlan(source) {
   const meta = {};
   const fields = {};
@@ -463,6 +520,20 @@ h3, h4, h5 { font-size: 1rem; margin: 16px 0 4px; }
 .quiet { color: var(--muted); margin: 0; }
 .handoff { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .handoff code { flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; padding: 8px 10px; }
+.question { display: grid; gap: 8px; margin: 0 0 18px; min-width: 0; }
+.question-text { margin: 0 0 2px; font-weight: 600; display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; max-width: none; }
+.chip { font: 600 0.72rem var(--sans); letter-spacing: 0.04em; text-transform: uppercase; color: var(--amber); background: var(--amber-soft); border-radius: 999px; padding: 2px 8px; }
+.option { display: flex; gap: 10px; align-items: flex-start; padding: 9px 12px; border: 1px solid var(--rule); border-radius: 8px; cursor: pointer; min-width: 0; }
+.option:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.option input { margin: 4px 0 0; accent-color: var(--accent); flex: none; }
+.option-body { display: grid; gap: 2px; min-width: 0; }
+.option-label { font-weight: 600; overflow-wrap: anywhere; }
+.option-desc { color: var(--muted); font-size: 0.88rem; }
+.rec { font: 600 0.68rem var(--sans); letter-spacing: 0.04em; text-transform: uppercase; color: var(--green); margin-left: 6px; }
+.more summary { color: var(--muted); font-size: 0.85rem; cursor: pointer; }
+.answer { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.answer[hidden] { display: none; }
+.answer code { flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; padding: 8px 10px; }
 button { font: 500 0.85rem var(--sans); color: var(--accent); background: var(--accent-soft); border: 1px solid transparent; border-radius: 8px; padding: 7px 14px; cursor: pointer; }
 button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 section.plan { display: grid; gap: 4px; min-width: 0; }
@@ -505,7 +576,7 @@ details.iteration[open] > summary { margin-bottom: 6px; }
     <div class="meta"><span class="pill ${statusTone(status)}">${escapeHtml(status)}</span><code>${escapeHtml(where)}</code>${hub ? `<span>History <code>${escapeHtml(hub)}</code></span>` : ''}<span>Updated ${updated} UTC</span></div>
     <div class="handoff"><code id="handoff">${escapeHtml(handOff)}</code><button id="copy" type="button">Copy</button></div>
   </header>
-  ${needs ? `<section class="panel needs"><h2>Needs you</h2>${blocksHtml(needs.lines)}</section>` : ''}
+  ${needs ? `<section class="panel needs"><h2>Needs you</h2>${needsHtml(needs.lines)}</section>` : ''}
   ${byRole('api')
     .map((section) => sectionHtml(section, 'panel'))
     .join('\n  ')}
@@ -558,6 +629,42 @@ document.getElementById('copy').addEventListener('click', async (event) => {
     event.target.textContent = 'Selected';
   }
 });
+</script>
+<script>
+(() => {
+  const panel = document.querySelector('.panel.needs');
+  const box = panel && panel.querySelector('.answer');
+  if (!box) return;
+  const code = box.querySelector('code');
+  const button = box.querySelector('button');
+  const update = () => {
+    const questions = [...panel.querySelectorAll('.question')];
+    const open = questions.filter((question) => !question.querySelector('input:checked')).map((question) => question.dataset.header);
+    const changes = questions
+      .map((question) => [question.dataset.header, (question.querySelector('input:checked') || {}).value || ''])
+      .filter((change) => change[1]);
+    box.hidden = open.length === 0 && changes.length === 0;
+    button.hidden = open.length > 0;
+    code.textContent = open.length > 0
+      ? 'Pick an answer for ' + open.join(', ')
+      : 'go, except ' + changes.map((change) => change[0] + ': ' + change[1]).join('; ');
+    button.textContent = 'Copy answer';
+  };
+  panel.addEventListener('change', update);
+  update();
+  button.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(code.textContent);
+      button.textContent = 'Copied';
+    } catch {
+      const range = document.createRange();
+      range.selectNodeContents(code);
+      getSelection().removeAllRanges();
+      getSelection().addRange(range);
+      button.textContent = 'Selected';
+    }
+  });
+})();
 </script>
 `;
   return { html, name: subject ? join('topics', subject) : basename(planPath, '.md') };
