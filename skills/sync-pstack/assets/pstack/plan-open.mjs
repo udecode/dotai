@@ -2,7 +2,9 @@
 // Fails a plan that still has open work, so no plan is marked Done with an
 // unchecked box or a placeholder left in it. A box closed since HEAD must name
 // the artifact that closed it, and a deferred or open finding added since HEAD
-// must name its owner; committed lines stay as history. The checks run whether
+// must name its owner; committed lines stay as history. A Start or Completion
+// Gates table row must resolve Applies, record evidence or a reason, and leave
+// no column pending. The checks run whether
 // or not the plan already says Done, because this is the gate before Done.
 // Installed by the sync-pstack skill.
 // Usage: node .agents/pstack/plan-open.mjs <plan.md> [...]
@@ -19,6 +21,9 @@ const PLACEHOLDER = /\b(?:TODO|TBD|FIXME)\b/u;
 const FINDINGS = /^#{1,6}\s+.*\b(?:deferred|open (?:items|findings|questions)|follow-?ups?|known gaps|gaps|residual)\b/iu;
 // A path or command in backticks, a link, a URL, a commit or an explicit skip.
 const ARTIFACT = /`[^`]*[/.\s][^`]*`|\]\([^)]+\)|https?:\/\/|\b[0-9a-f]{7,40}\b|\bskip:/u;
+const GATES = /^(?:#{1,6}\s+)?(?:Start|Completion) Gates:?$/iu;
+const UNRESOLVED = /^(?:|pending|tbd|todo|\{\{.*\}\})$/iu;
+const cells = (row) => row.trim().replace(/^\||\|$/gu, '').split('|').map((cell) => cell.trim());
 
 function plansDir() {
   const config = '.agents/pstack.json';
@@ -37,6 +42,7 @@ function openLines(path) {
   let fenced = false;
   let commented = false;
   let findings = false;
+  let gate = null;
   for (const [index, raw] of text.split('\n').entries()) {
     if (/^\s*(?:```|~~~)/u.test(raw)) {
       fenced = !fenced;
@@ -58,6 +64,20 @@ function openLines(path) {
     }
     if (/^#{1,6}\s/u.test(line)) findings = FINDINGS.test(line);
     const where = `${path}:${index + 1}: ${raw.trim()}`;
+    if (GATES.test(line.trim())) {
+      gate = { header: null };
+      continue;
+    }
+    if (gate && line.trim().startsWith('|')) {
+      const row = cells(line);
+      if (!gate.header) gate.header = row.map((cell) => cell.toLowerCase());
+      else if (!row.every((cell) => /^:?-+:?$/u.test(cell))) {
+        const open = gate.header.filter((name, column) => UNRESOLVED.test(row[column] ?? ''));
+        if (open.length > 0) found.push(`${where} (resolve the gate's ${open.join(', ')})`);
+      }
+      continue;
+    }
+    if (gate && line.trim()) gate = null;
     const prose = line.replace(/`[^`]*`/gu, '');
     if (OPEN_BOX.test(prose) || PLACEHOLDER.test(prose)) {
       found.push(where);

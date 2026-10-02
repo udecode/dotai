@@ -557,6 +557,16 @@ test('plan-open reports an open box outside code and ignores one inside a fence'
   assert.match(result.stderr, /^1 open item\(s\):\nplan\.md:4: - \[ \] ship it$/m);
 });
 
+test('plan-open fails a gate row that leaves Applies, evidence or another column pending', () => {
+  const { dir, run } = sandbox();
+  const plan = '# Plan\n\nCompletion Gates:\n| Gate | Applies | Required action | Evidence |\n|---|---|---|---|\n| Package proof | yes | Run the package proof | `bun test ./a.test.ts` passed |\n| Scale proof | pending | Run the probe | pending |\n';
+  const root = project(dir, 'app', { files: { 'plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-open.mjs'), 'plan.md'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /plan\.md:7: .*Scale proof/);
+  assert.doesNotMatch(result.stderr, /Package proof/);
+});
+
 test('plan-open makes a newly closed box name its artifact and a deferred finding name its owner', () => {
   const { dir, run } = sandbox();
   const legacy = '# Plan\n\nStatus: Done\n\n- [x] shipped long ago\n';
