@@ -693,6 +693,7 @@ test('plan-page keeps a subject\'s latest review in its header and history after
       'docs/plans/2026-01-01-seats.md': plan,
       'docs/plans/2026-01-01-seats.decisions.tsv': `${log}\n`,
       'docs/plans/2026-02-01-later.md': '# Later pass\n\nStatus: executed\nTopic: workflow\n\n## Main changes\n\n- Seats.\n',
+      'docs/plans/2026-02-01-later.decisions.tsv': `ts\tphase\tdecision\twhy\tevidence\tresult\n${reviewRow('review', 'Hand-off edit', 'applied: kept')}\n`,
     },
   });
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-seats.md'], root);

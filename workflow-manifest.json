@@ -250,7 +250,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/plan-page.mjs": {
-      "sha256": "3f842e4cb4a10c2eecd63991411c02b3ba0cbb9b4ac6b328a063030abaca47fd",
+      "sha256": "391d0b6928bd438060f6360dcab45533fd4b6c52e10a3c930a63ddd225c8d3ec",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/status.mjs": {
@@ -270,7 +270,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "2c646734fd60d362d8b8f4d3a89da3bab5731120e451fc1db353afc040f5fb62",
+      "sha256": "d477eb12c39ffbaa2524ba27a0cc3cdf275f7f7c01f0c88328e84ae81577d02a",
       "mode": 420
     },
     "skills/video-transcripts/SKILL.md": {

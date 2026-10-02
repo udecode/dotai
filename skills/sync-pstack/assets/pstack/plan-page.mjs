@@ -727,7 +727,8 @@ function page(planPath, { folded = false } = {}) {
   const reviewed = (doc === plan ? [{ path: planPath, plan }] : iterations)
     .map((entry) => ({ entry, rounds: reviewRounds(reviewRows(entry.path)) }))
     .filter(({ rounds }) => rounds.length);
-  const tagged = reviewed.find(({ entry }) => entry.path === (pageEntry ?? { path: planPath }).path) ?? reviewed[0];
+  const paneled = reviewed.filter(({ rounds }) => rounds.some((entry) => entry.kind === 'panel'));
+  const tagged = paneled.find(({ entry }) => entry.path === (pageEntry ?? { path: planPath }).path) ?? paneled[0];
   const latest = tagged?.rounds.findLast((entry) => entry.kind === 'panel');
   const taggedTitle = doc !== plan && tagged && tagged.entry.path !== pageEntry?.path ? ` for ${inline(tagged.entry.plan.title || basename(tagged.entry.path, '.md'))}` : '';
   const reviewTag = latest
