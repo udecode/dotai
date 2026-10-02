@@ -10,6 +10,7 @@
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { SEATS, SEVERITIES } from './status.mjs';
 
 const HEADER = 'ts\tphase\tdecision\twhy\tevidence\tresult';
 const STATUSES = [
@@ -35,6 +36,11 @@ const PROVEN = ['fixed', 'proven', 'verified'];
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/u;
 const CELLS = ['phase', 'decision', 'why', 'evidence', 'result'];
 
+const opens = (line) => {
+  const [, phase, decision = ''] = line.split('\t');
+  return phase === 'panel' && SEATS.test(decision);
+};
+
 function plansDir() {
   const config = '.agents/pstack.json';
   return (existsSync(config) && JSON.parse(readFileSync(config, 'utf8')).plans) || 'docs/plans';
@@ -45,7 +51,7 @@ function committedRows(path) {
   return new Set(committed.status === 0 ? committed.stdout.split('\n') : []);
 }
 
-function rowProblems(line, where) {
+function rowProblems(line, where, opened) {
   const cells = line.split('\t');
   if (cells.length !== 6) return [`${where}: ${cells.length} cells, expected 6`];
   const found = [];
@@ -63,6 +69,11 @@ function rowProblems(line, where) {
   if (status && PROVEN.includes(status) && !/\bscope:/iu.test(rest[3])) {
     found.push(`${where}: a ${status} result needs "scope:" in its evidence naming what the proof covered`);
   }
+  if (rest[0] === 'panel' && !SEATS.test(rest[1])) {
+    if (!SEVERITIES.includes(rest[1].split(/\s/u)[0])) found.push(`${where}: a panel row's decision starts with "seats" or a severity: critical, warning or nit`);
+    else if (!opened) found.push(`${where}: a panel finding needs a "seats" row before it`);
+    if (!/^(applied|dismissed)\b\W+\w/u.test(rest[4])) found.push(`${where}: a panel finding's result starts with "applied" or "dismissed" and gives the reason`);
+  }
   return found;
 }
 
@@ -70,7 +81,13 @@ function problems(path) {
   const lines = readFileSync(path, 'utf8').split('\n');
   if (lines[0] !== HEADER) return [`${path}:1: header must be "${HEADER.replaceAll('\t', ' ')}"`];
   const committed = committedRows(path);
-  return lines.flatMap((line, index) => (index === 0 || line === '' || committed.has(line) ? [] : rowProblems(line, `${path}:${index + 1}`)));
+  let opened = false;
+  return lines.flatMap((line, index) => {
+    if (index === 0 || line === '') return [];
+    const found = committed.has(line) ? [] : rowProblems(line, `${path}:${index + 1}`, opened);
+    opened ||= opens(line);
+    return found;
+  });
 }
 
 function append(path, cells) {
@@ -78,10 +95,10 @@ function append(path, cells) {
   const broken = cells.findIndex((cell) => /[\t\n]/u.test(cell));
   if (broken !== -1) return [`${CELLS[broken]} contains a tab or newline`];
   const row = [new Date().toISOString().replace(/\.\d{3}Z$/u, 'Z'), ...cells].join('\t');
-  const found = rowProblems(row, `${path} (new row)`);
+  const text = existsSync(path) ? readFileSync(path, 'utf8') : null;
+  const found = rowProblems(row, `${path} (new row)`, (text ?? '').split('\n').some(opens));
   if (found.length > 0) return found;
-  if (existsSync(path)) {
-    const text = readFileSync(path, 'utf8');
+  if (text !== null) {
     appendFileSync(path, `${text === '' || text.endsWith('\n') ? '' : '\n'}${row}\n`);
   } else writeFileSync(path, `${HEADER}\n${row}\n`);
   return [];

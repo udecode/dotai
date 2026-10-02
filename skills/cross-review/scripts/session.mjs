@@ -16,6 +16,9 @@ const REPLY_LIMIT = 6000;
 const TAIL_BYTES = 1 << 18;
 const NOT_TYPED = /^(?:<(?:local-command|system-reminder|task-notification|codex_delegation)|Caveat: The messages below|Base directory for this skill|\[Request interrupted by user)/u;
 const HAND_OFF = /^[\s>*`]*[$/]cross-review(?:[ \t]+([^\s`*]+))?[\s`*]*$/u;
+const RECENT = 5;
+
+const handOff = (turn) => turn.last.text.trimEnd().split('\n').at(-1).match(HAND_OFF);
 const REVIEW_ASK = /^[$/]cross-review\b/u;
 const COMMIT = /\b([0-9a-f]{7,40}) ((?:feat|fix|docs|refactor|test|chore|perf|style|build|ci|revert)(?:\([^)]*\))?!?: .+)$|^\[[\w./-]+ ([0-9a-f]{7,40})\] (.+)$/gmu;
 const CLAUDE_WRITES = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
@@ -175,8 +178,9 @@ function lastTurn(from, path) {
     for (const event of events(from, path, { start })) {
       if (event.kind === 'title') turn.title = event.text;
       if (event.kind === 'ask') turn.ask = event.text;
-      if (event.kind === 'ask' || event.kind === 'reply') turn.last = event;
+      if (event.kind !== 'title') turn.last = event;
     }
+    turn.finished = turn.last?.kind === 'reply';
     if (turn.last || start === 0) return turn;
   }
 }
@@ -277,9 +281,11 @@ function main(argv) {
     console.info(show(read(from, match.path)));
     return 0;
   }
-  const waiting = here
+  const replied = here
     .map((session) => ({ ...session, turn: lastTurn(from, session.path) }))
-    .filter(({ turn }) => turn.last?.kind === 'reply' && HAND_OFF.test(turn.last.text.trimEnd().split('\n').at(-1)));
+    .filter(({ turn }) => turn.finished)
+    .sort((a, b) => b.mtime - a.mtime);
+  const waiting = replied.filter(({ turn }, index) => index < RECENT || handOff(turn));
   if (pick && !(Number(pick) >= 1 && Number(pick) <= waiting.length)) {
     console.error(`--pick ${pick} is not in the list of ${waiting.length} waiting sessions.`);
     return 2;
@@ -294,9 +300,9 @@ function main(argv) {
   }
   console.info(`${waiting.length} sessions are waiting for a cross-review. Ask the user which one, then rerun with --pick <id>:`);
   for (const [index, { path, mtime, turn }] of waiting.entries()) {
-    const handedOff = turn.last.text.trimEnd().split('\n').at(-1).match(HAND_OFF)[1] ?? 'no plan';
+    const plan = handOff(turn)?.[1] ?? 'no plan';
     const label = turn.title ?? turn.ask?.replace(/\s+/gu, ' ').slice(0, 100) ?? '';
-    console.info(`${index + 1}. ${sessionId(path)} | ${handedOff} | ${new Date(mtime).toISOString()} | ${label}`);
+    console.info(`${index + 1}. ${sessionId(path)} | ${plan} | ${new Date(mtime).toISOString()} | ${label}`);
   }
   return 3;
 }

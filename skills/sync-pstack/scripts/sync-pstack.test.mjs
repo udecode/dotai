@@ -146,6 +146,14 @@ test('apply inserts one block after the intro, and a second apply changes nothin
   assert.equal(cli('check', root).status, 0);
 });
 
+test('apply keeps cross.mjs when the review section is skipped, because the panel and trail rules still run it', () => {
+  const { dir, cli } = sandbox();
+  const root = project(dir, 'app', { config: { ...CONFIG, skip: ['review'] }, agents: '# App\n' });
+  assert.equal(cli('apply', root).status, 0);
+  assert.match(read(root, 'AGENTS.md'), /cross\.mjs/);
+  assert.equal(read(root, '.agents/pstack/cross.mjs'), readFileSync(join(HELPERS, 'cross.mjs'), 'utf8'));
+});
+
 test('check fails once the project config moves past what was applied', () => {
   const { dir, cli } = sandbox();
   const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
@@ -286,7 +294,21 @@ test('cross runs a prompt file in the other runtime: Codex from Claude Code, Cla
   assert.equal(fromClaude.status, 0, fromClaude.stderr);
   assert.equal(fromClaude.stdout.trim(), 'codex: Review docs/plans/x.md for gaps.');
   const fromCodex = cross({});
-  assert.equal(fromCodex.stdout.trim(), 'claude: -p --model opus --permission-mode plan -- Review docs/plans/x.md for gaps.');
+  assert.equal(fromCodex.stdout.trim(), 'claude: -p --model opus --settings {"disableAllHooks":true} --permission-mode plan -- Review docs/plans/x.md for gaps.');
+});
+
+test('cross runs a Codex seat read-only on the model and effort it names', () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'codex'), '#!/bin/sh\nargs="$*"\nwhile [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; *) shift ;; esac; done\necho "$args" > "$out"\n', { mode: 0o755 });
+  const seat = spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', '--model', 'gpt-6-astra', '--effort', 'high', 'review it'], {
+    cwd: dir,
+    encoding: 'utf8',
+    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '' },
+  });
+  assert.equal(seat.status, 0, seat.stderr);
+  assert.match(seat.stdout, /exec -m gpt-6-astra -c model_reasoning_effort=high --disable hooks --sandbox read-only /);
 });
 
 test('cross passes a prompt that starts with dashes as the prompt, and gives up on a runtime that ignores its timeout', () => {
@@ -631,7 +653,54 @@ test('plan-page renders a topic plan as its subject page with every iteration, n
   assert.ok(html.includes('Pages follow subjects') && html.includes('Keep the old pages?'));
   assert.ok(html.indexOf('Second pass') < html.indexOf('First pass'));
   assert.ok(!html.includes('Unrelated'));
-  assert.ok(html.includes('$cross-review docs/plans/2026-01-01-first.md'));
+});
+
+const reviewRow = (phase, decision, result) => `2026-01-01T00:00:00Z\t${phase}\t${decision}\twhy\tevidence\t${result}`;
+
+test('plan-page tags the latest panel round and lists every round at the bottom by priority', () => {
+  const { dir, run } = sandbox();
+  const plan = '# Plan\n\nStatus: planning\n\n## Main changes\n\n- Seat Codex.\n';
+  const log = [
+    'ts\tphase\tdecision\twhy\tevidence\tresult',
+    reviewRow('plan', 'Pick seats', 'decided'),
+    reviewRow('panel', 'seats opus, codex:gpt-6-astra @high', 'recorded'),
+    reviewRow('panel', 'nit Rename the flag', 'dismissed: churn'),
+    reviewRow('panel', 'critical The seat writes files', 'applied: read-only brief'),
+    reviewRow('review-response', 'Accepted the hand-off edits', 'kept'),
+    reviewRow('panel', 'seats opus, codex:gpt-6.1-sol @xhigh missing', 'recorded'),
+    reviewRow('panel', 'warning Fallback hides a missing seat', 'applied: reported missing'),
+  ].join('\n');
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan, 'docs/plans/plan.decisions.tsv': `${log}\n` } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const html = read(root, 'docs/plans/artifacts/plan.html');
+  const header = html.slice(html.indexOf('<header>'), html.indexOf('</header>')).replace(/<[^>]+>/gu, '');
+  assert.match(header, /Review round 2/);
+  assert.match(header, /codex:gpt-6\.1-sol @xhigh missing/);
+  const history = html.slice(html.lastIndexOf('Review history'));
+  const order = ['Round 1', 'critical The seat writes files', 'nit Rename the flag', 'Accepted the hand-off edits', 'Round 2', 'warning Fallback hides a missing seat'].map((text) => history.indexOf(text));
+  assert.ok(order.every((index, at) => index > (order[at - 1] ?? -1)), JSON.stringify(order));
+  assert.ok(!html.includes('Pick seats'));
+});
+
+test('plan-page keeps a subject\'s latest review in its header and history after newer unreviewed iterations', () => {
+  const { dir, run } = sandbox();
+  const plan = '# Seat Codex\n\nStatus: executed\nTopic: workflow\n\n## Main changes\n\n- Seats.\n';
+  const log = ['ts\tphase\tdecision\twhy\tevidence\tresult', reviewRow('panel', 'seats opus', 'recorded'), reviewRow('panel', 'critical History vanishes', 'applied: kept')].join('\n');
+  const root = project(dir, 'app', {
+    files: {
+      'docs/plans/topics/workflow.md': '# Workflow\n\n## Main changes\n\n- Seats.\n',
+      'docs/plans/2026-01-01-seats.md': plan,
+      'docs/plans/2026-01-01-seats.decisions.tsv': `${log}\n`,
+      'docs/plans/2026-02-01-later.md': '# Later pass\n\nStatus: executed\nTopic: workflow\n\n## Main changes\n\n- Seats.\n',
+    },
+  });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-seats.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const page = read(root, 'docs/plans/artifacts/topics/workflow.html');
+  assert.match(page.slice(page.indexOf('<header>'), page.indexOf('</header>')).replace(/<[^>]+>/gu, ''), /Review round 1.*Seat Codex/su);
+  const html = page.replace(/<[^>]+>/gu, '');
+  assert.match(html, /critical History vanishes/);
 });
 
 test('plan-page keeps a scoped plan on its own page until its subject file exists', () => {
@@ -884,6 +953,17 @@ test('decisions-check append writes only a row that passes the check', () => {
   assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'log.decisions.tsv'], root).status, 0);
 });
 
+test('decisions-check takes a panel finding only with a severity, after a seats row, and with an applied or dismissed reason', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app');
+  const append = (decision, result) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', 'panel', decision, 'why', 'evidence', result], root);
+  assert.equal(append('critical The seat writes files', 'applied: read-only').status, 1, 'a finding before any seats row');
+  assert.equal(append('seats opus, codex:gpt-6.1-sol @xhigh', 'recorded').status, 0);
+  assert.equal(append('The seat writes files', 'applied: read-only').status, 1, 'a finding without a severity');
+  assert.equal(append('critical The seat writes files', 'recorded').status, 1, 'a finding with no disposition');
+  assert.equal(append('critical The seat writes files', 'applied').status, 1, 'a disposition with no reason');
+  assert.equal(append('critical The seat writes files', 'applied: read-only').status, 0);
+});
 test('decisions-check requires scope on a proven row and leaves committed rows alone', () => {
   const { dir, run } = sandbox();
   const header = 'ts\tphase\tdecision\twhy\tevidence\tresult';

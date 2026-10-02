@@ -1,5 +1,6 @@
 // Installed by the sync-pstack skill. A plan's state is the first word of its
-// Status line; plan-page and plan-open read it here so they never disagree.
+// Status line, and a panel row's kind is the first word of its decision; the
+// helpers read both here so they never disagree.
 
 const LANDED = ['done', 'complete', 'completed', 'shipped', 'executed', 'implemented', 'fixed', 'released', 'merged', 'verified', 'landed'];
 
@@ -25,6 +26,10 @@ export function stateOf(status) {
   if (first === 'in' && ['planning', 'draft'].includes(second)) return 'planning';
   return Object.keys(STATES).find((state) => STATES[state].includes(first)) ?? null;
 }
+
+export const SEATS = /^seats\s/u;
+
+export const SEVERITIES = ['critical', 'warning', 'nit'];
 
 // Superseded and cancelled plans close without their work, so only landed ones face the Done gate.
 export const landed = (status) => LANDED.includes(words(status)[0]);

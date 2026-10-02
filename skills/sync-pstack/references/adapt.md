@@ -15,9 +15,9 @@ After the interview and before `apply`, reshape the project so its own rules and
 
 `dotaiOrphans` lists skills installed from dotai that dotai no longer ships, so they never update again. Interview question 8 settles each one. Either remove it, or keep it as a project-owned skill by moving its source into the project's rules and dropping its lock entry.
 
-## autoreview
+## Codex seats
 
-The block's Review rule runs openclaw's autoreview at `.agents/skills/autoreview/scripts/autoreview`. When the review section is kept and `discover.autoreview` is missing or names another source, such as `../dotai`, remove that copy and install upstream from the project root with `npx --yes skills add openclaw/agent-skills --skill autoreview --agent claude-code codex -y`. When the review section is skipped, leave the installed copy alone. The block passes `--model gpt-6.1-sol`, which needs a Codex CLI that knows that model; 0.159.2 does and 0.147.0 does not.
+The block's Panel review seats Codex through `node .agents/pstack/cross.mjs --to codex`, which needs only the Codex CLI and runs it with `--sandbox read-only`. A seat's model needs a Codex CLI that knows it; 0.159.2 knows `gpt-6.1-sol` and `gpt-6-astra`. OpenAI's `codex-plugin-cc` runs no seat, because its forwarder defaults to `--write`, re-tokenizes the prompt, and runs each task in one Bash call that a long review outlasts. An installed `autoreview` copy stays for typed use; it is no longer a gate.
 
 ## Keep formatters off the synced files
 

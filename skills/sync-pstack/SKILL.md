@@ -56,7 +56,7 @@ Change only the projects the request names, or every managed project when it ask
 1. **Discover.** Run `discover <project>`, then read `AGENTS.md` and the workflow rules it routes through, in full. Nothing is written yet.
 2. **Interview.** This is the first step the user sees. Follow [the interview](references/interview.md): prepare from evidence, always ask about delivery, recommend the reference answers unless the project's evidence argues otherwise, and never re-ask a settled answer.
 3. **Record** the answers in `.agents/pstack.json`, with `tag` from `latest`.
-4. **Adapt** the project per [adapt](references/adapt.md). Remove vendored pstack copies, settle orphaned skills and rule forks, install upstream autoreview when the review section is kept, keep the formatter off the synced files, rewrite project rules that duplicate or contradict the block, repoint references to removed skills, write the confirmed routing table, create the proof skill when there is none, and regenerate skills from rules.
+4. **Adapt** the project per [adapt](references/adapt.md). Remove vendored pstack copies, settle orphaned skills and rule forks, keep the formatter off the synced files, rewrite project rules that duplicate or contradict the block, repoint references to removed skills, write the confirmed routing table, create the proof skill when there is none, and regenerate skills from rules.
 5. **Apply.** Run `apply <project> --dry-run`, read the diff, then run `apply <project>`.
 6. **Verify.**
    - `discover` reports no vendored copies, and `status <project>` shows the user pins at the tag. Otherwise run `user-pin` and its commands.
@@ -129,7 +129,7 @@ Keep project knowledge in skills and the project's rules; a playbook only orders
 ## Resources
 
 - [Interview](references/interview.md): the questions, their evidence and recommendations, and the config fields.
-- [Adapt](references/adapt.md): vendored copies, orphaned skills, rule forks, autoreview, formatters, and rewriting project rules around the block.
+- [Adapt](references/adapt.md): vendored copies, orphaned skills, rule forks, Codex seats, formatters, and rewriting project rules around the block.
 - [`assets/block.md`](assets/block.md): the shared block.
-- `assets/pstack/`: the plan and decision-log helpers the Plans rule runs, and `cross.mjs`, which puts a prompt to the other runtime (Codex on gpt-6.1-sol from Claude Code, Claude on Opus from Codex) when the user asks the lead to run the cross-model review itself.
+- `assets/pstack/`: the plan and decision-log helpers the Plans rule runs, and `cross.mjs`, which runs a prompt read-only in the other runtime on a named model and effort, for a panel's other-family seats and `smoke`.
 - `scripts/sync-pstack.mjs`, with its tests in `scripts/sync-pstack.test.mjs`.

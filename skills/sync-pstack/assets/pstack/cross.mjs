@@ -2,7 +2,7 @@
 // Runs a prompt in the other agent runtime, read-only, from the current
 // directory, and prints its final answer: Codex on gpt-6.1-sol from Claude
 // Code, Claude on Opus from Codex. Installed by the sync-pstack skill.
-// Usage: node .agents/pstack/cross.mjs [--to codex|claude] [--timeout <seconds>] (--prompt-file <path> | <prompt>)
+// Usage: node .agents/pstack/cross.mjs [--to codex|claude] [--model <model>] [--effort <level>] [--timeout <seconds>] (--prompt-file <path> | <prompt>)
 
 import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, realpathSync } from 'node:fs';
@@ -18,12 +18,14 @@ export const otherRuntime = (env = process.env) => (env.CLAUDECODE ? 'codex' : '
 // as more prompt, so stdin is closed and the answer comes only from that file.
 // A child that ignores SIGTERM, or leaves a descendant holding its pipes, is
 // killed and abandoned at the deadline.
-export function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900 } = {}) {
+// Hooks stay off unless asked for, because a project hook, such as a Stop hook
+// that stages files, would write from a read-only run.
+export function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model = MODELS[runtime], effort, hooks = false } = {}) {
   const answerFile = join(mkdtempSync(join(tmpdir(), 'pstack-cross-')), 'answer.txt');
   const [command, args] =
     runtime === 'claude'
-      ? ['claude', ['-p', '--model', MODELS.claude, '--permission-mode', 'plan', '--', prompt]]
-      : ['codex', ['exec', '-m', MODELS.codex, '--sandbox', 'read-only', '-o', answerFile, '--', prompt]];
+      ? ['claude', ['-p', '--model', model, ...(effort ? ['--effort', effort] : []), ...(hooks ? [] : ['--settings', '{"disableAllHooks":true}']), '--permission-mode', 'plan', '--', prompt]]
+      : ['codex', ['exec', '-m', model, ...(effort ? ['-c', `model_reasoning_effort=${effort}`] : []), ...(hooks ? [] : ['--disable', 'hooks']), '--sandbox', 'read-only', '-o', answerFile, '--', prompt]];
   const { CLAUDECODE: _, ...env } = process.env;
   return new Promise((resolve) => {
     let settled = false;
@@ -63,19 +65,23 @@ export function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900 } = {}
 async function main(argv) {
   let to = otherRuntime();
   let timeout = 900;
+  let model;
+  let effort;
   let prompt = '';
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--to') to = argv[++index];
     else if (arg === '--timeout') timeout = Number(argv[++index]);
+    else if (arg === '--model') model = argv[++index];
+    else if (arg === '--effort') effort = argv[++index];
     else if (arg === '--prompt-file') prompt = readFileSync(argv[++index], 'utf8');
     else prompt = arg;
   }
   if (!prompt.trim() || !['claude', 'codex'].includes(to) || !(timeout > 0)) {
-    console.error('Usage: node .agents/pstack/cross.mjs [--to codex|claude] [--timeout <seconds>] (--prompt-file <path> | <prompt>)');
+    console.error('Usage: node .agents/pstack/cross.mjs [--to codex|claude] [--model <model>] [--effort <level>] [--timeout <seconds>] (--prompt-file <path> | <prompt>)');
     return 2;
   }
-  const answer = await ask(to, prompt, { timeout });
+  const answer = await ask(to, prompt, { timeout, model, effort });
   (answer.ok ? console.info : console.error)(answer.text);
   return answer.ok ? 0 : 1;
 }

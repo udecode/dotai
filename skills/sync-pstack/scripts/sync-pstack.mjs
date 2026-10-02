@@ -29,7 +29,8 @@ const TEMPLATE = join(SKILL, 'assets/block.md');
 const HELPERS = join(SKILL, 'assets/pstack');
 const CONFIG = '.agents/pstack.json';
 const HELPER_DIR = '.agents/pstack';
-const SECTION_HELPERS = { plans: ['decisions-check.mjs', 'plan-open.mjs', 'plan-page.mjs', 'status.mjs'], review: ['cross.mjs'] };
+const CORE_HELPERS = ['cross.mjs'];
+const SECTION_HELPERS = { plans: ['decisions-check.mjs', 'plan-open.mjs', 'plan-page.mjs', 'status.mjs'] };
 const PLUGIN = 'pstack@pstack-claude';
 const MARKETPLACE = 'pstack-claude';
 const REPO = 'michael-denyer/pstack-claude';
@@ -421,12 +422,12 @@ export function apply(root, { tag, force = false, write = true } = {}) {
   }
 
   const skipped = new Set(config.skip ?? []);
-  for (const [section, names] of Object.entries(SECTION_HELPERS)) {
+  for (const [section, names] of [[null, CORE_HELPERS], ...Object.entries(SECTION_HELPERS)]) {
     for (const name of names) {
       const path = `${HELPER_DIR}/${name}`;
       const present = existsSync(join(root, path)) ? readFileSync(join(root, path), 'utf8') : null;
       const edited = present !== null && sha(present) !== stored.synced?.files?.[path];
-      if (!skipped.has(section)) {
+      if (!section || !skipped.has(section)) {
         const source = readFileSync(join(HELPERS, name), 'utf8');
         synced.files[path] = sha(source);
         if (present === source) continue;
@@ -786,7 +787,7 @@ export function renderPlaybook(root, name) {
 
 export function smoke(root, prompts, { timeout = 900 } = {}) {
   return Promise.all(
-    prompts.flatMap((prompt) => ['claude', 'codex'].map((runtime) => ask(runtime, prompt, { cwd: root, timeout }).then((answer) => ({ ...answer, prompt })))),
+    prompts.flatMap((prompt) => ['claude', 'codex'].map((runtime) => ask(runtime, prompt, { cwd: root, timeout, hooks: true }).then((answer) => ({ ...answer, prompt })))),
   );
 }
 

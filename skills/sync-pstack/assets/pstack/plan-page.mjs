@@ -12,7 +12,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { basename, dirname, join, relative, resolve } from 'node:path';
-import { STATES, stateOf } from './status.mjs';
+import { SEATS, SEVERITIES, STATES, stateOf } from './status.mjs';
 
 // The owner reads the top of the page and rarely opens the details.
 const ROLES = [
@@ -572,15 +572,36 @@ function parsePlan(source) {
   return { meta, fields, lists, title, lead, sections };
 }
 
+const severity = (row) => {
+  const rank = SEVERITIES.indexOf(row.decision.split(/\s/u)[0]);
+  return rank < 0 ? SEVERITIES.length : rank;
+};
+
 function reviewRows(planPath) {
   const log = planPath.replace(/\.md$/, '.decisions.tsv');
   if (!existsSync(log)) return [];
+  let round = 0;
   return readFileSync(log, 'utf-8')
     .split('\n')
     .slice(1)
     .map((row) => row.split('\t'))
-    .filter((row) => /^review/i.test(row[1] ?? ''))
-    .map((row) => ({ decision: row[2], result: row[5] ?? '' }));
+    .flatMap(([, phase = '', decision = '', , , result = '']) => {
+      if (phase === 'panel') {
+        if (SEATS.test(decision)) round += 1;
+        return [{ kind: 'panel', round, decision, result }];
+      }
+      return /^review/iu.test(phase) ? [{ kind: 'hand-off', decision, result }] : [];
+    });
+}
+
+function reviewRounds(rows) {
+  const rounds = Map.groupBy(rows, (row) => (row.kind === 'panel' ? row.round : row.kind));
+  return [...rounds.values()].map((list) => ({
+    kind: list[0].kind,
+    round: list[0].round,
+    seats: list.find((row) => SEATS.test(row.decision))?.decision.replace(SEATS, '') ?? '',
+    findings: list.filter((row) => !SEATS.test(row.decision)).sort((a, b) => severity(a) - severity(b)),
+  }));
 }
 
 const finished = (status) => stateOf(status) === 'done';
@@ -683,8 +704,7 @@ function page(planPath, { folded = false } = {}) {
     const body =
       path === focusEntry?.path
         ? ''
-        : shown.map((section) => `<h3>${inline(section.title)}</h3>${blocksHtml(section.lines)}`).join('') +
-          (open ? `<p><code>${escapeHtml(`$cross-review ${relative(root, path)}`)}</code></p>` : '');
+        : shown.map((section) => `<h3>${inline(section.title)}</h3>${blocksHtml(section.lines)}`).join('');
     return body
       ? `<details class="iteration"${open ? ' open' : ''}><summary>${head}</summary>${body}</details>`
       : `<p class="iteration">${head}</p>`;
@@ -704,14 +724,32 @@ function page(planPath, { folded = false } = {}) {
       }
     }
   }
-  const reviews = own ? reviewRows(delta ? focusEntry.path : planPath) : [];
-  const reviewList = reviews.length
-    ? `<section class="plan"><h2>Review edits <span class="count">${reviews.length}</span></h2><ul>${reviews
-        .map(
-          (row) =>
-            `<li>${inline(row.decision)}${row.result ? ` <span class="count">${inline(row.result)}</span>` : ''}</li>`
-        )
-        .join('')}</ul></section>`
+  const reviewed = (doc === plan ? [{ path: planPath, plan }] : iterations)
+    .map((entry) => ({ entry, rounds: reviewRounds(reviewRows(entry.path)) }))
+    .filter(({ rounds }) => rounds.length);
+  const tagged = reviewed.find(({ entry }) => entry.path === (pageEntry ?? { path: planPath }).path) ?? reviewed[0];
+  const latest = tagged?.rounds.findLast((entry) => entry.kind === 'panel');
+  const taggedTitle = doc !== plan && tagged && tagged.entry.path !== pageEntry?.path ? ` for ${inline(tagged.entry.plan.title || basename(tagged.entry.path, '.md'))}` : '';
+  const reviewTag = latest
+    ? `<span>Review round <strong>${latest.round}</strong>${taggedTitle}${latest.seats ? ` <code>${escapeHtml(latest.seats)}</code>` : ''}</span>`
+    : '';
+  const roundsHtml = (rounds, heading) =>
+    rounds
+      .map(
+        (entry) =>
+          `<${heading}>${entry.kind === 'panel' ? `Round ${entry.round}` : 'Hand-off review'}${entry.seats ? ` <span class="count">${escapeHtml(entry.seats)}</span>` : ''}</${heading}><ul>${entry.findings
+            .map((row) => `<li>${inline(row.decision)}${row.result ? ` <span class="count">${inline(row.result)}</span>` : ''}</li>`)
+            .join('')}</ul>`
+      )
+      .join('');
+  const reviewHistory = reviewed.length
+    ? `<section class="plan"><h2>Review history</h2>${
+        doc === plan
+          ? roundsHtml(reviewed[0].rounds, 'h3')
+          : reviewed
+              .map(({ entry, rounds }) => `<h3>${inline(entry.plan.title || basename(entry.path, '.md'))}</h3>${roundsHtml(rounds, 'h4')}`)
+              .join('')
+      }</section>`
     : '';
   const updated = new Date(
     Math.max(...[planPath, ...iterations.map((entry) => entry.path), subjectPath].filter(Boolean).map((path) => statSync(path).mtimeMs))
@@ -719,7 +757,6 @@ function page(planPath, { folded = false } = {}) {
     .toISOString()
     .slice(0, 16)
     .replace('T', ' ');
-  const handOff = `$cross-review ${pageEntry ? relative(root, pageEntry.path) : repoPath}`;
   const shownStatus = pageEntry?.plan.meta.status ?? status;
   const title = escapeHtml(doc.title || basename(planPath, '.md'));
   const where = subjectPath ? relative(root, subjectPath) : repoPath;
@@ -759,8 +796,6 @@ h3, h4, h5 { font-size: 1rem; margin: 16px 0 4px; }
 .panel h2 { display: flex; gap: 10px; align-items: baseline; }
 .count { font-size: 0.8rem; color: var(--muted); font-weight: 500; }
 .quiet { color: var(--muted); margin: 0; }
-.handoff { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.handoff code { flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; padding: 8px 10px; }
 .question { display: grid; gap: 8px; margin: 0 0 18px; min-width: 0; }
 .question-text { margin: 0 0 2px; font-weight: 600; display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; max-width: none; }
 .chip { font: 600 0.72rem var(--sans); letter-spacing: 0.04em; text-transform: uppercase; color: var(--amber); background: var(--amber-soft); border-radius: 999px; padding: 2px 8px; }
@@ -842,8 +877,7 @@ details.iteration[open] > summary { margin-bottom: 6px; }
 <main>
   <header>
     <h1>${title}</h1>
-    <div class="meta"><span class="pill ${statusTone(shownStatus)}">${escapeHtml(shownStatus)}</span><code>${escapeHtml(where)}</code>${delta ? `<span>Plan <strong>${inline(focus.title || basename(focusEntry.path, '.md'))}</strong> <code>${escapeHtml(relative(root, focusEntry.path))}</code></span>` : ''}${hub ? `<span>History <code>${escapeHtml(hub)}</code></span>` : ''}<span>Updated ${updated} UTC</span></div>
-    <div class="handoff"><code id="handoff">${escapeHtml(handOff)}</code><button id="copy" type="button">Copy</button></div>
+    <div class="meta"><span class="pill ${statusTone(shownStatus)}">${escapeHtml(shownStatus)}</span><code>${escapeHtml(where)}</code>${delta ? `<span>Plan <strong>${inline(focus.title || basename(focusEntry.path, '.md'))}</strong> <code>${escapeHtml(relative(root, focusEntry.path))}</code></span>` : ''}${hub ? `<span>History <code>${escapeHtml(hub)}</code></span>` : ''}${reviewTag}<span>Updated ${updated} UTC</span></div>
   </header>
   ${needs ? `<section class="panel needs"><h2>Needs you</h2>${needsHtml(needs.lines)}</section>` : ''}
   ${delta && focus.lead.some((line) => line.trim()) ? `<section class="plan">${blocksHtml(focus.lead)}</section>` : ''}
@@ -861,35 +895,18 @@ details.iteration[open] > summary { margin-bottom: 6px; }
     .join('\n  ')}
   ${iterationList}
   ${
-    details.length || reviewList
+    details.length
       ? `<details class="details"><summary>Details: ${details
           .map((section) => escapeHtml(section.title.toLowerCase()))
-          .concat(reviewList ? ['review edits'] : [])
-          .join(', ')}</summary>${details
-          .map((section) => sectionHtml(section))
-          .join('')}${reviewList}</details>`
+          .join(', ')}</summary>${details.map((section) => sectionHtml(section)).join('')}</details>`
       : ''
   }
+  ${reviewHistory}
 </main>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <script>
 window.hljs?.highlightAll();
 document.querySelectorAll('.diff code').forEach((element) => window.hljs?.highlightElement(element));
-</script>
-<script>
-document.getElementById('copy').addEventListener('click', async (event) => {
-  const text = document.getElementById('handoff').textContent;
-  try {
-    await navigator.clipboard.writeText(text);
-    event.target.textContent = 'Copied';
-  } catch {
-    const range = document.createRange();
-    range.selectNodeContents(document.getElementById('handoff'));
-    getSelection().removeAllRanges();
-    getSelection().addRange(range);
-    event.target.textContent = 'Selected';
-  }
-});
 </script>
 <script>
 (() => {

@@ -9,7 +9,7 @@ The interview is the first step the user sees in a setup. Prepare it from eviden
    - commit style, merge and author counts, hooks and PR templates;
    - rules, installed skills with their sources, and pstack pins;
    - vendored pstack copies and skills orphaned by dotai cuts;
-   - the autoreview install, plan directories, a glossary and proof skills;
+   - plan directories, a glossary and proof skills;
    - every local skill or rule the user typed as `/name` or `$name`, over all history and the last seven days, and every skill added in the last two weeks (`recent`).
 2. Read the project's `AGENTS.md` in full, plus every workflow rule it routes work through, such as a task, patch, improve or maintain-workflow rule. Skim domain rules (framework, product, API law) only far enough to classify them.
 3. Classify each workflow rule, skill and hook as one of these.
@@ -32,7 +32,7 @@ The interview is the first step the user sees in a setup. Prepare it from eviden
 | 1 | How finished work lands | Push `<branch>` after each task. A PR into `<branch>` per change, from a topic branch. The user commits, and the agent leaves changes in the working tree. | Commit and PR rules in `AGENTS.md`; Stop hooks that stage paths; `merges90d`; `authors90d` | `delivery`, `branch`, `protected` |
 | 2 | Who owns engineering intake, asked only when a local controller exists (a task-like rule that owns intake, implementation and proof, a standing goal controller, an orchestrator) | poteto-mode owns intake and the controller is retired. The controller stays as a typed entry point that hands work to poteto-mode. The controller stays the owner and pstack skills are methods it selects. | The routing table in `AGENTS.md`; `typed.counts` for the controller | Adaptation only |
 | 3 | Tests | The shared Tests rule: pstack's test-first bug fixes without redundant tests. Keep the project's test rule. | The project's test rule, quoted | `skip: ["tests"]` |
-| 4 | Review | autoreview on high-risk changes, with categories drafted from the codebase (auth or access, data writes, migrations, payments, customer sends, public API, releases). Only when the user asks. Never. Either of the first two can add a review before every PR. | Existing review rules; the autoreview install source | `risk`, `reviewPr`, `skip: ["review"]` |
+| 4 | Review | A panel review, `/pstack:interrogate` with Opus and Codex seats, on high-risk changes, with categories drafted from the codebase (auth or access, data writes, migrations, payments, customer sends, public API, releases). Only when the user asks. Never. Either of the first two can add a review before every PR. | Existing review rules | `risk`, `reviewPr`, `skip: ["review"]` |
 | 5 | Plans and trails | The shared plan and decision-log rules in `<plans dir>`. Keep the project's plan system. | `plans` from discover; the project's plan rules | `plans`, `skip: ["plans"]` |
 | 6 | Long runs | pstack's Autonomous run with `/loop` in Claude Code and `/goal` in Codex. Keep the project's goal controller, such as a standing autogoal request. | Goal and pause rules in `AGENTS.md` | `skip: ["long-runs"]` |
 | 7 | Commit and PR text, asked when the commit style or a PR template conflicts with the shared shape | The shared Conventional Commits and PR sections, with the template rewritten to match. The project's own convention. | `conventionalCommits` and `prTemplates` from discover, with the template's sections | `skip: ["commits"]` |
@@ -50,12 +50,12 @@ The owner settled these for every project. Report them as applied.
 
 - The lead writes the code; subagents research, review and fan out read-only.
 - Messages to another person need explicit authorization, and a "can we X?" question gets a proposal, not the action. Spending a shared resource, or widening an access grant, needs a go-ahead per target.
-- Claude Code runs every pstack role on Opus; Codex roles inherit the session model.
+- Claude Code runs every pstack role on Opus except Codex panel seats; Codex roles inherit the session model.
 - No per-delegate worktrees.
-- autoreview runs through Codex `gpt-6.1-sol` at high effort, with P1 as the blocking ceiling.
+- Panels seat Opus, `codex:gpt-6-astra @high` and `codex:gpt-6.1-sol @xhigh`, read-only through `cross.mjs`, and a critical finding is the blocking ceiling.
 - Principles are read, not named in replies.
 - One writing pass per kind of change, with `deslop` and `no-comments` before any review.
-- A same-family, fresh-context reviewer for decision trails.
+- A `codex:gpt-6.1-sol @xhigh` seat reviews decision trails from Claude Code, and an Opus seat from Codex.
 - The blocked budget, and the todo list and close discipline.
 - Production deploys and releases need an explicit request.
 - The plugin pin follows the latest upstream tag.
@@ -91,8 +91,8 @@ Write `.agents/pstack.json`. The script adds `synced` on the first apply. This e
 | `lintFix` | The last check a completed task runs. Required. |
 | `check` | The broad check for a settled change, used by the Tests and Commit rules. Required. |
 | `plans` | The directory for plans and decision logs, used by the Plans rule and its helpers. Required unless `plans` is skipped. |
-| `risk` | The high-risk categories that trigger autoreview. Empty means review only when asked. |
-| `reviewPr` | `true` to also run autoreview before opening any PR. Optional. |
+| `risk` | The high-risk categories that trigger the panel review beyond big work. Empty means only big work and the user's asks get one. |
+| `reviewPr` | `true` to also run the panel review before opening any PR. Optional. |
 | `proof` | The project's proof skill: pstack's driver skill for reproducing and verifying, and the replacement for its swarm lanes. Optional. |
 | `glossary` | A glossary file whose words agents use. Optional. |
 | `skiller` | `true` when the project generates skills from `.agents/rules` with skiller. Optional. |
@@ -101,7 +101,7 @@ Write `.agents/pstack.json`. The script adds `synced` on the first apply. This e
 | `pageLead` | Section titles the project's own skills write into plans, rendered by `plan-page.mjs` right after Public API in this order, such as an editor comparison. Not set by the interview; the owning skill's project adds it. Optional. |
 | `pagePairs` | Section titles, beyond Public API, that `plan-page.mjs` refuses to render unless each `before` fence is followed directly by its `after` fence, such as a stored document shape. Optional. |
 | `pageTopic` | `{ "field": "<frontmatter list>", "hub": "<path with {topic}>" }`: a plan without a `Topic:` line takes its subject from the first entry of that list, and the page links the subject's history at `hub`; `require` lists sections a subject must carry when its hub exists, such as an editor comparison for every ledger scope. For a project whose plans already name a ledger scope. Optional. |
-| `bigWork` | What else counts as big work in this project and earns the cross-model hand-off, beyond public API, architecture, high-risk and long-run work, naming concrete places, such as "a change to a package export or a review_scopes ledger decision, or a plan with more than one phase". Optional. |
+| `bigWork` | What else counts as big work in this project and earns the panel review, beyond public API, architecture, high-risk and long-run work, naming concrete places, such as "a change to a package export or a review_scopes ledger decision, or a plan with more than one phase". Optional. |
 | `skip` | Block sections the project keeps as its own rule: `tests`, `review`, `plans`, `long-runs`, `commits`. |
 
 Answers to questions 2 and 8 have no field. Carry them into the adaptation and the setup summary.
