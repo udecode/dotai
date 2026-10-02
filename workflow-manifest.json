@@ -85,7 +85,7 @@
     {
       "name": "sync-pstack",
       "distribution": "bundled",
-      "description": "Set up the pstack plugin in a project through an interview, and keep every pstack project on one pinned tag and one shared AGENTS.md overrides block. Use to set up or install pstack in a repo, sync, bump or update pstack everywhere, list which projects use pstack or have drifted, compare setups, or move a workflow lesson into every project. Not for choosing pstack's per-role models, which setup-pstack owns.",
+      "description": "Set up the pstack plugin in a project through an interview, and keep every pstack project on one pinned tag and one shared AGENTS.md overrides block. Use to set up or install pstack in a repo, sync, bump or update pstack everywhere, list which projects use pstack or have drifted, compare setups, move a workflow lesson into every project, or change the plan page shape. Not for choosing pstack's per-role models, which setup-pstack owns.",
       "category": "Maintenance",
       "dependencies": [],
       "capabilities": [
@@ -122,7 +122,7 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "1174a311ad570bd027518459c29827b3278c0dda66be992a82cefc3dda9c581d",
+      "sha256": "e869ccf364aba827f9ad216bd227de90effd342a013b8b610241f0c15bfa7f7a",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
@@ -226,7 +226,7 @@
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
-      "sha256": "e5f161911ec79f4c2df0b513b966517f1863c8074b561a86f2c6ea62d8701742",
+      "sha256": "020671199aba215775163372905ac063fcf17cdd7c9e74c8cb86ccc02991092f",
       "mode": 420
     },
     "skills/sync-pstack/agents/openai.yaml": {
@@ -234,7 +234,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "b6d9e729ad50605e553c97a1ef86dc3ee4ef4a5d2f1ac4a87e5aea34fa06a590",
+      "sha256": "2245dfdd2b7408030b5c8ab4986c50c6212892b4dd4945f3137ba52894d0e934",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/cross.mjs": {
@@ -249,20 +249,24 @@
       "sha256": "521d308341c5d383a6a4dd88a13799cb6644a27cd0bf6166800c68e9c585d45c",
       "mode": 420
     },
+    "skills/sync-pstack/assets/pstack/plan-page.mjs": {
+      "sha256": "56c4865e16045d3b5745c71b72e428ef4e31d9369a2decb51917ffe8d99e0b2b",
+      "mode": 420
+    },
     "skills/sync-pstack/references/adapt.md": {
       "sha256": "b4718092276f1e4a8f10348473d077b3d9461a08d3d597c5f2e38e53267b9bbf",
       "mode": 420
     },
     "skills/sync-pstack/references/interview.md": {
-      "sha256": "4fe1f9e6827bde5eda1ef2fae8dceffd83f3ca41ad00bb915f6131fac98aefd7",
+      "sha256": "e96335305f9026be878bec5523a153060cd52e40584780c8524d11dfdeabbc93",
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.mjs": {
-      "sha256": "aeda7e12478a82ac4de79260ca7a2705b254f2a5c1341fae3894627f91af6a37",
+      "sha256": "7d143939cd28ff537513f9e7cf65aa50f3645c92ddae874459b857312d784a45",
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "0e6c7bfe78b797d73fbafedda27d66ecc6ab17314345b9df2dc39e2771346d6f",
+      "sha256": "2a53d3add92bd688b4702bd6686b5a6453c461fb6a3c96fd33957e3bd899391b",
       "mode": 420
     },
     "skills/video-transcripts/SKILL.md": {

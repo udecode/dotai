@@ -566,6 +566,54 @@ test('plan-open reads a checkbox nested in a numbered step', () => {
   assert.match(result.stderr, /^1 open item\(s\):\nplan\.md:4: 2\. - \[ \] \*\*Ship\.\*\*$/m);
 });
 
+test("plan-page renders the project's pageLead sections right after Public API", () => {
+  const { dir, run } = sandbox();
+  const plan = '# Plan\n\nStatus: planning\n\n## Main changes\n\n- Moves the owner.\n\n## What other editors do\n\n- Lexical keeps it in the node.\n\n## Public API\n\n```ts before\nold()\n```\n\n```ts after\nnext()\n```\n';
+  const root = project(dir, 'app', { config: { pageLead: ['What other editors do'] }, files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const html = read(root, 'docs/plans/artifacts/plan.html');
+  const at = (title) => html.indexOf(`<h2>${title}</h2>`);
+  assert.ok(at('Public API') < at('What other editors do') && at('What other editors do') < at('Main changes'));
+});
+
+test('plan-page refuses a before fence that prose separates from its after fence', () => {
+  const { dir, run } = sandbox();
+  const plan = '# Plan\n\nStatus: done\n\n## Public API\n\n```ts before\nold()\n```\n\nIt now takes a type.\n\n```ts after\nnext()\n```\n';
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Public API needs each before fence followed directly by its after fence/);
+});
+
+test('plan-page checks pairs in a project section only when pagePairs names it', () => {
+  const { dir, run } = sandbox();
+  const plan = '# Plan\n\nStatus: done\n\n## Document shape\n\n- A signed document keeps its template id.\n';
+  const plain = project(dir, 'plain', { files: { 'docs/plans/plan.md': plan } });
+  assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], plain).status, 0);
+  const paired = project(dir, 'paired', { config: { pagePairs: ['Document shape'] }, files: { 'docs/plans/plan.md': plan } });
+  assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], paired).status, 1);
+});
+
+test('plan-page renders a short-dash table and a stray pipe line instead of hanging', () => {
+  const { dir } = sandbox();
+  const plan = '# Plan\n\nStatus: done\n\n## Notes\n\n| # | Pass |\n| -: | --- |\n| 1 | ground |\n\n| a pipe that starts no table\n';
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = spawnSync(process.execPath, ['--max-old-space-size=64', join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], { cwd: root, encoding: 'utf8', timeout: 10000 });
+  assert.equal(result.status, 0, result.error?.message ?? result.stderr);
+  const html = read(root, 'docs/plans/artifacts/plan.html');
+  assert.match(html, /<td>ground<\/td>/);
+  assert.match(html, /a pipe that starts no table/);
+});
+
+test('plan-page refuses a Public API section without a before and after pair', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': '# Plan\n\nStatus: done\n\n## Public API\n\n- `editor.tf.toggle` now takes a block type.\n' } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Public API needs each before fence followed directly by its after fence/);
+});
+
 test('plan-open fails a gate row that leaves Applies, evidence or another column pending', () => {
   const { dir, run } = sandbox();
   const plan = '# Plan\n\nCompletion Gates:\n| Gate | Applies | Required action | Evidence |\n|---|---|---|---|\n| Package proof | yes | Run the package proof | `bun test ./a.test.ts` passed |\n| Scale proof | pending | Run the probe | pending |\n';

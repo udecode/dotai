@@ -98,6 +98,8 @@ Write `.agents/pstack.json`. The script adds `synced` on the first apply. This e
 | `skiller` | `true` when the project generates skills from `.agents/rules` with skiller. Optional. |
 | `regen` | The project's command that regenerates skills from rules when `bunx skiller@latest apply` alone is not enough, such as `pnpm install` when a prepare script also syncs rule resources. Optional; used only with `skiller`. |
 | `dropped` | Typed commands the owner chose to drop without an entry point; `verify` stops flagging them. Optional. |
+| `pageLead` | Section titles the project's own skills write into plans, rendered by `plan-page.mjs` right after Public API in this order, such as an editor comparison. Not set by the interview; the owning skill's project adds it. Optional. |
+| `pagePairs` | Section titles, beyond Public API, that `plan-page.mjs` refuses to render unless each `before` fence is followed directly by its `after` fence, such as a stored document shape. Optional. |
 | `skip` | Block sections the project keeps as its own rule: `tests`, `review`, `plans`, `long-runs`, `commits`. |
 
 Answers to questions 2 and 8 have no field. Carry them into the adaptation and the setup summary.

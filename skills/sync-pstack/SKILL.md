@@ -1,6 +1,6 @@
 ---
 name: sync-pstack
-description: "Set up the pstack plugin in a project through an interview, and keep every pstack project on one pinned tag and one shared AGENTS.md overrides block. Use to set up or install pstack in a repo, sync, bump or update pstack everywhere, list which projects use pstack or have drifted, compare setups, or move a workflow lesson into every project. Not for choosing pstack's per-role models, which setup-pstack owns."
+description: "Set up the pstack plugin in a project through an interview, and keep every pstack project on one pinned tag and one shared AGENTS.md overrides block. Use to set up or install pstack in a repo, sync, bump or update pstack everywhere, list which projects use pstack or have drifted, compare setups, move a workflow lesson into every project, or change the plan page shape. Not for choosing pstack's per-role models, which setup-pstack owns."
 metadata:
   source: udecode/dotai
   source-path: skills/sync-pstack
@@ -85,7 +85,7 @@ Run `status`. For each unmanaged project that uses pstack, read its instructions
 
 ## Lesson
 
-A lesson from `/pstack:reflect`, or a correction in one project, changes the shared layer only when it holds for every project. A lesson for one project goes outside that project's block.
+A lesson from `/pstack:reflect`, or a correction in one project, changes the shared layer only when it holds for every project. A lesson for one project goes outside that project's block. A change to the plan page shape is a lesson on `assets/pstack/plan-page.mjs`: render one real plan from each managed project before and after, and publish both so the owner compares them. A section only one project writes goes in that project's `pageLead`, never in the renderer.
 
 1. Edit `assets/block.md` or a helper in the dotai checkout. Keep project names, paths and commands out. A value that differs per project becomes a config field and a placeholder. Prefer an optional field used inside `<!-- if key -->`, because a new required field fails the render for every config that lacks it until the interview adds it.
 2. Preview with `apply <project> --dry-run` on each managed project. A helper or check change also runs the old and new copies over every artifact it judges in each managed project and diffs the failures, runs on each template filled to the state it gates so it can pass, and runs on one known-bad input so it can fail. The commit body gives the newly failing count per project.
