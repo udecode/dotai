@@ -60,7 +60,7 @@ Change only the projects the request names, or every managed project when it ask
 5. **Apply.** Run `apply <project> --dry-run`, read the diff, then run `apply <project>`.
 6. **Verify.**
    - `discover` reports no vendored copies, and `status <project>` shows the user pins at the tag. Otherwise run `user-pin` and its commands.
-   - Smoke-test both runtimes with `smoke <project> "<prompt>"`, using a plain request that names a real feature: "Fake task, do not edit anything or run commands that write: <feature> resets after <action>. Walk me through what you would do, in order, in at most six short lines, ending with how the finished work lands." Judge the route from the plan each runtime writes. Expect poteto-mode's Bug fix playbook (and the project playbook that extends it), no worktree, and the delivery answer. Ask which model subagents run on in a second prompt. Never name the playbook, the stop or the step in the prompt, because then the run proves lookup, not routing. The runs fire the project's hooks, so a Stop hook that stages files stages the setup's changes too.
+   - Smoke-test both runtimes with `smoke <project> "<prompt>"`, using a plain request that names a real feature: "Fake task, do not edit anything or run commands that write: <feature> resets after <action>. Walk me through what you would do, in order, in at most ten short lines: first the todo items you would open, then how the finished work lands." Judge what each runtime would do, not only which playbook it names. Check first that the fixture is in the state the prompt implies, for example that a plan you say is approved is not Done. Expect poteto-mode's Bug fix playbook (and the project playbook that extends it), no worktree, and the delivery answer. A difference between the runtimes, or a conflict an answer flags, is a failure: fix it and smoke the failing runtime again. Ask which model subagents run on in a second prompt. Never name the playbook, the stop or the step in the prompt, because then the run proves lookup, not routing. The runs fire the project's hooks, so a Stop hook that stages files stages the setup's changes too.
    - Run the project's `lintFix` over the changed code files, then run `verify <project>` last, so a cut typed command, a dead link, a retired name, a coupled public skill or a formatter rewrite of a synced file shows up now. Fix every problem it lists before delivering.
 7. **Deliver** by the project's delivery answer. When it commits, the commit body says which runtimes and people gain or lose what; in `user` mode the reply says it, for the owner's commit. Close with the answers, the settled defaults applied, the skills removed and kept, and the verification output.
 
@@ -76,7 +76,7 @@ Change only the projects the request names, or every managed project when it ask
    - **pstack anchors.** pstack at the new tag no longer has text the block or a project playbook builds on, and the refusal shows pstack's diff. Rewrite the override through Lesson, or the playbook's change in its project, against the new text, then rerun. Drop the change when upstream now does what it did.
    - **Error.** A config the template cannot render. Fix the config, then rerun that project.
 5. Run `user-pin --tag <tag>`, then the printed commands from the home directory. Codex asks to trust the pstack hook again when its file changed.
-6. Verify each synced project with `verify`, and smoke-test one project per delivery mode in use.
+6. Verify each synced project with `verify`, and smoke-test one project per delivery mode in use, judged as in Setup step 6. Smoke one plain prompt for each playbook whose `when` or steps changed and one for each cut entry point, not a fixed set.
 7. Deliver each project on its branch by its own delivery answer, committing only the files the sync wrote. A `push` project commits and pushes the sync, a `user` project leaves the change for its owner, and a `pr` project opens a PR.
 
 ## Compare
@@ -88,9 +88,9 @@ Run `status`. For each unmanaged project that uses pstack, read its instructions
 A lesson from `/pstack:reflect`, or a correction in one project, changes the shared layer only when it holds for every project. A lesson for one project goes outside that project's block.
 
 1. Edit `assets/block.md` or a helper in the dotai checkout. Keep project names, paths and commands out. A value that differs per project becomes a config field and a placeholder. Prefer an optional field used inside `<!-- if key -->`, because a new required field fails the render for every config that lacks it until the interview adds it.
-2. Preview with `apply <project> --dry-run` on each managed project.
+2. Preview with `apply <project> --dry-run` on each managed project. A helper or check change also runs the old and new copies over every artifact it judges in each managed project and diffs the failures, runs on each template filled to the state it gates so it can pass, and runs on one known-bad input so it can fail. The commit body gives the newly failing count per project.
 3. In dotai, run `node --test skills/sync-pstack/scripts/sync-pstack.test.mjs`, `scripts/validate-skills` and `node scripts/build-workflow.mjs`, then commit and push by dotai's rules.
-4. Sync the projects the request covers.
+4. Sync the projects the request covers, then run Sync steps 6 and 7 for each of them, so every project gets `verify` and every delivery mode gets a smoke before its delivery.
 
 ## Project playbooks
 
@@ -100,7 +100,7 @@ A project adds its lifecycle on top of pstack's playbooks instead of in skills o
 - Changes as list items that start with `**After**`, `**Before**`, `**Replace**` or `**In**` and a quoted run of the pstack step's own words, such as `- **After** "Reproduce it yourself": …`. Quote enough words to name one step; the check collapses whitespace before it matches, and fails a change that uses one of these verbs without a straight-quoted run. An item without one of these verbs adds a step where it says.
 - Its stop points, when it stops where the pstack playbook does not.
 
-`**In**` adds work inside a step, `**Replace**` swaps a step the project has already settled, and `**Before**` runs ahead of the step, so a change that implements belongs **In** the base's implementation step, never **Before** a design or pin step. The anchor check matches text, not order. After each edit, run `playbook <project> <name>`, which prints every base's steps with the changes applied in order, and read it. A playbook that extends two bases restates each change for each base.
+`**In**` adds work inside a step, `**Replace**` swaps a step the project has already settled, and `**Before**` runs ahead of the step, so a change that implements belongs **In** the base's implementation step, never **Before** a design or pin step. `**In**`, `**Before**` and `**After**` add lines and keep every word of the base step, so a step whose words contradict the block or a project rule (delegate, commit, snapshot, an extra writing pass) needs `**Replace**`. A rule that limits later steps, such as who may commit, push or reply, goes `**Before**` the first step it limits, because agents copy the rendered steps into their todo list in order. The anchor check matches text, not order. After each edit, run `playbook <project> <name>`, which prints every base's steps with the changes applied in order, and read it. A playbook that extends two bases restates each change for each base.
 
 Keep project knowledge in skills and the project's rules; a playbook only orders the work. A typed command that used to run the lifecycle stays as an entry point that names the playbook.
 
@@ -112,7 +112,7 @@ Keep project knowledge in skills and the project's rules; a playbook only orders
 - `<!-- section id -->` opens a region that is dropped when the config lists `id` under `skip`.
 - `<!-- end -->` closes the innermost region. Regions nest.
 - `{{key}}` inserts a config value. A rendered line whose value is missing fails the render, and so does a `skip` entry that names no section.
-- A line starting with `<!-- #` is a template note and never renders. A note `<!-- # overrides <path> "<text>" -->` names pstack text the next override replaces, with `<path>` relative to pstack's `plugins/pstack/skills/`; `apply --tag` and `verify` fail when that text is gone.
+- A line starting with `<!-- #` is a template note and never renders. A note `<!-- # overrides <path> "<text>" -->` names pstack text the next override replaces, with `<path>` relative to pstack's `plugins/pstack/skills/`; `apply --tag` and `verify` fail when that text is gone. An override carries one note per pstack step it replaces, so widening its scope adds a note for every step it newly covers.
 - An indented line continues the list item above it, so a conditional sentence can join a rule.
 
 ## Boundaries
