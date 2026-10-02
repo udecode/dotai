@@ -553,11 +553,16 @@ blockquote { margin: 0 0 10px; padding-left: 12px; border-left: 3px solid var(--
 a { color: var(--accent); }
 .box { display: inline-block; width: 0.85em; height: 0.85em; border: 1.5px solid var(--muted); border-radius: 3px; margin-right: 8px; vertical-align: -0.08em; }
 .box.done { background: var(--green); border-color: var(--green); }
-.compare { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 6px 0 14px; }
+.compare { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin: 6px 0 14px; }
+.compare > div:first-child pre { border-left: 3px solid var(--red, #a3352b); }
+.compare > div:last-child pre { border-left: 3px solid var(--green); }
 .compare > div { min-width: 0; display: grid; gap: 4px; align-content: start; }
 .compare .scroll { margin: 0; }
 .side { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-@media (max-width: 640px) { .compare { grid-template-columns: minmax(0, 1fr); } }
+@media (min-width: 1280px) {
+  main > :has(.compare) { box-sizing: border-box; width: min(1200px, calc(100vw - 64px)); justify-self: center; }
+  .compare { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .details { border-top: 1px solid var(--rule); padding-top: 14px; display: grid; gap: 20px; }
 .details > summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; }
 .iteration { margin: 8px 0; }
