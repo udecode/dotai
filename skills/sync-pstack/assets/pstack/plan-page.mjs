@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// Writes artifacts/<plan name>.html beside the plan and prints its path.
 // Installed by the sync-pstack skill.
 // Usage: node .agents/pstack/plan-page.mjs <plan.md>
 
@@ -7,6 +6,7 @@ import { execFileSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   statSync,
   writeFileSync,
@@ -40,7 +40,21 @@ function pageConfig(root) {
   return {
     lead: titles(config, 'pageLead'),
     pairs: ['public api', ...titles(config, 'pagePairs')],
+    topic: config.pageTopic ?? {},
   };
+}
+
+function subjectOf(plan, topic) {
+  if (plan.fields.topic) return plan.fields.topic;
+  return topic.field ? (plan.lists[topic.field.toLowerCase()]?.[0] ?? null) : null;
+}
+
+function iterationsOf(plansDir, subject, topic) {
+  return readdirSync(plansDir)
+    .filter((name) => name.endsWith('.md'))
+    .map((name) => ({ path: join(plansDir, name), plan: parsePlan(readFileSync(join(plansDir, name), 'utf-8')) }))
+    .filter(({ plan }) => subjectOf(plan, topic) === subject)
+    .sort((a, b) => basename(b.path).localeCompare(basename(a.path)));
 }
 
 function fencePairs(lines) {
@@ -275,13 +289,22 @@ function blocksHtml(lines) {
 
 function parsePlan(source) {
   const meta = {};
+  const fields = {};
+  const lists = {};
   let lines = source.split('\n');
   if (lines[0] === '---') {
     const end = lines.indexOf('---', 1);
+    let key = null;
     for (const line of lines.slice(1, end)) {
       const pair = line.match(/^([\w-]+):\s*(.*)$/);
+      const item = line.match(/^\s+-\s+(.*)$/);
       if (pair) {
-        meta[pair[1].toLowerCase()] = pair[2].replace(/^["']|["']$/g, '');
+        key = pair[1].toLowerCase();
+        meta[key] = pair[2].replace(/^["']|["']$/g, '');
+        const inline = pair[2].match(/^\[(.*)\]$/);
+        lists[key] = inline ? inline[1].split(',').map((entry) => entry.trim()).filter(Boolean) : [];
+      } else if (item && key) {
+        lists[key].push(item[1].trim());
       }
     }
     lines = lines.slice(end + 1);
@@ -290,9 +313,10 @@ function parsePlan(source) {
   const lead = [];
   const sections = [];
   for (const line of lines) {
-    const field = line.match(/^(Status|Page):\s*(.*)$/);
+    const field = line.match(/^(Status|Page|Topic):\s*(.*)$/);
     if (field && sections.length === 0) {
       meta[field[1].toLowerCase()] = field[2].trim();
+      fields[field[1].toLowerCase()] = field[2].trim();
       continue;
     }
     if (!title && /^#\s+/.test(line)) {
@@ -303,7 +327,7 @@ function parsePlan(source) {
     if (heading) sections.push({ title: heading[1].trim(), lines: [] });
     else (sections.at(-1)?.lines ?? lead).push(line);
   }
-  return { meta, title, lead, sections };
+  return { meta, fields, lists, title, lead, sections };
 }
 
 function reviewRows(planPath) {
@@ -332,16 +356,58 @@ function page(planPath) {
   }).trim();
   const repoPath = relative(root, planPath);
   const status = plan.meta.status ?? 'unknown';
-  const { lead, pairs } = pageConfig(root);
+  const { lead, pairs, topic } = pageConfig(root);
+  const plansDir = dirname(planPath);
+  let subject = subjectOf(plan, topic);
+  const missing = subject && !existsSync(join(plansDir, 'topics', `${subject}.md`));
+  if (missing) {
+    const hint = `create ${relative(root, join(plansDir, 'topics', `${subject}.md`))} with a # title and its ## Main changes; the first publish adds its Page: line`;
+    if (plan.fields.topic) throw new Error(`${repoPath} belongs to topic ${subject}; ${hint}`);
+    console.error(`${repoPath} renders its own page until its subject has a file: ${hint}`);
+    subject = null;
+  }
+  const subjectPath = subject && join(plansDir, 'topics', `${subject}.md`);
+  const doc = subjectPath ? parsePlan(readFileSync(subjectPath, 'utf-8')) : plan;
+  const iterations = subject ? iterationsOf(plansDir, subject, topic) : [];
   assertPairs(plan.sections, pairs);
+  if (doc !== plan) assertPairs(doc.sections, pairs);
   const hasContent = (section) => section?.lines.some((line) => line.trim());
-  const byRole = (role) =>
-    plan.sections.filter(
+  const byRole = (role, source = doc) =>
+    source.sections.filter(
       (section) => roleOf(section, lead) === role && hasContent(section)
     );
   const sectionHtml = (section, className = 'plan') =>
     `<section class="${className}"><h2>${inline(section.title)}</h2>${blocksHtml(section.lines)}</section>`;
-  const [needs] = byRole('needs');
+  const [needs] = byRole('needs', plan);
+  const iterationHtml = ({ path, plan: iteration }) => {
+    const iterationStatus = iteration.meta.status ?? 'unknown';
+    const open = statusTone(iterationStatus) !== 'done' && path !== planPath;
+    const shown = iteration.sections.filter(
+      (section) =>
+        hasContent(section) &&
+        (/^main changes$/i.test(section.title) ||
+          (open && /^(open questions|defaults)$/i.test(section.title)))
+    );
+    const head = `<span class="pill ${statusTone(iterationStatus)}">${escapeHtml(iterationStatus)}</span> <strong>${inline(iteration.title || basename(path, '.md'))}</strong> <code>${escapeHtml(relative(root, path))}</code>`;
+    const body =
+      shown.map((section) => `<h3>${inline(section.title)}</h3>${blocksHtml(section.lines)}`).join('') +
+      (open ? `<p><code>${escapeHtml(`$cross-review ${relative(root, path)}`)}</code></p>` : '');
+    return body
+      ? `<details class="iteration"${path === planPath || open ? ' open' : ''}><summary>${head}</summary>${body}</details>`
+      : `<p class="iteration">${head}</p>`;
+  };
+  const iterationList = iterations.length
+    ? `<section class="plan"><h2>Iterations <span class="count">${iterations.length}</span></h2>${iterations.map(iterationHtml).join('')}</section>`
+    : '';
+  const hubPath = subject && topic.hub ? topic.hub.replaceAll('{topic}', subject) : null;
+  const hub = hubPath && existsSync(join(root, hubPath)) ? hubPath : null;
+  if (hub) {
+    for (const required of titles(topic, 'require')) {
+      if (!doc.sections.some((section) => section.title.toLowerCase() === required && hasContent(section))) {
+        throw new Error(`${subject} needs ## ${topic.require.find((title) => title.toLowerCase() === required)} in ${relative(root, subjectPath)}, because it is a ledger scope`);
+      }
+    }
+  }
   const reviews = reviewRows(planPath);
   const reviewList = reviews.length
     ? `<section class="plan"><h2>Review edits <span class="count">${reviews.length}</span></h2><ul>${reviews
@@ -351,14 +417,17 @@ function page(planPath) {
         )
         .join('')}</ul></section>`
     : '';
-  const updated = new Date(statSync(planPath).mtimeMs)
+  const updated = new Date(
+    Math.max(statSync(planPath).mtimeMs, subjectPath ? statSync(subjectPath).mtimeMs : 0)
+  )
     .toISOString()
     .slice(0, 16)
     .replace('T', ' ');
   const handOff = `$cross-review ${repoPath}`;
-  const title = escapeHtml(plan.title || basename(planPath, '.md'));
+  const title = escapeHtml(doc.title || basename(planPath, '.md'));
+  const where = subjectPath ? relative(root, subjectPath) : repoPath;
 
-  return `<title>${title}</title>
+  const html = `<title>${title}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
@@ -420,6 +489,9 @@ a { color: var(--accent); }
 @media (max-width: 640px) { .compare { grid-template-columns: minmax(0, 1fr); } }
 .details { border-top: 1px solid var(--rule); padding-top: 14px; display: grid; gap: 20px; }
 .details > summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; }
+.iteration { margin: 8px 0; }
+details.iteration > summary { cursor: pointer; }
+details.iteration[open] > summary { margin-bottom: 6px; }
 .hljs-keyword, .hljs-built_in, .hljs-type { color: var(--kw); }
 .hljs-string, .hljs-regexp { color: var(--str); }
 .hljs-title, .hljs-title.function_, .hljs-title.class_ { color: var(--fn); }
@@ -430,13 +502,18 @@ a { color: var(--accent); }
 <main>
   <header>
     <h1>${title}</h1>
-    <div class="meta"><span class="pill ${statusTone(status)}">${escapeHtml(status)}</span><code>${escapeHtml(repoPath)}</code><span>Updated ${updated} UTC</span></div>
+    <div class="meta"><span class="pill ${statusTone(status)}">${escapeHtml(status)}</span><code>${escapeHtml(where)}</code>${hub ? `<span>History <code>${escapeHtml(hub)}</code></span>` : ''}<span>Updated ${updated} UTC</span></div>
     <div class="handoff"><code id="handoff">${escapeHtml(handOff)}</code><button id="copy" type="button">Copy</button></div>
   </header>
   ${needs ? `<section class="panel needs"><h2>Needs you</h2>${blocksHtml(needs.lines)}</section>` : ''}
   ${byRole('api')
     .map((section) => sectionHtml(section, 'panel'))
     .join('\n  ')}
+  ${doc !== plan && statusTone(status) !== 'done'
+    ? byRole('api', plan)
+        .map((section) => sectionHtml({ ...section, title: 'Public API proposed in this iteration' }, 'panel'))
+        .join('\n  ')
+    : ''}
   ${byRole('lead')
     .sort((a, b) => lead.indexOf(a.title.toLowerCase()) - lead.indexOf(b.title.toLowerCase()))
     .map((section) => sectionHtml(section, 'panel'))
@@ -444,19 +521,20 @@ a { color: var(--accent); }
   ${byRole('main')
     .map((section) => sectionHtml(section, 'panel'))
     .join('\n  ')}
-  ${byRole('picked')
+  ${byRole('picked', plan)
     .map((section) => sectionHtml({ ...section, title: 'Picked for you' }))
     .join('\n  ')}
-  ${plan.lead.some((line) => line.trim()) ? `<section class="plan">${blocksHtml(plan.lead)}</section>` : ''}
+  ${doc.lead.some((line) => line.trim()) ? `<section class="plan">${blocksHtml(doc.lead)}</section>` : ''}
   ${byRole('idea')
     .map((section) => sectionHtml(section))
     .join('\n  ')}
+  ${iterationList}
   ${
-    byRole('details').length || reviewList
-      ? `<details class="details"><summary>Details: ${byRole('details')
+    byRole('details', plan).length || reviewList
+      ? `<details class="details"><summary>Details: ${byRole('details', plan)
           .map((section) => escapeHtml(section.title.toLowerCase()))
           .concat(reviewList ? ['review edits'] : [])
-          .join(', ')}</summary>${byRole('details')
+          .join(', ')}</summary>${byRole('details', plan)
           .map((section) => sectionHtml(section))
           .join('')}${reviewList}</details>`
       : ''
@@ -482,6 +560,7 @@ document.getElementById('copy').addEventListener('click', async (event) => {
 });
 </script>
 `;
+  return { html, name: subject ? join('topics', subject) : basename(planPath, '.md') };
 }
 
 const planPath = process.argv[2] && resolve(process.argv[2]);
@@ -489,18 +568,14 @@ if (!planPath || !existsSync(planPath)) {
   console.error('Usage: node .agents/pstack/plan-page.mjs <plan.md>');
   process.exit(2);
 }
-const out = join(
-  dirname(planPath),
-  'artifacts',
-  `${basename(planPath, '.md')}.html`
-);
-let html;
+let rendered;
 try {
-  html = page(planPath);
+  rendered = page(planPath);
 } catch (error) {
   console.error(error.message);
   process.exit(1);
 }
+const out = join(dirname(planPath), 'artifacts', `${rendered.name}.html`);
 mkdirSync(dirname(out), { recursive: true });
-writeFileSync(out, html);
+writeFileSync(out, rendered.html);
 console.info(out);

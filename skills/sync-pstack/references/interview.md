@@ -100,6 +100,7 @@ Write `.agents/pstack.json`. The script adds `synced` on the first apply. This e
 | `dropped` | Typed commands the owner chose to drop without an entry point; `verify` stops flagging them. Optional. |
 | `pageLead` | Section titles the project's own skills write into plans, rendered by `plan-page.mjs` right after Public API in this order, such as an editor comparison. Not set by the interview; the owning skill's project adds it. Optional. |
 | `pagePairs` | Section titles, beyond Public API, that `plan-page.mjs` refuses to render unless each `before` fence is followed directly by its `after` fence, such as a stored document shape. Optional. |
+| `pageTopic` | `{ "field": "<frontmatter list>", "hub": "<path with {topic}>" }`: a plan without a `Topic:` line takes its subject from the first entry of that list, and the page links the subject's history at `hub`; `require` lists sections a subject must carry when its hub exists, such as an editor comparison for every ledger scope. For a project whose plans already name a ledger scope. Optional. |
 | `skip` | Block sections the project keeps as its own rule: `tests`, `review`, `plans`, `long-runs`, `commits`. |
 
 Answers to questions 2 and 8 have no field. Carry them into the adaptation and the setup summary.

@@ -606,6 +606,74 @@ test('plan-page renders a short-dash table and a stray pipe line instead of hang
   assert.match(html, /a pipe that starts no table/);
 });
 
+test('plan-page renders a topic plan as its subject page with every iteration, newest first', () => {
+  const { dir, run } = sandbox();
+  const topic = '# Workflow\n\nPage: https://example.test/page\n\n## Main changes\n\n- Pages follow subjects.\n';
+  const first = '# First pass\n\nStatus: done\nTopic: workflow\n\n## Main changes\n\n- Moved the renderer.\n';
+  const second = '# Second pass\n\nStatus: planning\nTopic: workflow\n\n## Open questions\n\n- Keep the old pages?\n';
+  const other = '# Unrelated\n\nStatus: done\n';
+  const root = project(dir, 'app', { files: { 'docs/plans/topics/workflow.md': topic, 'docs/plans/2026-01-01-first.md': first.replace('Status: done', 'Status: awaiting review'), 'docs/plans/2026-02-01-second.md': second, 'docs/plans/2026-01-15-other.md': other } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-02-01-second.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(result.stdout.trim().endsWith('docs/plans/artifacts/topics/workflow.html'), result.stdout);
+  const html = read(root, 'docs/plans/artifacts/topics/workflow.html');
+  assert.ok(html.includes('Pages follow subjects') && html.includes('Keep the old pages?'));
+  assert.ok(html.indexOf('Second pass') < html.indexOf('First pass'));
+  assert.ok(!html.includes('Unrelated'));
+  assert.ok(html.includes('$cross-review docs/plans/2026-01-01-first.md'));
+});
+
+test('plan-page keeps a scoped plan on its own page until its subject file exists', () => {
+  const { dir, run } = sandbox();
+  const plan = '---\nreview_scopes: [uploads]\n---\n# Upload drafts\n\nStatus: building\n';
+  const root = project(dir, 'app', { config: { pageTopic: { field: 'review_scopes' } }, files: { 'docs/plans/2026-01-01-drafts.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-drafts.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(result.stdout.trim().endsWith('docs/plans/artifacts/2026-01-01-drafts.html'), result.stdout);
+  assert.match(result.stderr, /create docs\/plans\/topics\/uploads\.md/);
+});
+
+test('plan-page takes the subject from the first entry of the configured frontmatter list', () => {
+  const { dir, run } = sandbox();
+  const plan = '---\nreview_scopes:\n  - dnd\n  - clipboard\n---\n# Transfer\n\nStatus: done\n';
+  const root = project(dir, 'app', { config: { pageTopic: { field: 'review_scopes' } }, files: { 'docs/plans/topics/dnd.md': '# Drag and drop\n', 'docs/plans/2026-01-01-transfer.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-transfer.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(read(root, 'docs/plans/artifacts/topics/dnd.html'), /Transfer/);
+});
+
+test('plan-page ignores a frontmatter topic field and keeps a legacy plan on its own page', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', { files: { 'docs/plans/2026-01-01-old.md': '---\ntopic: old-proof-plan\nstatus: blocked\n---\n# Old proof\n' } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-old.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(result.stdout.trim().endsWith('docs/plans/artifacts/2026-01-01-old.html'), result.stdout);
+});
+
+test('plan-page refuses a ledger-scope subject page that lacks a required section', () => {
+  const { dir, run } = sandbox();
+  const config = { pageTopic: { field: 'review_scopes', hub: 'docs/hubs/{topic}.md', require: ['What other editors do'] } };
+  const plan = '---\nreview_scopes: [dnd]\n---\n# Transfer\n\nStatus: done\n';
+  const files = { 'docs/hubs/dnd.md': '# Drag and drop\n', 'docs/plans/2026-01-01-transfer.md': plan, 'docs/plans/topics/dnd.md': '# Drag and drop\n\n## Main changes\n\n- One transfer action.\n' };
+  const root = project(dir, 'app', { config, files });
+  const refused = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-transfer.md'], root);
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /dnd needs ## What other editors do/);
+  writeFileSync(join(root, 'docs/plans/topics/dnd.md'), files['docs/plans/topics/dnd.md'] + '\n## What other editors do\n\n- Lexical keeps drag in the view.\n');
+  assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-transfer.md'], root).status, 0);
+  writeFileSync(join(root, 'docs/plans/topics/workflow.md'), '# Workflow\n\n## Main changes\n\n- Pages follow subjects.\n');
+  writeFileSync(join(root, 'docs/plans/2026-01-02-pass.md'), '# Pass\n\nStatus: planning\nTopic: workflow\n');
+  assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-02-pass.md'], root).status, 0);
+});
+
+test('plan-page names the subject file to create when a topic has none', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', { files: { 'docs/plans/2026-01-01-pass.md': '# Pass\n\nStatus: planning\nTopic: workflow\n' } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-pass.md'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /create docs\/plans\/topics\/workflow\.md/);
+});
+
 test('plan-page refuses a Public API section without a before and after pair', () => {
   const { dir, run } = sandbox();
   const root = project(dir, 'app', { files: { 'docs/plans/plan.md': '# Plan\n\nStatus: done\n\n## Public API\n\n- `editor.tf.toggle` now takes a block type.\n' } });

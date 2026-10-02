@@ -10,7 +10,7 @@ metadata:
 
 # Cross review
 
-Review $ARGUMENTS. Edit nothing but a plan in planning and its decision log. Never stage, commit or push, and never comment on a PR or message anyone.
+Review $ARGUMENTS. Edit nothing but a plan in planning, its decision log and its subject file. Never stage, commit or push, and never comment on a PR or message anyone.
 
 You are the second model on this work. The model that wrote it loses context over a long session, so check the work against what the user asked and what the files show, not against the plan's own account of itself.
 
@@ -26,9 +26,12 @@ It searches sessions from the last 30 days; `--days <n>` widens that. It prints 
 
 ## Pick the lane
 
+A plan that names a subject, through a `Topic: <slug>` line or the first entry of the frontmatter list the project's `.agents/pstack.json` names in `pageTopic.field`, has its cumulative Public API and review sections in `<plans dir>/topics/<slug>.md`. Read that subject file as part of the plan; it is what the owner reviews on the page.
+
+
 | What you have | Review |
 | --- | --- |
-| A plan whose `Status:` says planning | The plan against the user's asks; fix its gaps in the file |
+| A plan whose `Status:` says planning | The plan and its subject file against the user's asks; fix their gaps in the files |
 | A plan that is executing or done, or a session without a plan | The session's commits against the plan, if any, and the user's asks; findings only |
 | A PR | Its plan file, description and diff against the reasons in its plan; findings only |
 
