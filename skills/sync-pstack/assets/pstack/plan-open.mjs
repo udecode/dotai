@@ -6,11 +6,12 @@
 // or not the plan already says Done, because this is the gate before Done.
 // Installed by the sync-pstack skill.
 // Usage: node .agents/pstack/plan-open.mjs <plan.md> [...]
-//        node .agents/pstack/plan-open.mjs --done   (every plan whose status says Done)
+//        node .agents/pstack/plan-open.mjs --done   (every plan whose Status starts with a landed word, such as done or executed)
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { landed } from './status.mjs';
 
 const OPEN_BOX = /^\s*(?:(?:[-*+]|\d+\.)\s+)+\[ \]/u;
 const CLOSED_BOX = /^\s*(?:(?:[-*+]|\d+\.)\s+)+\[[xX]\]/u;
@@ -101,7 +102,7 @@ function donePlans() {
   return readdirSync(dir, { withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
     .map((entry) => join(dir, entry.name))
-    .filter((path) => /^Status:\s*\**Done/mu.test(readFileSync(path, 'utf8')));
+    .filter((path) => landed(readFileSync(path, 'utf8').match(/^Status:(.*)$/mu)?.[1] ?? ''));
 }
 
 const args = process.argv.slice(2);

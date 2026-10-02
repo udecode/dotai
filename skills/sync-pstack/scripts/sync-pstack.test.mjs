@@ -685,6 +685,143 @@ test('plan-page names the subject file to create when a topic has none', () => {
   assert.match(result.stderr, /create docs\/plans\/topics\/workflow\.md/);
 });
 
+const DELTA_TOPIC = '# Drag\n\n## Public API\n\n```ts\nold();\n```\n\n## Layer and owner\n\n| Change | Layer |\n| --- | --- |\n| Column landing | Plate |\n| Upload veto | Plate |\n';
+const DELTA_PLAN = '# Landing\n\nStatus: planning\nTopic: drag\n\n## Public API\n\n```ts before\nold();\n```\n\n```ts after\nnext();\n```\n\n## Layer and owner\n\n| Delta | Change | Layer |\n| --- | --- | --- |\n| added | Schema landing | Plite |\n| changed | Upload veto | Plite |\n| removed | Column landing | Plate |\n';
+const deltaProject = (dir, topic, plan) =>
+  project(dir, 'app', { config: { pageLead: ['Layer and owner'] }, files: { 'docs/plans/topics/drag.md': topic, 'docs/plans/2026-01-01-landing.md': plan } });
+
+test("plan-page leads an open plan's subject page with its marked rows and the rows they replace", () => {
+  const { dir, run } = sandbox();
+  const root = deltaProject(dir, DELTA_TOPIC, DELTA_PLAN);
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const html = read(root, 'docs/plans/artifacts/topics/drag.html');
+  assert.match(html, /<tr class="added">.*?<td>Schema landing<\/td>/);
+  assert.match(html, /<tr class="changed">.*?<td>Plite<\/td><\/tr><tr class="was">.*?<td>Upload veto<\/td><td>Plate<\/td>/);
+  assert.match(html, /<tr class="removed">.*?<td>Column landing<\/td>/);
+});
+
+test('plan-page refuses a Delta row whose key the subject file does not have', () => {
+  const { dir, run } = sandbox();
+  const root = deltaProject(dir, DELTA_TOPIC, DELTA_PLAN.replace('| changed | Upload veto |', '| changed | Upload vetoes |'));
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /marks "Upload vetoes" changed, but docs\/plans\/topics\/drag\.md has no such row/);
+});
+
+test("plan-page --folded refuses an executed plan until the subject file holds its delta", () => {
+  const { dir, run } = sandbox();
+  const done = DELTA_PLAN.replace('Status: planning', 'Status: executed, awaiting cross-review');
+  const folded = '# Drag\n\n## Public API\n\n```ts\nfirst();\nnext();\n```\n\n## Layer and owner\n\n| Change | Layer |\n| --- | --- |\n| Schema landing | Plite |\n| Upload veto | Plite |\n';
+  const render = (topic) => {
+    const root = deltaProject(mkdtempSync(join(dir, 'case-')), topic, done);
+    return { root, result: run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md', '--folded'], root) };
+  };
+  const unfolded = render(DELTA_TOPIC).result;
+  assert.equal(unfolded.status, 1);
+  assert.match(unfolded.stderr, /does not show the added row "Schema landing"/);
+  const apiLeft = render(folded.replace('next();', 'old();')).result;
+  assert.equal(apiLeft.status, 1);
+  assert.match(apiLeft.stderr, /does not show the after line/);
+  const prefixed = render(folded.replace('next();', 'editor.next();')).result;
+  assert.equal(prefixed.status, 1);
+  assert.match(prefixed.stderr, /does not show the after line/);
+  const oldKept = render(folded.replace('next();', 'next();\nold();')).result;
+  assert.equal(oldKept.status, 1);
+  assert.match(oldKept.stderr, /still shows the before line/);
+  const { root, result } = render(folded);
+  assert.equal(result.status, 0, result.stderr);
+  const html = read(root, 'docs/plans/artifacts/topics/drag.html');
+  assert.ok(html.includes('Schema landing') && !html.includes('class="mark') && !html.includes('old();'));
+});
+
+test("plan-page keeps an open iteration's delta on top when a finished one renders", () => {
+  const { dir, run } = sandbox();
+  const folded = '# Drag\n\n## Public API\n\n```ts\nnext();\n```\n\n## Layer and owner\n\n| Change | Layer |\n| --- | --- |\n| Schema landing | Plite |\n| Upload veto | Plite |\n';
+  const root = deltaProject(dir, folded, DELTA_PLAN.replace('Status: planning', 'Status: done'));
+  const open = '# Rows\n\nStatus: building; slice 1 complete\nTopic: drag\n\n## Layer and owner\n\n| Delta | Change | Layer |\n| --- | --- | --- |\n| added | Row veto | Plate |\n';
+  const stale = '# Stale\n\nStatus: superseded by the rows plan\nTopic: drag\n\n## Layer and owner\n\n| Delta | Change | Layer |\n| --- | --- | --- |\n| added | Stale veto | Plate |\n';
+  writeFileSync(join(root, 'docs/plans/2026-02-01-rows.md'), open);
+  writeFileSync(join(root, 'docs/plans/2026-03-01-stale.md'), stale);
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const html = read(root, 'docs/plans/artifacts/topics/drag.html');
+  assert.match(html, /<tr class="added">.*?<td>Row veto<\/td>/);
+  assert.ok(!html.includes('Stale veto'));
+});
+
+test('plan-page renders a plan reopened after its delta was folded', () => {
+  const { dir, run } = sandbox();
+  const folded = '# Drag\n\n## Public API\n\n```ts\nnext();\n```\n\n## Layer and owner\n\n| Change | Layer |\n| --- | --- |\n| Schema landing | Plite |\n| Upload veto | Plite |\n';
+  const root = deltaProject(dir, folded, DELTA_PLAN.replace('Status: planning', 'Status: building; the execution review reopened it'));
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(read(root, 'docs/plans/artifacts/topics/drag.html'), /<tr class="added">.*?<td>Schema landing<\/td>/);
+});
+
+test('plan-page draws one page for a subject whichever iteration renders it', () => {
+  const { dir, run } = sandbox();
+  const root = deltaProject(dir, DELTA_TOPIC, DELTA_PLAN);
+  writeFileSync(join(root, 'docs/plans/2026-02-01-rows.md'), '# Rows\n\nStatus: planning\nTopic: drag\n\n## Main changes\n\n- Rows move.\n');
+  const render = (path) => {
+    const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), path], root);
+    assert.equal(result.status, 0, result.stderr);
+    return read(root, 'docs/plans/artifacts/topics/drag.html');
+  };
+  assert.equal(render('docs/plans/2026-01-01-landing.md'), render('docs/plans/2026-02-01-rows.md'));
+  writeFileSync(join(root, 'docs/plans/2026-02-01-rows.md'), '# Rows\n\nStatus: done\nTopic: drag\n\n## Open questions\n\n- Keep rows?\n');
+  writeFileSync(join(root, 'docs/plans/2026-01-01-landing.md'), DELTA_PLAN.replace('Status: planning', 'Status: superseded by rows'));
+  assert.equal(render('docs/plans/2026-01-01-landing.md'), render('docs/plans/2026-02-01-rows.md'));
+});
+
+test("plan-page reads a subject iteration's state from the first word of its Status", () => {
+  const { dir, run } = sandbox();
+  const status = (line) => {
+    const root = deltaProject(mkdtempSync(join(dir, 'case-')), DELTA_TOPIC, DELTA_PLAN.replace('Status: planning', `Status: ${line}`));
+    return run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md'], root);
+  };
+  const unknown = status('Not done yet');
+  assert.equal(unknown.status, 1);
+  assert.match(unknown.stderr, /needs a Status: line that starts with a state word/);
+  assert.equal(status('Re-opened after the execution review').status, 0, 'a reopened plan stays open');
+});
+
+test('plan-page leads with the dated open iteration over an undated issue plan', () => {
+  const { dir, run } = sandbox();
+  const root = deltaProject(dir, DELTA_TOPIC, DELTA_PLAN);
+  writeFileSync(join(root, 'docs/plans/4731-old-issue.md'), '# Old issue\n\nStatus: planning\nTopic: drag\n\n## Main changes\n\n- Old work.\n');
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/4731-old-issue.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(read(root, 'docs/plans/artifacts/topics/drag.html'), /<span>Plan <strong>Landing<\/strong>/);
+});
+
+test('plan-open --done sweeps an executed plan that still has an open box', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', { files: { 'docs/plans/2026-01-01-shipped.md': '# Shipped\n\nStatus: executed, awaiting review\n\n- [ ] Close the gate\n', 'docs/plans/2026-01-02-gone.md': '# Gone\n\nStatus: superseded by shipped\n\n- [ ] Never done\n' } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-open.mjs'), '--done'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stdout + result.stderr, /2026-01-01-shipped\.md/);
+  assert.doesNotMatch(result.stdout + result.stderr, /2026-01-02-gone\.md/);
+});
+
+test('plan-page refuses a subject file that keeps a before and after pair', () => {
+  const { dir, run } = sandbox();
+  const topic = DELTA_TOPIC.replace('```ts\nold();\n```', '```ts before\nold();\n```\n\n```ts after\nnext();\n```');
+  const root = deltaProject(dir, topic, DELTA_PLAN);
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Public API in docs\/plans\/topics\/drag\.md holds the current state as plain fences/);
+});
+
+test('plan-page reads a Delta column as a plain table on a one-off plan', () => {
+  const { dir, run } = sandbox();
+  const plan = '# Audit\n\nStatus: done\n\n## Notes\n\n| Delta | Owner |\n| --- | --- |\n| DOM ledger | Plite |\n';
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(read(root, 'docs/plans/artifacts/plan.html'), /<td>DOM ledger<\/td>/);
+});
+
 test('plan-page refuses a Public API section without a before and after pair', () => {
   const { dir, run } = sandbox();
   const root = project(dir, 'app', { files: { 'docs/plans/plan.md': '# Plan\n\nStatus: done\n\n## Public API\n\n- `editor.tf.toggle` now takes a block type.\n' } });
@@ -788,6 +925,21 @@ test('a refusal shows only what the project edited, even after the shared templa
   assert.match(refused.stdout, /the project's edit since the last sync/);
   assert.match(refused.stdout, /\+- \*\*Blocked \(local lesson\)\.\*\*/);
   assert.doesNotMatch(refused.stdout, /unrun proof/);
+});
+
+test('a clean shared source refuses to drop edits a project was synced from before they were committed', () => {
+  const { dir, run } = sandbox();
+  const shared = sharedSource(dir);
+  const original = readFileSync(shared.template, 'utf8');
+  writeFileSync(shared.template, original.replace('Never claim a skipped or unavailable proof passed.', 'Never claim an unrun proof passed.'));
+  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
+  assert.equal(run(process.execPath, [shared.script, 'apply', root]).status, 0);
+  writeFileSync(shared.template, original);
+
+  const refused = run(process.execPath, [shared.script, 'apply', root]);
+  assert.equal(refused.status, 1);
+  assert.match(refused.stdout, /uncommitted shared edits/);
+  assert.match(read(root, 'AGENTS.md'), /unrun proof/);
 });
 
 test('an older copy of the shared source refuses to undo a newer sync', () => {

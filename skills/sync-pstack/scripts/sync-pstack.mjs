@@ -29,7 +29,7 @@ const TEMPLATE = join(SKILL, 'assets/block.md');
 const HELPERS = join(SKILL, 'assets/pstack');
 const CONFIG = '.agents/pstack.json';
 const HELPER_DIR = '.agents/pstack';
-const SECTION_HELPERS = { plans: ['decisions-check.mjs', 'plan-open.mjs', 'plan-page.mjs'], review: ['cross.mjs'] };
+const SECTION_HELPERS = { plans: ['decisions-check.mjs', 'plan-open.mjs', 'plan-page.mjs', 'status.mjs'], review: ['cross.mjs'] };
 const PLUGIN = 'pstack@pstack-claude';
 const MARKETPLACE = 'pstack-claude';
 const REPO = 'michael-denyer/pstack-claude';
@@ -455,6 +455,10 @@ export function apply(root, { tag, force = false, write = true } = {}) {
   // shared commit does not make every project's config stale. A null record
   // came from uncommitted shared edits and is replaced once they land.
   const same = stored.synced?.block === synced.block && JSON.stringify(stored.synced?.files ?? {}) === JSON.stringify(synced.files);
+  // A null source means the last sync came from uncommitted shared edits, which a clean source would silently drop.
+  if (!same && !force && stored.synced && 'source' in stored.synced && stored.synced.source === null && sourceRevision() !== null) {
+    refusals.push({ path: 'shared source', reason: 'the project was last synced from uncommitted shared edits; commit them in the dotai checkout, then rerun' });
+  }
   synced.source = same && stored.synced?.source ? stored.synced.source : sourceRevision();
   const next = { ...stored, tag: config.tag, synced };
   if (JSON.stringify(next) !== JSON.stringify(stored)) changes.push({ path: CONFIG, text: json(next) });

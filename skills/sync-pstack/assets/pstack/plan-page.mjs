@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Installed by the sync-pstack skill.
-// Usage: node .agents/pstack/plan-page.mjs <plan.md>
+// Usage: node .agents/pstack/plan-page.mjs <plan.md> [--folded]
 
 import { execFileSync } from 'node:child_process';
 import {
@@ -12,6 +12,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { basename, dirname, join, relative, resolve } from 'node:path';
+import { STATES, stateOf } from './status.mjs';
 
 // The owner reads the top of the page and rarely opens the details.
 const ROLES = [
@@ -49,12 +50,15 @@ function subjectOf(plan, topic) {
   return topic.field ? (plan.lists[topic.field.toLowerCase()]?.[0] ?? null) : null;
 }
 
+// Newest first by the date a plan's name starts with; a name without one sorts as the oldest.
+const planOrder = (path) => `${basename(path).match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? '0000-00-00'} ${basename(path)}`;
+
 function iterationsOf(plansDir, subject, topic) {
   return readdirSync(plansDir)
     .filter((name) => name.endsWith('.md'))
     .map((name) => ({ path: join(plansDir, name), plan: parsePlan(readFileSync(join(plansDir, name), 'utf-8')) }))
     .filter(({ plan }) => subjectOf(plan, topic) === subject)
-    .sort((a, b) => basename(b.path).localeCompare(basename(a.path)));
+    .sort((a, b) => planOrder(b.path).localeCompare(planOrder(a.path)));
 }
 
 function fencePairs(lines) {
@@ -81,6 +85,116 @@ function assertPairs(sections, paired) {
       throw new Error(
         `${section.title} needs each before fence followed directly by its after fence, at least once; remove the section when nothing in it changes`
       );
+    }
+  }
+}
+
+function assertNoPairs(sections, paired, where) {
+  for (const section of sections.filter((entry) => paired.includes(entry.title.toLowerCase()))) {
+    if (fencesOf(section.lines).some((fence) => fence.tag)) {
+      throw new Error(
+        `${section.title} in ${where} holds the current state as plain fences; put each before and after pair in the plan that changes it`
+      );
+    }
+  }
+}
+
+const DELTA = ['added', 'changed', 'removed'];
+const sameText = (text) => text.replace(/\s+/g, ' ').trim().toLowerCase();
+const sameRow = (a, b) => a.length === b.length && a.every((cell, index) => sameText(cell) === sameText(b[index]));
+const sectionNamed = (doc, title) =>
+  doc.sections.find((section) => section.title.toLowerCase() === title.toLowerCase());
+
+function fencesOf(lines) {
+  const fences = [];
+  for (let index = 0; index < lines.length; ) {
+    if (!isFence(lines[index])) {
+      index += 1;
+      continue;
+    }
+    const fence = readFence(lines, index);
+    fences.push(fence);
+    index = fence.next;
+  }
+  return fences;
+}
+
+function tablesOf(lines) {
+  const tables = [];
+  for (let index = 0; index < lines.length; ) {
+    if (isFence(lines[index])) {
+      index = readFence(lines, index).next;
+      continue;
+    }
+    if (!/^\s*\|/.test(lines[index]) || !TABLE_RULE.test(lines[index + 1] ?? '')) {
+      index += 1;
+      continue;
+    }
+    const head = splitRow(lines[index]);
+    const rows = [];
+    for (index += 2; index < lines.length && /^\s*\|/.test(lines[index]); index += 1) {
+      rows.push(splitRow(lines[index]));
+    }
+    tables.push({ head, rows });
+  }
+  return tables;
+}
+
+function rowsByKey(lines, head) {
+  const rows = new Map();
+  for (const table of tablesOf(lines).filter((entry) => sameRow(entry.head, head))) {
+    for (const row of table.rows) rows.set(sameText(row[0] ?? ''), row);
+  }
+  return rows;
+}
+
+const isDelta = (head) => sameText(head[0]) === 'delta';
+
+const codeLines = (body) => body.split('\n').map(sameText).filter((line) => /[a-z0-9]/.test(line));
+
+// A later iteration may rewrite a call this plan folded, so a line another iteration's before fence holds is not checked.
+function assertFolded(plan, doc, { isChange, others, paired, where }) {
+  const fail = (what) => {
+    throw new Error(`${where} ${what}; fold the plan's delta into it before its Status says executed`);
+  };
+  const deltaKeys = (source) =>
+    source.sections.flatMap((section) =>
+      tablesOf(section.lines)
+        .filter((table) => isDelta(table.head))
+        .flatMap((table) => table.rows.map((row) => `${sameText(section.title)}\n${sameText(row[1] ?? '')}`))
+    );
+  const touched = new Set(others.flatMap(deltaKeys));
+  for (const section of plan.sections.filter(isChange)) {
+    const current = sectionNamed(doc, section.title);
+    const keys = new Set(current ? tablesOf(current.lines).flatMap((table) => table.rows.map((row) => sameText(row[0] ?? ''))) : []);
+    for (const table of tablesOf(section.lines).filter((entry) => isDelta(entry.head))) {
+      const shown = current ? rowsByKey(current.lines, table.head.slice(1)) : new Map();
+      for (const [cell, ...row] of table.rows) {
+        const key = sameText(row[0] ?? '');
+        if (touched.has(`${sameText(section.title)}\n${key}`)) continue;
+        const mark = sameText(cell);
+        if (mark === 'removed' && keys.has(key)) fail(`still shows the removed row "${row[0]}" of ## ${section.title}`);
+        if (mark !== 'removed' && !sameRow(shown.get(key) ?? [], row)) fail(`does not show the ${mark} row "${row[0]}" of ## ${section.title}`);
+      }
+    }
+  }
+  for (const section of plan.sections.filter((entry) => paired.includes(entry.title.toLowerCase()))) {
+    const linesOf = (sources, side) =>
+      new Set(
+        sources.flatMap((source) => {
+          const match = sectionNamed(source, section.title);
+          return match ? fencePairs(match.lines).pairs.flatMap((pair) => codeLines(pair[side].body)) : [];
+        })
+      );
+    const rewritten = linesOf(others, 'first');
+    const kept = linesOf([plan, ...others], 'after');
+    const current = sectionNamed(doc, section.title);
+    const shown = new Set(current ? fencesOf(current.lines).flatMap((fence) => codeLines(fence.body)) : []);
+    for (const { first, after } of fencePairs(section.lines).pairs) {
+      const missing = codeLines(after.body).find((line) => !rewritten.has(line) && !shown.has(line));
+      if (missing) fail(`does not show the after line "${missing.slice(0, 60)}" in ## ${section.title}`);
+      const stale = codeLines(first.body).find((line) => !kept.has(line) && shown.has(line));
+      if (stale) fail(`still shows the before line "${stale.slice(0, 60)}" in ## ${section.title}`);
     }
   }
 }
@@ -200,13 +314,40 @@ function diffHtml(before, after) {
 const LIST_ITEM = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 const TABLE_RULE = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
 
-function cells(row) {
+function splitRow(row) {
   return row
     .trim()
     .replace(/^\|/, '')
     .replace(/\|$/, '')
     .split(/(?<!\\)\|/)
-    .map((cell) => inline(cell.trim().replaceAll('\\|', '|')));
+    .map((cell) => cell.trim().replaceAll('\\|', '|'));
+}
+
+const tds = (row) => row.map((cell) => `<td>${inline(cell)}</td>`).join('');
+const markedRow = (mark, row) => `<tr class="${mark}"><td><span class="mark ${mark}">${mark}</span></td>${tds(row)}</tr>`;
+
+function deltaRowHtml([cell, ...row], prior, marks) {
+  const mark = sameText(cell);
+  if (!DELTA.includes(mark)) {
+    throw new Error(`A Delta cell in ## ${marks.title} is added, changed or removed, not "${cell}"`);
+  }
+  const old = prior.get(sameText(row[0] ?? ''));
+  const folded = old ? sameRow(old, row) : mark === 'removed';
+  if (!folded && (mark === 'added') === Boolean(old)) {
+    throw new Error(
+      `## ${marks.title} marks "${row[0]}" ${mark}, but ${marks.where} ${old ? 'already has that row' : 'has no such row'}`
+    );
+  }
+  if (mark === 'removed') return markedRow(mark, old ?? row);
+  return markedRow(mark, row) + (old && !folded ? markedRow('was', old) : '');
+}
+
+function tableHtml(head, rows, marks) {
+  const prior = marks && isDelta(head) ? rowsByKey(marks.current?.lines ?? [], head.slice(1)) : null;
+  const body = rows
+    .map((row) => (prior ? deltaRowHtml(row, prior, marks) : `<tr>${tds(row)}</tr>`))
+    .join('');
+  return `<div class="scroll"><table><thead><tr>${head.map((cell) => `<th>${inline(cell)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 function itemHtml(text) {
@@ -236,7 +377,7 @@ function listHtml(items, start) {
   };
 }
 
-function blocksHtml(lines) {
+function blocksHtml(lines, marks = null) {
   const html = [];
   let index = 0;
   const startsBlock = (line) =>
@@ -269,23 +410,16 @@ function blocksHtml(lines) {
       continue;
     }
     if (/^\s*\|/.test(line) && TABLE_RULE.test(lines[index + 1] ?? '')) {
-      const head = cells(line);
+      const head = splitRow(line);
       const rows = [];
       for (
         index += 2;
         index < lines.length && /^\s*\|/.test(lines[index]);
         index += 1
       ) {
-        rows.push(cells(lines[index]));
+        rows.push(splitRow(lines[index]));
       }
-      html.push(
-        `<div class="scroll"><table><thead><tr>${head.map((cell) => `<th>${cell}</th>`).join('')}</tr></thead><tbody>${rows
-          .map(
-            (row) =>
-              `<tr>${row.map((cell) => `<td>${cell}</td>`).join('')}</tr>`
-          )
-          .join('')}</tbody></table></div>`
-      );
+      html.push(tableHtml(head, rows, marks));
       continue;
     }
     if (LIST_ITEM.test(line)) {
@@ -449,14 +583,11 @@ function reviewRows(planPath) {
     .map((row) => ({ decision: row[2], result: row[5] ?? '' }));
 }
 
-function statusTone(status) {
-  if (/done|complete|shipped/i.test(status)) return 'done';
-  if (/execut|build|progress/i.test(status)) return 'active';
-  if (/block|paused/i.test(status)) return 'held';
-  return 'planning';
-}
+const finished = (status) => stateOf(status) === 'done';
 
-function page(planPath) {
+const statusTone = (status) => stateOf(status) ?? 'unknown';
+
+function page(planPath, { folded = false } = {}) {
   const plan = parsePlan(readFileSync(planPath, 'utf-8'));
   const root = execFileSync('git', ['rev-parse', '--show-toplevel'], {
     cwd: dirname(planPath),
@@ -477,8 +608,34 @@ function page(planPath) {
   const subjectPath = subject && join(plansDir, 'topics', `${subject}.md`);
   const doc = subjectPath ? parsePlan(readFileSync(subjectPath, 'utf-8')) : plan;
   const iterations = subject ? iterationsOf(plansDir, subject, topic) : [];
+  const subjectWhere = subjectPath && relative(root, subjectPath);
+  for (const entry of iterations) {
+    if (!stateOf(entry.plan.meta.status ?? '')) {
+      throw new Error(
+        `${relative(root, entry.path)} needs a Status: line that starts with a state word, such as ${STATES.planning[0]}, ${STATES.active[0]} or ${STATES.done[4]}, because its subject page reads it`
+      );
+    }
+  }
+  const isOpen = (entry) => !finished(entry.plan.meta.status ?? '');
+  // The newest open iteration leads its subject page whichever plan is rendered, so sessions publishing one URL agree.
+  const focusEntry = doc === plan ? null : (iterations.find(isOpen) ?? null);
+  const pageEntry = doc === plan ? null : (focusEntry ?? iterations[0]);
+  const focus = focusEntry?.plan;
+  const delta = Boolean(focusEntry);
+  const isChange = (section) => {
+    const role = roleOf(section, lead);
+    return ['api', 'lead', 'main'].includes(role) || (role === 'idea' && Boolean(sectionNamed(doc, section.title)));
+  };
   assertPairs(plan.sections, pairs);
-  if (doc !== plan) assertPairs(doc.sections, pairs);
+  if (folded && doc === plan) throw new Error(`${repoPath} has no subject file to fold into`);
+  if (doc !== plan) {
+    assertNoPairs(doc.sections, pairs, subjectWhere);
+    // Hand edits to the subject and plans that close without folding, such as superseded ones, leave older iterations unmatched, so only the close that just folded asks for the check.
+    if (folded) {
+      const others = iterations.filter((entry) => entry.path !== planPath).map((entry) => entry.plan);
+      assertFolded(plan, doc, { isChange, others, paired: pairs, where: subjectWhere });
+    }
+  }
   const hasContent = (section) => section?.lines.some((line) => line.trim());
   const byRole = (role, source = doc) =>
     source.sections.filter(
@@ -486,10 +643,36 @@ function page(planPath) {
     );
   const sectionHtml = (section, className = 'plan') =>
     `<section class="${className}"><h2>${inline(section.title)}</h2>${blocksHtml(section.lines)}</section>`;
-  const [needs] = byRole('needs', plan);
+  const unchangedHtml = (section) =>
+    `<details class="panel unchanged"><summary>${inline(section.title)} <span class="count">unchanged</span></summary>${blocksHtml(section.lines)}</details>`;
+  const deltaHtml = (title) => {
+    const change = byRole(roleOf({ title }, lead), focus).find((section) => sameText(section.title) === sameText(title));
+    const current = byRole(roleOf({ title }, lead)).find((section) => sameText(section.title) === sameText(title));
+    if (!change) return unchangedHtml(current);
+    return `<section class="panel"><h2>${inline(change.title)} <span class="count">this plan</span></h2>${blocksHtml(change.lines, {
+      current,
+      title: change.title,
+      where: subjectWhere,
+    })}${current ? `<details class="current"><summary>Current state</summary>${blocksHtml(current.lines)}</details>` : ''}</section>`;
+  };
+  const ordered = (role) => {
+    const seen = new Map();
+    for (const section of [...byRole(role, focus), ...byRole(role)]) {
+      if (!seen.has(sameText(section.title))) seen.set(sameText(section.title), section.title);
+    }
+    return [...seen.values()].sort((a, b) => lead.indexOf(a.toLowerCase()) - lead.indexOf(b.toLowerCase()));
+  };
+  const changeHtml = (role) =>
+    delta
+      ? ordered(role).map(deltaHtml).join('\n  ')
+      : byRole(role)
+          .sort((a, b) => lead.indexOf(a.title.toLowerCase()) - lead.indexOf(b.title.toLowerCase()))
+          .map((section) => sectionHtml(section, 'panel'))
+          .join('\n  ');
+  const [needs] = doc === plan ? byRole('needs', plan) : focus ? byRole('needs', focus) : [];
   const iterationHtml = ({ path, plan: iteration }) => {
     const iterationStatus = iteration.meta.status ?? 'unknown';
-    const open = statusTone(iterationStatus) !== 'done' && path !== planPath;
+    const open = !finished(iterationStatus) && path !== focusEntry?.path;
     const shown = iteration.sections.filter(
       (section) =>
         hasContent(section) &&
@@ -498,15 +681,20 @@ function page(planPath) {
     );
     const head = `<span class="pill ${statusTone(iterationStatus)}">${escapeHtml(iterationStatus)}</span> <strong>${inline(iteration.title || basename(path, '.md'))}</strong> <code>${escapeHtml(relative(root, path))}</code>`;
     const body =
-      shown.map((section) => `<h3>${inline(section.title)}</h3>${blocksHtml(section.lines)}`).join('') +
-      (open ? `<p><code>${escapeHtml(`$cross-review ${relative(root, path)}`)}</code></p>` : '');
+      path === focusEntry?.path
+        ? ''
+        : shown.map((section) => `<h3>${inline(section.title)}</h3>${blocksHtml(section.lines)}`).join('') +
+          (open ? `<p><code>${escapeHtml(`$cross-review ${relative(root, path)}`)}</code></p>` : '');
     return body
-      ? `<details class="iteration"${path === planPath || open ? ' open' : ''}><summary>${head}</summary>${body}</details>`
+      ? `<details class="iteration"${open ? ' open' : ''}><summary>${head}</summary>${body}</details>`
       : `<p class="iteration">${head}</p>`;
   };
   const iterationList = iterations.length
-    ? `<section class="plan"><h2>Iterations <span class="count">${iterations.length}</span></h2>${iterations.map(iterationHtml).join('')}</section>`
+    ? `<section class="plan"><h2>${delta ? 'Iterations' : 'History'} <span class="count">${iterations.length}</span></h2>${iterations.map(iterationHtml).join('')}</section>`
     : '';
+  const own = delta ? focus : doc === plan ? plan : null;
+  const details = own ? byRole('details', own) : [];
+  if (delta) details.push(...byRole('idea', focus).filter((section) => !sectionNamed(doc, section.title)));
   const hubPath = subject && topic.hub ? topic.hub.replaceAll('{topic}', subject) : null;
   const hub = hubPath && existsSync(join(root, hubPath)) ? hubPath : null;
   if (hub) {
@@ -516,7 +704,7 @@ function page(planPath) {
       }
     }
   }
-  const reviews = reviewRows(planPath);
+  const reviews = own ? reviewRows(delta ? focusEntry.path : planPath) : [];
   const reviewList = reviews.length
     ? `<section class="plan"><h2>Review edits <span class="count">${reviews.length}</span></h2><ul>${reviews
         .map(
@@ -526,12 +714,13 @@ function page(planPath) {
         .join('')}</ul></section>`
     : '';
   const updated = new Date(
-    Math.max(statSync(planPath).mtimeMs, subjectPath ? statSync(subjectPath).mtimeMs : 0)
+    Math.max(...[planPath, ...iterations.map((entry) => entry.path), subjectPath].filter(Boolean).map((path) => statSync(path).mtimeMs))
   )
     .toISOString()
     .slice(0, 16)
     .replace('T', ' ');
-  const handOff = `$cross-review ${repoPath}`;
+  const handOff = `$cross-review ${pageEntry ? relative(root, pageEntry.path) : repoPath}`;
+  const shownStatus = pageEntry?.plan.meta.status ?? status;
   const title = escapeHtml(doc.title || basename(planPath, '.md'));
   const where = subjectPath ? relative(root, subjectPath) : repoPath;
 
@@ -541,18 +730,18 @@ function page(planPath) {
 <style>
 :root {
   --ground: #f6f7f8; --paper: #ffffff; --ink: #1b2026; --muted: #5b6672; --rule: #dde2e7;
-  --accent: #2c5b8f; --accent-soft: #e6eef7; --amber: #9a5b00; --amber-soft: #fbf1df; --green: #2f6b3f; --green-soft: #e5f2e8; --code: #eef1f4;
+  --accent: #2c5b8f; --accent-soft: #e6eef7; --amber: #9a5b00; --amber-soft: #fbf1df; --green: #2f6b3f; --green-soft: #e5f2e8; --red: #a3352b; --red-soft: #f8e6e3; --code: #eef1f4;
   --kw: #8a3f9e; --str: #3d6b21; --fn: #2c5b8f; --num: #a24d12;
   --sans: "Schibsted Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --ground: #121518; --paper: #1a1e23; --ink: #e4e8ec; --muted: #9aa5b1; --rule: #2c333b;
-  --accent: #8db6e6; --accent-soft: #1f2d3d; --amber: #f0b45c; --amber-soft: #33270f; --green: #8fcf9f; --green-soft: #18291d; --code: #232931; --kw: #d7a1e6; --str: #a8d48a; --fn: #8db6e6; --num: #f0a66e; color-scheme: dark;
+  --accent: #8db6e6; --accent-soft: #1f2d3d; --amber: #f0b45c; --amber-soft: #33270f; --green: #8fcf9f; --green-soft: #18291d; --red: #f0968c; --red-soft: #3a1c19; --code: #232931; --kw: #d7a1e6; --str: #a8d48a; --fn: #8db6e6; --num: #f0a66e; color-scheme: dark;
 } }
 :root[data-theme="dark"] {
   --ground: #121518; --paper: #1a1e23; --ink: #e4e8ec; --muted: #9aa5b1; --rule: #2c333b;
-  --accent: #8db6e6; --accent-soft: #1f2d3d; --amber: #f0b45c; --amber-soft: #33270f; --green: #8fcf9f; --green-soft: #18291d; --code: #232931; --kw: #d7a1e6; --str: #a8d48a; --fn: #8db6e6; --num: #f0a66e; color-scheme: dark;
+  --accent: #8db6e6; --accent-soft: #1f2d3d; --amber: #f0b45c; --amber-soft: #33270f; --green: #8fcf9f; --green-soft: #18291d; --red: #f0968c; --red-soft: #3a1c19; --code: #232931; --kw: #d7a1e6; --str: #a8d48a; --fn: #8db6e6; --num: #f0a66e; color-scheme: dark;
 }
 body { background: var(--ground); color: var(--ink); font: 15px/1.6 var(--sans); padding: 0 16px; }
 main { max-width: 760px; margin: 0 auto; padding-block: 32px 64px; display: grid; gap: 28px; }
@@ -564,6 +753,7 @@ h3, h4, h5 { font-size: 1rem; margin: 16px 0 4px; }
 .pill { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
 .pill.done { background: var(--green-soft); color: var(--green); }
 .pill.held, .pill.planning { background: var(--amber-soft); color: var(--amber); }
+.pill.unknown { background: var(--code); color: var(--muted); }
 .panel { background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px; min-width: 0; }
 .panel.needs { border-color: var(--amber); }
 .panel h2 { display: flex; gap: 10px; align-items: baseline; }
@@ -627,6 +817,17 @@ a { color: var(--accent); }
 }
 .details { border-top: 1px solid var(--rule); padding-top: 14px; display: grid; gap: 20px; }
 .details > summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; }
+.mark { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
+.mark.added { background: var(--green-soft); color: var(--green); }
+.mark.changed { background: var(--amber-soft); color: var(--amber); }
+.mark.removed { background: var(--red-soft); color: var(--red); }
+.mark.was { color: var(--muted); }
+tr.was td, tr.removed td:not(:first-child) { color: var(--muted); text-decoration: line-through; }
+tr.was td:first-child { text-decoration: none; }
+details.current { margin-top: 6px; }
+details.current > summary, details.unchanged > summary { cursor: pointer; color: var(--muted); }
+details.unchanged > summary { font-weight: 600; }
+details.unchanged[open] > summary { margin-bottom: 8px; }
 .iteration { margin: 8px 0; }
 details.iteration > summary { cursor: pointer; }
 details.iteration[open] > summary { margin-bottom: 6px; }
@@ -640,39 +841,30 @@ details.iteration[open] > summary { margin-bottom: 6px; }
 <main>
   <header>
     <h1>${title}</h1>
-    <div class="meta"><span class="pill ${statusTone(status)}">${escapeHtml(status)}</span><code>${escapeHtml(where)}</code>${hub ? `<span>History <code>${escapeHtml(hub)}</code></span>` : ''}<span>Updated ${updated} UTC</span></div>
+    <div class="meta"><span class="pill ${statusTone(shownStatus)}">${escapeHtml(shownStatus)}</span><code>${escapeHtml(where)}</code>${delta ? `<span>Plan <strong>${inline(focus.title || basename(focusEntry.path, '.md'))}</strong> <code>${escapeHtml(relative(root, focusEntry.path))}</code></span>` : ''}${hub ? `<span>History <code>${escapeHtml(hub)}</code></span>` : ''}<span>Updated ${updated} UTC</span></div>
     <div class="handoff"><code id="handoff">${escapeHtml(handOff)}</code><button id="copy" type="button">Copy</button></div>
   </header>
   ${needs ? `<section class="panel needs"><h2>Needs you</h2>${needsHtml(needs.lines)}</section>` : ''}
-  ${byRole('api')
-    .map((section) => sectionHtml(section, 'panel'))
-    .join('\n  ')}
-  ${doc !== plan && statusTone(status) !== 'done'
-    ? byRole('api', plan)
-        .map((section) => sectionHtml({ ...section, title: 'Public API proposed in this iteration' }, 'panel'))
+  ${delta && focus.lead.some((line) => line.trim()) ? `<section class="plan">${blocksHtml(focus.lead)}</section>` : ''}
+  ${changeHtml('api')}
+  ${changeHtml('lead')}
+  ${changeHtml('main')}
+  ${own
+    ? byRole('picked', own)
+        .map((section) => sectionHtml({ ...section, title: 'Picked for you' }))
         .join('\n  ')
     : ''}
-  ${byRole('lead')
-    .sort((a, b) => lead.indexOf(a.title.toLowerCase()) - lead.indexOf(b.title.toLowerCase()))
-    .map((section) => sectionHtml(section, 'panel'))
-    .join('\n  ')}
-  ${byRole('main')
-    .map((section) => sectionHtml(section, 'panel'))
-    .join('\n  ')}
-  ${byRole('picked', plan)
-    .map((section) => sectionHtml({ ...section, title: 'Picked for you' }))
-    .join('\n  ')}
   ${doc.lead.some((line) => line.trim()) ? `<section class="plan">${blocksHtml(doc.lead)}</section>` : ''}
   ${byRole('idea')
-    .map((section) => sectionHtml(section))
+    .map((section) => (delta ? deltaHtml(section.title) : sectionHtml(section)))
     .join('\n  ')}
   ${iterationList}
   ${
-    byRole('details', plan).length || reviewList
-      ? `<details class="details"><summary>Details: ${byRole('details', plan)
+    details.length || reviewList
+      ? `<details class="details"><summary>Details: ${details
           .map((section) => escapeHtml(section.title.toLowerCase()))
           .concat(reviewList ? ['review edits'] : [])
-          .join(', ')}</summary>${byRole('details', plan)
+          .join(', ')}</summary>${details
           .map((section) => sectionHtml(section))
           .join('')}${reviewList}</details>`
       : ''
@@ -738,14 +930,16 @@ document.getElementById('copy').addEventListener('click', async (event) => {
   return { html, name: subject ? join('topics', subject) : basename(planPath, '.md') };
 }
 
-const planPath = process.argv[2] && resolve(process.argv[2]);
-if (!planPath || !existsSync(planPath)) {
-  console.error('Usage: node .agents/pstack/plan-page.mjs <plan.md>');
+const args = process.argv.slice(2);
+const target = args.find((arg) => !arg.startsWith('--'));
+const planPath = target && resolve(target);
+if (!planPath || !existsSync(planPath) || args.some((arg) => arg.startsWith('--') && arg !== '--folded')) {
+  console.error('Usage: node .agents/pstack/plan-page.mjs <plan.md> [--folded]');
   process.exit(2);
 }
 let rendered;
 try {
-  rendered = page(planPath);
+  rendered = page(planPath, { folded: args.includes('--folded') });
 } catch (error) {
   console.error(error.message);
   process.exit(1);
