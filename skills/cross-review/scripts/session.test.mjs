@@ -53,40 +53,29 @@ function fixture() {
     ['assistant', 'Plan written.\n\n$cross-review docs/plans/e.md'],
     ['user', 'also cover merged cells'],
   ]);
+  claudeSession(home, cwd, 'f', 5, [
+    ['user', 'fix the scroll bug'],
+    ['assistant', 'Reading the scroll handler.'],
+    { role: 'assistant', content: [{ type: 'tool_use', name: 'Read', input: { file_path: join(cwd, 'scroll.ts') } }] },
+    { role: 'user', content: [{ type: 'tool_result', content: 'export function scroll() {}' }] },
+  ]);
   const run = (...args) => spawnSync(process.execPath, [SCRIPT, '--from', 'claude', ...args], { cwd, encoding: 'utf8', env: { ...process.env, HOME: home } });
   return { run };
 }
 
-test('with no plan, it lists every finished session, hand-off or not, and a picked id shows that session', () => {
+test('with no plan, it lists finished sessions newest first, never one awaiting the user or still running tools, and a picked id shows that session', () => {
   const { run } = fixture();
   const listed = run();
   assert.equal(listed.status, 3, listed.stderr);
-  assert.match(listed.stdout, /^\d\. a \| docs\/plans\/a\.md \|/m);
-  assert.match(listed.stdout, /^\d\. c \| docs\/plans\/c\.md \|/m);
-  assert.match(listed.stdout, /^\d\. b \| no plan \|/m);
-  assert.doesNotMatch(listed.stdout, /docs\/plans\/e\.md|draft the table plan/);
+  assert.deepEqual([...listed.stdout.matchAll(/^\d\. (\w+) \| ([^|]+) \|/gmu)].map((match) => `${match[1]} ${match[2].trim()}`), [
+    'd no plan',
+    'c docs/plans/c.md',
+    'b no plan',
+    'a docs/plans/a.md',
+  ]);
   const picked = run('--pick', 'a');
   assert.equal(picked.status, 0, picked.stderr);
   assert.match(picked.stdout, /make the toolbar keyboard friendly/);
-});
-
-test('with no hand-off line anywhere, it lists the finished sessions newest first, never one still running tools', () => {
-  const home = mkdtempSync(join(tmpdir(), 'cross-review-home-'));
-  const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'cross-review-repo-')));
-  claudeSession(home, cwd, 'b', 40, [['user', 'rename the export'], ['assistant', 'Renamed and verified.']]);
-  claudeSession(home, cwd, 'd', 20, [['user', 'seat codex in the panels'], ['assistant', 'Panel review done.']]);
-  claudeSession(home, cwd, 'e', 10, [['user', 'draft the table plan'], ['assistant', 'Plan written.'], ['user', 'also cover merged cells']]);
-  claudeSession(home, cwd, 'f', 5, [
-    ['user', 'fix the paste bug'],
-    ['assistant', 'Reading the clipboard handler.'],
-    { role: 'assistant', content: [{ type: 'tool_use', name: 'Read', input: { file_path: join(cwd, 'paste.ts') } }] },
-    { role: 'user', content: [{ type: 'tool_result', content: 'export function paste() {}' }] },
-  ]);
-  const listed = spawnSync(process.execPath, [SCRIPT, '--from', 'claude'], { cwd, encoding: 'utf8', env: { ...process.env, HOME: home } });
-  assert.equal(listed.status, 3, listed.stderr);
-  assert.match(listed.stdout, /^1\. d \|/m);
-  assert.match(listed.stdout, /^2\. b \|/m);
-  assert.doesNotMatch(listed.stdout, /draft the table plan|fix the paste bug/);
 });
 
 test('a plan path picks the session that wrote and handed it off, not one that only saw it in tool output', () => {
