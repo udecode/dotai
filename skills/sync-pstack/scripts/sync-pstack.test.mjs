@@ -595,6 +595,17 @@ test('plan-page checks pairs in a project section only when pagePairs names it',
   assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], paired).status, 1);
 });
 
+test('plan-page diffs a before and after pair line by line', () => {
+  const { dir, run } = sandbox();
+  const plan = '# Plan\n\nStatus: done\n\n## Public API\n\n```ts before\nsetup()\nold()\n```\n\n```ts after\nsetup()\nnext()\n```\n';
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const html = read(root, 'docs/plans/artifacts/plan.html');
+  const rows = (kind) => [...html.matchAll(new RegExp(`class="row ${kind}"><span class="num">\\d+</span><span class="sign">[^<]*</span><code class="language-ts">([^<]*)</code>`, 'gu'))].map((match) => match[1]);
+  assert.deepEqual([rows('same'), rows('del'), rows('add')], [['setup()', 'setup()'], ['old()'], ['next()']]);
+});
+
 test('plan-page renders a short-dash table and a stray pipe line instead of hanging', () => {
   const { dir } = sandbox();
   const plan = '# Plan\n\nStatus: done\n\n## Notes\n\n| # | Pass |\n| -: | --- |\n| 1 | ground |\n\n| a pipe that starts no table\n';

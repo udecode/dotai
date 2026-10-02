@@ -146,6 +146,57 @@ function readFencePair(lines, start) {
 const codeHtml = ({ lang, body }) =>
   `<div class="scroll"><pre><code${lang ? ` class="language-${lang}"` : ''}>${escapeHtml(body)}</code></pre></div>`;
 
+function lineDiff(before, after) {
+  const a = before.split('\n');
+  const b = after.split('\n');
+  const common = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+  for (let i = a.length - 1; i >= 0; i -= 1) {
+    for (let j = b.length - 1; j >= 0; j -= 1) {
+      common[i][j] = a[i] === b[j] ? common[i + 1][j + 1] + 1 : Math.max(common[i + 1][j], common[i][j + 1]);
+    }
+  }
+  const rows = [];
+  let removed = [];
+  let added = [];
+  const flush = () => {
+    for (let k = 0; k < Math.max(removed.length, added.length); k += 1) {
+      rows.push([removed[k] ?? null, added[k] ?? null]);
+    }
+    removed = [];
+    added = [];
+  };
+  let i = 0;
+  let j = 0;
+  while (i < a.length || j < b.length) {
+    if (i < a.length && j < b.length && a[i] === b[j]) {
+      flush();
+      rows.push([{ kind: 'same', n: i + 1, text: a[i] }, { kind: 'same', n: j + 1, text: b[j] }]);
+      i += 1;
+      j += 1;
+    } else if (j < b.length && (i === a.length || common[i][j + 1] >= common[i + 1][j])) {
+      added.push({ kind: 'add', n: j + 1, text: b[j] });
+      j += 1;
+    } else {
+      removed.push({ kind: 'del', n: i + 1, text: a[i] });
+      i += 1;
+    }
+  }
+  flush();
+  return rows;
+}
+
+function diffHtml(before, after) {
+  const rows = lineDiff(before.body, after.body);
+  const lang = after.lang || before.lang;
+  const line = (cell, sign) =>
+    cell
+      ? `<div class="row ${cell.kind}"><span class="num">${cell.n}</span><span class="sign">${cell.kind === 'same' ? '' : sign}</span><code${lang ? ` class="language-${lang}"` : ''}>${escapeHtml(cell.text) || ' '}</code></div>`
+      : '<div class="row filler"><span class="num"></span><span class="sign"></span><code> </code></div>';
+  const pane = (index, label, sign, kind) =>
+    `<div class="pane"><div class="pane-head"><span class="side">${label}</span><span class="tally ${kind}">${sign}${rows.filter((row) => row[index]?.kind === kind).length}</span></div><div class="pane-body"><div class="diff">${rows.map((row) => line(row[index], sign)).join('')}</div></div></div>`;
+  return `<div class="compare">${pane(0, 'Before', '\u2212', 'del')}${pane(1, 'After', '+', 'add')}</div>`;
+}
+
 const LIST_ITEM = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 const TABLE_RULE = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
 
@@ -205,7 +256,7 @@ function blocksHtml(lines) {
       index = pair.next;
       html.push(
         pair.after
-          ? `<div class="compare"><div><span class="side">Before</span>${codeHtml(pair.first)}</div><div><span class="side">After</span>${codeHtml(pair.after)}</div></div>`
+          ? diffHtml(pair.first, pair.after)
           : codeHtml(pair.first)
       );
       continue;
@@ -554,14 +605,25 @@ a { color: var(--accent); }
 .box { display: inline-block; width: 0.85em; height: 0.85em; border: 1.5px solid var(--muted); border-radius: 3px; margin-right: 8px; vertical-align: -0.08em; }
 .box.done { background: var(--green); border-color: var(--green); }
 .compare { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin: 6px 0 14px; }
-.compare > div:first-child pre { border-left: 3px solid var(--red, #a3352b); }
-.compare > div:last-child pre { border-left: 3px solid var(--green); }
-.compare > div { min-width: 0; display: grid; gap: 4px; align-content: start; }
-.compare .scroll { margin: 0; }
+.pane { min-width: 0; border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; background: var(--code); }
+.pane-head { display: flex; justify-content: space-between; align-items: center; padding: 5px 12px; border-bottom: 1px solid var(--rule); }
+.tally { font: 600 0.78rem var(--mono); }
+.tally.del, .diff .del .sign { color: var(--red, #a3352b); }
+.tally.add, .diff .add .sign { color: var(--green); }
+.pane-body { overflow-x: auto; }
+.diff { display: grid; min-width: 100%; width: max-content; padding: 6px 0; font: 0.86em/1.6 var(--mono); }
+.diff .row { display: grid; grid-template-columns: 4ch 2.5ch 1fr; }
+.diff .row code { font: inherit; background: none; padding: 0 14px 0 0; border-radius: 0; white-space: pre; }
+.diff .num { color: var(--muted); text-align: right; padding-right: 1ch; opacity: 0.7; user-select: none; }
+.diff .sign { text-align: center; user-select: none; }
+.diff .del { background: color-mix(in srgb, var(--red, #a3352b) 15%, transparent); }
+.diff .add { background: color-mix(in srgb, var(--green) 15%, transparent); }
+.diff .filler { display: none; }
 .side { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 @media (min-width: 1280px) {
   main > :has(.compare) { --wide: min(1200px, calc(100vw - 64px)); box-sizing: border-box; width: var(--wide); margin-inline: calc((100% - var(--wide)) / 2); }
   .compare { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .diff .filler { display: grid; background: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--rule) 45%, transparent) 6px 7px); }
 }
 .details { border-top: 1px solid var(--rule); padding-top: 14px; display: grid; gap: 20px; }
 .details > summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; }
@@ -619,6 +681,7 @@ details.iteration[open] > summary { margin-bottom: 6px; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <script>
 window.hljs?.highlightAll();
+document.querySelectorAll('.diff code').forEach((element) => window.hljs?.highlightElement(element));
 </script>
 <script>
 document.getElementById('copy').addEventListener('click', async (event) => {
