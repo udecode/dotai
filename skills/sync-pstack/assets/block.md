@@ -45,6 +45,9 @@
   Ignore unrelated diffs and never pause to ask about them. Never stash, reset or discard work this run did not write. Run a tree-sensitive tool, such as a review that refuses a changing tree or a check at `HEAD`, from a detached worktree (`git worktree add --detach <path> <sha>`, then `git worktree remove --force <path>`). Never overwrite a tracked file in this checkout to test or measure `HEAD`, even for a moment; use the worktree.
 <!-- # overrides poteto-mode/playbooks/feature.md "Delegate code-writing to a subagent" -->
 <!-- # overrides poteto-mode/playbooks/bug-fix.md "Delegate implementation to a subagent" -->
+<!-- # overrides poteto-mode/playbooks/refactoring.md "Delegate the mechanical edits to a subagent" -->
+<!-- # overrides poteto-mode/playbooks/perf-issue.md "Delegate implementation to a subagent" -->
+<!-- # overrides poteto-mode/playbooks/hillclimb.md "Hand the change to a subagent" -->
 - **The lead writes the code.** The lead agent edits the current checkout and verifies on the running artifact. Subagents do research, review and read-only fan-out. No per-delegate worktrees unless the user asks. This replaces every pstack playbook step that delegates implementation or attempts to a subagent or gives a delegate its own worktree, as in Feature, Bug fix, Refactoring, Perf issue and Hillclimb.
 <!-- if proof -->
   The `{{proof}}` skill is pstack's driver skill here. Bug fixes reproduce and verify through it, and its proof replaces the swarm lanes of pstack's Multi-phase plan.
