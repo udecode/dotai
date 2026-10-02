@@ -1,6 +1,6 @@
 # dotai
 
-Shared skills that the pstack plugin does not cover: long-running goals, cross-model review (a second model's review of a plan, its execution or a PR, and prompts for an external model), visual communication, and pstack setup and sync. Independent code review comes from openclaw's `autoreview` (`openclaw/agent-skills`), installed per project.
+Shared skills that the pstack plugin does not cover: long-running goals, cross-model review (a second model's review of a plan, its execution or a PR, and prompts for an external model), test audits (adapted from openclaw's `test-audit`), visual communication, and pstack setup and sync. Code review runs on pstack's panels with Codex seats; openclaw's `autoreview` (`openclaw/agent-skills`) stays installed per project for typed use.
 
 The engineering method comes from the pstack plugin, `pstack@pstack-claude` from `michael-denyer/pstack-claude`, pinned per project: poteto-mode, its playbooks, the principle skills, how, why, architect, arena, interrogate, swarm, reflect, show-me-your-work, tdd, deslop and the rest. dotai does not vendor them.
 

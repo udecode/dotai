@@ -12,7 +12,7 @@ const sha = (data) => createHash('sha256').update(data).digest('hex');
 const upstream = JSON.parse(readFileSync(join(root, 'upstream-skills.json'), 'utf8'));
 const groups = {
   'Execution': ['autogoal'],
-  'Review and design': ['gpt-pro', 'cross-review', 'prototype'],
+  'Review and design': ['gpt-pro', 'cross-review', 'test-audit', 'prototype'],
   'Communication': ['show-me', 'walkthrough', 'video-transcripts'],
   'Maintenance': ['sync-pstack', 'find-skills'],
 };

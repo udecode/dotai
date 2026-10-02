@@ -94,6 +94,15 @@
       "provenance": null
     },
     {
+      "name": "test-audit",
+      "distribution": "bundled",
+      "description": "Audit existing tests for low-value, duplicated or implementation-coupled cases and the test-only code they keep alive, then remove or rewrite them on evidence. Use for test-audit, /test-audit <scope>, a test sweep, or pruning tests. Not for writing a new test; the project's Tests rule gates that.",
+      "category": "Review and design",
+      "dependencies": [],
+      "capabilities": [],
+      "provenance": null
+    },
+    {
       "name": "video-transcripts",
       "distribution": "bundled",
       "description": "Transcribe a supplied local or linked video with Gemini Files API when its contents are needed as evidence.",
@@ -118,15 +127,15 @@
   ],
   "files": {
     "README.md": {
-      "sha256": "87e4d8442d3b41137dde263f4714d486a85e1fe0d3e570f928a65a3d54fbaf9b",
+      "sha256": "ce267e4ab5576cd880ba9b849c4fd7b0f0269e60191645bee0ca038795446a0b",
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "a187d21bd54bb04237799a2913ac2c5428ef30a602458934cf90c7cab8a85009",
+      "sha256": "59d921d52ae0c7dd5d580cd0fce5163d359516d7fc5b2d425a5f18a2d10947ad",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
-      "sha256": "c09c9b04da50992917d6b22f555ea1b4e092d15405c7d46534c9231eeb07c5a4",
+      "sha256": "84bc4cc5e829d73a1fcb695d00c56fd8561afd052806dfaaf010b74ef0d645b7",
       "mode": 420
     },
     "scripts/validate-skills": {
@@ -271,6 +280,14 @@
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
       "sha256": "c872e6f61c8222c74a46fb36deefdaba099e413e44fac5c905e6c99f01913ec4",
+      "mode": 420
+    },
+    "skills/test-audit/LICENSE": {
+      "sha256": "73571b25326281d369087f469842c02444fe39faaecebda4d82ed21ff3a1c29d",
+      "mode": 420
+    },
+    "skills/test-audit/SKILL.md": {
+      "sha256": "117c2b5791f518231b097abb1c71afe32dfad1668854995dfdff644220a86f98",
       "mode": 420
     },
     "skills/video-transcripts/SKILL.md": {

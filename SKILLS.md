@@ -1,6 +1,6 @@
 # dotai skills
 
-9 skills: 6 maintained in dotai, plus 3 unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from dotai. Methods load only when relevant; tool access is separate from installation.
+10 skills: 7 maintained in dotai, plus 3 unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from dotai. Methods load only when relevant; tool access is separate from installation.
 
 ## Execution (1)
 
@@ -8,12 +8,13 @@
 | --- | --- |
 | [autogoal](skills/autogoal/SKILL.md) | Manage native Codex goals under a direct or standing user request, with durable acceptance and completion evidence. |
 
-## Review and design (3)
+## Review and design (4)
 
 | Skill | Purpose |
 | --- | --- |
 | [gpt-pro](skills/gpt-pro/SKILL.md) | Prepare a self-contained, paste-ready prompt for GPT Pro, ChatGPT Pro or another external reviewer with no repository access: exact context, evidence, candidate directions and pointed questions that force a decision. Use for gpt-pro, an external or harsh review prompt, or asking another model. |
 | [cross-review](skills/cross-review/SKILL.md) | Review another agent session's plan or finished work, or a contributor's PR, for gaps, missing cases, unproven claims and contradictions. Fixes a plan still in planning in place; reviews verdicts, executions and PRs read-only. Use for cross-review, $cross-review <plan>, /cross-review, a cross-model review hand-off, or a second opinion on a PR. |
+| [test-audit](skills/test-audit/SKILL.md) | Audit existing tests for low-value, duplicated or implementation-coupled cases and the test-only code they keep alive, then remove or rewrite them on evidence. Use for test-audit, /test-audit <scope>, a test sweep, or pruning tests. Not for writing a new test; the project's Tests rule gates that. |
 | [prototype](https://github.com/mattpocock/skills/blob/3cca18b368ae95cdbdebbff572ccafa662551015/skills/engineering/prototype/SKILL.md) | Build a throwaway prototype to answer a design question. Use when the user wants to sanity-check whether a state model or logic feels right, or explore what a UI should look like. |
 
 ## Communication (3)
