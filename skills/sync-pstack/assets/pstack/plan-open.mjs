@@ -2,9 +2,7 @@
 // Fails a plan that still has open work, so no plan is marked Done with an
 // unchecked box or a placeholder left in it. A box closed since HEAD must name
 // the artifact that closed it, and a deferred or open finding added since HEAD
-// must name its owner; committed lines stay as history. A Start or Completion
-// Gates table row must resolve Applies, record evidence or a reason, and leave
-// no column pending. The checks run whether
+// must name its owner; committed lines stay as history. The checks run whether
 // or not the plan already says Done, because this is the gate before Done.
 // Installed by the sync-pstack skill.
 // Usage: node .agents/pstack/plan-open.mjs <plan.md> [...]
