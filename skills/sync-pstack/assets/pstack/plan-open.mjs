@@ -14,8 +14,8 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-const OPEN_BOX = /^\s*(?:[-*+]|\d+\.)\s+\[ \]/u;
-const CLOSED_BOX = /^\s*(?:[-*+]|\d+\.)\s+\[[xX]\]/u;
+const OPEN_BOX = /^\s*(?:(?:[-*+]|\d+\.)\s+)+\[ \]/u;
+const CLOSED_BOX = /^\s*(?:(?:[-*+]|\d+\.)\s+)+\[[xX]\]/u;
 const ITEM = /^\s*(?:[-*+]|\d+\.)\s+/u;
 const PLACEHOLDER = /\b(?:TODO|TBD|FIXME)\b/u;
 const FINDINGS = /^#{1,6}\s+.*\b(?:deferred|open (?:items|findings|questions)|follow-?ups?|known gaps|gaps|residual)\b/iu;

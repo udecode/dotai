@@ -558,6 +558,14 @@ test('plan-open reports an open box outside code and ignores one inside a fence'
   assert.match(result.stderr, /^1 open item\(s\):\nplan\.md:4: - \[ \] ship it$/m);
 });
 
+test('plan-open reads a checkbox nested in a numbered step', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', { files: { 'plan.md': '# Plan\n\n1. - [x] **Build.** Proof: `bun test ./a.test.ts`.\n2. - [ ] **Ship.**\n' } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-open.mjs'), 'plan.md'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /^1 open item\(s\):\nplan\.md:4: 2\. - \[ \] \*\*Ship\.\*\*$/m);
+});
+
 test('plan-open fails a gate row that leaves Applies, evidence or another column pending', () => {
   const { dir, run } = sandbox();
   const plan = '# Plan\n\nCompletion Gates:\n| Gate | Applies | Required action | Evidence |\n|---|---|---|---|\n| Package proof | yes | Run the package proof | `bun test ./a.test.ts` passed |\n| Scale proof | pending | Run the probe | pending |\n';
