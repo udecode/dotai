@@ -6,13 +6,23 @@
 
 import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, realpathSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { constants, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const MODELS = { claude: 'opus', codex: 'gpt-6.1-sol' };
 
 export const otherRuntime = (env = process.env) => (env.CLAUDECODE ? 'codex' : 'claude');
+
+// Each child runs in its own process group, which outlives this process, so
+// stopping a run stops every runtime it launched.
+const running = new Set();
+for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+  process.on(signal, () => {
+    for (const killAll of running) killAll('SIGTERM');
+    process.exit(128 + constants.signals[signal]);
+  });
+}
 
 // Codex writes its final message only to the -o file, and reads a piped stdin
 // as more prompt, so stdin is closed and the answer comes only from that file.
@@ -33,6 +43,7 @@ export function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model
     const done = (answer) => {
       if (settled) return;
       settled = true;
+      running.delete(killAll);
       for (const timer of timers) clearTimeout(timer);
       resolve(answer);
     };
@@ -44,6 +55,7 @@ export function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model
         // The process group is already gone.
       }
     };
+    running.add(killAll);
     timers.push(
       setTimeout(() => killAll('SIGTERM'), timeout * 1000),
       setTimeout(() => killAll('SIGKILL'), timeout * 1000 + 2000),

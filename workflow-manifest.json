@@ -130,7 +130,7 @@
       "mode": 420
     },
     "scripts/validate-skills": {
-      "sha256": "b0937cec95febf0e028c2f5e69a66fb0d5d67885853d7b5811c573f3a2919ec9",
+      "sha256": "7671d8a9d6a5b137ecefd38c1802c5eaa8e24bb5db885cf4c03d455478168159",
       "mode": 493
     },
     "skills/autogoal/README.md": {
@@ -238,7 +238,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/cross.mjs": {
-      "sha256": "370abad028dbb5a691e268c5c682d4cab63d7c728c2e173e636fc03c73fffbd0",
+      "sha256": "fbc38412b89397422abae04fe2791d0b6b704e16d2345b7f4298bfa85763be24",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
@@ -270,7 +270,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "8a118ce89262602663ff14e1aeeae36ea65d9ea9dd865506e5a79f58fa4fa02d",
+      "sha256": "c872e6f61c8222c74a46fb36deefdaba099e413e44fac5c905e6c99f01913ec4",
       "mode": 420
     },
     "skills/video-transcripts/SKILL.md": {

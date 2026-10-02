@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -310,6 +310,25 @@ test('cross runs a Codex seat read-only on the model and effort it names', () =>
   });
   assert.equal(seat.status, 0, seat.stderr);
   assert.match(seat.stdout, /exec -m gpt-6-astra -c model_reasoning_effort=high --disable hooks --sandbox read-only /);
+});
+
+test('a stopped cross run stops the runtime it launched', async () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  const pidFile = join(dir, 'codex.pid');
+  writeFileSync(join(bin, 'codex'), `#!/bin/sh\necho $$ > ${pidFile}\nsleep 30\n`, { mode: 0o755 });
+  const cross = spawn(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', 'review it'], {
+    cwd: dir,
+    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '' },
+  });
+  const deadline = Date.now() + 10000;
+  while (!existsSync(pidFile) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 50));
+  const pid = Number(readFileSync(pidFile, 'utf8'));
+  cross.kill('SIGTERM');
+  await new Promise((resolve) => cross.on('exit', resolve));
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  assert.throws(() => process.kill(pid, 0), /ESRCH/, 'the launched runtime outlived its stopped parent');
 });
 
 test('cross passes a prompt that starts with dashes as the prompt, and gives up on a runtime that ignores its timeout', () => {
