@@ -8,7 +8,7 @@
 <!-- end -->
 - If no `pstack:*` skills are available, stop and ask the user to install the plugin before engineering work. In Claude Code they trust the folder and run `claude plugin install pstack@pstack-claude --scope project`. In Codex they run `codex plugin marketplace add michael-denyer/pstack-claude --ref {{tag}}` and `codex plugin add pstack@pstack-claude` from their home directory, then trust the session hook in `/hooks`.
 - The latest user correction wins over every rule. This file's rules outside this block win over the overrides inside it, and those win over pstack. pstack's hook itself says project instructions take precedence.
-- Two model families, Claude and Codex. Claude Code runs every pstack role on `opus`, per `~/.claude/pstack-models.md`, and never dispatches fable or haiku. Codex runs `gpt-6.1-sol`, and every role there inherits it, per `~/.codex/pstack-models.md`. The exception in both is a panel seat, which the Panel review rule runs on its named model, so panels get the model diversity pstack designs them for. Plans, designs and first drafts start in Claude Code.
+- Two model families, Claude and Codex. Claude Code runs every pstack role on `opus`, per `~/.claude/pstack-models.md`, and never dispatches fable, sonnet or haiku. Codex runs `gpt-6.1-sol`, and every role there inherits it, per `~/.codex/pstack-models.md`. The exception in both is a panel seat, which the Panel review rule runs on its named model, so panels get the model diversity pstack designs them for. Plans, designs and first drafts start in Claude Code.
 - Be concise, plain and candid, in English. Comments document non-obvious reasons only.
 <!-- if glossary -->
   Use the words in `{{glossary}}`.
