@@ -1,6 +1,6 @@
 ---
 name: cross-review
-description: "Review another agent session's plan or finished work, or a contributor's PR, for gaps, missing cases, unproven claims and contradictions. Fixes a plan still in planning in place; reviews executions and PRs read-only. Use for cross-review, $cross-review <plan>, /cross-review, a cross-model review hand-off, or a second opinion on a PR."
+description: "Review another agent session's plan or finished work, or a contributor's PR, for gaps, missing cases, unproven claims and contradictions. Fixes a plan still in planning in place; reviews verdicts, executions and PRs read-only. Use for cross-review, $cross-review <plan>, /cross-review, a cross-model review hand-off, or a second opinion on a PR."
 argument-hint: '[<plan path> | <PR number or URL>]'
 disable-model-invocation: true
 metadata:
@@ -33,6 +33,7 @@ A plan that names a subject, through a `Topic: <slug>` line or the first entry o
 | --- | --- |
 | A plan whose `Status:` says planning | The plan and its subject file against the user's asks; fix their gaps in the files |
 | A plan that is executing or done, or a session without a plan | The session's commits against the plan, if any, and the user's asks; findings only |
+| A review record, such as a verdict that recommends a change | The verdict against its evidence, the alternatives it weighed, the scope's history the project keeps (the hub `pageTopic.hub` in `.agents/pstack.json` names) and the user's asks; findings only |
 | A PR | Its plan file, description and diff against the reasons in its plan; findings only |
 
 ## Know the round

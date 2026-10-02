@@ -13,7 +13,7 @@
 | Skill | Purpose |
 | --- | --- |
 | [gpt-pro](skills/gpt-pro/SKILL.md) | Prepare a self-contained, paste-ready prompt for GPT Pro, ChatGPT Pro or another external reviewer with no repository access: exact context, evidence, candidate directions and pointed questions that force a decision. Use for gpt-pro, an external or harsh review prompt, or asking another model. |
-| [cross-review](skills/cross-review/SKILL.md) | Review another agent session's plan or finished work, or a contributor's PR, for gaps, missing cases, unproven claims and contradictions. Fixes a plan still in planning in place; reviews executions and PRs read-only. Use for cross-review, $cross-review <plan>, /cross-review, a cross-model review hand-off, or a second opinion on a PR. |
+| [cross-review](skills/cross-review/SKILL.md) | Review another agent session's plan or finished work, or a contributor's PR, for gaps, missing cases, unproven claims and contradictions. Fixes a plan still in planning in place; reviews verdicts, executions and PRs read-only. Use for cross-review, $cross-review <plan>, /cross-review, a cross-model review hand-off, or a second opinion on a PR. |
 | [prototype](https://github.com/mattpocock/skills/blob/3cca18b368ae95cdbdebbff572ccafa662551015/skills/engineering/prototype/SKILL.md) | Build a throwaway prototype to answer a design question. Use when the user wants to sanity-check whether a state model or logic feels right, or explore what a UI should look like. |
 
 ## Communication (3)

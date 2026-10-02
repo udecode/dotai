@@ -17,7 +17,7 @@
     {
       "name": "cross-review",
       "distribution": "bundled",
-      "description": "Review another agent session's plan or finished work, or a contributor's PR, for gaps, missing cases, unproven claims and contradictions. Fixes a plan still in planning in place; reviews executions and PRs read-only. Use for cross-review, $cross-review <plan>, /cross-review, a cross-model review hand-off, or a second opinion on a PR.",
+      "description": "Review another agent session's plan or finished work, or a contributor's PR, for gaps, missing cases, unproven claims and contradictions. Fixes a plan still in planning in place; reviews verdicts, executions and PRs read-only. Use for cross-review, $cross-review <plan>, /cross-review, a cross-model review hand-off, or a second opinion on a PR.",
       "category": "Review and design",
       "dependencies": [],
       "capabilities": [
@@ -122,7 +122,7 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "e869ccf364aba827f9ad216bd227de90effd342a013b8b610241f0c15bfa7f7a",
+      "sha256": "a187d21bd54bb04237799a2913ac2c5428ef30a602458934cf90c7cab8a85009",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
@@ -210,7 +210,7 @@
       "mode": 420
     },
     "skills/cross-review/SKILL.md": {
-      "sha256": "27541d3ebf8dad46b5718f0a7abff8d58a13e7bfa3993191c68141e0d7a2fb13",
+      "sha256": "75272ca79c3b04d37f1dae8a51ced8edbaafbf837cbe6164527e0a00a3e24864",
       "mode": 420
     },
     "skills/cross-review/scripts/session.mjs": {
@@ -234,7 +234,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "08f1c9a24b99c06c6bc89e87a5c70700a33779a4b1c83c9dbaf59bbc65818978",
+      "sha256": "67ab2f1ae8bfab90a27a6383162b705810bcf3050c4c787e8b74f0fe4377013d",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/cross.mjs": {
@@ -258,7 +258,7 @@
       "mode": 420
     },
     "skills/sync-pstack/references/interview.md": {
-      "sha256": "00b88060db0c1ab9abc6f5ed0f8d7fbecbc4002ded2cc267e55c9f1800bc7fec",
+      "sha256": "e2f2c642a6fd48fd81917f08f1d2ffca6528451ed3f01b06cfa7a0ce8bdc7ea7",
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.mjs": {
