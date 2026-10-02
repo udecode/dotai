@@ -179,9 +179,9 @@ function upstream() {
   };
 }
 
-const anchoredPaths = (root, template = readFileSync(TEMPLATE, 'utf8')) => [
+const anchoredPaths = (root) => [
   ...new Set([
-    ...overrideAnchors(template).map((note) => note.path),
+    ...overrideAnchors(readFileSync(TEMPLATE, 'utf8')).map((note) => note.path),
     ...projectPlaybooks(root).flatMap((playbook) => playbook.extends.map((stem) => `poteto-mode/playbooks/${stem}.md`)),
   ]),
 ];
@@ -197,7 +197,7 @@ export const overrideAnchors = (template) =>
     return match ? [{ path: match[1], anchor: match[2] }] : [];
   });
 
-export function anchorProblems(root, tag, { template = readFileSync(TEMPLATE, 'utf8') } = {}) {
+export function anchorProblems(root, tag) {
   const source = upstream();
   const texts = new Map();
   const read = (path) => {
@@ -206,7 +206,7 @@ export function anchorProblems(root, tag, { template = readFileSync(TEMPLATE, 'u
   };
   const problems = [];
   try {
-    for (const { path, anchor } of overrideAnchors(template)) {
+    for (const { path, anchor } of overrideAnchors(readFileSync(TEMPLATE, 'utf8'))) {
       const text = read(path);
       if (text === null) problems.push({ reason: `the block overrides ${path}, which pstack ${tag} no longer has` });
       else if (!flat(text).includes(flat(anchor))) {

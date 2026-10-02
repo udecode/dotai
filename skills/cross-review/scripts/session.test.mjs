@@ -45,7 +45,7 @@ function fixture() {
   ]);
   claudeSession(home, cwd, 'd', 20, [
     ['user', 'check the tree'],
-    { role: 'user', content: [{ type: 'tool_result', content: ' M docs/plans/c.md' }] },
+    { role: 'user', content: [{ type: 'tool_result', content: ' M docs/plans/c.md\n M docs/plans/d.md' }] },
     ['assistant', 'Clean enough.'],
   ]);
   claudeSession(home, cwd, 'e', 10, [
@@ -96,4 +96,5 @@ test('a plan path picks the session that wrote and handed it off, not one that o
   assert.match(shown.stdout, /^1\. \(\S+\) \/fix the paste bug$/m);
   assert.match(shown.stdout, /## Commit lines seen in the session[^\n]*\n- 4682b1696 fix\(paste\): keep marks\./);
   assert.doesNotMatch(shown.stdout, /check the tree/);
+  assert.equal(run('--plan', 'docs/plans/d.md').status, 1, 'a path seen only in tool output names no session');
 });

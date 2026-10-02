@@ -198,7 +198,7 @@
       "mode": 493
     },
     "skills/autogoal/scripts/create-goal-scratchpad.test.mjs": {
-      "sha256": "69953abd21ece38a3c4a010b2625ef66b53e1b9f41f698ddd97935a6026651e4",
+      "sha256": "ee919aae76af90cb8ab486571fdcafc194c55ea06b4a88b74484f895c318e3ce",
       "mode": 420
     },
     "skills/autogoal/scripts/create-goal-template.mjs": {
@@ -214,11 +214,11 @@
       "mode": 420
     },
     "skills/cross-review/scripts/session.mjs": {
-      "sha256": "ea2d71201e0c56c3cb21b048343808a5c544083db2233c8f820d00ea8953a3e4",
+      "sha256": "ea9aabc2950335ab09a3999ee912b35d79e02913d89ccccdc75be10d4c207f69",
       "mode": 420
     },
     "skills/cross-review/scripts/session.test.mjs": {
-      "sha256": "2cb7d893fd3d6606e6a1ea9ccfddcfc4c4c2070ea70df686bb27512ac933f1be",
+      "sha256": "6b7a7134c9df9c313e92a9a92ffbfcbbf2a9de6cfa8a35f030ba0c3f6c9c2cf5",
       "mode": 420
     },
     "skills/gpt-pro/SKILL.md": {
@@ -266,11 +266,11 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.mjs": {
-      "sha256": "eda055ef340890b6a319b3b77825200f6eb10032c7cd3f88c9b68dbad83e27f4",
+      "sha256": "c82bc2550ed144d5a6bce7e3c9eb0936f422eb560640024583cd7305dceed0c8",
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "d477eb12c39ffbaa2524ba27a0cc3cdf275f7f7c01f0c88328e84ae81577d02a",
+      "sha256": "0919741b03a4c4628623b0fdb8294e90d59b1a924c1faee4d77ded3be2914899",
       "mode": 420
     },
     "skills/video-transcripts/SKILL.md": {
@@ -302,7 +302,7 @@
       "mode": 420
     },
     "skills/walkthrough/scripts/diff-baseline.test.mjs": {
-      "sha256": "1854f5fd89047169edbd8b909870a37dd28c68e910924c941be4cdf5f23558df",
+      "sha256": "4447384c1b5ca994d8a65b549a7b2620e1cffc30e7bf5ffe73fba86172e6984d",
       "mode": 420
     },
     "upstream-skills.json": {

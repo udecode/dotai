@@ -283,8 +283,7 @@ function main(argv) {
   }
   const replied = here
     .map((session) => ({ ...session, turn: lastTurn(from, session.path) }))
-    .filter(({ turn }) => turn.finished)
-    .sort((a, b) => b.mtime - a.mtime);
+    .filter(({ turn }) => turn.finished);
   const waiting = replied.filter(({ turn }, index) => index < RECENT || handOff(turn));
   if (pick && !(Number(pick) >= 1 && Number(pick) <= waiting.length)) {
     console.error(`--pick ${pick} is not in the list of ${waiting.length} waiting sessions.`);

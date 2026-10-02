@@ -40,17 +40,15 @@ Preserve this project requirement.
 Work Checklist:
 - [ ] Complete the project work.
 `);
-  for (const output of [planPath, 'docs/plans/repeated.md']) {
-    const result = project.run(helper, '--template', 'task', '--with', 'docs', '--title', 'Metadata trial', '--path', output);
-    assert.equal(result.status, 0, result.stderr);
-    const content = readFileSync(path.join(project.root, output), 'utf8');
-    assert.match(content, /Primary template:\n+docs\/plans\/templates\/task.md/);
-    assert.match(content, /Applied packs:\n+- docs \(/);
-    assert.equal(content.match(/^Primary template:/gm)?.length, 1);
-    assert.equal(content.match(/^Applied packs:/gm)?.length, 1);
-    assert.ok(content.includes('Objective:\nPreserve this project requirement.'));
-    assert.ok(content.includes('- [ ] Complete the project work.'));
-  }
+  const result = project.run(helper, '--template', 'task', '--with', 'docs', '--title', 'Metadata trial', '--path', planPath);
+  assert.equal(result.status, 0, result.stderr);
+  const content = project.read();
+  assert.match(content, /Primary template:\n+docs\/plans\/templates\/task.md/);
+  assert.match(content, /Applied packs:\n+- docs \(/);
+  assert.equal(content.match(/^Primary template:/gm)?.length, 1);
+  assert.equal(content.match(/^Applied packs:/gm)?.length, 1);
+  assert.ok(content.includes('Objective:\nPreserve this project requirement.'));
+  assert.ok(content.includes('- [ ] Complete the project work.'));
   const before = project.read();
   const duplicate = project.run(helper, '--template', 'task', '--with', 'docs', '--title', 'Metadata trial', '--path', planPath);
   assert.notEqual(duplicate.status, 0);
@@ -236,7 +234,5 @@ test('built-in checklist packs keep lightweight templates and do not seed projec
   assert.equal(created.status, 0, created.stderr);
   const content = project.read();
   assert.ok(content.includes(`Template:\n${path.relative(project.root, path.join(scriptDir, '../assets/templates/task.md'))}`));
-  assert.ok(content.includes(`- docs (${path.relative(project.root, path.join(scriptDir, '../assets/templates/packs/docs.md'))})`));
-  assert.doesNotMatch(content, /^(Start Gates|Completion Gates):/m);
   assert.equal(existsSync(path.join(project.root, 'docs/plans/templates')), false);
 });

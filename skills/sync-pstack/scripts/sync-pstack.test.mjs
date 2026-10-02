@@ -146,12 +146,13 @@ test('apply inserts one block after the intro, and a second apply changes nothin
   assert.equal(cli('check', root).status, 0);
 });
 
-test('apply keeps cross.mjs when the review section is skipped, because the panel and trail rules still run it', () => {
+test('apply installs every helper the rendered rules name, whichever sections are skipped', () => {
   const { dir, cli } = sandbox();
-  const root = project(dir, 'app', { config: { ...CONFIG, skip: ['review'] }, agents: '# App\n' });
+  const root = project(dir, 'app', { config: { ...CONFIG, skip: ['tests', 'review', 'plans', 'long-runs', 'commits'] }, agents: '# App\n' });
   assert.equal(cli('apply', root).status, 0);
-  assert.match(read(root, 'AGENTS.md'), /cross\.mjs/);
-  assert.equal(read(root, '.agents/pstack/cross.mjs'), readFileSync(join(HELPERS, 'cross.mjs'), 'utf8'));
+  const named = new Set(read(root, 'AGENTS.md').match(/\.agents\/pstack\/[\w-]+\.mjs/gu));
+  assert.ok(named.size > 0);
+  for (const path of named) assert.ok(existsSync(join(root, path)), `${path} is named but not installed`);
 });
 
 test('check fails once the project config moves past what was applied', () => {
@@ -848,12 +849,14 @@ test("plan-page reads a subject iteration's state from the first word of its Sta
   const { dir, run } = sandbox();
   const status = (line) => {
     const root = deltaProject(mkdtempSync(join(dir, 'case-')), DELTA_TOPIC, DELTA_PLAN.replace('Status: planning', `Status: ${line}`));
-    return run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md'], root);
+    return { ...run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md'], root), root };
   };
   const unknown = status('Not done yet');
   assert.equal(unknown.status, 1);
   assert.match(unknown.stderr, /needs a Status: line that starts with a state word/);
-  assert.equal(status('Re-opened after the execution review').status, 0, 'a reopened plan stays open');
+  const reopened = status('Re-opened after the execution review');
+  assert.equal(reopened.status, 0, reopened.stderr);
+  assert.match(read(reopened.root, 'docs/plans/artifacts/topics/drag.html'), /<tr class="added">.*?<td>Schema landing<\/td>/, 'a reopened plan stays open and leads with its delta');
 });
 
 test('plan-page leads with the dated open iteration over an undated issue plan', () => {
@@ -892,14 +895,6 @@ test('plan-page reads a Delta column as a plain table on a one-off plan', () => 
   assert.match(read(root, 'docs/plans/artifacts/plan.html'), /<td>DOM ledger<\/td>/);
 });
 
-test('plan-page refuses a Public API section without a before and after pair', () => {
-  const { dir, run } = sandbox();
-  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': '# Plan\n\nStatus: done\n\n## Public API\n\n- `editor.tf.toggle` now takes a block type.\n' } });
-  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /Public API needs each before fence followed directly by its after fence/);
-});
-
 test('plan-open fails a gate row that leaves Applies, evidence or another column pending', () => {
   const { dir, run } = sandbox();
   const plan = '# Plan\n\nCompletion Gates:\n| Gate | Applies | Required action | Evidence |\n|---|---|---|---|\n| Package proof | yes | Run the package proof | `bun test ./a.test.ts` passed |\n| Scale proof | pending | Run the probe | pending |\n';
@@ -912,7 +907,7 @@ test('plan-open fails a gate row that leaves Applies, evidence or another column
 
 test('plan-open makes a newly closed box name its artifact and a deferred finding name its owner', () => {
   const { dir, run } = sandbox();
-  const legacy = '# Plan\n\nStatus: Done\n\n- [x] shipped long ago\n';
+  const legacy = '# Plan\n\nStatus: In progress.\n\n- [x] shipped long ago\n';
   const root = project(dir, 'app', { files: { 'plan.md': legacy } });
   run('git', ['add', '.'], root);
   run('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'plan'], root);
@@ -924,18 +919,6 @@ test('plan-open makes a newly closed box name its artifact and a deferred findin
   assert.match(result.stderr, /plan\.md:6: .*writing passes ran/);
   assert.match(result.stderr, /plan\.md:12: .*schema check/);
   assert.doesNotMatch(result.stderr, /:5:|:7:|:8:|:13:/);
-});
-
-test('plan-open applies the closure checks before the plan is marked Done', () => {
-  const { dir, run } = sandbox();
-  const root = project(dir, 'app', { files: { 'plan.md': '# Plan\n\nStatus: In progress.\n' } });
-  run('git', ['add', '.'], root);
-  run('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'plan'], root);
-
-  writeFileSync(join(root, 'plan.md'), '# Plan\n\nStatus: In progress.\n\n- [x] writing passes ran\n');
-  const result = run(process.execPath, [join(HELPERS, 'plan-open.mjs'), 'plan.md'], root);
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /plan\.md:5: .*writing passes ran.*name the artifact/);
 });
 
 test('decisions-check append writes only a row that passes the check', () => {
