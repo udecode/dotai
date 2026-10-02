@@ -812,6 +812,7 @@ a { color: var(--accent); }
 .side { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 @media (min-width: 1280px) {
   main > :has(.compare) { --wide: min(1200px, calc(100vw - 64px)); box-sizing: border-box; width: var(--wide); margin-inline: calc((100% - var(--wide)) / 2); }
+  main > :has(.compare) > :not(.compare) { margin-inline: calc((var(--wide) - 760px) / 2); }
   .compare { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .diff .filler { display: grid; background: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--rule) 45%, transparent) 6px 7px); }
 }
