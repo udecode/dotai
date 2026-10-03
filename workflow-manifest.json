@@ -6,7 +6,7 @@
     {
       "name": "plan-page",
       "distribution": "bundled",
-      "description": "Write, check, repair and publish a plan page: a project's plans and subject files under its plans directory, rendered by .agents/pstack/plan-page.mjs and published as one claude.ai page per subject. The page is how work hands back to the user. Use before writing or changing a plan, a subject file in <plans>/topics or its page; at every stop that hands work back, such as a review verdict, a next answer or a playbook's close; when a plan page or its claude.ai artifact looks wrong or refuses to render; to republish a page; or to change the page shape or a playbook's page sections.",
+      "description": "Write, check, repair and publish a plan page: a project's plans and subject files under its plans directory, rendered by .agents/pstack/plan-page.mjs and published as one claude.ai page per subject. The page is how work hands back to the user. Use before writing or changing a plan, a subject file in <plans>/topics or its page; at every stop that hands work back, such as a review verdict other than a review-only panel's, a next answer or a playbook's close; when a plan page or its claude.ai artifact looks wrong or refuses to render; to republish a page; or to change the page shape or a playbook's page sections.",
       "category": "Communication",
       "dependencies": [],
       "capabilities": [
@@ -63,7 +63,7 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "81b90ffa28c683f269b2fc6afb63d9fc946d60ef5a0cd3d8829f39b09213d9e9",
+      "sha256": "055de93e3b53c96e1c192af6edf63bf3de5e05655f71cb659ce67e697709936d",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
@@ -75,7 +75,7 @@
       "mode": 493
     },
     "skills/plan-page/SKILL.md": {
-      "sha256": "818dc89d2e1fbabef0e1ba564c5bd135a885030e54c94459d95bf55a8f20624c",
+      "sha256": "87ce08e43b0b4903df62f984cc22d15d84056123b7ab21a896347a81326d050d",
       "mode": 420
     },
     "skills/plan-page/references/shape.md": {
@@ -83,7 +83,7 @@
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
-      "sha256": "99880eb0feb60b0a5aee1559dbf3aa01bad62bf270f92d511eb1e6e0568a4a82",
+      "sha256": "3c3b6a32abced1cff513855d8121cc5d0266ab9ffab05952cc6a25ac5fefb648",
       "mode": 420
     },
     "skills/sync-pstack/agents/openai.yaml": {
@@ -91,7 +91,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "7ab874e84b4c8b0487adb27907bd7d307e38ee88112d4f1908b3e4c056286326",
+      "sha256": "e6173c14a3ffc38f6f23de081d9348bf1bdac19e25c6fcb5f10a0d45baf27ac9",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/cross.mjs": {
@@ -115,7 +115,7 @@
       "mode": 420
     },
     "skills/sync-pstack/references/adapt.md": {
-      "sha256": "03a75b44c96736ddaeed1b40021896733a500d6f613114b92281ec564776721b",
+      "sha256": "eb4b68af957515a2d29543df51443ddcb3760a18e32bfe3c90751b86a96faa01",
       "mode": 420
     },
     "skills/sync-pstack/references/audit-brief.md": {

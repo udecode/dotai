@@ -38,7 +38,7 @@ Walk `AGENTS.md` and each workflow rule, using the interview's classification. K
 - **The routing table** from interview question 9. Write it outside the block as the project's Routing section, one owner per row, naming the skill by its invocable name.
 - **A public skill**, one the project's docs tell users to install (`skills add`). It must not depend on the project's own workflow files (`.agents/pstack/`, poteto-mode, `AGENTS.md`, the plans directory), because downstream apps have none of them; keep its run state in its own directory.
 
-A retired policy is often repeated far from `AGENTS.md`. Search the whole repository for each retired phrase, controller name and removed skill path: rule references, plan templates, team docs and vision or design docs. Fix every hit.
+A retired policy is often repeated far from `AGENTS.md`. Search the whole repository for each retired phrase, controller name and removed skill path: rule references, plan templates, team docs and vision or design docs. Search for the concept's stem and each way it is phrased, such as `big` for a retired big-work trigger, not one exact phrase, because a rule is often restated elsewhere in other words. Cover the shared dotai skills, each project's `AGENTS.md`, playbooks, rules and docs, and both user-scope models sheets, `~/.claude/pstack-models.md` and `~/.codex/pstack-models.md`. The same search finds every site a new exception to a rule must reach. Fix every hit.
 
 After editing rules, run the project's own regeneration, such as its `prepare` script or `bunx skiller@latest apply`, and never hand-edit a generated `SKILL.md`.
 
