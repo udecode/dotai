@@ -6,14 +6,14 @@ After the interview and before `apply`, reshape the project so its own rules and
 
 `discover` lists `pstack.vendored`: local skills that carry a plugin skill's name. Both copies load (`how` and `pstack:how`), and the local one never receives upstream changes.
 
-- A copy the Skills CLI installed has an entry in `skills-lock.json`. Remove it from the project root with `npx --yes skills remove <name>... -y`, which deletes `.agents/skills/<name>` and each agent's link to it.
+- A copy the Skills CLI installed has an entry in `skills-lock.json`. Remove it from the project root with `npx --yes skills remove <name>... -y`, which deletes `.agents/skills/<name>` and each agent's link to it. Never pass `--agent`, which removes only those agents' links and leaves the copy and its lock entry.
 - The Skills CLI can also delete tracked links outside the skill directories, such as a root directory of skill links. Afterwards read `git status` outside `.agents/skills` and `.claude/skills`, and restore what the project still needs.
 - A copy generated from a project rule (a matching `.agents/rules/<name>.mdc`) is a project fork, not a vendored copy. Interview question 8 decides whether it carries project behavior. If it does not, delete the rule and regenerate.
 - Afterwards `discover` reports an empty `vendored` list, and `find -L .claude/skills -type l` prints no dangling link.
 
 ## Skills orphaned by dotai cuts
 
-`dotaiOrphans` lists skills installed from dotai that dotai no longer ships, so they never update again. Interview question 8 settles each one. Either remove it, or keep it as a project-owned skill by moving its source into the project's rules and dropping its lock entry.
+`dotaiOrphans` lists skills installed from dotai that dotai no longer ships, so they never update again. Interview question 8 settles each one. Either remove it, or keep it as a project-owned skill by moving its source into the project's rules and dropping its lock entry. At user scope, run `npx --yes skills remove -g <names> -y` from the home directory for names in `~/.agents/.skill-lock.json`, delete the rest by path from `~/.agents/skills`, `~/.claude/skills` and `~/.codex/skills`, then scan those for dangling links.
 
 ## Codex seats
 

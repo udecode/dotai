@@ -42,7 +42,7 @@ The interview is the first step the user sees in a setup. Prepare it from eviden
 
 For question 9, the routing table is what makes poteto-mode hand domain work to the project's own skills instead of its generic playbooks; a project without one gets the rules but not the routing. Keep each row to one owner. For question 10, a project with a UI or a runnable app gets a proof skill; a library with a test suite may answer the second option.
 
-For question 8, show each candidate's typed count (`typed.counts`, which covers archived Codex history and skips forks, subagent briefs and pasted text) and mark any skill in `recent`, added in the last two weeks. A typed or recent method is offered as "keep as a thin entry point" (recommended) or "drop the command"; only the owner's "drop the command" removes it, recorded under `dropped`, and even then only into a replacement that already works in this setup, per the block's Agent files rule. A vendored copy of a plugin skill installed by the Skills CLI is not a question: it duplicates the plugin, so setup removes it.
+For question 8, show each candidate's typed count (`typed.counts`, counted as [Audit](../SKILL.md#audit) step 1 defines) and mark any skill in `recent`, added in the last two weeks. A typed or recent method is offered as "keep as a thin entry point" (recommended) or "drop the command"; only the owner's "drop the command" removes it, recorded under `dropped`, and even then only into a replacement that already works in this setup, per the block's Agent files rule. A vendored copy of a plugin skill installed by the Skills CLI is not a question: it duplicates the plugin, so setup removes it.
 
 ## Settled, never asked
 
