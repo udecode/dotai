@@ -151,7 +151,34 @@ function playbookLines(root) {
     .join('\n');
 }
 
-const withPlaybooks = (root, config) => ({ ...config, projectPlaybooks: playbookLines(root) });
+function reviewLines(config) {
+  return (config.reviews ?? [])
+    .map((row) => {
+      if (!/^[a-z][a-z0-9-]*$/u.test(row.id ?? '') || !row.rule?.trim()) throw new Error(`each "reviews" row in ${CONFIG} needs a kebab-case "id" and a "rule" sentence`);
+      return `  - \`${row.id}\`: ${row.rule.trim()}`;
+    })
+    .join('\n');
+}
+
+const withDerived = (root, config) => ({ ...config, projectPlaybooks: playbookLines(root), reviewList: reviewLines(config) });
+
+const RETIRED_REVIEW_FIELDS = ['bigWork', 'risk', 'reviewPr'];
+const TOOL_MENTION = /`\/?pstack:(interrogate|arena|architect)`/u;
+const REVIEW_CITE = /\(reviews: ([^)]*)\)/gu;
+
+function reviewProblems(root, config) {
+  const ids = new Set((config.reviews ?? []).map((row) => row.id));
+  const problems = RETIRED_REVIEW_FIELDS.filter((field) => field in config).map((field) => `${CONFIG} still sets \`${field}\`; move it into \`reviews\``);
+  for (const playbook of projectPlaybooks(root)) {
+    for (const [index, line] of readFileSync(join(root, playbook.path), 'utf8').split('\n').entries()) {
+      const cited = [...line.matchAll(REVIEW_CITE)].map((match) => match[1]);
+      for (const id of cited.filter((id) => !ids.has(id))) problems.push(`${playbook.path}:${index + 1}: cites reviews row \`${id}\`, which ${CONFIG} does not list`);
+      const tool = line.match(TOOL_MENTION);
+      if (tool && cited.length === 0) problems.push(`${playbook.path}:${index + 1}: names \`pstack:${tool[1]}\` without citing a reviews row`);
+    }
+  }
+  return problems;
+}
 
 const upstreamUrl = () => process.env.SYNC_PSTACK_UPSTREAM ?? `https://github.com/${REPO}.git`;
 
@@ -393,7 +420,7 @@ export function apply(root, { tag, force = false, write = true } = {}) {
   const configPath = join(root, CONFIG);
   if (!existsSync(configPath)) throw new Error(`${configPath} is missing; set the project up first`);
   const stored = readJson(configPath);
-  const config = withPlaybooks(root, { ...stored, ...(tag ? { tag } : {}) });
+  const config = withDerived(root, { ...stored, ...(tag ? { tag } : {}) });
   validate(config);
   const body = render(readFileSync(TEMPLATE, 'utf8'), config);
   const changes = [];
@@ -413,7 +440,7 @@ export function apply(root, { tag, force = false, write = true } = {}) {
   if (current?.body !== body) {
     const detail = diff(current?.body ?? '', body);
     if (current && !force && sha(current.body) !== stored.synced?.block) {
-      const last = lastVersion(stored, 'assets/block.md', (text) => render(text, withPlaybooks(root, stored)), stored.synced?.block);
+      const last = lastVersion(stored, 'assets/block.md', (text) => render(text, withDerived(root, stored)), stored.synced?.block);
       refusals.push({
         path: 'AGENTS.md',
         reason: 'the block was edited since the last sync',
@@ -903,6 +930,7 @@ export function verify(root) {
     if (result.changes.length > 0 || result.refusals.length > 0) problems.push('pstack block or helpers differ from the shared source; run `apply`');
     problems.push(...anchorProblems(root, config.tag).map((problem) => problem.reason));
     for (const name of unmarkedRules(readFileSync(TEMPLATE, 'utf8'))) problems.push(`block rule "${name}" has no overrides note or adds marker`);
+    problems.push(...reviewProblems(root, config));
   }
 
   const plugin = pluginSkills();

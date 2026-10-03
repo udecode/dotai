@@ -1,6 +1,6 @@
 # dotai
 
-Shared skills that the pstack plugin does not cover: cross-model review of another session's plan, execution or PR (`cross-review`, built on pstack's interrogate), test audits (`test-audit`, adapted from openclaw's), screenshot walkthroughs and video transcripts, and pstack setup, sync and skill-drift audits (`sync-pstack`). Code review runs on pstack's panels with Codex seats.
+Shared skills that the pstack plugin does not cover: test audits (`test-audit`, adapted from openclaw's), screenshot walkthroughs and video transcripts, and pstack setup, sync and skill-drift audits (`sync-pstack`). Review runs on pstack's panels with Codex seats, on the work each project's reviews list names.
 
 The engineering method comes from the pstack plugin, `pstack@pstack-claude` from `michael-denyer/pstack-claude`, pinned per project: poteto-mode, its playbooks, the principle skills, how, why, architect, arena, interrogate, swarm, reflect, show-me-your-work, tdd, deslop and the rest. dotai does not vendor them.
 
@@ -15,7 +15,7 @@ Read [SKILLS.md](SKILLS.md) for the generated inventory, capability limits and p
 
 ## Install
 
-Install a skill with the Skills CLI, naming the skill and each agent, for example `npx skills add udecode/dotai --skill cross-review --agent codex claude-code`. Project scope is the default; use `--global` only for a user-wide install.
+Install a skill with the Skills CLI, naming the skill and each agent, for example `npx skills add udecode/dotai --skill test-audit --agent codex claude-code`. Project scope is the default; use `--global` only for a user-wide install.
 
 ## Validate
 

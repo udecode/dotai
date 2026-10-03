@@ -1,6 +1,6 @@
 ---
 name: sync-pstack
-description: "Set up the pstack plugin in a project through an interview, and keep every pstack project on one pinned tag and one shared AGENTS.md overrides block. Use to set up or install pstack in a repo, sync, bump or update pstack everywhere, list which projects use pstack or have drifted, compare setups, audit a project's skills for drift from pstack (which to cut, fold or keep), or move a workflow lesson, including a plan page shape change, into every project. Not for choosing pstack's per-role models, which setup-pstack owns."
+description: "Set up the pstack plugin in a project through an interview, and keep every pstack project on one pinned tag and one shared AGENTS.md overrides block. Use to set up or install pstack in a repo, sync, bump or update pstack everywhere, list which projects use pstack or have drifted, compare setups, audit a project's skills for drift from pstack (which to cut, fold or keep), change which work runs a panel, architect or an arena without asking (\"from now on X runs architect\"), or move a workflow lesson, including a plan page shape change, into every project. Not for choosing pstack's per-role models, which setup-pstack owns."
 metadata:
   source: udecode/dotai
   source-path: skills/sync-pstack
@@ -49,6 +49,7 @@ Anchor checks read pstack from a bare clone that the script makes in `~/.cache/s
 | Sync, bump or update pstack, here or everywhere | [Sync](#sync) |
 | Compare setups, or list which projects use pstack or have drifted | [Compare](#compare), read-only |
 | Audit a project's skills for drift from pstack, or which skills to cut | [Audit](#audit), read-only until the owner picks |
+| "From now on <work> runs <architect, a panel or an arena>", or stop running one | [Reviews](#reviews) |
 | A lesson or correction that changes a shared rule | [Lesson](#lesson) |
 | Add or change a project's own playbook | [Project playbooks](#project-playbooks) |
 
@@ -99,6 +100,15 @@ Skills drift from pstack when they copy law that pstack or the block already own
 2. Run `/pstack:interrogate` on that report with [the audit brief](references/audit-brief.md) as the intent and its cut, fold or keep rubric. Each skill gets one verdict: cut when pstack or the block already does its job or nothing uses it; fold when its domain knowledge stays but its process text goes; keep when it holds domain knowledge pstack cannot have. Every cut names what replaces it.
 3. Hand the verdict table to the owner with `AskUserQuestion`, cuts grouped by project, recommended ones first. Each cut option shows its all-history typed count and a replacement checked to work in this setup, and a factual claim in an option, such as "never typed", names the check behind it. A typed command loses its entry point only when the owner picks its cut, and that cut lists it under `dropped` in the project's config.
 4. Carry out the picks as a plan under the block's Plans and trails and Panel review rules. Before a cut, fold or rebuild, list every rule and check in the old text with its new home quoted or a logged drop, per [adapt](references/adapt.md)'s disposition table.
+
+## Reviews
+
+The reviews list in each project's `.agents/pstack.json` is the only place that names the work running a panel, `architect` or an arena without asking. Everything else waits for the user's "panel", "arena" or "full".
+
+1. Turn the user's sentence into one row per project it covers: a kebab-case `id` and a one-sentence `rule` that names the work, the tool and the stage, such as `{ "id": "api-design", "rule": "A best-api design gets architect before its target is picked." }`. Rewrite a row that already covers that work instead of adding a second, and delete a row the user retires.
+2. When a project playbook runs the tool for that work, cite the row there as `(reviews: <id>)`, and drop the tool from any playbook step that no row covers.
+3. Run `apply`, then `verify`, which flags a playbook line that names `pstack:interrogate`, `pstack:arena` or `pstack:architect` without a valid citation on that line, and a config that still sets `bigWork`, `risk` or `reviewPr`.
+4. Smoke one plain request the row covers and one it does not, judged as in Setup step 6, then deliver each project by its delivery answer.
 
 ## Lesson
 

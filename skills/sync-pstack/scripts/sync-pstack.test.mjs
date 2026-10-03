@@ -20,7 +20,6 @@ const CONFIG = {
   lintFix: 'bun run lint:fix',
   check: 'bun check',
   plans: 'docs/plans',
-  risk: 'auth changes',
   skip: [],
 };
 
@@ -124,9 +123,9 @@ test('render keeps only the regions the config selects and refuses what it canno
 
 test('the shipped template renders cleanly for every delivery', () => {
   for (const delivery of ['push', 'pr', 'user']) {
-    for (const reviewPr of [false, true]) {
-      const block = render(TEMPLATE, { ...CONFIG, delivery, reviewPr });
-      assert.doesNotMatch(block, /<!--|\{\{|\}\}/, `${delivery} reviewPr=${reviewPr}`);
+    for (const reviewList of ['', '  - `pr`: Before opening a PR, the diff gets a panel.']) {
+      const block = render(TEMPLATE, { ...CONFIG, delivery, reviewList });
+      assert.doesNotMatch(block, /<!--|\{\{|\}\}/, `${delivery} reviewList=${Boolean(reviewList)}`);
     }
   }
 });
@@ -210,6 +209,35 @@ test('project playbooks render into the block, and a new one makes check stale',
   assert.match(read(root, 'AGENTS.md'), /`\.agents\/playbooks\/bug-fix\.md`, on top of pstack's `bug-fix`\. Use it for any bug report\./);
   writeFileSync(join(root, '.agents/playbooks/plan.md'), '---\nextends: multi-phase-plan\nwhen: Use it to plan.\n---\n');
   assert.equal(cli('check', root).status, 1);
+});
+
+test('the reviews list renders each row under the Panel rule, and an empty one says every panel waits for the user', () => {
+  const { dir, cli } = sandbox();
+  const listed = project(dir, 'listed', { config: { ...CONFIG, reviews: [{ id: 'pr', rule: 'Before opening a PR, the diff gets a panel.' }] }, agents: '# App\n' });
+  const empty = project(dir, 'empty', { config: CONFIG, agents: '# App\n' });
+  assert.equal(cli('apply', listed).status, 0);
+  assert.equal(cli('apply', empty).status, 0);
+  assert.match(read(listed, 'AGENTS.md'), /\n {2}- `pr`: Before opening a PR, the diff gets a panel\./);
+  assert.match(read(empty, 'AGENTS.md'), /reviews list is empty, so every panel waits for the user's word/);
+});
+
+test('verify flags a playbook that runs a panel tool without citing a reviews row, a citation of a missing row, and a retired review field', () => {
+  const { dir, cli } = sandbox();
+  const root = project(dir, 'app', {
+    config: { ...CONFIG, bigWork: 'a plan with more than one phase', reviews: [{ id: 'api-plan', rule: 'A plan with an API target gets architect, then a panel on the plan.' }] },
+    agents: '# App\n',
+    files: {
+      '.agents/playbooks/plan.md':
+        '---\nextends: multi-phase-plan\nwhen: Use it to plan.\n---\n- Run `pstack:architect` for an API target (reviews: api-plan).\n- Run `pstack:interrogate` on the winner.\n- Run `pstack:arena` on a hard slice (reviews: hard-slice).\n',
+    },
+  });
+  cli('apply', root);
+  const result = cli('verify', root);
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /\.agents\/playbooks\/plan\.md:6: names `pstack:interrogate` without citing a reviews row/);
+  assert.match(result.stdout, /\.agents\/playbooks\/plan\.md:7: cites reviews row `hard-slice`, which \.agents\/pstack\.json does not list/);
+  assert.doesNotMatch(result.stdout, /plan\.md:5:/);
+  assert.match(result.stdout, /\.agents\/pstack\.json still sets `bigWork`; move it into `reviews`/);
 });
 
 test('apply drops the page lists from the config once a playbook carries them, and refuses until then', () => {
