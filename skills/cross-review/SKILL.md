@@ -1,6 +1,6 @@
 ---
 name: cross-review
-description: "Review another agent session's plan or finished work, or a contributor's PR, for gaps, missing cases, unproven claims and contradictions. Fixes a plan still in planning in place; reviews verdicts, executions and PRs read-only. Use for cross-review, $cross-review <plan>, /cross-review, a cross-model review hand-off, or a second opinion on a PR."
+description: "Review another agent session's plan or finished work, or a contributor's PR, with a /pstack:interrogate panel briefed from that session's own asks. Fixes a plan still in planning in place; reviews verdicts, executions and PRs read-only. Use for cross-review, $cross-review <plan>, /cross-review, a cross-model review hand-off, or a second opinion on a PR."
 argument-hint: '[<plan path> | <PR number or URL>]'
 disable-model-invocation: true
 metadata:
@@ -36,10 +36,6 @@ A plan that names a subject, through a `Topic: <slug>` line or the first entry o
 | A review record, such as a verdict that recommends a change | The verdict against its evidence, the alternatives it weighed, the scope's history the project keeps (the hub `pageTopic.hub` in `.agents/pstack.json` names) and the user's asks; findings only |
 | A PR | Its plan file, description and diff against the reasons in its plan; findings only |
 
-## Know the round
-
-The first review covers all of the work. A later round is a re-review: the decision log already has rows from an earlier review (phase `review` or `review-1`), or the lead's last reply answers one. A re-review checks only the fixes for the previous round's P0 and P1 findings and the edits the lead reverted. Anything else it finds is P2 at most. Raise a finding the lead rejected with a reason again only with new evidence; otherwise report it as a disagreement. There are two rounds at most, so on a re-review report each P0 or P1 that remains as a disagreement for the user, with both positions.
-
 ## Review a PR
 
 For a PR, run `gh pr view <n> --json title,body,files` and `gh pr diff <n>`. Without network, as in Codex's read-only sandbox, use a local ref (`pr-<n>` or `refs/pull/<n>/head`): `git log` and `git diff $(git merge-base origin/<base> pr-<n>) pr-<n>`, where `<base>` is the branch the PR targets. The description is unavailable offline, so say the review covers the plan and the diff only. When no local ref exists, stop and ask the user to run `git fetch origin pull/<n>/head:pr-<n>`. A PR without a plan file in the plans directory is your first finding.
@@ -50,32 +46,27 @@ For a PR, run `gh pr view <n> --json title,body,files` and `gh pr diff <n>`. Wit
 - For an execution, the commits the plan, the log or the session names: `git show --stat <sha>`, then each diff. The checkout may be shared with other sessions, so changes outside those commits and paths are not part of the review.
 - The project's agent instructions (`AGENTS.md` or `CLAUDE.md`), so each finding follows the project's own rules.
 
-## Look for
+## Run the panel
 
-- An ask the work never addressed, or addressed differently from what the user said.
-- A step without proof, a proof that cannot falsify its claim, or a box closed without the artifact it names.
-- A claim presented as measured that no command in the files supports. Recount it when a read-only command can.
-- A contract, law or rule the work removes, weakens or contradicts, and anything that still depends on it: callers, tests, scripts, docs, CI and generated files.
-- A rename or removal the steps would miss. Run `git grep` for each old name.
-- A contradiction between the plan, the log, the instructions and the files.
-- A step order that leaves the repository broken between steps.
-- A case the plan never mentions but the code reaches: an input, a state or a path.
+Run `/pstack:interrogate` with the seats the project's Panel review rule configures. Its intent quotes the session's typed asks verbatim and names the plan's goal; its package holds what Read lists. The intent names these to attack, never the author's conclusion that they hold:
 
-Rerun a cheap read-only check when it can settle a finding. Fix or report gaps; do not redesign the work.
+- an ask the work never addressed, or addressed differently from what the user said;
+- a step without proof, a proof that cannot falsify its claim, or a box closed without the artifact it names;
+- a claim presented as measured that no command in the files supports;
+- a contract, law or rule the work removes, weakens or contradicts, and anything that still depends on it;
+- a rename or removal the steps would miss, which `git grep` for each old name finds;
+- a contradiction between the plan, the log, the instructions and the files;
+- a step order that leaves the repository broken between steps;
+- a case the plan never mentions but the code reaches.
+
+The panel uses interrogate's severities. The review is round 1 unless the decision log already has `review-<n>` rows or the lead's last reply, which `session.mjs` prints, answers an earlier hand-off; then it is the next round. A re-review checks only the fixes for the previous round's critical findings and the edits the lead reverted, and raises a finding the lead rejected with a reason again only with new evidence. After two rounds, report each critical finding that remains as a disagreement for the user, with both positions.
 
 ## Fix a plan in planning
 
-The session that wrote the plan has stopped, so the file is yours until the user returns to it. Fix each gap in the plan itself: a missing case, step or proof, a rename the steps miss, a contradiction, or a step order that breaks the repository. For each change, append one row to the decision log beside the plan, phase `review-1` or `review-2` for the round, with a result that starts with `applied:`. Use the project's helper when it has one (`node .agents/pstack/decisions-check.mjs append`). Leave every edit uncommitted for the lead.
+The session that wrote the plan has stopped, so the file is yours until the user returns to it. Fix each gap in the plan itself: a missing case, step or proof, a rename the steps miss, a contradiction, or a step order that breaks the repository. Apply each finding the verdict says to act on. For each change, append one row to the decision log beside the plan, phase `review-<n>` for this round, with a result that starts with `applied:`. Use the project's helper when it has one (`node .agents/pstack/decisions-check.mjs append`). Leave every edit uncommitted for the lead.
 
 Never change a decision the user's asks settle, or the plan's outcome, scope or status. When you disagree with one, leave the file as it is and say why in the report.
 
 ## Report
 
-Name the session or PR you reviewed and the round, then the verdict: ready when no P0 or P1 remains, or how many remain. In the planning lane, list each edit in one line, then the decisions you would challenge. Then at most ten numbered findings, most severe first, for the gaps you did not fix. Each names its priority, the file and line or the command that shows it, and one sentence on what to change.
-
-- P0 breaks normal operation or safety: data loss, a security hole, or a broken build or release.
-- P1 builds the wrong thing, breaks a public contract, or depends on a step nothing specifies.
-- P2 is a real gap the lead fixes without another review.
-- P3 is optional.
-
-Stay under 500 words. When there are none, say "no findings" and name what you checked.
+Name the session or PR you reviewed, then interrogate's verdict. In the planning lane, list each edit in one line, then the decisions you would challenge.

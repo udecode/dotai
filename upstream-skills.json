@@ -1,44 +1,4 @@
 {
   "skillsCliVersion": "1.5.25",
-  "skills": [
-    {
-      "name": "find-skills",
-      "source": "vercel-labs/skills",
-      "revision": "80feb48868972d518436f26711509bc78595b5cb",
-      "path": "skills/find-skills",
-      "description": "Helps users discover and install agent skills when they ask questions like \"how do I do X\", \"find a skill for X\", \"is there a skill that can...\", or express interest in extending capabilities. This skill should be used when the user is looking for functionality that might exist as an installable skill.",
-      "category": "Setup and maintenance",
-      "capabilities": [],
-      "files": {
-        "SKILL.md": "c00eeea0e13e74fe4a9d84ba0a8542205a1b736d65f13134fe1a6647eb14976f"
-      }
-    },
-    {
-      "name": "prototype",
-      "source": "mattpocock/skills",
-      "revision": "3cca18b368ae95cdbdebbff572ccafa662551015",
-      "path": "skills/engineering/prototype",
-      "description": "Build a throwaway prototype to answer a design question. Use when the user wants to sanity-check whether a state model or logic feels right, or explore what a UI should look like.",
-      "category": "Product, planning and design",
-      "capabilities": [],
-      "files": {
-        "LOGIC.md": "f61c7d249e786a79ef289018901c348271e1798dd0b0bc5607b5c6f4d4a01ab9",
-        "SKILL.md": "714de632d116bb73f65cdb5a882db15b9369a6713b9a47c0fad827848f0bfbe3",
-        "UI.md": "723211e878acbc7b6ff09755263f3295cde724ba902ff0064da41eed51d45ad3",
-        "agents/openai.yaml": "5af65e43ab41a350436697b81e27b7f848d36782043b73c322bb2c9fa9cc55dc"
-      }
-    },
-    {
-      "name": "show-me",
-      "source": "humanlayer/skills",
-      "revision": "3c2629142c5d437428269b1b722b08c0b87f574d",
-      "path": "plugins/show-me/skills/show-me",
-      "description": "Help the user understand the current topic visually with concise diagrams, code-shape sketches, and focused HTML artifacts.",
-      "category": "Understanding and communication",
-      "capabilities": [],
-      "files": {
-        "SKILL.md": "bea6da70a58096730b9aeb0bae293ddf4726103a98efc9ce13c481619942a810"
-      }
-    }
-  ]
+  "skills": []
 }

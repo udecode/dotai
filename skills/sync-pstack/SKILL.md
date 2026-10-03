@@ -1,6 +1,6 @@
 ---
 name: sync-pstack
-description: "Set up the pstack plugin in a project through an interview, and keep every pstack project on one pinned tag and one shared AGENTS.md overrides block. Use to set up or install pstack in a repo, sync, bump or update pstack everywhere, list which projects use pstack or have drifted, compare setups, move a workflow lesson into every project, or change the plan page shape. Not for choosing pstack's per-role models, which setup-pstack owns."
+description: "Set up the pstack plugin in a project through an interview, and keep every pstack project on one pinned tag and one shared AGENTS.md overrides block. Use to set up or install pstack in a repo, sync, bump or update pstack everywhere, list which projects use pstack or have drifted, compare setups, audit a project's skills for drift from pstack (which to cut, fold or keep), move a workflow lesson into every project, or change the plan page shape. Not for choosing pstack's per-role models, which setup-pstack owns."
 metadata:
   source: udecode/dotai
   source-path: skills/sync-pstack
@@ -37,6 +37,8 @@ Run `node <skill>/scripts/sync-pstack.mjs <command>` from any directory.
 | `user-pin --tag <tag>` | Pins the user-scope Claude Code marketplace and prints the refresh commands for both runtimes. |
 | `latest` | Prints the newest upstream tag. |
 
+`node <skill>/scripts/audit.mjs <project> [--json] [--min <score>]` prints the facts the [Audit](#audit) mode judges; `--min` sets the overlap score a sentence pair needs, 0.5 by default. Read-only.
+
 Anchor checks read pstack from a bare clone that the script makes in `~/.cache/sync-pstack/` on first use; `SYNC_PSTACK_UPSTREAM` points them at another clone or URL. Run the copy in the dotai checkout when one exists, the checkout whose `origin` is `udecode/dotai`. Its `assets/` are the source of truth. `apply` and `sync` print the source they render from, and record in `synced.source` the shared commit they rendered. With that record, a refusal shows exactly what the project edited, and a copy older than a project's last sync refuses to overwrite it.
 
 ## Choose the mode
@@ -46,6 +48,7 @@ Anchor checks read pstack from a bare clone that the script makes in `~/.cache/s
 | Set up pstack in a project, or install pstack here | [Setup](#setup) |
 | Sync, bump or update pstack, here or everywhere | [Sync](#sync) |
 | Compare setups, or list which projects use pstack or have drifted | [Compare](#compare), read-only |
+| Audit a project's skills for drift from pstack, or which skills to cut | [Audit](#audit), read-only until the owner picks |
 | A lesson or correction that changes a shared rule | [Lesson](#lesson) |
 | Add or change a project's own playbook | [Project playbooks](#project-playbooks) |
 
@@ -84,6 +87,19 @@ Change only the projects the request names, or every managed project when it ask
 
 Run `status`. For each unmanaged project that uses pstack, read its instructions and map every override to the block as covered, a project adaptation, an explicit policy difference, drift, or unresolved. Call a rule lost only after reading the project's `AGENTS.md` outside the block and its setup plan's disposition table, and after searching for the behavior in more than one phrasing, because setup moves and rewords rules. Report each difference with both behaviors, their source paths and the smallest reconciliation. Suggest setup or sync, and apply nothing without a request.
 
+## Audit
+
+Skills drift from pstack when they copy law that pstack or the block already owns, or keep a job pstack now does. This mode finds that drift so the owner can cut it.
+
+1. Run `node <skill>/scripts/audit.mjs <project>`, from the dotai checkout when one exists. It prints:
+   - each project and user-scope skill's source, typed count, inbound routes and stale installed copy;
+   - the block rules that carry no `overrides` note or `adds` marker;
+   - sentences that repeat pstack, the block, or another file in the project.
+   A typed count includes only what a person wrote: it skips agent, task-notification and headless records and pasted blocks, and it ignores a hit past the first 200 characters of a request longer than 2,000. A user-scope skill's count spans every project's sessions.
+2. Run `/pstack:interrogate` on that report with [the audit brief](references/audit-brief.md) as the intent and its cut, fold or keep rubric. Each skill gets one verdict: cut when pstack or the block already does its job or nothing uses it; fold when its domain knowledge stays but its process text goes; keep when it holds domain knowledge pstack cannot have. Every cut names what replaces it.
+3. Hand the verdict table to the owner with `AskUserQuestion`, cuts grouped by project, recommended ones first. A typed command loses its entry point only when the owner picks its cut, and that cut lists it under `dropped` in the project's config.
+4. Carry out the picks as a plan under the block's Plans and trails and Panel review rules.
+
 ## Lesson
 
 A lesson from `/pstack:reflect`, or a correction in one project, changes the shared layer only when it holds for every project. A lesson for one project goes outside that project's block. A change to the plan page shape is a lesson on `assets/pstack/plan-page.mjs`: render one real plan from each managed project before and after, in every mode the renderer branches on, using a scratch copy with its `Status:` flipped when no live subject is in a mode, and publish both so the owner compares them. A section only one project writes goes in that project's `pageLead`, never in the renderer.
@@ -115,7 +131,7 @@ Keep project knowledge in skills and the project's rules; a playbook only orders
 - `<!-- section id -->` opens a region that is dropped when the config lists `id` under `skip`.
 - `<!-- end -->` closes the innermost region. Regions nest.
 - `{{key}}` inserts a config value. A rendered line whose value is missing fails the render, and so does a `skip` entry that names no section.
-- A line starting with `<!-- #` is a template note and never renders. A note `<!-- # overrides <path> "<text>" -->` names pstack text the next override replaces, with `<path>` relative to pstack's `plugins/pstack/skills/`; `apply --tag` and `verify` fail when that text is gone. An override carries one note per pstack step it replaces, so widening its scope adds a note for every step it newly covers.
+- A line starting with `<!-- #` is a template note and never renders. A note `<!-- # overrides <path> "<text>" -->` names pstack text the next override replaces, with `<path>` relative to pstack's `plugins/pstack/skills/`; `apply --tag` and `verify` fail when that text is gone. An override carries one note per pstack step it replaces, so widening its scope adds a note for every step it newly covers. A rule that only adds to pstack carries `<!-- # adds -->` instead, and `verify` flags a rule with neither.
 - An indented line continues the list item above it, so a conditional sentence can join a rule.
 
 ## Boundaries

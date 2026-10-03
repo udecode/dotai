@@ -4,21 +4,10 @@
   "skillsCliVersion": "1.5.25",
   "skills": [
     {
-      "name": "autogoal",
-      "distribution": "bundled",
-      "description": "Manage native Codex goals under a direct or standing user request, with durable acceptance and completion evidence.",
-      "category": "Execution",
-      "dependencies": [],
-      "capabilities": [
-        "Native goal tools for native goals; otherwise a file plan"
-      ],
-      "provenance": null
-    },
-    {
       "name": "cross-review",
       "distribution": "bundled",
-      "description": "Review another agent session's plan or finished work, or a contributor's PR, for gaps, missing cases, unproven claims and contradictions. Fixes a plan still in planning in place; reviews verdicts, executions and PRs read-only. Use for cross-review, $cross-review <plan>, /cross-review, a cross-model review hand-off, or a second opinion on a PR.",
-      "category": "Review and design",
+      "description": "Review another agent session's plan or finished work, or a contributor's PR, with a /pstack:interrogate panel briefed from that session's own asks. Fixes a plan still in planning in place; reviews verdicts, executions and PRs read-only. Use for cross-review, $cross-review <plan>, /cross-review, a cross-model review hand-off, or a second opinion on a PR.",
+      "category": "Review",
       "dependencies": [],
       "capabilities": [
         "Node.js 18+ and Git; gh with network for a PR, otherwise a locally fetched PR ref"
@@ -26,70 +15,13 @@
       "provenance": null
     },
     {
-      "name": "find-skills",
-      "source": "vercel-labs/skills",
-      "revision": "80feb48868972d518436f26711509bc78595b5cb",
-      "path": "skills/find-skills",
-      "description": "Helps users discover and install agent skills when they ask questions like \"how do I do X\", \"find a skill for X\", \"is there a skill that can...\", or express interest in extending capabilities. This skill should be used when the user is looking for functionality that might exist as an installable skill.",
-      "category": "Setup and maintenance",
-      "capabilities": [],
-      "files": {
-        "SKILL.md": "c00eeea0e13e74fe4a9d84ba0a8542205a1b736d65f13134fe1a6647eb14976f"
-      },
-      "distribution": "remote",
-      "dependencies": [],
-      "installSource": "https://github.com/vercel-labs/skills/tree/80feb48868972d518436f26711509bc78595b5cb"
-    },
-    {
-      "name": "gpt-pro",
-      "distribution": "bundled",
-      "description": "Prepare a self-contained, paste-ready prompt for GPT Pro, ChatGPT Pro or another external reviewer with no repository access: exact context, evidence, candidate directions and pointed questions that force a decision. Use for gpt-pro, an external or harsh review prompt, or asking another model.",
-      "category": "Review and design",
-      "dependencies": [],
-      "capabilities": [],
-      "provenance": null
-    },
-    {
-      "name": "prototype",
-      "source": "mattpocock/skills",
-      "revision": "3cca18b368ae95cdbdebbff572ccafa662551015",
-      "path": "skills/engineering/prototype",
-      "description": "Build a throwaway prototype to answer a design question. Use when the user wants to sanity-check whether a state model or logic feels right, or explore what a UI should look like.",
-      "category": "Product, planning and design",
-      "capabilities": [],
-      "files": {
-        "LOGIC.md": "f61c7d249e786a79ef289018901c348271e1798dd0b0bc5607b5c6f4d4a01ab9",
-        "SKILL.md": "714de632d116bb73f65cdb5a882db15b9369a6713b9a47c0fad827848f0bfbe3",
-        "UI.md": "723211e878acbc7b6ff09755263f3295cde724ba902ff0064da41eed51d45ad3",
-        "agents/openai.yaml": "5af65e43ab41a350436697b81e27b7f848d36782043b73c322bb2c9fa9cc55dc"
-      },
-      "distribution": "remote",
-      "dependencies": [],
-      "installSource": "https://github.com/mattpocock/skills/tree/3cca18b368ae95cdbdebbff572ccafa662551015"
-    },
-    {
-      "name": "show-me",
-      "source": "humanlayer/skills",
-      "revision": "3c2629142c5d437428269b1b722b08c0b87f574d",
-      "path": "plugins/show-me/skills/show-me",
-      "description": "Help the user understand the current topic visually with concise diagrams, code-shape sketches, and focused HTML artifacts.",
-      "category": "Understanding and communication",
-      "capabilities": [],
-      "files": {
-        "SKILL.md": "bea6da70a58096730b9aeb0bae293ddf4726103a98efc9ce13c481619942a810"
-      },
-      "distribution": "remote",
-      "dependencies": [],
-      "installSource": "https://github.com/humanlayer/skills/tree/3c2629142c5d437428269b1b722b08c0b87f574d"
-    },
-    {
       "name": "sync-pstack",
       "distribution": "bundled",
-      "description": "Set up the pstack plugin in a project through an interview, and keep every pstack project on one pinned tag and one shared AGENTS.md overrides block. Use to set up or install pstack in a repo, sync, bump or update pstack everywhere, list which projects use pstack or have drifted, compare setups, move a workflow lesson into every project, or change the plan page shape. Not for choosing pstack's per-role models, which setup-pstack owns.",
+      "description": "Set up the pstack plugin in a project through an interview, and keep every pstack project on one pinned tag and one shared AGENTS.md overrides block. Use to set up or install pstack in a repo, sync, bump or update pstack everywhere, list which projects use pstack or have drifted, compare setups, audit a project's skills for drift from pstack (which to cut, fold or keep), move a workflow lesson into every project, or change the plan page shape. Not for choosing pstack's per-role models, which setup-pstack owns.",
       "category": "Maintenance",
       "dependencies": [],
       "capabilities": [
-        "Node.js 18+ and Git; the Claude Code and Codex CLIs for plugin pins and smoke tests"
+        "Node.js 22+ and Git; the Claude Code and Codex CLIs for plugin pins and smoke tests"
       ],
       "provenance": null
     },
@@ -97,7 +29,7 @@
       "name": "test-audit",
       "distribution": "bundled",
       "description": "Audit existing tests for low-value, duplicated or implementation-coupled cases and the test-only code they keep alive, then remove or rewrite them on evidence. Use for test-audit, /test-audit <scope>, a test sweep, or pruning tests. Not for writing a new test; the project's Tests rule gates that.",
-      "category": "Review and design",
+      "category": "Review",
       "dependencies": [],
       "capabilities": [],
       "provenance": null
@@ -127,99 +59,23 @@
   ],
   "files": {
     "README.md": {
-      "sha256": "ce267e4ab5576cd880ba9b849c4fd7b0f0269e60191645bee0ca038795446a0b",
+      "sha256": "4b1490952684e4c53bf045d8f82cda1a83a8209305384e79a3e648fc34828d02",
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "59d921d52ae0c7dd5d580cd0fce5163d359516d7fc5b2d425a5f18a2d10947ad",
+      "sha256": "3c206ac7a1cbb0eddd1293e13f6d67d2204d8ed71c3b0a06acb9cb42b970a0d1",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
-      "sha256": "84bc4cc5e829d73a1fcb695d00c56fd8561afd052806dfaaf010b74ef0d645b7",
+      "sha256": "28156e43e05f88bcf55d1f6b1862e943de26c82f072c4dfaedd2c4e42f18c160",
       "mode": 420
     },
     "scripts/validate-skills": {
       "sha256": "7671d8a9d6a5b137ecefd38c1802c5eaa8e24bb5db885cf4c03d455478168159",
       "mode": 493
     },
-    "skills/autogoal/README.md": {
-      "sha256": "a0e98f5791419740f66ab5e31ba39f399c5cf1476e1e785bab4cbbd9630323ef",
-      "mode": 420
-    },
-    "skills/autogoal/SKILL.md": {
-      "sha256": "cb6387d639ef3a84c8c1ab5c6bc69059b222d15c77d7b0ce9ffc81d00c31e283",
-      "mode": 420
-    },
-    "skills/autogoal/assets/templates/docs.md": {
-      "sha256": "82ca01791768b4c17da98740671b9af8c77948558478505eb27bf97dde0712bf",
-      "mode": 420
-    },
-    "skills/autogoal/assets/templates/goal-repair.md": {
-      "sha256": "eac486f42c656192ec3b8915d73bf5c110c5f6114509070859f6619762005e76",
-      "mode": 420
-    },
-    "skills/autogoal/assets/templates/goal.md": {
-      "sha256": "a1a910f416bf60968ad48b0577183b3a8442b2bd83630dbe76ed6ecebb4c4c2c",
-      "mode": 420
-    },
-    "skills/autogoal/assets/templates/major-task.md": {
-      "sha256": "a506f95f7a437591aeb8e595b6d40dc1994bb7b5b9bb5183976a5b1fcf8228b6",
-      "mode": 420
-    },
-    "skills/autogoal/assets/templates/packs/agent-native.md": {
-      "sha256": "c48cd476a43f20ce0472242cae47de0950e6a998958b7c23cb509bbd7a196246",
-      "mode": 420
-    },
-    "skills/autogoal/assets/templates/packs/browser.md": {
-      "sha256": "9fd2f77fce35ca1be8142e65074e69bdc6c52c7b6970795c570bd6b36b8d0491",
-      "mode": 420
-    },
-    "skills/autogoal/assets/templates/packs/docs.md": {
-      "sha256": "9d91954aef8c26cde5f2f82ade9f1b2f4681db4a0530ba97a9d6a8456e6962b1",
-      "mode": 420
-    },
-    "skills/autogoal/assets/templates/packs/package-api.md": {
-      "sha256": "07cae5d404cffa9ed4fd01092cc93c389074087f2ff05c8d5c3af00ef5c87af3",
-      "mode": 420
-    },
-    "skills/autogoal/assets/templates/packs/performance-observability.md": {
-      "sha256": "7952723d560f9d9378153567389dacd6363881461672fb0e017d877011baaf8f",
-      "mode": 420
-    },
-    "skills/autogoal/assets/templates/task.md": {
-      "sha256": "ae2be79cc2331d8afd289df2063a4575a47e98f9e92329396c4d74a4b8f723f8",
-      "mode": 420
-    },
-    "skills/autogoal/references/method.md": {
-      "sha256": "61087bbcc53c47e3adfa3140c929257d38db00fa3223bf4e2ffe974d9feca158",
-      "mode": 420
-    },
-    "skills/autogoal/references/plans.md": {
-      "sha256": "91a99a4abdd8e48b53111f52d4a6ed23adf527e229e08f4b7f8214007851cc0d",
-      "mode": 420
-    },
-    "skills/autogoal/scripts/check-complete.mjs": {
-      "sha256": "46bec788a07f2a037e6732cb9eb3b7f02650c7b47de339801588e82d0095bd6a",
-      "mode": 420
-    },
-    "skills/autogoal/scripts/create-goal-scratchpad.mjs": {
-      "sha256": "6bfbdbb5566bd7cde464281d4055789709640c1c9cbf9355d21669b2d56b85ac",
-      "mode": 493
-    },
-    "skills/autogoal/scripts/create-goal-scratchpad.test.mjs": {
-      "sha256": "ee919aae76af90cb8ab486571fdcafc194c55ea06b4a88b74484f895c318e3ce",
-      "mode": 420
-    },
-    "skills/autogoal/scripts/create-goal-template.mjs": {
-      "sha256": "5fe3f75c2da57a70adc2e492258c584150462563db11af5bd130a7770f623868",
-      "mode": 420
-    },
-    "skills/autogoal/scripts/init-templates.mjs": {
-      "sha256": "060c95c028af598e1be8cd8a947aa09866e7f4b9ee7ed8e514f9e4afb789e622",
-      "mode": 420
-    },
     "skills/cross-review/SKILL.md": {
-      "sha256": "4b4161be5e8030fcc4dd86645c777cc7d8e69575c857ab875822adf86f9e4254",
+      "sha256": "bb4ab07da05478119c30460360213d552014b58549b890e633c3969582e3b523",
       "mode": 420
     },
     "skills/cross-review/scripts/session.mjs": {
@@ -230,12 +86,8 @@
       "sha256": "b0893d21cd43e76988a56cc1d0e2743c782b21f677d3b1f1afb19a54d77bf801",
       "mode": 420
     },
-    "skills/gpt-pro/SKILL.md": {
-      "sha256": "59f2c9d09ba50aeafa4194ecd01664c3a57208fe0922ac1921c68243515a5d08",
-      "mode": 420
-    },
     "skills/sync-pstack/SKILL.md": {
-      "sha256": "856d5891b3053a52cb9fda38e28df5306639614b06ef018ff9f6ad7b7a5227e1",
+      "sha256": "5bae805cf6d3d4bae712d53558ac787d9d32672dca7c3174a923824b3f57e1a5",
       "mode": 420
     },
     "skills/sync-pstack/agents/openai.yaml": {
@@ -243,7 +95,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "397079e8833a4d485689fd8c9b01e97dec4249760af2fcd36300a889e7c5767b",
+      "sha256": "9ea0f74156c8a1fa1a00471de1dcfba5fb83466d02a4e3f414df18f822232f0c",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/cross.mjs": {
@@ -267,19 +119,27 @@
       "mode": 420
     },
     "skills/sync-pstack/references/adapt.md": {
-      "sha256": "0791e694d87264dc9eb668a2d6dfe4894a6ec9a1717b5fea667545f8ad68dec2",
+      "sha256": "6d0e81f803038e8837d395be9d3d73c3d15514ee0c295445001cc532cef10252",
+      "mode": 420
+    },
+    "skills/sync-pstack/references/audit-brief.md": {
+      "sha256": "d04ed5e72cfa51d6a8cafbdf0893c55febf9afde4c86811b032a8b0f9fa9995c",
       "mode": 420
     },
     "skills/sync-pstack/references/interview.md": {
-      "sha256": "cfb6685ce36d6e2114bec0a462d01fd90d1cbcc3d270aa0065f34e8f5c2abeb1",
+      "sha256": "88883a3ee11bf9349733bc13b6e26dffc2432da2cfe0ce6953c9b268051b2563",
+      "mode": 420
+    },
+    "skills/sync-pstack/scripts/audit.mjs": {
+      "sha256": "a84181ae3a5a18e5010182e699a2992792c5018ff6e4b60e4ded257e835a1525",
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.mjs": {
-      "sha256": "c82bc2550ed144d5a6bce7e3c9eb0936f422eb560640024583cd7305dceed0c8",
+      "sha256": "59e4445c2da56f24f705462d9a83ca427d08ab2d19752c785e9d960ca02926f6",
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "c872e6f61c8222c74a46fb36deefdaba099e413e44fac5c905e6c99f01913ec4",
+      "sha256": "a3f1e76a4b7d8964cf17f0ceed2af4e21000e6a23241c040fa32d9fcf9a8ebc8",
       "mode": 420
     },
     "skills/test-audit/LICENSE": {
@@ -291,7 +151,7 @@
       "mode": 420
     },
     "skills/video-transcripts/SKILL.md": {
-      "sha256": "37eda6632ffd462312184e65665f46050b32d93e85b6adda40e2e8f180db9e2f",
+      "sha256": "ff18c0959ad0f8e2440566db80088c7882d89d99c4dfd2861df0e43d2d912bcf",
       "mode": 420
     },
     "skills/video-transcripts/scripts/generate_video_transcript.sh": {
@@ -323,7 +183,7 @@
       "mode": 420
     },
     "upstream-skills.json": {
-      "sha256": "6e744c80626f6ffeb2523d433ffb114ada3d16c7d407cbbee50b48bc25587b45",
+      "sha256": "88f126f55a4773f03d681fab551a8910c96780a5af6da1bf6e5421b96289b9b2",
       "mode": 420
     }
   }

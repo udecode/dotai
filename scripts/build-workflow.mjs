@@ -11,16 +11,14 @@ const forbidden = forbiddenIndex < 0 ? null : new RegExp(process.argv[forbiddenI
 const sha = (data) => createHash('sha256').update(data).digest('hex');
 const upstream = JSON.parse(readFileSync(join(root, 'upstream-skills.json'), 'utf8'));
 const groups = {
-  'Execution': ['autogoal'],
-  'Review and design': ['gpt-pro', 'cross-review', 'test-audit', 'prototype'],
-  'Communication': ['show-me', 'walkthrough', 'video-transcripts'],
-  'Maintenance': ['sync-pstack', 'find-skills'],
+  'Review': ['cross-review', 'test-audit'],
+  'Communication': ['walkthrough', 'video-transcripts'],
+  'Maintenance': ['sync-pstack'],
 };
 const explicitDependencies = {};
 const requirements = {
-  autogoal: ['Native goal tools for native goals; otherwise a file plan'],
   'cross-review': ['Node.js 18+ and Git; gh with network for a PR, otherwise a locally fetched PR ref'],
-  'sync-pstack': ['Node.js 18+ and Git; the Claude Code and Codex CLIs for plugin pins and smoke tests'],
+  'sync-pstack': ['Node.js 22+ and Git; the Claude Code and Codex CLIs for plugin pins and smoke tests'],
   'video-transcripts': ['ffmpeg, curl, jq and authorized Gemini credentials'],
   walkthrough: ['Real final-state captures, Node.js and the configured annotation tool'],
 };
@@ -98,7 +96,7 @@ for (const skill of upstream.skills) catalog += `npx --yes skills@${upstream.ski
 catalog += '```\n\nProject rules govern testing, native tools and publication; do not fork an unchanged method just to add a routing sentence.\n';
 catalog += '\n## Capability requirements\n\nThese skills remain installed when a tool is absent; an unavailable live action or independent review is reported, never marked as passed.\n\n';
 for (const skill of skills.filter((skill) => skill.capabilities.length)) catalog += `- **${skill.name}:** ${skill.capabilities.join('; ')}.\n`;
-catalog += '\n## Deliberate boundaries\n\ndotai holds shared methods that pstack does not cover. It excludes product-specific schemas, routes, fixtures, provider adapters, release environments and personal configuration; those belong to each project. Framework packages (React, Next.js, Prisma, tRPC and the like) are stack-specific: use Find Skills and install named official packages after source review. The skills contain no accounts, credentials, personal histories or connector configuration.\n';
+catalog += '\n## Deliberate boundaries\n\ndotai holds shared methods that pstack does not cover. It excludes product-specific schemas, routes, fixtures, provider adapters, release environments and personal configuration; those belong to each project. Framework packages (React, Next.js, Prisma, tRPC and the like) are stack-specific: install named official packages with the Skills CLI after source review. The skills contain no accounts, credentials, personal histories or connector configuration.\n';
 emit('SKILLS.md', catalog);
 
 const distribution = ['README.md', 'SKILLS.md', 'upstream-skills.json', 'scripts/build-workflow.mjs', 'scripts/validate-skills'];

@@ -17,10 +17,11 @@ import {
   readSync,
   realpathSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ask } from '../assets/pstack/cross.mjs';
 
@@ -489,9 +490,22 @@ function pluginSkills() {
   return null;
 }
 
-function localSkills(root) {
+const distinctiveName = (name) => /[-\d]/u.test(name);
+
+export function skillMention(name) {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+  const end = '(?![\\w:-]|[./]\\w)';
+  const invocation = `(?<![\\w./:@-])[$/]${escaped}${end}`;
+  const path = `(?:skills|rules|\\.\\.)/${escaped}(?:/|\\.mdc(?![\\w.]))`;
+  const bareName = `(?<![\\w./:@$-])${escaped}${end}`;
+  return new RegExp([invocation, path, ...(distinctiveName(name) ? [bareName] : [])].join('|'), 'u');
+}
+
+export const USER_SKILL_DIRS = ['.agents/skills', '.claude/skills', '.codex/skills'];
+
+export function localSkills(root, dirs = ['.agents/skills', '.claude/skills']) {
   const names = new Set();
-  for (const dir of ['.agents/skills', '.claude/skills']) {
+  for (const dir of dirs) {
     const path = join(root, dir);
     if (!existsSync(path)) continue;
     for (const name of readdirSync(path)) if (existsSync(join(path, name, 'SKILL.md'))) names.add(name);
@@ -549,53 +563,55 @@ function* fileLines(path) {
 function sessionMeta(path) {
   for (const line of fileLines(path)) {
     const payload = parseLine(line)?.payload ?? {};
-    return { cwd: payload.cwd ?? null, subagent: payload.thread_source === 'subagent' || JSON.stringify(payload.source ?? '').includes('subagent') };
+    return {
+      cwd: payload.cwd ?? null,
+      subagent: payload.thread_source === 'subagent' || JSON.stringify(payload.source ?? '').includes('subagent'),
+      headless: payload.source === 'exec' || payload.originator === 'codex_exec' || payload.thread_source === 'automation',
+    };
   }
-  return { cwd: null, subagent: false };
+  return { cwd: null, subagent: false, headless: false };
 }
 
-// Counts the commands and skills the user typed (`/name` or `$name`) in this
-// project's Claude Code transcripts and Codex sessions, over all history and
-// the last seven days. Injected skill bodies, summaries, tool output, subagent
-// briefs and pasted text are not typed, so they do not count. A forked Codex
-// session replays its parent's turns, so a turn counts once across files.
-export function typedInvocations(root, names, now = Date.now()) {
-  const wanted = new Set(names);
-  const counts = Object.fromEntries(names.map((name) => [name, { all: 0, week: 0 }]));
-  const files = { claude: 0, codex: 0 };
-  const count = (text, time) => {
-    const request = text.includes('## My request:') ? text.slice(text.lastIndexOf('## My request:')) : text;
-    for (const match of request.matchAll(/(?:^|[\s([>"'`])[/$]([a-z][\w:-]*)(?:[ \t]+([a-z][\w-]*))?/gu)) {
-      for (const name of [match[1], match[2] && `${match[1]} ${match[2]}`]) {
-        if (!name || !wanted.has(name)) continue;
-        counts[name].all += 1;
-        if (time >= now - 7 * DAY) counts[name].week += 1;
-      }
-    }
-  };
+const COMMAND_WINDOW = 200;
+const SHORT_REQUEST = 2000;
+const typedNotPasted = (index, request) => index < COMMAND_WINDOW || request.length <= SHORT_REQUEST;
+const TYPED = /(?:^|[\s([>"'`])[/$](?<name>[a-z][\w:-]*)(?<link>\]\((?:<(?<angled>[^>]*)>|(?<path>[^)\s]*))[^)]*\))?(?:[ \t]+(?<mode>[a-z][\w-]*))?/gu;
+const REQUEST = /^## My request(?: for [^:\n]+)?:/gmu;
+const PASTED = /<pasted_content\b[^>]*>[\s\S]*?<\/pasted_content\b[^>]*>/gu;
+const writtenByAgent = (record) =>
+  record.entrypoint === 'sdk-cli' || record.promptSource === 'system' || (record.origin?.kind !== undefined && record.origin.kind !== 'human');
+const EVERY_PROJECT = Symbol('every project');
 
-  const claudeDir = join(homedir(), '.claude/projects', root.replace(/[^a-zA-Z0-9]/gu, '-'));
-  if (existsSync(claudeDir)) {
+function* typedMessages(root, files = { claude: 0, codex: 0 }) {
+  const projects = join(homedir(), '.claude/projects');
+  const claudeDirs =
+    root !== EVERY_PROJECT
+      ? [join(projects, root.replace(/[^a-zA-Z0-9]/gu, '-'))]
+      : existsSync(projects)
+      ? readdirSync(projects).map((name) => join(projects, name))
+      : [];
+  for (const claudeDir of claudeDirs.filter((path) => existsSync(path) && statSync(path).isDirectory())) {
     for (const name of readdirSync(claudeDir).filter((file) => file.endsWith('.jsonl'))) {
       files.claude += 1;
       for (const line of fileLines(join(claudeDir, name))) {
         if (!line.includes('"type":"user"') || line.includes('"tool_use_id"')) continue;
         const record = parseLine(line);
-        if (!record || record.type !== 'user' || record.isMeta || record.isCompactSummary || record.isSidechain) continue;
+        if (!record || record.type !== 'user' || record.isMeta || record.isCompactSummary || record.isSidechain || writtenByAgent(record)) continue;
         const content = record.message?.content;
         const text = typeof content === 'string' ? content : (content ?? []).filter((block) => block.type === 'text').map((block) => block.text).join('\n');
-        count(text, Date.parse(record.timestamp));
+        yield { text, time: Date.parse(record.timestamp) };
       }
     }
   }
 
   // Codex records a typed message as a `user_message` event (older CLIs) or a
-  // completed `UserMessage` item, sometimes twice within one turn.
+  // completed `UserMessage` item, sometimes twice within one turn, and a forked
+  // session replays its parent's turns, so a turn yields once.
   const seen = new Set();
   for (const dir of ['.codex/sessions', '.codex/archived_sessions']) {
     for (const path of codexSessions(join(homedir(), dir))) {
-      const { cwd, subagent } = sessionMeta(path);
-      if (subagent || (cwd !== root && !cwd?.startsWith(`${root}/`))) continue;
+      const { cwd, subagent, headless } = sessionMeta(path);
+      if (subagent || headless || (root !== EVERY_PROJECT && cwd !== root && !cwd?.startsWith(`${root}/`))) continue;
       files.codex += 1;
       for (const line of fileLines(path)) {
         if (!line.includes('"user_message"') && !line.includes('"UserMessage"')) continue;
@@ -610,11 +626,52 @@ export function typedInvocations(root, names, now = Date.now()) {
         const key = `${payload?.turn_id ?? record?.timestamp}\0${text}`;
         if (!text || seen.has(key)) continue;
         seen.add(key);
-        count(text, Date.parse(record.timestamp));
+        yield { text, time: Date.parse(record.timestamp) };
       }
     }
   }
+}
+
+function* typedNames(text) {
+  const typed = text.replace(PASTED, ' ');
+  const header = [...typed.matchAll(REQUEST)].at(-1);
+  const request = (header ? typed.slice(header.index + header[0].length) : typed).trimStart();
+  for (const { groups, index } of request.matchAll(TYPED)) {
+    if (!typedNotPasted(index, request)) continue;
+    const path = groups.link ? (groups.angled ?? groups.path) : null;
+    yield { name: groups.name, path };
+    if (groups.mode) yield { name: `${groups.name} ${groups.mode}`, path };
+  }
+}
+
+const tally = (messages, counts, now, accept = () => true) => {
+  for (const { text, time } of messages) {
+    for (const hit of typedNames(text)) {
+      if (!Object.hasOwn(counts, hit.name) || !accept(hit)) continue;
+      counts[hit.name].all += 1;
+      if (time >= now - 7 * DAY) counts[hit.name].week += 1;
+    }
+  }
+  return counts;
+};
+
+const zero = (names) => Object.fromEntries(names.map((name) => [name, { all: 0, week: 0 }]));
+
+export function typedInvocations(root, names, now = Date.now()) {
+  const files = { claude: 0, codex: 0 };
+  const counts = tally(typedMessages(root, files), zero(names), now);
   return { files, counts };
+}
+
+export function userTypedInvocations(names, now = Date.now()) {
+  const home = homedir();
+  const roots = USER_SKILL_DIRS.map((dir) => `${join(home, dir)}/`);
+  const userScope = (path) => {
+    if (path === null) return true;
+    const expanded = path.startsWith('~/') ? join(home, path.slice(2)) : path;
+    return isAbsolute(expanded) && roots.some((root) => resolve(expanded).startsWith(root));
+  };
+  return tally(typedMessages(EVERY_PROJECT), zero(names), now, (hit) => userScope(hit.path));
 }
 
 export function discover(root) {
@@ -694,7 +751,6 @@ export function discover(root) {
         : [],
     ),
     proofSkills: skills.filter((name) => /^verify/u.test(name)),
-    autoreview: existsSync(join(root, '.agents/skills/autoreview')) ? (lock.autoreview?.source ?? 'unlocked copy') : null,
     plans: ['docs/plans', 'plans', '.plans']
       .filter((dir) => existsSync(join(root, dir)))
       .map((dir) => ({ dir, files: readdirSync(join(root, dir)).length })),
@@ -791,13 +847,31 @@ export function smoke(root, prompts, { timeout = 900 } = {}) {
   );
 }
 
-function* markdownFiles(dir) {
+export function* markdownFiles(dir) {
   if (!existsSync(dir)) return;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) yield* markdownFiles(path);
     else if (/\.(?:md|mdc)$/u.test(entry.name)) yield path;
   }
+}
+
+const RULE = /^- \*\*([^*]+?)\.\*\*/u;
+const MARKER = /^<!-- # (?:overrides |adds -->)/u;
+
+const markedAbove = (lines, index) => {
+  for (let above = index - 1; above >= 0 && lines[above].startsWith('<!--'); above -= 1) if (MARKER.test(lines[above])) return true;
+  return false;
+};
+
+export function unmarkedRules(template) {
+  const lines = template.split('\n');
+  const marked = new Map();
+  for (const [index, line] of lines.entries()) {
+    const name = line.match(RULE)?.[1];
+    if (name) marked.set(name, marked.get(name) || markedAbove(lines, index));
+  }
+  return [...marked].filter(([, any]) => !any).map(([name]) => name);
 }
 
 export function verify(root) {
@@ -809,6 +883,7 @@ export function verify(root) {
     const result = apply(root, { write: false });
     if (result.changes.length > 0 || result.refusals.length > 0) problems.push('pstack block or helpers differ from the shared source; run `apply`');
     problems.push(...anchorProblems(root, config.tag).map((problem) => problem.reason));
+    for (const name of unmarkedRules(readFileSync(TEMPLATE, 'utf8'))) problems.push(`block rule "${name}" has no overrides note or adds marker`);
   }
 
   const plugin = pluginSkills();
@@ -823,13 +898,12 @@ export function verify(root) {
     for (const name of retired) {
       if (typed[name].all > 0) problems.push(`typed command \`${name}\` (typed ${typed[name].all} times) no longer resolves; keep a thin entry point, or list it under "dropped" in ${CONFIG} once the owner says to drop it`);
     }
+    const mentions = retired.map((name) => [name, skillMention(name)]);
     for (const path of [join(root, 'AGENTS.md'), ...markdownFiles(rulesDir)]) {
       if (!existsSync(path)) continue;
       for (const [index, line] of readFileSync(path, 'utf8').split('\n').entries()) {
-        for (const name of retired) {
-          const escaped = name.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-          const pattern = new RegExp(`(?:\\$|(?:^|[\\s(\`])/)${escaped}\\b|(?:skills|rules|\\.\\.)/${escaped}(?:/|\\.mdc)${name.includes('-') ? `|\`${escaped}\`` : ''}`, 'u');
-          if (pattern.test(line)) problems.push(`${rel(path)}:${index + 1}: names retired \`${name}\``);
+        for (const [name, mention] of mentions) {
+          if (mention.test(line)) problems.push(`${rel(path)}:${index + 1}: names retired \`${name}\``);
         }
       }
     }

@@ -17,7 +17,7 @@ After the interview and before `apply`, reshape the project so its own rules and
 
 ## Codex seats
 
-The block's Panel review seats Codex through `node .agents/pstack/cross.mjs --to codex`, which needs only the Codex CLI and runs it with `--sandbox read-only`. A seat's model needs a Codex CLI that knows it; 0.159.2 knows `gpt-6.1-sol` and `gpt-6-astra`. OpenAI's `codex-plugin-cc` runs no seat, because its forwarder defaults to `--write`, re-tokenizes the prompt, and runs each task in one Bash call that a long review outlasts. An installed `autoreview` copy stays for typed use; it is no longer a gate.
+The block's Panel review seats Codex through `node .agents/pstack/cross.mjs --to codex`, which needs only the Codex CLI and runs it with `--sandbox read-only`. A seat's model needs a Codex CLI that knows it; 0.159.2 knows `gpt-6.1-sol` and `gpt-6-astra`. OpenAI's `codex-plugin-cc` runs no seat, because its forwarder defaults to `--write`, re-tokenizes the prompt, and runs each task in one Bash call that a long review outlasts. Uninstall any `autoreview` copy, because the panel review replaced it, and list a typed `autoreview` under `dropped` once the owner agrees.
 
 ## Keep formatters off the synced files
 

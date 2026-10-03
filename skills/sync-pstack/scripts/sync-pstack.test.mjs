@@ -5,12 +5,13 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { hintModes, overrideAnchors, render } from './sync-pstack.mjs';
+import { hintModes, overrideAnchors, render, unmarkedRules } from './sync-pstack.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SCRIPT = join(HERE, 'sync-pstack.mjs');
 const TEMPLATE = readFileSync(join(HERE, '../assets/block.md'), 'utf8');
 const HELPERS = join(HERE, '../assets/pstack');
+const AUDIT = join(HERE, 'audit.mjs');
 const CONFIG = {
   tag: 'v0.9.52',
   branch: 'next',
@@ -514,6 +515,155 @@ test('discover counts only what the user typed: Claude Code, Codex sessions and 
   const result = cli('discover', root);
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout).typed.counts, { patch: { all: 1, week: 1 }, task: { all: 4, week: 1 } });
+});
+
+test('discover counts a command the user typed, not text pasted after it or written by an agent', () => {
+  const { dir, home, cli } = sandbox();
+  const root = project(dir, 'app', {
+    files: { '.agents/rules/sync-vision.mdc': '---\n---\n', '.agents/rules/ui-audit.mdc': '---\n---\n', '.agents/skills/typescript-advanced-types/SKILL.md': '---\nname: typescript-advanced-types\n---\n' },
+  });
+  const claude = join(home, '.claude/projects', root.replace(/[^a-zA-Z0-9]/g, '-'));
+  mkdirSync(claude, { recursive: true });
+  const now = new Date().toISOString();
+  const filler = 'The plan names its subject and its proof. '.repeat(200);
+  const user = (content, extra = {}) => ({ type: 'user', timestamp: now, message: { role: 'user', content }, ...extra });
+  writeFileSync(
+    join(claude, 'session.jsonl'),
+    [
+      user(`Reviewer report follows.\n${filler}\nNext: [$sync-vision](/x/SKILL.md) sync`),
+      user('also following [$typescript-advanced-types](/x/SKILL.md) here'),
+      user(`/ui-audit documents ${filler}`),
+      user('Run /ui-audit next.', { promptSource: 'system' }),
+      user('Run /ui-audit next.', { origin: { kind: 'task-notification' } }),
+      user('Run /ui-audit next.', { entrypoint: 'sdk-cli' }),
+      user('please run /ui-audit on documents', { entrypoint: 'claude-desktop', promptSource: 'sdk', origin: { kind: 'human' } }),
+      user(`<pasted_content id="7">\n${filler} $sync-vision\n</pasted_content id="7">\n/ui-audit go`),
+      user('/typescript-advanced-types\n<pasted_content id="8">\n## My request for Codex:\n$sync-vision\n</pasted_content id="8">'),
+    ]
+      .map((line) => JSON.stringify(line))
+      .join('\n'),
+  );
+  const codex = join(home, '.codex/sessions/2026/10/03');
+  mkdirSync(codex, { recursive: true });
+  const session = (name, meta, message) =>
+    writeFileSync(
+      join(codex, name),
+      [{ type: 'session_meta', payload: { cwd: root, ...meta } }, { timestamp: now, type: 'event_msg', payload: { type: 'user_message', turn_id: name, message } }]
+        .map((line) => JSON.stringify(line))
+        .join('\n'),
+    );
+  session('rollout-exec.jsonl', { originator: 'Codex Desktop', source: 'exec' }, 'run $ui-audit read-only');
+  session('rollout-automation.jsonl', { thread_source: 'automation' }, 'run $ui-audit');
+  session('rollout-tui.jsonl', {}, `# Context from the in-app browser\n${filler}\n## My request for Codex:\n[$sync-vision](/x/SKILL.md) audit`);
+  const result = cli('discover', root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout).typed.counts, {
+    'sync-vision': { all: 1, week: 1 },
+    'typescript-advanced-types': { all: 2, week: 2 },
+    'ui-audit': { all: 3, week: 3 },
+  });
+});
+
+test('audit counts a user-scope skill typed in any project, and not a link to a project copy of the same name', () => {
+  const { dir, home: link } = sandbox();
+  const home = realpathSync(link);
+  const root = project(dir, 'app', { agents: '# App\n' });
+  for (const [skills, name] of [['.agents/skills', 'security-triage'], ['.agents/skills', 'orchestrator'], ['.codex/skills', 'game-guides']]) {
+    mkdirSync(join(home, skills, name), { recursive: true });
+    writeFileSync(join(home, skills, name, 'SKILL.md'), `---\nname: ${name}\ndescription: x\n---\n`);
+  }
+  const elsewhere = join(home, '.claude/projects', join(dir, 'other').replace(/[^a-zA-Z0-9]/g, '-'));
+  mkdirSync(elsewhere, { recursive: true });
+  const now = new Date().toISOString();
+  writeFileSync(
+    join(elsewhere, 'session.jsonl'),
+    [
+      `run [$security-triage](${home}/.agents/skills/security-triage/SKILL.md)`,
+      `use [$orchestrator](${dir}/other/.agents/skills/orchestrator/SKILL.md)`,
+      `use [$orchestrator](<${dir}/a b/.agents/skills/orchestrator/SKILL.md>)`,
+      `use [$orchestrator](${home}/.agents/../other/.agents/skills/orchestrator/SKILL.md)`,
+      `use [$orchestrator](${home}/.codex/worktrees/demo/app/.agents/skills/orchestrator/SKILL.md)`,
+      'use [$orchestrator](.agents/skills/orchestrator/SKILL.md)',
+      `again [$security-triage](<${home}/.agents/skills/security-triage/my notes/../SKILL.md>)`,
+      'play $game-guides',
+    ]
+      .map((text) => JSON.stringify({ type: 'user', timestamp: now, message: { role: 'user', content: text } }))
+      .join('\n'),
+  );
+  const result = spawnSync(process.execPath, [AUDIT, root, '--json'], { cwd: home, encoding: 'utf8', env: { ...process.env, HOME: home } });
+  assert.equal(result.status, 0, result.stderr);
+  const user = Object.fromEntries(JSON.parse(result.stdout).userSkills.map((skill) => [skill.name, skill.typed.all]));
+  assert.deepEqual(user, { 'game-guides': 1, orchestrator: 0, 'security-triage': 2 });
+});
+
+test('audit run from an installed copy reports dotai facts as unknown instead of comparing the copy with itself', () => {
+  const { dir, home, run } = sandbox();
+  const root = project(dir, 'app', { agents: '# App\n' });
+  const installed = join(home, '.agents/skills/sync-pstack');
+  cpSync(dirname(HERE), installed, { recursive: true });
+  const result = run(process.execPath, [join(installed, 'scripts/audit.mjs'), root, '--json'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const skill = JSON.parse(result.stdout).userSkills.find((entry) => entry.name === 'sync-pstack');
+  assert.deepEqual([skill.inDotai, skill.stale], [null, null]);
+});
+
+test('the audit report shows block and pstack repeats ahead of a flood of project duplicates', () => {
+  const { dir, home, run } = sandbox();
+  const block = 'Every test must fail for a named, plausible defect and pass only once it is fixed.';
+  const pstack = 'Verify against the real artifact, never a proxy that only compiles or type checks.';
+  const pstackSkill = join(home, '.claude/plugins/cache/pstack-claude/pstack/9.9.9/skills/prove');
+  mkdirSync(pstackSkill, { recursive: true });
+  writeFileSync(join(pstackSkill, 'SKILL.md'), `# Prove\n\n${pstack}\n`);
+  const sentence = (n, what) => `Rule ${n} keeps ${what} ${n} database free across every suite and runner today.`;
+  const duplicates = Array.from({ length: 40 }, (_, n) => `${sentence(n, 'fixture')} ${sentence(n, 'mock')}`).join('\n\n');
+  const root = project(dir, 'app', {
+    agents: '# App\n',
+    files: {
+      '.agents/pstack.json': '{ "tag": "v9.9.9" }\n',
+      '.agents/rules/a.mdc': `# A\n\n${duplicates}\n`,
+      '.agents/rules/b.mdc': `# B\n\n${duplicates}\n\n${block}\n\n${pstack}\n`,
+    },
+  });
+  const result = run(process.execPath, [AUDIT, root], root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /\.agents\/rules\/b\.mdc:\d+ ~ block:\d+: Every test must fail/);
+  assert.match(result.stdout, /\.agents\/rules\/b\.mdc:\d+ ~ pstack\/prove\/SKILL\.md:\d+: Verify against the real artifact/);
+  assert.match(result.stdout, /repeated elsewhere in the project \(score >= 0\.5\): 80,/);
+});
+
+test('audit routes count whole skill names, not longer names, paths or plain common words', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', {
+    agents: '# App\n\nVendor skills (sentry, rate-limiter-flexible) are references. Use `$cross-review` for a hand-off.\n',
+    files: {
+      '.agents/rules/best-api.mdc': '---\ndescription: api\n---\n# Best API\n',
+      '.agents/rules/best-api-review.mdc': '---\ndescription: review\n---\nRun $best-api-review audit, then /task:checkout and import x from "/best-api.ts".\n',
+      '.agents/rules/task.mdc': '---\ndescription: task\n---\n# Task\n',
+      '.agents/rules/react.mdc': '---\ndescription: react\n---\nThe react docs and @trpc/react-query.\n',
+      ...Object.fromEntries(['best-api', 'best-api-review', 'task', 'react', 'cross-review', 'rate-limiter-flexible'].map((name) => [`.agents/skills/${name}/SKILL.md`, `---\nname: ${name}\n---\n`])),
+    },
+  });
+  const result = run(process.execPath, [AUDIT, root, '--json'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const routes = Object.fromEntries(JSON.parse(result.stdout).skills.map((skill) => [skill.name, skill.routes]));
+  assert.deepEqual(routes, { 'best-api': [], 'best-api-review': [], 'cross-review': ['AGENTS.md'], 'rate-limiter-flexible': ['AGENTS.md'], react: [], task: [] });
+});
+
+test('audit lists a project rule sentence that repeats the block, even wrapped across lines', () => {
+  const { dir, run } = sandbox();
+  const copied = 'Every test must fail for a named, plausible defect and pass only once it is fixed.';
+  const wrapped = copied.replace('defect and', 'defect\nand');
+  const root = project(dir, 'app', { agents: '# App\n', files: { '.agents/rules/qa.mdc': `---\ndescription: qa\n---\n# QA\n\n${wrapped} Keep the suite fast.\n` } });
+  const result = run(process.execPath, [AUDIT, root, '--json'], root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(JSON.parse(result.stdout).overlaps.some((overlap) => overlap.file === '.agents/rules/qa.mdc' && overlap.with === 'block'), result.stdout);
+});
+
+test('every block rule says how it relates to pstack, and a rule whose marker is removed is flagged', () => {
+  assert.deepEqual(unmarkedRules(TEMPLATE), []);
+  const stripped = TEMPLATE.replace(/^<!-- # adds -->\n(?=- \*\*Blocked\.\*\*)/mu, '');
+  assert.notEqual(stripped, TEMPLATE);
+  assert.deepEqual(unmarkedRules(stripped), ['Blocked']);
 });
 
 test('discover flags skills added in the last two weeks, even untyped ones', () => {
