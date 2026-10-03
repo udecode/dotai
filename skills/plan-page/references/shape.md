@@ -12,6 +12,10 @@
 
 A subject file never holds a `before` or `after` fence.
 
+## Index
+
+`<plans>/topics/README.md` holds `# Topics` and the index's `Page: <url>`, and is never a subject. `plan-page.mjs --index` lists every subject with its title linked to its page, its lead sentence, the leading iteration's status, its iteration count and its newest iteration date. Subjects that wait on the owner come first, then open ones, then the rest by their newest iteration. When `pageTopic.hub` is set, subjects whose hub exists group as feature topics, and every hub with no subject file lists as a topic with no page yet.
+
 ## Plan
 
 - Optional frontmatter, then `# Title`, then `Status:`, `Topic:` and, when a project playbook writes the plan, `Playbook:` lines.
@@ -38,7 +42,7 @@ A subject file never holds a `before` or `after` fence.
 
 ## Page order
 
-1. Needs you, from Open questions. Each question renders as radio buttons with the recommendation picked. The section says that go takes every recommendation, and shows a Copy answer line only when an answer differs from it or a question has none.
+1. Needs you, from the Open questions of every iteration, the leader's first; an older iteration's question names its plan. Each question renders as radio buttons with the recommendation picked. The section says that go takes every recommendation, and shows a Copy answer line only when an answer differs from it or a question has none.
 2. Close, from the leading iteration's or the one-off plan's `## Close`.
 3. The leading plan's lead paragraph.
 4. Public API, then the `page-lead` sections, then Main changes.

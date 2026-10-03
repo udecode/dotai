@@ -1,6 +1,6 @@
 ---
 name: plan-page
-description: "Write, check, repair and publish a plan page: a project's plans and subject files under its plans directory, rendered by .agents/pstack/plan-page.mjs and published as one claude.ai page per subject. The page is how work hands back to the user. Use before writing or changing a plan, a subject file in <plans>/topics or its page; at every stop that hands work back, such as a review verdict other than a review-only panel's, a next answer or a playbook's close; when a plan page or its claude.ai artifact looks wrong or refuses to render; to republish a page; or to change the page shape or a playbook's page sections."
+description: "Write, check, repair and publish a plan page: a project's plans and subject files under its plans directory, rendered by .agents/pstack/plan-page.mjs and published as one claude.ai page per subject, with one index page linking every subject. The page is how work hands back to the user. Use before writing or changing a plan, a subject file in <plans>/topics or its page; at every stop that hands work back, such as a review verdict other than a review-only panel's, a next answer or a playbook's close; when a plan page or its claude.ai artifact looks wrong or refuses to render; to republish a page; or to change the page shape or a playbook's page sections."
 metadata:
   source: udecode/dotai
   source-path: skills/plan-page
@@ -8,7 +8,7 @@ metadata:
 
 # Plan page
 
-The user reads pages, not replies. Every stop that hands work back publishes a page first, and the reply is its link alone, except after a review-only panel, whose findings go in the reply. A subject is one thing the work changes, and it has one page. Its file, `<plans>/topics/<slug>.md`, holds the current state. Each plan that continues it is an iteration carrying only its delta. `node .agents/pstack/plan-page.mjs <plan>` renders the page from both. sync-pstack ships that renderer and `status.mjs` into every project it manages.
+The user reads pages, not replies. Every stop that hands work back publishes a page first, and the reply is its link alone, except after a review-only panel, whose findings go in the reply. A subject is one thing the work changes, and it has one page. Its file, `<plans>/topics/<slug>.md`, holds the current state. Each plan that continues it is an iteration carrying only its delta. `node .agents/pstack/plan-page.mjs <plan>` renders the page from both, and `node .agents/pstack/plan-page.mjs --index` renders the project's index of every subject. sync-pstack ships that renderer and `status.mjs` into every project it manages.
 
 Read [references/shape.md](references/shape.md) before writing a plan or a subject file. It holds every file shape, the page order and the renderer's refusals.
 
@@ -27,6 +27,7 @@ Read [references/shape.md](references/shape.md) before writing a plan or a subje
 4. Walk [Check](#check)'s reading list before the first publish and after each revision, then run `node .agents/pstack/plan-page.mjs <plan>`. It refuses every shape it can check and names the fix. Fix the plan or the subject file, never the HTML.
 5. At a close, write the plan's `## Close` before rendering: what landed, the proof and its limits, the done, skipped, blocked and open counts, reversals and deviations first, and open work with owners.
 6. Publish the printed file with the Artifact tool to the subject's `Page:` URL, or to the one-off plan's own. The first publish writes `Page: <url>` under the subject file's title, or under a one-off plan's `Status:` line. The reply is the link alone. Codex sessions skip publishing, and the lead republishes when the user returns.
+7. After a subject page publishes, run `node .agents/pstack/plan-page.mjs --index` and publish the printed file to the `Page:` URL in `<plans>/topics/README.md`. When that file is missing, create it with a `# Topics` title, publish, and write the URL under the title. A one-off plan's page leaves the index alone.
 
 ## Check
 

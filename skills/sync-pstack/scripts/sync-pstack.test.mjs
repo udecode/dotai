@@ -878,6 +878,44 @@ test('plan-page renders a topic plan as its subject page with every iteration, n
   assert.ok(!html.includes('Unrelated'));
 });
 
+test('plan-page --index lists every subject with its state and iteration count, subjects that wait on the owner first, and hub topics with no page yet', () => {
+  const { dir, run } = sandbox();
+  const files = {
+    'docs/plans/topics/README.md': '# Topics\n\nPage: https://example.test/index\n',
+    'docs/plans/topics/quiet.md': '# Quiet topic\n\nPage: https://example.test/quiet\n\nThe quiet lead.\n\n## Main changes\n\n- Settled.\n',
+    'docs/plans/topics/busy.md': '# Busy topic\n\nPage: https://example.test/busy\n\nThe busy lead.\n\n## Main changes\n\n- Moving.\n',
+    'docs/plans/2026-03-01-quiet-pass.md': '# Quiet pass\n\nStatus: executed\nTopic: quiet\n\n## Main changes\n\n- Done.\n',
+    'docs/plans/2026-01-01-busy-one.md': '# Busy one\n\nStatus: executed\nTopic: busy\n\n## Main changes\n\n- One.\n',
+    'docs/plans/2026-01-02-busy-two.md': '# Busy two\n\nStatus: planning, waiting for Build now\nTopic: busy\n\n## Open questions\n\n### Build\n\nBuild it?\n\n- **go** (recommended): build.\n- **hold**: wait.\n',
+    'docs/research/features/busy.md': '# Busy feature\n',
+    'docs/research/features/quiet.md': '# Quiet feature\n',
+    'docs/research/features/fresh.md': '# Fresh feature\n',
+  };
+  const root = project(dir, 'app', { files, config: { plans: 'docs/plans', pageTopic: { hub: 'docs/research/features/{topic}.md' } } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), '--index'], root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(result.stdout.trim().endsWith('docs/plans/artifacts/topics/index.html'), result.stdout);
+  const html = read(root, 'docs/plans/artifacts/topics/index.html');
+  assert.ok(html.includes('href="https://example.test/busy"') && html.includes('planning, waiting for Build now'), 'a subject links its page and shows its leading status');
+  assert.match(html, /Busy topic[\s\S]*?2 iterations/, 'a subject counts its iterations');
+  assert.ok(html.indexOf('Busy topic') < html.indexOf('Quiet topic'), 'a subject that waits on the owner comes before a newer settled one');
+  assert.match(html, /Fresh feature[\s\S]*?no page yet/, 'a hub with no subject file is a topic with no page yet');
+  assert.ok(!html.includes('>Topics<'), 'the index file is not a subject');
+});
+
+test('plan-page keeps an older iteration\'s open question in Needs you under a newer open plan', () => {
+  const { dir, run } = sandbox();
+  const topic = '# Workflow\n\n## Main changes\n\n- Pages follow subjects.\n';
+  const built = '# Built\n\nStatus: executed\nTopic: workflow\n\n## Main changes\n\n- Moved the renderer.\n\n## Open questions\n\n### Lessons\n\nApply the reflect lessons?\n\n- **apply** (recommended): apply them.\n- **skip**: drop them.\n\n## Close\n\n- Landed.\n';
+  const next = '# Next\n\nStatus: planning, waiting for Build now\nTopic: workflow\n\n## Main changes\n\n- Index every subject.\n';
+  const root = project(dir, 'app', { files: { 'docs/plans/topics/workflow.md': topic, 'docs/plans/2026-01-01-built.md': built, 'docs/plans/2026-02-01-next.md': next } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-02-01-next.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const html = read(root, 'docs/plans/artifacts/topics/workflow.html');
+  assert.match(html, /Needs you[\s\S]*Apply the reflect lessons\?/, 'the older question stays under the newer plan');
+  assert.match(html, /Apply the reflect lessons\?[\s\S]*?from[\s\S]*?Built/, 'the question names the plan it belongs to');
+});
+
 const reviewRow = (phase, decision, result) => `2026-01-01T00:00:00Z\t${phase}\t${decision}\twhy\tevidence\t${result}`;
 
 test('plan-page tags the latest panel round and lists every round at the bottom by priority', () => {
