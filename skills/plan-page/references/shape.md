@@ -29,7 +29,7 @@ A subject file never holds a `before` or `after` fence.
 
 - A plan is open until its `Status:` starts with a `done` word from `status.mjs`, such as executed, done, superseded or cancelled.
 - While a plan is open, the subject file keeps the state before it. The page leads each section with the plan's delta, strikes through the current version of each changed or removed row, and collapses the current state.
-- When execution ends, and before `Status:` says executed, fold the delta into the subject file. Replace or join the call sites with each after fence. Add, replace or delete each marked row, dropping its Delta cell. Move the rest into its section. Then render with `--folded`, and flip `Status:` in the same edit, because a plain render refuses the folded subject while the plan is still open.
+- When execution ends, and before `Status:` says executed, fold the delta into the subject file. Replace or join the call sites with each after fence. Add, replace or delete each marked row, dropping its Delta cell. Move the rest into its section, and move the plan's open work into the subject file's `## Open work`, each item with its owner. Then render with `--folded`, and flip `Status:` in the same edit, because a plain render refuses the folded subject while the plan is still open.
 - A plan reopened after its fold starts its `Status:` with `reopened`.
 - Once no iteration is open, the page shows the current state alone and lists the iterations as history.
 - The open iteration whose file name starts with the latest date leads the page, whichever plan renders it. A name without a date counts as the oldest.

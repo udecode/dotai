@@ -17,7 +17,7 @@
     {
       "name": "plan-page",
       "distribution": "bundled",
-      "description": "Write, check, repair and publish a plan page: a project's plans and subject files under its plans directory, rendered by .agents/pstack/plan-page.mjs and published as one claude.ai page per subject. Use before writing or changing a plan, a subject file in <plans>/topics or its page; when a page looks wrong or refuses to render; to republish a page; or to change the page shape or a playbook's page sections.",
+      "description": "Write, check, repair and publish a plan page: a project's plans and subject files under its plans directory, rendered by .agents/pstack/plan-page.mjs and published as one claude.ai page per subject. Use before writing or changing a plan, a subject file in <plans>/topics or its page; when a plan page or its claude.ai artifact looks wrong or refuses to render; to republish a page; or to change the page shape or a playbook's page sections.",
       "category": "Communication",
       "dependencies": [],
       "capabilities": [
@@ -74,7 +74,7 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "c2e25dbb6cd01eee6a7ae2d87b5446fb3c2c716a9a7bd2dc5ec5981ffa3df5c9",
+      "sha256": "cd97e40ae3b7f9fcfdf93fd544e7e6c985ede3d8ca442133f36d8adf663492d6",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
@@ -98,15 +98,15 @@
       "mode": 420
     },
     "skills/plan-page/SKILL.md": {
-      "sha256": "e239934e2d7591c2e2181e46ba2ffa7cd05839ca4b5602ecb53d7d2a79428b52",
+      "sha256": "7788a4002311af913b1074605c420d64d3a7057b4165c5291e4eac06f9f82d44",
       "mode": 420
     },
     "skills/plan-page/references/shape.md": {
-      "sha256": "c415ae1f89d745624b2821482a0f40f5e4e716ac799740672a036a4bef3f3c79",
+      "sha256": "aca6585704653d4f5a8890320c836ceddb6d7c4588b95912354f733c664329b1",
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
-      "sha256": "f8e2e6fa12afc7ce2a60b454c9cda9b3d5e195559567d3354d3b548f8c77edd5",
+      "sha256": "dd91ec1ed694c5a6b8c36a38790e9f745d7c987a90ed23a40b52cf6facf573c9",
       "mode": 420
     },
     "skills/sync-pstack/agents/openai.yaml": {
@@ -114,7 +114,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "cc426e5edf564144f643ab6fb3445bea9258bc1c3f9fec31b56da32b8e93081e",
+      "sha256": "4fa9daced9e94a7ceac62e78fabb32278c9c435cbc228f4ab277e8a8d637ecbb",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/cross.mjs": {

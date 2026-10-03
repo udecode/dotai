@@ -1,6 +1,6 @@
 ---
 name: plan-page
-description: "Write, check, repair and publish a plan page: a project's plans and subject files under its plans directory, rendered by .agents/pstack/plan-page.mjs and published as one claude.ai page per subject. Use before writing or changing a plan, a subject file in <plans>/topics or its page; when a page looks wrong or refuses to render; to republish a page; or to change the page shape or a playbook's page sections."
+description: "Write, check, repair and publish a plan page: a project's plans and subject files under its plans directory, rendered by .agents/pstack/plan-page.mjs and published as one claude.ai page per subject. Use before writing or changing a plan, a subject file in <plans>/topics or its page; when a plan page or its claude.ai artifact looks wrong or refuses to render; to republish a page; or to change the page shape or a playbook's page sections."
 metadata:
   source: udecode/dotai
   source-path: skills/plan-page
@@ -24,7 +24,7 @@ Read [references/shape.md](references/shape.md) before writing a plan or a subje
 1. Pick the subject before writing the plan. Continue the subject whose thing the work changes. Start a new one only for a new thing that will be revisited. A one-off plan, such as a single fix or check, has no subject and keeps its own page.
 2. Name the subject with `Topic: <slug>` under `Status:`, or through the first entry of the frontmatter list the project names in `pageTopic.field`, so list the scope that owns the change first. A plan whose list-named subject has no file yet keeps its own page until someone creates that file; the renderer refuses a `Topic:` line whose subject has no file until that file exists.
 3. When a project playbook in `.agents/playbooks/` writes the plan, name it with `Playbook: <name>` under `Status:`, so its page sections lead and its required sections apply. Otherwise leave the line out; the renderer refuses a name with no playbook file.
-4. Run `node .agents/pstack/plan-page.mjs <plan>`. It refuses every shape it can check and names the fix. Fix the plan or the subject file, never the HTML.
+4. Walk [Check](#check)'s reading list before the first publish and after each revision, then run `node .agents/pstack/plan-page.mjs <plan>`. It refuses every shape it can check and names the fix. Fix the plan or the subject file, never the HTML.
 5. Publish the printed file with the Artifact tool to the subject's `Page:` URL, or to the one-off plan's own. The first publish writes `Page: <url>` under the subject file's title, or under a one-off plan's `Status:` line. Codex sessions skip publishing, and the lead republishes when the user returns.
 
 ## Check
@@ -40,8 +40,8 @@ Run `node .agents/pstack/plan-page.mjs <plan> --check`. It runs every refusal an
 
 ## Repair
 
-1. Copy each file to scratch before rewriting it.
-2. Run [Check](#check) and fix each finding at its source. For an early fold, restore the subject file to its state before the open plan from the plan's `before` fences and `git show <base>:<path>`, and move the delta into the plan.
+1. Copy each file to scratch before rewriting it, and keep the copy as the must-refuse fixture for any refusal that should have caught it.
+2. Run [Check](#check) and fix each finding at its source. A subject that shows a plan's delta while its steps are all closed and its proof done is a finished fold whose `Status:` was not flipped yet; flip it instead of restoring. For an early fold, restore the subject file to its state before the open plan from the plan's `before` fences and `git show <base>:<path>`, and move the delta into the plan.
 3. Log one decision-log row for the repair.
 4. A ledger record that binds the plan's bytes goes stale on the edit. Rebind it by the project's record rule.
 5. Render and republish to the same URL.
@@ -52,9 +52,9 @@ The renderer source is `skills/sync-pstack/assets/pstack/plan-page.mjs` in the d
 
 Run sync-pstack's Lesson mode, which owns the gates, the corpus rules and the delivery. This mode adds the renderer's specifics inside its steps:
 
-1. In Lesson step 2, when another session holds uncommitted edits in the dotai checkout, edit in a detached worktree at `origin/main` instead, and rebase onto their commit before the dotai commit.
-2. In Lesson step 3, give each new refusal or behavior a test that fails on the old renderer for its named defect.
-3. In Lesson step 4, copy each managed project's plans, subject files, hubs, `.agents/pstack.json` and playbooks to scratch twice: one copy as it is for the old renderer, and one with the change's migration applied for the new one. Give a renderer that predates `--check` an adapter that exits before it writes. Run both over every plan, list each newly refused plan with its owner, then render every plan with both and diff the bodies, ignoring the Updated line.
+1. In Lesson step 2, when another session holds uncommitted edits in the dotai checkout, edit in a detached worktree at `origin/main` instead, and rebase onto their commit before each panel round, each proof and the dotai commit.
+2. In Lesson step 3, give each new refusal or behavior a test that fails on the old renderer for its named defect. A refusal that compares text gets one must-pass and one must-refuse case on each axis before any panel: case, indentation, spacing inside literals, punctuation-only lines, line order, partial overlap with another iteration and a missing section.
+3. In Lesson step 4, copy each managed project's plans, subject files, hubs, `.agents/pstack.json` and playbooks to scratch once, for the old renderer, then `cp -R` that copy and apply the change's migration to it for the new one, and diff the two plan lists before any body. When the live trees hold no instance of a state a refusal gates, also replay subject files at past commits where an iteration was open, and the scratch copies Repair kept. Give a renderer that predates `--check` an adapter that exits before it writes. Run both over every plan, list each newly refused plan with its owner, then render every plan with both and diff the bodies, ignoring the Updated line.
 4. Also in Lesson step 4, render one real plan in each mode the renderer branches on: a one-off plan, a subject with an open iteration and a subject with none. Use a scratch copy with its `Status:` flipped when no live subject is in a mode. Publish both versions for the owner to compare.
 
 ## Playbook sections
