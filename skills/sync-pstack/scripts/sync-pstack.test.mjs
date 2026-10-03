@@ -212,6 +212,21 @@ test('project playbooks render into the block, and a new one makes check stale',
   assert.equal(cli('check', root).status, 1);
 });
 
+test('apply drops the page lists from the config once a playbook carries them, and refuses until then', () => {
+  const { dir, cli } = sandbox();
+  const config = { ...CONFIG, pageLead: ['What other editors do'], pagePairs: ['Document shape'], pageTopic: { field: 'review_scopes', require: ['What other editors do'] } };
+  const root = project(dir, 'app', { config, agents: '# App\n', files: { '.agents/playbooks/plan.md': '---\nextends: multi-phase-plan\nwhen: Use it to plan.\npage-lead: What other editors do\n---\n' } });
+  const refused = cli('apply', root);
+  assert.equal(refused.status, 1);
+  assert.match(refused.stdout, /pagePairs "Document shape", pageTopic\.require "What other editors do"/);
+  assert.ok(!existsSync(join(root, '.agents/pstack/plan-page.mjs')));
+  writeFileSync(join(root, '.agents/playbooks/plan.md'), '---\nextends: multi-phase-plan\nwhen: Use it to plan.\npage-lead: What other editors do\npage-pairs: Document shape\npage-require: What other editors do\n---\n');
+  assert.equal(cli('apply', root).status, 0);
+  const applied = readJson(root, '.agents/pstack.json');
+  assert.ok(!('pageLead' in applied) && !('pagePairs' in applied));
+  assert.deepEqual(applied.pageTopic, { field: 'review_scopes' });
+});
+
 test('a bump refuses when pstack dropped the step a playbook anchors on, and shows the upstream diff', () => {
   const upstream = pstackRepo(mkdtempSync(join(tmpdir(), 'sync-pstack-upstream-')), {
     'v0.9.52': { 'poteto-mode/playbooks/bug-fix.md': '1. Reproduce it yourself on the matching surface.\n' },
@@ -758,10 +773,12 @@ test('plan-open reads a checkbox nested in a numbered step', () => {
   assert.match(result.stderr, /^1 open item\(s\):\nplan\.md:4: 2\. - \[ \] \*\*Ship\.\*\*$/m);
 });
 
-test("plan-page renders the project's pageLead sections right after Public API", () => {
+const playbook = (fields) => `---\nextends: multi-phase-plan\nwhen: Use it for a plan.\n${fields}---\n\n# Plan\n`;
+
+test("plan-page renders a playbook's page-lead sections right after Public API", () => {
   const { dir, run } = sandbox();
   const plan = '# Plan\n\nStatus: planning\n\n## Main changes\n\n- Moves the owner.\n\n## What other editors do\n\n- Lexical keeps it in the node.\n\n## Public API\n\n```ts before\nold()\n```\n\n```ts after\nnext()\n```\n';
-  const root = project(dir, 'app', { config: { pageLead: ['What other editors do'] }, files: { 'docs/plans/plan.md': plan } });
+  const root = project(dir, 'app', { files: { '.agents/playbooks/plan.md': playbook('page-lead: What other editors do\n'), 'docs/plans/plan.md': plan } });
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
   assert.equal(result.status, 0, result.stderr);
   const html = read(root, 'docs/plans/artifacts/plan.html');
@@ -778,13 +795,21 @@ test('plan-page refuses a before fence that prose separates from its after fence
   assert.match(result.stderr, /Public API needs each before fence followed directly by its after fence/);
 });
 
-test('plan-page checks pairs in a project section only when pagePairs names it', () => {
+test('plan-page checks pairs in a project section only when a playbook pairs it', () => {
   const { dir, run } = sandbox();
   const plan = '# Plan\n\nStatus: done\n\n## Document shape\n\n- A signed document keeps its template id.\n';
   const plain = project(dir, 'plain', { files: { 'docs/plans/plan.md': plan } });
   assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], plain).status, 0);
-  const paired = project(dir, 'paired', { config: { pagePairs: ['Document shape'] }, files: { 'docs/plans/plan.md': plan } });
+  const paired = project(dir, 'paired', { files: { '.agents/playbooks/plan.md': playbook('page-pairs: Document shape\n'), 'docs/plans/plan.md': plan } });
   assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], paired).status, 1);
+});
+
+test('plan-page refuses a pstack.json that still sets the page lists', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', { config: { pageLead: ['What other editors do'] }, files: { 'docs/plans/plan.md': '# Plan\n\nStatus: planning\n' } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /still sets pageLead; move each list into the frontmatter of the playbook/);
 });
 
 test('plan-page diffs a before and after pair line by line', () => {
@@ -901,15 +926,24 @@ test('plan-page ignores a frontmatter topic field and keeps a legacy plan on its
   assert.ok(result.stdout.trim().endsWith('docs/plans/artifacts/2026-01-01-old.html'), result.stdout);
 });
 
-test('plan-page refuses a ledger-scope subject page that lacks a required section', () => {
+test("plan-page refuses a ledger-scope subject page that lacks a section its plan's playbook requires", () => {
   const { dir, run } = sandbox();
-  const config = { pageTopic: { field: 'review_scopes', hub: 'docs/hubs/{topic}.md', require: ['What other editors do'] } };
-  const plan = '---\nreview_scopes: [dnd]\n---\n# Transfer\n\nStatus: done\n';
-  const files = { 'docs/hubs/dnd.md': '# Drag and drop\n', 'docs/plans/2026-01-01-transfer.md': plan, 'docs/plans/topics/dnd.md': '# Drag and drop\n\n## Main changes\n\n- One transfer action.\n' };
+  const config = { pageTopic: { field: 'review_scopes', hub: 'docs/hubs/{topic}.md' } };
+  const plan = '---\nreview_scopes: [dnd]\n---\n# Transfer\n\nStatus: done\nPlaybook: plan\n';
+  const files = {
+    '.agents/playbooks/bug-fix.md': playbook(''),
+    '.agents/playbooks/plan.md': playbook('page-require: What other editors do\n'),
+    'docs/hubs/dnd.md': '# Drag and drop\n',
+    'docs/plans/2026-01-01-transfer.md': plan,
+    'docs/plans/topics/dnd.md': '# Drag and drop\n\n## Main changes\n\n- One transfer action.\n',
+  };
   const root = project(dir, 'app', { config, files });
   const refused = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-transfer.md'], root);
   assert.equal(refused.status, 1);
   assert.match(refused.stderr, /dnd needs ## What other editors do/);
+  writeFileSync(join(root, 'docs/plans/2026-01-01-transfer.md'), plan.replace('Playbook: plan', 'Playbook: bug-fix'));
+  assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-transfer.md'], root).status, 0);
+  writeFileSync(join(root, 'docs/plans/2026-01-01-transfer.md'), plan);
   writeFileSync(join(root, 'docs/plans/topics/dnd.md'), files['docs/plans/topics/dnd.md'] + '\n## What other editors do\n\n- Lexical keeps drag in the view.\n');
   assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-transfer.md'], root).status, 0);
   writeFileSync(join(root, 'docs/plans/topics/workflow.md'), '# Workflow\n\n## Main changes\n\n- Pages follow subjects.\n');
@@ -928,7 +962,9 @@ test('plan-page names the subject file to create when a topic has none', () => {
 const DELTA_TOPIC = '# Drag\n\n## Public API\n\n```ts\nold();\n```\n\n## Layer and owner\n\n| Change | Layer |\n| --- | --- |\n| Column landing | Plate |\n| Upload veto | Plate |\n';
 const DELTA_PLAN = '# Landing\n\nStatus: planning\nTopic: drag\n\n## Public API\n\n```ts before\nold();\n```\n\n```ts after\nnext();\n```\n\n## Layer and owner\n\n| Delta | Change | Layer |\n| --- | --- | --- |\n| added | Schema landing | Plite |\n| changed | Upload veto | Plite |\n| removed | Column landing | Plate |\n';
 const deltaProject = (dir, topic, plan) =>
-  project(dir, 'app', { config: { pageLead: ['Layer and owner'] }, files: { 'docs/plans/topics/drag.md': topic, 'docs/plans/2026-01-01-landing.md': plan } });
+  project(dir, 'app', {
+    files: { '.agents/playbooks/plan.md': playbook('page-lead: Layer and owner\n'), 'docs/plans/topics/drag.md': topic, 'docs/plans/2026-01-01-landing.md': plan },
+  });
 
 test("plan-page leads an open plan's subject page with its marked rows and the rows they replace", () => {
   const { dir, run } = sandbox();
@@ -993,10 +1029,99 @@ test("plan-page keeps an open iteration's delta on top when a finished one rende
 test('plan-page renders a plan reopened after its delta was folded', () => {
   const { dir, run } = sandbox();
   const folded = '# Drag\n\n## Public API\n\n```ts\nnext();\n```\n\n## Layer and owner\n\n| Change | Layer |\n| --- | --- |\n| Schema landing | Plite |\n| Upload veto | Plite |\n';
-  const root = deltaProject(dir, folded, DELTA_PLAN.replace('Status: planning', 'Status: building; the execution review reopened it'));
+  const root = deltaProject(dir, folded, DELTA_PLAN.replace('Status: planning', 'Status: reopened; the execution review found a gap'));
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md'], root);
   assert.equal(result.status, 0, result.stderr);
   assert.match(read(root, 'docs/plans/artifacts/topics/drag.html'), /<tr class="added">.*?<td>Schema landing<\/td>/);
+});
+
+test('plan-page refuses a subject folded while its plan is still open', () => {
+  const { dir, run } = sandbox();
+  const render = (topic) =>
+    run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md'], deltaProject(mkdtempSync(join(dir, 'case-')), topic, DELTA_PLAN));
+  const rows = render(DELTA_TOPIC.replace('| Upload veto | Plate |', '| Upload veto | Plite |'));
+  assert.equal(rows.status, 1);
+  assert.match(rows.stderr, /docs\/plans\/topics\/drag\.md already shows the changed row "Upload veto" of ## Layer and owner from docs\/plans\/2026-01-01-landing\.md, which is still open/);
+  const api = render(DELTA_TOPIC.replace('old();', 'next();'));
+  assert.equal(api.status, 1);
+  assert.match(api.stderr, /already shows the after side of a ## Public API pair/);
+  const cased = (topic, plan) =>
+    run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md'], deltaProject(mkdtempSync(join(dir, 'case-')), topic, plan));
+  const recase = DELTA_PLAN.replace('```ts after\nnext();', '```ts after\nOld();').replace('| changed | Upload veto | Plite |', '| changed | Upload veto | PLATE |');
+  assert.equal(cased(DELTA_TOPIC, recase).status, 0, 'a change of case alone is a real change');
+  assert.equal(cased(DELTA_TOPIC.replace('old();', 'Old();'), recase).status, 1);
+  const order = DELTA_PLAN.replace('```ts before\nold();', '```ts before\nold();\nnext();').replace('```ts after\nnext();', '```ts after\nnext();\nold();');
+  assert.equal(cased(DELTA_TOPIC.replace('old();', 'old();\nnext();'), order).status, 0);
+  assert.equal(cased(DELTA_TOPIC.replace('old();', 'next();\nold();'), order).status, 1);
+  const gone = render(DELTA_TOPIC.replace(/\n## Layer and owner[\s\S]*$/, '\n'));
+  assert.equal(gone.status, 1, 'a subject without the section already shows the removed row as removed');
+  const unlisted = DELTA_PLAN.replace('```ts before\nold();\n```\n\n```ts after\nnext();\n```', '```ts before\nother();\n```\n\n```ts after\n```');
+  assert.equal(cased(DELTA_TOPIC, unlisted).status, 0, 'deleting a call the subject never listed is not a fold');
+  const folding = deltaProject(mkdtempSync(join(dir, 'case-')), DELTA_TOPIC.replace('old();', 'next();'), DELTA_PLAN);
+  const fold = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md', '--folded'], folding);
+  assert.equal(fold.status, 1, 'the fold check still runs');
+  assert.doesNotMatch(fold.stderr, /already shows/);
+  const pair = (before, after) => DELTA_PLAN.replace('```ts before\nold();\n```\n\n```ts after\nnext();\n```', `\`\`\`ts before\n${before}\n\`\`\`\n\n\`\`\`ts after\n${after}\n\`\`\``);
+  const subject = (code) => DELTA_TOPIC.replace('old();', code);
+  const moved = ['if (on) {\n  start();\n}\nfinish();', 'if (on) {\n  start();\n  finish();\n}'];
+  assert.equal(cased(subject(moved[0]), pair(...moved)).status, 0, 'a brace move is a real change');
+  const spaced = ['title("a b");', 'title("a  b");'];
+  assert.equal(cased(subject(spaced[0]), pair(...spaced)).status, 0, 'spacing inside a literal is a real change');
+  const deps = ['useThing(() => {\n  run();\n});', 'useThing(() => {\n  run();\n}, []);'];
+  assert.equal(cased(subject(deps[0]), pair(...deps)).status, 0, 'a punctuation-only change is a real change');
+  assert.equal(cased(subject(deps[1]), pair(...deps)).status, 1);
+  const ordinary = DELTA_PLAN + '\n## Ownership\n\n| Delta | Owner | Layer |\n| --- | --- | --- |\n| removed | Upload | Plate |\n';
+  assert.equal(cased(DELTA_TOPIC, ordinary).status, 1, 'a removed row in a section the subject lacks is already folded');
+});
+
+test('plan-page skips a line another iteration also changes, and --folded checks the order of the after block', () => {
+  const { dir, run } = sandbox();
+  const plan = (status, before, after) => `# Plan\n\nStatus: ${status}\nTopic: drag\n\n## Public API\n\n\`\`\`ts before\n${before}\n\`\`\`\n\n\`\`\`ts after\n${after}\n\`\`\`\n`;
+  const root = deltaProject(dir, DELTA_TOPIC.replace('old();', 'run();\nreplacement();'), plan('building', 'run();\nlegacy();', 'run();'));
+  writeFileSync(join(root, 'docs/plans/2025-12-01-replace.md'), plan('executed', 'legacy();', 'replacement();'));
+  assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md'], root).status, 0);
+  const order = deltaProject(mkdtempSync(join(dir, 'case-')), DELTA_TOPIC.replace('old();', 'end();\nbegin();'), plan('building', 'old();', 'begin();\nend();'));
+  const folded = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md', '--folded'], order);
+  assert.equal(folded.status, 1);
+  assert.match(folded.stderr, /does not show the after block of a ## Public API pair in order/);
+  const spacing = deltaProject(mkdtempSync(join(dir, 'case-')), DELTA_TOPIC.replace('old();', 'title("a b");\ntitle("a  b");'), plan('building', 'title("a b");', 'title("a  b");'));
+  const stale = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md', '--folded'], spacing);
+  assert.equal(stale.status, 1);
+  assert.match(stale.stderr, /still shows the before line "title\("a b"\);"/);
+});
+
+test("plan-page applies each iteration's own refusals whichever iteration renders the page", () => {
+  const { dir, run } = sandbox();
+  const older = (body) => `# Older\n\nStatus: building\nTopic: drag\n${body}`;
+  const render = (plan) => {
+    const topic = DELTA_TOPIC.replace('| Upload veto | Plate |\n', '| Upload veto | Plate |\n| Drop veto | Plate |\n');
+    const root = deltaProject(mkdtempSync(join(dir, 'case-')), topic, DELTA_PLAN);
+    writeFileSync(join(root, 'docs/plans/2025-12-15-older.md'), plan);
+    return run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md'], root);
+  };
+  assert.match(render(older('\n## Defaults\n\n- **Local only.**\n')).stderr, /## Defaults in docs\/plans\/2025-12-15-older\.md needs a table/);
+  assert.match(render(older('Playbook: plna\n')).stderr, /2025-12-15-older\.md names playbook plna/);
+  assert.match(render(older('\n## Public API\n\n```ts before\nlater();\n```\n\nIt moved.\n\n```ts after\nlatest();\n```\n')).stderr, /needs each before fence followed directly by its after fence/);
+  assert.match(render(older('\n## Layer and owner\n\n| Delta | Change | Layer |\n| --- | --- | --- |\n| changed | Drop veto | Plate |\n')).stderr, /already shows the changed row "Drop veto"/);
+  assert.match(render(older('\n## Layer and owner\n\n| Delta | Change | Layer |\n| --- | --- | --- |\n| modified | Drop veto | Plite |\n')).stderr, /A Delta cell in ## Layer and owner of docs\/plans\/2025-12-15-older\.md is added, changed or removed, not "modified"/);
+  assert.equal(render(older('Playbook: retired\n').replace('Status: building', 'Status: executed')).status, 0, 'an executed iteration keeps rendering after its playbook is renamed');
+  const history = deltaProject(mkdtempSync(join(dir, 'case-')), DELTA_TOPIC, DELTA_PLAN.replace('Status: planning', 'Status: executed\nPlaybook: retired'));
+  assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md'], history).status, 0, 'an executed leader keeps rendering after its playbook is renamed');
+  const root = deltaProject(mkdtempSync(join(dir, 'case-')), DELTA_TOPIC, DELTA_PLAN);
+  writeFileSync(join(root, 'docs/plans/2025-12-15-older.md'), older('Playbook: plna\n'));
+  assert.match(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2025-12-15-older.md'], root).stderr, /2025-12-15-older\.md names playbook plna/, 'the older path refuses the same way');
+});
+
+test('plan-page --check refuses an open plan whose Defaults is not the decision table, and writes nothing', () => {
+  const { dir, run } = sandbox();
+  const plan = (defaults) => `# Plan\n\nStatus: planning\n\n## Defaults\n\n${defaults}`;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan('- **Local only.** Reverse with "ci lane".\n') } });
+  const listed = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md', '--check'], root);
+  assert.equal(listed.status, 1);
+  assert.match(listed.stderr, /## Defaults in docs\/plans\/plan\.md needs a table whose columns start with Decision, Pick, Alternative and Word/);
+  writeFileSync(join(root, 'docs/plans/plan.md'), plan('| Decision | Pick | Alternative | Word |\n| --- | --- | --- | --- |\n| Where it runs | Locally | A nightly runner | ci lane |\n'));
+  assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md', '--check'], root).status, 0);
+  assert.ok(!existsSync(join(root, 'docs/plans/artifacts/plan.html')));
 });
 
 test('plan-page draws one page for a subject whichever iteration renders it', () => {

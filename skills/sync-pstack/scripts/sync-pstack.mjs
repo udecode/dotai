@@ -128,10 +128,12 @@ export function projectPlaybooks(root) {
       const text = readFileSync(join(dir, name), 'utf8');
       const front = text.match(/^---\n([\s\S]*?)\n---\n/u)?.[1] ?? '';
       const field = (key) => front.match(new RegExp(`^${key}:[ \\t]*(.*)$`, 'mu'))?.[1].trim() ?? '';
+      const list = (key) => field(key).split(',').map((entry) => entry.trim()).filter(Boolean);
       return {
         path: `${PLAYBOOKS}/${name}`,
-        extends: field('extends').split(',').map((stem) => stem.trim()).filter(Boolean),
+        extends: list('extends'),
         when: field('when'),
+        page: { lead: list('page-lead'), pairs: list('page-pairs'), require: list('page-require') },
         anchors: text.split('\n').flatMap((line) => line.match(CHANGE)?.[1] ?? []),
         unanchored: text.split('\n').filter((line) => CHANGE_VERB.test(line) && !CHANGE.test(line)).map((line) => line.trim()),
       };
@@ -462,7 +464,24 @@ export function apply(root, { tag, force = false, write = true } = {}) {
     refusals.push({ path: 'shared source', reason: 'the project was last synced from uncommitted shared edits; commit them in the dotai checkout, then rerun' });
   }
   synced.source = same && stored.synced?.source ? stored.synced.source : sourceRevision();
-  const next = { ...stored, tag: config.tag, synced };
+  // The renderer refuses a config that still sets these lists, so they leave it in the write that installs the renderer, once the playbooks carry them.
+  const pages = projectPlaybooks(root).map((playbook) => playbook.page);
+  const declared = (key) => new Set(pages.flatMap((page) => page[key]).map((title) => title.toLowerCase()));
+  const uncovered = [
+    ['pageLead', stored.pageLead, 'lead'],
+    ['pagePairs', stored.pagePairs, 'pairs'],
+    ['pageTopic.require', stored.pageTopic?.require, 'require'],
+  ].flatMap(([key, titles = [], page]) => titles.filter((title) => !declared(page).has(title.toLowerCase())).map((title) => `${key} "${title}"`));
+  if (uncovered.length > 0 && !skipped.has('plans')) {
+    refusals.push({
+      path: CONFIG,
+      forceable: false,
+      reason: `the plan page renderer no longer reads ${uncovered.join(', ')}; add each to the page-lead, page-pairs or page-require frontmatter of the playbook whose plans write it, then rerun`,
+    });
+  }
+  const kept = Object.fromEntries(Object.entries(stored).filter(([key]) => key !== 'pageLead' && key !== 'pagePairs'));
+  if (kept.pageTopic) kept.pageTopic = Object.fromEntries(Object.entries(kept.pageTopic).filter(([key]) => key !== 'require'));
+  const next = { ...kept, tag: config.tag, synced };
   if (JSON.stringify(next) !== JSON.stringify(stored)) changes.push({ path: CONFIG, text: json(next) });
 
   if (write && refusals.length === 0) {

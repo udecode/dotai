@@ -12,12 +12,13 @@ const sha = (data) => createHash('sha256').update(data).digest('hex');
 const upstream = JSON.parse(readFileSync(join(root, 'upstream-skills.json'), 'utf8'));
 const groups = {
   'Review': ['cross-review', 'test-audit'],
-  'Communication': ['walkthrough', 'video-transcripts'],
+  'Communication': ['walkthrough', 'video-transcripts', 'plan-page'],
   'Maintenance': ['sync-pstack'],
 };
 const explicitDependencies = {};
 const requirements = {
   'cross-review': ['Node.js 18+ and Git; gh with network for a PR, otherwise a locally fetched PR ref'],
+  'plan-page': ['Node.js 22+ and Git; the renderer that sync-pstack installs in .agents/pstack; the Artifact tool to publish'],
   'sync-pstack': ['Node.js 22+ and Git; the Claude Code and Codex CLIs for plugin pins and smoke tests'],
   'video-transcripts': ['ffmpeg, curl, jq and authorized Gemini credentials'],
   walkthrough: ['Real final-state captures, Node.js and the configured annotation tool'],

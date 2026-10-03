@@ -1,6 +1,6 @@
 ---
 name: sync-pstack
-description: "Set up the pstack plugin in a project through an interview, and keep every pstack project on one pinned tag and one shared AGENTS.md overrides block. Use to set up or install pstack in a repo, sync, bump or update pstack everywhere, list which projects use pstack or have drifted, compare setups, audit a project's skills for drift from pstack (which to cut, fold or keep), move a workflow lesson into every project, or change the plan page shape. Not for choosing pstack's per-role models, which setup-pstack owns."
+description: "Set up the pstack plugin in a project through an interview, and keep every pstack project on one pinned tag and one shared AGENTS.md overrides block. Use to set up or install pstack in a repo, sync, bump or update pstack everywhere, list which projects use pstack or have drifted, compare setups, audit a project's skills for drift from pstack (which to cut, fold or keep), or move a workflow lesson, including a plan page shape change, into every project. Not for choosing pstack's per-role models, which setup-pstack owns."
 metadata:
   source: udecode/dotai
   source-path: skills/sync-pstack
@@ -102,7 +102,7 @@ Skills drift from pstack when they copy law that pstack or the block already own
 
 ## Lesson
 
-A lesson from `/pstack:reflect`, or a correction in one project, changes the shared layer only when it holds for every project. A lesson for one project goes outside that project's block. A change to the plan page shape is a lesson on `assets/pstack/plan-page.mjs`: render one real plan from each managed project before and after, in every mode the renderer branches on, using a scratch copy with its `Status:` flipped when no live subject is in a mode, and publish both so the owner compares them. A section only one project writes goes in that project's `pageLead`, never in the renderer.
+A lesson from `/pstack:reflect`, or a correction in one project, changes the shared layer only when it holds for every project. A lesson for one project goes outside that project's block. A change to the plan page shape runs these steps, and the `plan-page` skill's Change mode adds the renderer's specifics to steps 2, 3 and 4. A section only one project writes goes in that project's playbook frontmatter, never in the renderer.
 
 1. Open a todo list with each of the user's asks quoted word for word, then these gates, in order, after the last behavior edit: `deslop` and `no-comments` on helpers, `unslop` on block and skill prose, the tests and corpus, the decision-trail review, `apply`, `verify` and the smoke. A design restated back to the user keeps the user's own word for each state or trigger.
 2. Fetch and fast-forward the dotai checkout before the first edit and again before `apply`, because other sessions push the shared source and sync projects mid-run. When this run's uncommitted edits block the fast-forward, save `git diff HEAD -- <files>` and copy any new untracked file aside, run `git restore --source=HEAD --staged --worktree <files>`, then `git merge --ff-only`, `git apply -3` the patch and put the copied files back, resolve the conflicts and run `git restore --staged <files>`, because `apply -3` writes the index; rerun the checks and name each upstream commit that rides into a synced project.
@@ -115,7 +115,7 @@ A lesson from `/pstack:reflect`, or a correction in one project, changes the sha
 
 A project adds its lifecycle on top of pstack's playbooks instead of in skills only the user can invoke, so plain requests reach it through poteto-mode. Each `.agents/playbooks/<name>.md` holds:
 
-- Frontmatter with `extends`, the pstack playbook stems it builds on (`bug-fix`, or `feature, refactoring`), and `when`, one sentence naming the requests it serves. The block lists each playbook with that sentence, so adding or editing one makes `check` fail until `apply` renders the block again.
+- Frontmatter with `extends`, the pstack playbook stems it builds on (`bug-fix`, or `feature, refactoring`), and `when`, one sentence naming the requests it serves. Optional `page-lead`, `page-pairs` and `page-require` lines name the review sections its plans write, as the `plan-page` skill describes. The block lists each playbook with that sentence, so adding or editing one makes `check` fail until `apply` renders the block again.
 - Changes as list items that start with `**After**`, `**Before**`, `**Replace**` or `**In**` and a quoted run of the pstack step's own words, such as `- **After** "Reproduce it yourself": …`. Quote enough words to name one step; the check collapses whitespace before it matches, and fails a change that uses one of these verbs without a straight-quoted run. An item without one of these verbs adds a step where it says.
 - Its stop points, when it stops where the pstack playbook does not.
 
