@@ -1155,6 +1155,29 @@ test('plan-page --check refuses an open plan whose Defaults is not the decision 
   assert.ok(!existsSync(join(root, 'docs/plans/artifacts/plan.html')));
 });
 
+test('plan-page leads with the same-day iteration whose log moved last, whichever plan renders it', () => {
+  const { dir, run } = sandbox();
+  const plan = (title) => `# ${title}\n\nStatus: executed\nTopic: workflow\n\n## Main changes\n\n- ${title} work.\n\n## Close\n\n- Closed ${title}.\n`;
+  const log = (stamp) => `ts\tphase\tdecision\twhy\tevidence\tresult\n${stamp}\tbuild\tdid it\twhy\tevidence\trecorded\n`;
+  const root = project(dir, 'app', {
+    files: {
+      'docs/plans/topics/workflow.md': '# Workflow\n\n## Main changes\n\n- Pages follow subjects.\n',
+      'docs/plans/2026-01-01-alpha.md': plan('alpha'),
+      'docs/plans/2026-01-01-alpha.decisions.tsv': log('2026-01-01T18:00:00Z'),
+      'docs/plans/2026-01-01-beta.md': plan('beta'),
+      'docs/plans/2026-01-01-beta.decisions.tsv': log('2026-01-01T09:00:00Z'),
+    },
+  });
+  const render = (path) => {
+    const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), path], root);
+    assert.equal(result.status, 0, result.stderr);
+    return read(root, 'docs/plans/artifacts/topics/workflow.html');
+  };
+  const page = render('docs/plans/2026-01-01-beta.md');
+  assert.ok(page.includes('Closed alpha') && !page.includes('Closed beta'), 'the iteration whose log moved last leads');
+  assert.equal(render('docs/plans/2026-01-01-alpha.md'), page);
+});
+
 test('plan-page draws one page for a subject whichever iteration renders it', () => {
   const { dir, run } = sandbox();
   const root = deltaProject(dir, DELTA_TOPIC, DELTA_PLAN);

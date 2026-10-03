@@ -76,7 +76,13 @@ function subjectOf(plan, topic) {
 }
 
 // Newest first by the date a plan's name starts with; a name without one sorts as the oldest.
-const planOrder = (path) => `${basename(path).match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? '0000-00-00'} ${basename(path)}`;
+// Two iterations from one date order by their logs' latest rows, so the one closed last leads the page whichever plan renders it.
+const latestLogStamp = (path) => {
+  const log = path.replace(/\.md$/u, '.decisions.tsv');
+  const stamp = existsSync(log) ? readFileSync(log, 'utf-8').trim().split('\n').at(-1).split('\t')[0] : '';
+  return /^\d{4}-/u.test(stamp) ? stamp : '';
+};
+const planOrder = (path) => `${basename(path).match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? '0000-00-00'} ${latestLogStamp(path)} ${basename(path)}`;
 
 function iterationsOf(plansDir, subject, topic) {
   return readdirSync(plansDir)

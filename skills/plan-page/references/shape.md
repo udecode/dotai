@@ -33,7 +33,7 @@ A subject file never holds a `before` or `after` fence.
 - When execution ends, and before `Status:` says executed, write the plan's `## Close` and fold the delta into the subject file. Replace or join the call sites with each after fence. Add, replace or delete each marked row, dropping its Delta cell. Move the rest into its section, and move the plan's open work into the subject file's `## Open work`, each item with its owner. Then render with `--folded`, and flip `Status:` in the same edit, because a plain render refuses the folded subject while the plan is still open.
 - A plan reopened after its fold starts its `Status:` with `reopened`.
 - Once no iteration is open, the page shows the current state alone and lists the iterations as history.
-- The open iteration whose file name starts with the latest date leads the page, whichever plan renders it. A name without a date counts as the oldest.
+- The open iteration whose file name starts with the latest date leads the page, whichever plan renders it. A name without a date counts as the oldest, and iterations from one date order by their decision log's latest row, then by name.
 - The leading iteration's Close shows open right after Needs you. Once no iteration is open, the newest iteration leads, so its Close stays on top until a newer iteration opens.
 
 ## Page order
