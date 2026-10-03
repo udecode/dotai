@@ -20,6 +20,7 @@ const ROLES = [
   [/^public api$/i, 'api'],
   [/^main changes$/i, 'main'],
   [/^defaults$/i, 'picked'],
+  [/^close$/i, 'close'],
   [/^(scope|steps|evidence|proof|claims|asks|verification|notes)$/i, 'details'],
 ];
 const roleOf = (section, lead) =>
@@ -765,6 +766,9 @@ function page(planPath, { folded = false } = {}) {
     if (doc !== plan && isOpen(entry)) assertDelta(entry.plan, doc, { name: where, where: subjectWhere });
   }
   if (folded && doc === plan) throw new Error(`${repoPath} has no subject file to fold into`);
+  if (folded && !plan.sections.some((section) => /^close$/i.test(section.title) && section.lines.some((line) => line.trim()))) {
+    throw new Error(`${repoPath} needs a ## Close before --folded: what landed, the proof and its limits, the counts, reversals first and open work with owners`);
+  }
   if (doc !== plan) {
     assertNoPairs(doc.sections, pairs, subjectWhere);
     // Hand edits to the subject and plans that close without folding, such as superseded ones, leave older iterations unmatched, so only the close that just folded asks for the check.
@@ -811,7 +815,8 @@ function page(planPath, { folded = false } = {}) {
           .sort((a, b) => lead.indexOf(a.title.toLowerCase()) - lead.indexOf(b.title.toLowerCase()))
           .map((section) => sectionHtml(section, 'panel'))
           .join('\n  ');
-  const [needs] = doc === plan ? byRole('needs', plan) : focus ? byRole('needs', focus) : [];
+  const [needs] = byRole('needs', leader.plan);
+  const [close] = byRole('close', leader.plan);
   const iterationHtml = ({ path, plan: iteration }) => {
     const iterationStatus = iteration.meta.status ?? 'unknown';
     const open = !finished(iterationStatus) && path !== focusEntry?.path;
@@ -1001,7 +1006,7 @@ details.iteration[open] > summary { margin-bottom: 6px; }
     <h1>${title}</h1>
     <div class="meta"><span class="pill ${statusTone(shownStatus)}">${escapeHtml(shownStatus)}</span><code>${escapeHtml(where)}</code>${delta ? `<span>Plan <strong>${inline(focus.title || basename(focusEntry.path, '.md'))}</strong> <code>${escapeHtml(relative(root, focusEntry.path))}</code></span>` : ''}${hub ? `<span>History <code>${escapeHtml(hub)}</code></span>` : ''}${reviewTag}<span>Updated ${updated} UTC</span></div>
   </header>
-  ${needs ? `<section class="panel needs"><h2>Needs you</h2>${needsHtml(needs.lines)}</section>` : ''}
+  ${needs ? `<section class="panel needs"><h2>Needs you</h2>${needsHtml(needs.lines)}</section>` : ''}${close ? sectionHtml(close, 'panel') : ''}
   ${delta && focus.lead.some((line) => line.trim()) ? `<section class="plan">${blocksHtml(focus.lead)}</section>` : ''}
   ${changeHtml('api')}
   ${changeHtml('lead')}

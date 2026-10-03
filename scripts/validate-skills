@@ -58,6 +58,17 @@ for skill_dir in "${skill_dirs[@]}"; do
     echo "$skill: missing description"
     fail=1
   fi
+
+  # A stray quote inside a double-quoted value breaks the YAML, and the skill silently stops loading.
+  broken="$(sed -n "2,$((end_line - 1))p" "$file" | awk '/^[A-Za-z_-]+: *"/ {
+    key = substr($0, 1, index($0, ":") - 1); value = $0; sub(/^[^:]*: */, "", value)
+    inner = substr(value, 2, length(value) - 2); gsub(/\\./, "", inner)
+    if (value !~ /"$/ || inner ~ /"/) print key
+  }')"
+  if [ -n "$broken" ]; then
+    echo "$skill: unescaped double quote inside the quoted frontmatter value: $broken"
+    fail=1
+  fi
 done
 
 if [ "$fail" -ne 0 ]; then

@@ -959,6 +959,7 @@ test('plan-page names the subject file to create when a topic has none', () => {
   assert.match(result.stderr, /create docs\/plans\/topics\/workflow\.md/);
 });
 
+const CLOSE = '\n## Close\n\n- Landed the schema landing.\n';
 const DELTA_TOPIC = '# Drag\n\n## Public API\n\n```ts\nold();\n```\n\n## Layer and owner\n\n| Change | Layer |\n| --- | --- |\n| Column landing | Plate |\n| Upload veto | Plate |\n';
 const DELTA_PLAN = '# Landing\n\nStatus: planning\nTopic: drag\n\n## Public API\n\n```ts before\nold();\n```\n\n```ts after\nnext();\n```\n\n## Layer and owner\n\n| Delta | Change | Layer |\n| --- | --- | --- |\n| added | Schema landing | Plite |\n| changed | Upload veto | Plite |\n| removed | Column landing | Plate |\n';
 const deltaProject = (dir, topic, plan) =>
@@ -987,7 +988,7 @@ test('plan-page refuses a Delta row whose key the subject file does not have', (
 
 test("plan-page --folded refuses an executed plan until the subject file holds its delta", () => {
   const { dir, run } = sandbox();
-  const done = DELTA_PLAN.replace('Status: planning', 'Status: executed, awaiting cross-review');
+  const done = DELTA_PLAN.replace('Status: planning', 'Status: executed, awaiting cross-review') + CLOSE;
   const folded = '# Drag\n\n## Public API\n\n```ts\nfirst();\nnext();\n```\n\n## Layer and owner\n\n| Change | Layer |\n| --- | --- |\n| Schema landing | Plite |\n| Upload veto | Plite |\n';
   const render = (topic) => {
     const root = deltaProject(mkdtempSync(join(dir, 'case-')), topic, done);
@@ -1009,6 +1010,36 @@ test("plan-page --folded refuses an executed plan until the subject file holds i
   assert.equal(result.status, 0, result.stderr);
   const html = read(root, 'docs/plans/artifacts/topics/drag.html');
   assert.ok(html.includes('Schema landing') && !html.includes('class="mark') && !html.includes('old();'));
+  writeFileSync(join(root, 'docs/plans/2026-01-01-landing.md'), done.replace(CLOSE, ''));
+  const unclosed = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md', '--folded'], root);
+  assert.equal(unclosed.status, 1, 'a fold without its Close');
+  assert.match(unclosed.stderr, /needs a ## Close before --folded/);
+});
+
+test("plan-page shows the leader's Close after Needs you, keeps it on top once executed, and drops it when newer work opens", () => {
+  const { dir, run } = sandbox();
+  const topic = '# Workflow\n\nThe subject lead.\n\n## Main changes\n\n- Pages follow subjects.\n';
+  const built = '# Built\n\nStatus: executed\nTopic: workflow\n\n## Main changes\n\n- Moved the renderer.\n\n## Close\n\n- Landed the renderer move, 3 done and 0 open.\n';
+  const root = project(dir, 'app', { files: { 'docs/plans/topics/workflow.md': topic, 'docs/plans/2026-01-01-built.md': built } });
+  const render = (plan) => {
+    const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), plan], root);
+    assert.equal(result.status, 0, result.stderr);
+    return read(root, 'docs/plans/artifacts/topics/workflow.html');
+  };
+  const executed = render('docs/plans/2026-01-01-built.md');
+  assert.ok(executed.includes('Landed the renderer move'), 'an executed leader keeps its Close on the page');
+  assert.ok(executed.indexOf('Landed the renderer move') < executed.indexOf('The subject lead.'), 'the Close leads the subject state');
+  writeFileSync(join(root, 'docs/plans/2026-01-01-built.md'), built + '\n## Open questions\n\n### Lessons\n\nApply the reflect lessons?\n\n- **apply** (recommended): apply them.\n- **skip**: drop them.\n');
+  const asking = render('docs/plans/2026-01-01-built.md');
+  assert.ok(asking.includes('Needs you') && asking.indexOf('Apply the reflect lessons?') < asking.indexOf('Landed the renderer move'), 'an executed leader still asks its open question');
+  writeFileSync(join(root, 'docs/plans/2026-02-01-next.md'), '# Next\n\nStatus: planning\nTopic: workflow\n\n## Open questions\n\n### Scope\n\nTake the next pass?\n\n- **yes** (recommended): take it.\n- **no**: hold.\n');
+  assert.ok(!render('docs/plans/2026-02-01-next.md').includes('Landed the renderer move'), 'newer open work replaces the old Close');
+  const oneOff = '# Fix\n\nStatus: executed\n\nThe fix lead.\n\n## Open questions\n\n### Ship\n\nShip it?\n\n- **ship** (recommended): ship.\n- **hold**: wait.\n\n## Close\n\n- Fixed the caret, 1 done.\n';
+  writeFileSync(join(root, 'docs/plans/2026-03-01-fix.md'), oneOff);
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-03-01-fix.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const page = readFileSync(result.stdout.trim(), 'utf8');
+  assert.ok(page.indexOf('Ship it?') < page.indexOf('Fixed the caret') && page.indexOf('Fixed the caret') < page.indexOf('The fix lead.'), 'a one-off plan shows its Close between Needs you and its lead');
 });
 
 test("plan-page keeps an open iteration's delta on top when a finished one renders", () => {
@@ -1076,7 +1107,7 @@ test('plan-page refuses a subject folded while its plan is still open', () => {
 
 test('plan-page skips a line another iteration also changes, and --folded checks the order of the after block', () => {
   const { dir, run } = sandbox();
-  const plan = (status, before, after) => `# Plan\n\nStatus: ${status}\nTopic: drag\n\n## Public API\n\n\`\`\`ts before\n${before}\n\`\`\`\n\n\`\`\`ts after\n${after}\n\`\`\`\n`;
+  const plan = (status, before, after) => `# Plan\n\nStatus: ${status}\nTopic: drag\n\n## Public API\n\n\`\`\`ts before\n${before}\n\`\`\`\n\n\`\`\`ts after\n${after}\n\`\`\`\n${CLOSE}`;
   const root = deltaProject(dir, DELTA_TOPIC.replace('old();', 'run();\nreplacement();'), plan('building', 'run();\nlegacy();', 'run();'));
   writeFileSync(join(root, 'docs/plans/2025-12-01-replace.md'), plan('executed', 'legacy();', 'replacement();'));
   assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md'], root).status, 0);
@@ -1229,6 +1260,19 @@ test('decisions-check append writes only a row that passes the check', () => {
   assert.equal(lines[0], 'ts\tphase\tdecision\twhy\tevidence\tresult');
   assert.match(lines[1], /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\tfix\trepair the parser\t/);
   assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'log.decisions.tsv'], root).status, 0);
+});
+
+test('decisions-check refuses a panel row in the plans directory until its plan sits beside the log', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', { files: { 'docs/plans/.keep': '' } });
+  const append = (log) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', log, 'panel', 'seats opus', 'why', 'evidence', 'recorded'], root);
+  const orphan = append('docs/plans/2026-01-01-verdict.decisions.tsv');
+  assert.equal(orphan.status, 1, 'a panel row with no plan beside it');
+  assert.match(orphan.stderr, /needs its plan docs\/plans\/2026-01-01-verdict\.md/);
+  assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'docs/plans/2026-01-01-verdict.decisions.tsv', 'plan', 'pick the scope', 'why', 'evidence', 'recorded'], root).status, 0, 'other phases need no plan');
+  writeFileSync(join(root, 'docs/plans/2026-01-01-verdict.md'), '# Verdict\n\nStatus: planning\n');
+  assert.equal(append('docs/plans/2026-01-01-verdict.decisions.tsv').status, 0, 'the plan exists');
+  assert.equal(append('log.decisions.tsv').status, 0, 'a log outside the plans directory');
 });
 
 test('decisions-check takes a panel finding only with a severity, after a seats row, and with an applied, dismissed or owned deferred reason', () => {
