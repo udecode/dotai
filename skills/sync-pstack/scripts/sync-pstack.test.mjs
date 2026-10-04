@@ -878,7 +878,7 @@ test('plan-page renders a topic plan as its subject page with every iteration, n
   assert.ok(!html.includes('Unrelated'));
 });
 
-test('plan-page --index lists every subject with its state and iteration count, subjects that wait on the owner first, and hub topics with no page yet', () => {
+test('plan-page --index renders every subject page locally and lists it with its state and iteration count, subjects that wait on the owner first, a refused page with its reason, and hub topics with no page yet', () => {
   const { dir, run } = sandbox();
   const files = {
     'docs/plans/topics/README.md': '# Topics\n\nPage: https://example.test/index\n',
@@ -887,6 +887,8 @@ test('plan-page --index lists every subject with its state and iteration count, 
     'docs/plans/2026-03-01-quiet-pass.md': '# Quiet pass\n\nStatus: executed\nTopic: quiet\n\n## Main changes\n\n- Done.\n',
     'docs/plans/2026-01-01-busy-one.md': '# Busy one\n\nStatus: executed\nTopic: busy\n\n## Main changes\n\n- One.\n',
     'docs/plans/2026-01-02-busy-two.md': '# Busy two\n\nStatus: planning, waiting for Build now\nTopic: busy\n\n## Open questions\n\n### Build\n\nBuild it?\n\n- **go** (recommended): build.\n- **hold**: wait.\n',
+    'docs/plans/topics/broken.md': '# Broken topic\n\nThe broken lead.\n\n## Main changes\n\n- Stuck.\n',
+    'docs/plans/2026-01-03-broken-pass.md': '# Broken pass\n\nStatus: someday maybe\nTopic: broken\n\n## Main changes\n\n- Stuck.\n',
     'docs/research/features/busy.md': '# Busy feature\n',
     'docs/research/features/quiet.md': '# Quiet feature\n',
     'docs/research/features/fresh.md': '# Fresh feature\n',
@@ -896,7 +898,9 @@ test('plan-page --index lists every subject with its state and iteration count, 
   assert.equal(result.status, 0, result.stderr);
   assert.ok(result.stdout.trim().endsWith('docs/plans/artifacts/topics/index.html'), result.stdout);
   const html = read(root, 'docs/plans/artifacts/topics/index.html');
-  assert.ok(html.includes('href="https://example.test/busy"') && html.includes('planning, waiting for Build now'), 'a subject links its page and shows its leading status');
+  assert.ok(html.includes('href="busy.html"') && existsSync(join(root, 'docs/plans/artifacts/topics/busy.html')), 'a subject links its locally rendered page');
+  assert.ok(html.includes('planning, waiting for Build now'), 'a subject shows its leading status');
+  assert.match(html, /Broken topic[\s\S]*?refused[\s\S]*?state word/, 'a page the renderer refuses shows the refusal instead of a link');
   assert.match(html, /Busy topic[\s\S]*?2 iterations/, 'a subject counts its iterations');
   assert.ok(html.indexOf('Busy topic') < html.indexOf('Quiet topic'), 'a subject that waits on the owner comes before a newer settled one');
   assert.match(html, /Fresh feature[\s\S]*?no page yet/, 'a hub with no subject file is a topic with no page yet');

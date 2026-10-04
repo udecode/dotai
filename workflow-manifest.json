@@ -6,7 +6,7 @@
     {
       "name": "plan-page",
       "distribution": "bundled",
-      "description": "Write, check, repair and publish a plan page: a project's plans and subject files under its plans directory, rendered by .agents/pstack/plan-page.mjs and published as one claude.ai page per subject, with one index page linking every subject. The page is how work hands back to the user. Use before writing or changing a plan, a subject file in <plans>/topics or its page; at every stop that hands work back, such as a review verdict other than a review-only panel's, a next answer or a playbook's close; when a plan page or its claude.ai artifact looks wrong or refuses to render; to republish a page; or to change the page shape or a playbook's page sections.",
+      "description": "Write, check, repair and publish a plan page: a project's plans and subject files under its plans directory, rendered by .agents/pstack/plan-page.mjs and rendered as one local HTML page per subject with a local index of every subject, and published to claude.ai at each hand-back for comments and feedback. The page is how work hands back to the user. Use before writing or changing a plan, a subject file in <plans>/topics or its page; at every stop that hands work back, such as a review verdict other than a review-only panel's, a next answer or a playbook's close; when a plan page or its claude.ai artifact looks wrong or refuses to render; to republish a page; or to change the page shape or a playbook's page sections.",
       "category": "Communication",
       "dependencies": [],
       "capabilities": [
@@ -63,7 +63,7 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "b0415a890a8a4daf2d1a64cb525d47448a76f7265dee19e36b9b0a7aa3f9505e",
+      "sha256": "e54d3597b840f59b762be9130a35285e3af6e928f5ad260634d62dcb36c82d1d",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
@@ -75,11 +75,11 @@
       "mode": 493
     },
     "skills/plan-page/SKILL.md": {
-      "sha256": "cd5ed27f836ddcc29b89c868f4b28701df045e3f68491bd5b1011d22e8e10912",
+      "sha256": "b47d0fdc2b4f1734cc5802b75bff78c01250e10eff1794874590f537c3008dec",
       "mode": 420
     },
     "skills/plan-page/references/shape.md": {
-      "sha256": "e2237d17e9cef62a82b0ab71bab576fb490629f2b83ade7b7420217c7254c396",
+      "sha256": "a3e57e65a3f6a6c31574f544836d6eb778a364350b02c4bc13aa546af19cc552",
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
@@ -91,7 +91,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "c3808c4c8f6f7aa9430fa9235d6fa994005c1692cb13f697a602db65e1eca607",
+      "sha256": "336136ddd4d28b3da3a25a78148b19853206dc403a0b1c4de4a80f9b304643a6",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/cross.mjs": {
@@ -107,7 +107,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/plan-page.mjs": {
-      "sha256": "b30668d03791c2e740ee0341f23d8e26ca6684b9779dee5042ba00434a4e2695",
+      "sha256": "60e6e3b83a7cdb0b53fd5cc99a41824e526e30f6936d4245c9a0ea5d69e8e39e",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/status.mjs": {
@@ -135,7 +135,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "ad58ec257b3e7ba5036fa60d9d06eb101f5dc1572cc7c0ede39d4e9574006bc2",
+      "sha256": "c599d1257397082f7f01ea661a081e0ef2bac285fb6660c23a0ad1f4e90f6f26",
       "mode": 420
     },
     "skills/test-audit/LICENSE": {

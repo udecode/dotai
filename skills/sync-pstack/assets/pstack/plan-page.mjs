@@ -1127,6 +1127,7 @@ function topicIndex(root) {
   const { plans, topic } = pageConfig(root);
   const plansDir = join(root, plans);
   const topicsDir = join(plansDir, 'topics');
+  mkdirSync(join(plansDir, 'artifacts', 'topics'), { recursive: true });
   const names = existsSync(topicsDir)
     ? readdirSync(topicsDir)
         .filter((name) => name.endsWith('.md') && name !== 'README.md')
@@ -1139,9 +1140,22 @@ function topicIndex(root) {
     const iterations = iterationsOf(plansDir, name, topic);
     const open = iterations.find((entry) => !finished(entry.plan.meta.status ?? ''));
     const hub = hubPath(name);
+    let local = null;
+    let refused = null;
+    if (iterations[0]) {
+      try {
+        const rendered = page(iterations[0].path);
+        writeFileSync(join(plansDir, 'artifacts', `${rendered.name}.html`), rendered.html);
+        local = `${basename(rendered.name)}.html`;
+      } catch (error) {
+        refused = error.message;
+      }
+    }
     return {
       title: doc.title || name,
       page: doc.fields.page ?? null,
+      local,
+      refused,
       lead: firstParagraph(doc.lead),
       status: (open ?? iterations[0])?.plan.meta.status ?? null,
       asks: iterations.some((entry) => asks(entry.plan)),
@@ -1154,12 +1168,19 @@ function topicIndex(root) {
   subjects.sort((a, b) => Number(b.asks) - Number(a.asks) || Number(b.open) - Number(a.open) || b.newest.localeCompare(a.newest) || a.title.localeCompare(b.title));
   const unpaged = hubsWithoutSubject(root, topic.hub, names);
   const rowHtml = (row) => {
-    const name = row.page ? `<a href="${escapeHtml(row.page)}">${inline(row.title)}</a>` : `<span>${inline(row.title)}</span>`;
+    const name = row.local ? `<a href="${escapeHtml(row.local)}">${inline(row.title)}</a>` : `<span>${inline(row.title)}</span>`;
     const state = row.status
       ? `<span class="pill ${statusTone(row.status)}">${escapeHtml(row.status.length > 90 ? `${row.status.slice(0, 90).replace(/\s+\S*$/u, '')}…` : row.status)}</span>`
       : `<span class="pill done">current</span>`;
-    const meta = [`${row.count} iteration${row.count === 1 ? '' : 's'}`, row.newest && `newest ${row.newest}`, !row.page && 'not published yet'].filter(Boolean).join(' · ');
-    return `<li class="topic"><div class="topic-head">${name}${state}${row.asks ? '<span class="chip">waits on you</span>' : ''}</div>${row.lead ? `<p class="topic-lead">${inline(row.lead)}</p>` : ''}<p class="topic-meta">${meta}</p></li>`;
+    const meta = [
+      `${row.count} iteration${row.count === 1 ? '' : 's'}`,
+      row.newest && `newest ${row.newest}`,
+      row.page && `<a href="${escapeHtml(row.page)}">last published on claude.ai</a>`,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    const refusal = row.refused ? `<p class="topic-meta"><span class="pill unknown">refused</span> ${escapeHtml(row.refused)}</p>` : '';
+    return `<li class="topic"><div class="topic-head">${name}${state}${row.asks ? '<span class="chip">waits on you</span>' : ''}</div>${row.lead ? `<p class="topic-lead">${inline(row.lead)}</p>` : ''}<p class="topic-meta">${meta}</p>${refusal}</li>`;
   };
   const unpagedHtml = (row) => `<li class="topic"><div class="topic-head"><span>${inline(row.title)}</span><span class="pill unknown">no page yet</span></div></li>`;
   const group = (heading, rows, html) =>
@@ -1168,12 +1189,14 @@ function topicIndex(root) {
   const others = topic.hub ? subjects.filter((row) => !row.feature) : [];
   const title = `${basename(root)} topics`;
   const waiting = subjects.filter((row) => row.asks).length;
+  const pageCount = subjects.filter((row) => row.local).length;
+  const refusedCount = subjects.filter((row) => row.refused).length;
   const html = `<title>${escapeHtml(title)}</title>
 ${PAGE_HEAD}
 <main>
   <header>
     <h1>${escapeHtml(title)}</h1>
-    <div class="meta"><span>${subjects.length} with a page</span>${unpaged.length ? `<span>${unpaged.length} with no page yet</span>` : ''}${waiting ? `<span>${waiting} wait on you</span>` : ''}<code>${escapeHtml(relative(root, topicsDir))}</code></div>
+    <div class="meta"><span>${pageCount} pages</span>${refusedCount ? `<span>${refusedCount} refused</span>` : ''}${unpaged.length ? `<span>${unpaged.length} with no page yet</span>` : ''}${waiting ? `<span>${waiting} wait on you</span>` : ''}<code>${escapeHtml(relative(root, topicsDir))}</code></div>
   </header>
   ${group(topic.hub ? 'Feature topics' : 'Subjects', features, rowHtml)}
   ${group('Other subjects', others, rowHtml)}

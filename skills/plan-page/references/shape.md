@@ -14,7 +14,7 @@ A subject file never holds a `before` or `after` fence.
 
 ## Index
 
-`<plans>/topics/README.md` holds `# Topics` and the index's `Page: <url>`, and is never a subject. `plan-page.mjs --index` lists every subject with its title linked to its page, its lead sentence, the leading iteration's status, its iteration count and its newest iteration date. Subjects that wait on the owner come first, then open ones, then the rest by their newest iteration. When `pageTopic.hub` is set, subjects whose hub exists group as feature topics, and every hub with no subject file lists as a topic with no page yet.
+`plan-page.mjs --index` renders every subject's page into `<plans>/artifacts/topics/` and writes `index.html` beside them, a local file that is never published. It lists every subject with its title linked to its local page, or with the renderer's refusal when the page does not render, its lead sentence, the leading iteration's status, its iteration count and its newest iteration date. Subjects that wait on the owner come first, then open ones, then the rest by their newest iteration. When `pageTopic.hub` is set, subjects whose hub exists group as feature topics, and every hub with no subject file lists as a topic with no page yet.
 
 ## Plan
 
