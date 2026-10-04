@@ -86,7 +86,7 @@
 <!-- # adds -->
 - **Review.** These mechanics apply whenever a panel runs on a diff, from the reviews list or the user's word. A row that names a kind of code judges it by what the code gates, not by what the diff touches, and a fix for an unintended write, invite or send counts as that write, invite or send, even when the diff only changes rendering.
 <!-- if delivery=push -->
-  Another session's push ships every local commit, so a reviewed change reaches `{{branch}}` only once its review is clean. Save its diff, commit it in a detached worktree at `HEAD`, run the panel on that commit's diff with every seat working in that worktree, and fix and recommit until clean. Then revert this run's own uncommitted edits to those paths and `git cherry-pick` the reviewed commit onto `{{branch}}`. Discard a path only when its working copy matches the reviewed commit or the copy this run last wrote; diff any other path and keep another session's hunks.
+  Another session's push ships every local commit, so a reviewed change reaches `{{branch}}` only once its review is clean. Save its diff, commit it in a detached worktree at `HEAD`, run the panel on that commit's diff with every seat working in that worktree, and fix and recommit until clean. Then revert this run's own uncommitted edits to those paths and `git cherry-pick` the reviewed commit onto `{{branch}}`. Discard a path only when its working copy matches that path in the reviewed commit; diff any other path and keep another session's hunks.
 <!-- end -->
 <!-- if delivery=pr -->
   Review the PR branch's diff against its base, with its uncommitted work.
