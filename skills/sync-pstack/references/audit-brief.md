@@ -13,3 +13,5 @@ For each skill, read its source (the `.agents/rules/<name>.mdc` file and its ref
 Treat the report's overlap lines as candidates, not verdicts: a sentence can repeat pstack on purpose, as a project override. A block rule the report lists with no marker is a finding: say whether it overrides pstack or only adds to it.
 
 Check every typed count and route before calling a skill unused, because a playbook can load a skill nobody types. Never propose editing a skill installed from another repository; judge it keep or uninstall.
+
+Record for each verdict which files were read in full and which were only searched; the plan counts its coverage from those rows. Judge each out-of-repo guide the project's `AGENTS.md` lists as a restatement of the block, like a skill that copies it. A proposed `/correct` run lists the mistakes that reached a commit apart from those an existing check caught, because a catch shows the enforcement already works.

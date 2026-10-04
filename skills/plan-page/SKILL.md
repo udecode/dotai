@@ -8,7 +8,7 @@ metadata:
 
 # Plan page
 
-The user reads pages, not replies; the block's Plan pages rule says when to publish and what the reply holds. A subject is one thing the work changes, and it has one page. Its file, `<plans>/topics/<slug>.md`, holds the current state. Each plan that continues it is an iteration carrying only its delta. `node .agents/pstack/plan-page.mjs <plan>` renders the page from both into `<plans>/artifacts/`, which is the durable copy. `node .agents/pstack/plan-page.mjs --index` renders every subject's page there and an index linking them. A published claude.ai page is where the user comments on one hand-back; it is not the record. sync-pstack ships that renderer and `status.mjs` into every project it manages.
+The user reads pages, not replies; the block's Plan pages rule says when to publish and what the reply holds. A subject is one thing the work changes, and it has one page. Its file, `<plans>/topics/<slug>.md`, holds the current state. Each plan that continues it is an iteration carrying only its delta. `node .agents/pstack/plan-page.mjs <plan>` renders the page from both into `<plans>/artifacts/`, a local copy that regenerates from the committed plan and subject files, which are the record. `node .agents/pstack/plan-page.mjs --index` renders every subject's page there and an index linking them. A published claude.ai page is where the user comments on one hand-back; it is not the record. sync-pstack ships that renderer and `status.mjs` into every project it manages.
 
 Read [references/shape.md](references/shape.md) before writing a plan or a subject file. It holds every file shape, the page order and the renderer's refusals.
 
