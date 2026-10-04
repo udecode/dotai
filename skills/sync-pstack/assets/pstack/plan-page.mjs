@@ -1196,7 +1196,7 @@ ${PAGE_HEAD}
 <main>
   <header>
     <h1>${escapeHtml(title)}</h1>
-    <div class="meta"><span>${pageCount} pages</span>${refusedCount ? `<span>${refusedCount} refused</span>` : ''}${unpaged.length ? `<span>${unpaged.length} with no page yet</span>` : ''}${waiting ? `<span>${waiting} wait on you</span>` : ''}<code>${escapeHtml(relative(root, topicsDir))}</code></div>
+    <div class="meta"><span>${pageCount} page${pageCount === 1 ? '' : 's'}</span>${refusedCount ? `<span>${refusedCount} refused</span>` : ''}${unpaged.length ? `<span>${unpaged.length} with no page yet</span>` : ''}${waiting ? `<span>${waiting} wait on you</span>` : ''}<code>${escapeHtml(relative(root, topicsDir))}</code></div>
   </header>
   ${group(topic.hub ? 'Feature topics' : 'Subjects', features, rowHtml)}
   ${group('Other subjects', others, rowHtml)}
