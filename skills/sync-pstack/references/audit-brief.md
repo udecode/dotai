@@ -1,6 +1,6 @@
 # Audit brief
 
-The intent for the `/pstack:interrogate` run in sync-pstack's Audit mode. Fill the bracketed parts.
+The intent for sync-pstack's Audit mode, whether the lead judges the report or a `/pstack:interrogate` panel does. Fill the bracketed parts.
 
 Judge every skill in [project] against pstack [tag], using the attached `audit.mjs` report. The owner wants to stay as close to pstack as the project's domain allows. A skill stays only when it holds knowledge pstack cannot have, or does a job pstack does not do.
 

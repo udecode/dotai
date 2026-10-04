@@ -83,7 +83,7 @@
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
-      "sha256": "7a59bb698d4ef29f26a122ef545d9a3ef60684518ab97d35eff8c75b6c2d51b8",
+      "sha256": "75acb2a1c5346fe92b160dd67a72704b58fabd48bc15810f4d6d1d16263ad97a",
       "mode": 420
     },
     "skills/sync-pstack/agents/openai.yaml": {
@@ -119,7 +119,7 @@
       "mode": 420
     },
     "skills/sync-pstack/references/audit-brief.md": {
-      "sha256": "e6012db71ea94b8f76ff1711aad9634af4c4027e0cc2390dcba90e0b0ce83455",
+      "sha256": "14b4fb6eea76acdbbb71bdf3b4a35b7bcce128b3547ad02c6f5a259f271da7b4",
       "mode": 420
     },
     "skills/sync-pstack/references/interview.md": {
