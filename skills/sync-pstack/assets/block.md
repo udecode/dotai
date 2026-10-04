@@ -3,7 +3,7 @@
 
 - pstack's `poteto-mode` is the engineering method. The `pstack@pstack-claude` plugin is pinned to GitHub tag `{{tag}}` in `.claude/settings.json`, and each person's Codex marketplace pins the same tag. Its session hook routes multi-file, design and unexplained-bug work into poteto-mode, which picks the playbook. Questions, small edits and one-file changes work directly and are verified on the real artifact.
 <!-- if projectPlaybooks -->
-- Project playbooks in `.agents/playbooks/` build on pstack's. When poteto-mode matches a pstack playbook one of them extends, or the work fits one listed below, open that file as well. Copy the pstack steps into the todo list verbatim, then apply each change at the step its quoted text names, and stop where it says to stop.
+- Project playbooks in `.agents/playbooks/` build on pstack's, as poteto-mode's Project playbooks paragraph describes. This project's playbooks are:
 {{projectPlaybooks}}
 <!-- end -->
 - If no `pstack:*` skills are available, stop and ask the user to install the plugin before engineering work. In Claude Code they trust the folder and run `claude plugin install pstack@pstack-claude --scope project`. In Codex they run `codex plugin marketplace add michael-denyer/pstack-claude --ref {{tag}}` and `codex plugin add pstack@pstack-claude` from their home directory, then trust the session hook in `/hooks`.
@@ -124,7 +124,7 @@
 <!-- if protected -->
   It never targets `{{protected}}`.
 <!-- end -->
-  Its body links its plan first, then uses `## Why`, `## Scope`, `## Tradeoffs`, `## Blast Radius` and `## Verification`, in that order, and drops any with nothing to say. Scope names real symbols and paths, and both sides of a rename. Attach screenshots or video when they prove a claim. No `## Summary` or `## Test plan` boilerplate, SHAs or file-by-file checklists.
+  Its body links its plan first, then follows pstack's Opening a PR for its sections.
 <!-- end -->
 <!-- # overrides poteto-mode/SKILL.md "In your reply, name each principle that shaped a decision" -->
 - **Principles in replies.** pstack's principle skills still apply. Read the leaf skill for any principle a decision rests on, as poteto-mode's Principles list says. Only the rule to name each principle in the reply is dropped; name one only when it explains a choice the reader would otherwise question.
