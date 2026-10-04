@@ -1079,15 +1079,19 @@ function userPin(tag, { write }) {
   const lines = [];
   const path = join(homedir(), '.claude/settings.json');
   const settings = existsSync(path) ? readJson(path) : null;
-  if (!settings?.extraKnownMarketplaces?.[MARKETPLACE]) lines.push(`${path} has no user-scope pstack marketplace; nothing to pin.`);
+  const declared = Boolean(settings?.extraKnownMarketplaces?.[MARKETPLACE]);
+  if (!declared) lines.push(`${path} has no user-scope pstack marketplace; nothing to pin.`);
   else if (pinned(settings, tag)) lines.push(`${path} already pins ${tag}.`);
   else {
     if (write) writeFileSync(path, json(pin(settings, tag)));
     lines.push(`${write ? 'Pinned' : 'Would pin'} ${path} to ${tag}.`);
   }
+  // Claude Code hides a marketplace whose settings entry and registry disagree,
+  // so `marketplace update` cannot find it; adding from the pinned entry
+  // rewrites the registry.
   lines.push(
     'Then, from the home directory:',
-    `  claude plugin marketplace update ${MARKETPLACE} && claude plugin update ${PLUGIN}`,
+    ...(declared ? [`  claude plugin marketplace add ${REPO}#${tag} && claude plugin update ${PLUGIN}`] : []),
     `  codex plugin marketplace remove ${MARKETPLACE} && codex plugin marketplace add ${REPO} --ref ${tag} && codex plugin add ${PLUGIN}`,
     'Codex asks to trust the pstack session hook again in /hooks when its file changed.',
   );

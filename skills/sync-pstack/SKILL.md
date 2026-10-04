@@ -34,7 +34,7 @@ Run `node <skill>/scripts/sync-pstack.mjs <command>` from any directory.
 | `sync --tag <tag> [project...]` | Runs `apply --tag` on the named projects, or on every managed project when none are named, and lists the unmanaged ones. It refuses a checkout that is off the project's branch or has uncommitted edits to the files it writes, unless `--allow-dirty`, and keeps going when one project fails. |
 | `playbook <project> <name>` | Prints the numbered steps of every pstack playbook that `.agents/playbooks/<name>.md` extends, at the project's pin, with its changes applied in order. Text outside the steps, such as the Reply line, is left out. Read-only. |
 | `smoke <project> <prompt>...` | Runs each prompt in a read-only Claude Code session on Opus and a read-only Codex session on gpt-6.1-sol from the project root, in parallel, and prints each runtime's final answer. |
-| `user-pin --tag <tag>` | Pins the user-scope Claude Code marketplace and prints the refresh commands for both runtimes. |
+| `user-pin --tag <tag>` | Pins the user-scope Claude Code marketplace and prints the refresh commands. It prints Codex's every time and Claude Code's only when the user settings declare the pstack marketplace. |
 | `latest` | Prints the newest upstream tag. |
 
 `node <skill>/scripts/audit.mjs <project> [--json] [--min <score>]` prints the facts the [Audit](#audit) mode judges; `--min` sets the overlap score a sentence pair needs, 0.5 by default. Read-only.
