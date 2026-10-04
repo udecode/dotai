@@ -1384,6 +1384,18 @@ test('decisions-check takes a panel finding only with a severity, after a seats 
   assert.equal(append('warning The fallback lists stale sessions', 'deferred: outside the ask, owner: user in docs/plans/next.md').status, 0);
 });
 
+test('decisions-check takes an open panel finding only with its patch and owner', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app');
+  const append = (decision, result) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', 'panel', decision, 'why', 'evidence', result], root);
+  assert.equal(append('seats opus', 'recorded').status, 0);
+  assert.equal(append('critical The guard drops real typing', 'open: the fix adds code past the cap').status, 1, 'an open finding with no patch or owner');
+  assert.equal(append('critical The guard drops real typing', 'open: past the cap, patch: fix.patch').status, 1, 'an open finding with no owner');
+  assert.equal(append('critical The guard drops real typing', 'open: past the cap, owner: user').status, 1, 'an open finding with no patch');
+  const ok = append('critical The guard drops real typing', 'open: past the cap, patch: scratch/fix.patch, owner: user');
+  assert.equal(ok.status, 0, ok.stderr);
+});
+
 test('decisions-check requires scope on a proven row and leaves committed rows alone', () => {
   const { dir, run } = sandbox();
   const header = 'ts\tphase\tdecision\twhy\tevidence\tresult';

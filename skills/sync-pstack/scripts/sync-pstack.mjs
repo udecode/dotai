@@ -488,7 +488,7 @@ export function apply(root, { tag, force = false, write = true } = {}) {
   const same = stored.synced?.block === synced.block && JSON.stringify(stored.synced?.files ?? {}) === JSON.stringify(synced.files);
   // A null source means the last sync came from uncommitted shared edits, which a clean source would silently drop.
   if (!same && !force && stored.synced && 'source' in stored.synced && stored.synced.source === null && sourceRevision() !== null) {
-    refusals.push({ path: 'shared source', reason: 'the project was last synced from uncommitted shared edits; commit them in the dotai checkout, then rerun' });
+    refusals.push({ path: 'shared source', reason: 'the project was last synced from uncommitted shared edits; find the session that wrote them, commit them in the dotai checkout once the owner agrees, then rerun' });
   }
   synced.source = same && stored.synced?.source ? stored.synced.source : sourceRevision();
   // The renderer refuses a config that still sets these lists, so they leave it in the write that installs the renderer, once the playbooks carry them.
