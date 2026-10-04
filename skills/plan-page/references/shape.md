@@ -27,7 +27,7 @@ A subject file never holds a `before` or `after` fence.
 - A one-off plan carries its own `## Public API` pairs and `## Main changes`.
 - `## Defaults`: a table whose columns start with `Decision | Pick | Alternative | Word`, one row per call made for the owner. The word reverses the pick. Leave the section out when no call was made.
 - `## Open questions`: one `### <short header>` per question, unique on the page. Then the question in one line, then its options as `- **<label>** (recommended): <one-line description>`, with the recommended one first and each other label a word the user can type. A question with no clear recommendation marks none. Context a reader rarely needs goes after the options, and the page folds it under More.
-- `## Close`: written at every stop that hands work back after work ran, such as a build, fix or review close. It holds what landed, the proof and its limits, the done, skipped, blocked and open counts, reversals and deviations first, and open work with owners. A pstack playbook's Reply line lists what else it holds.
+- `## Close`: written at every stop that hands work back after work ran, such as a build, fix or review close. It holds what landed, the proof and its limits, the counts the block's Todo list and close rule requires, reversals and deviations first, open work with owners and, after a decision-trail review, its Attention section. A pstack playbook's Reply line lists what else it holds.
 - Scope, Steps, Evidence, Proof, Claims, Asks, Verification and Notes render collapsed under Details. In a subject iteration, so does any other section the subject file lacks; a one-off plan shows its other sections open.
 
 ## Lifecycle

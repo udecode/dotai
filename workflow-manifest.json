@@ -75,15 +75,15 @@
       "mode": 493
     },
     "skills/plan-page/SKILL.md": {
-      "sha256": "b47d0fdc2b4f1734cc5802b75bff78c01250e10eff1794874590f537c3008dec",
+      "sha256": "8f3f9e5256915541bcde16acfd9adec3d2d7300cac1b900e8700b8dc44330511",
       "mode": 420
     },
     "skills/plan-page/references/shape.md": {
-      "sha256": "a3e57e65a3f6a6c31574f544836d6eb778a364350b02c4bc13aa546af19cc552",
+      "sha256": "953cc486d0ca478cece71dfd4f5f320a4ec4c1c0aff24f8b1e314d69f5c7340b",
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
-      "sha256": "f508d332ae0e287cff756c20f3bd1c094623462591fa62f3d04c6cf8853aa335",
+      "sha256": "a19778d5a5be6cbfbe6a03db4f96f96b8beb372a611d505f4ca59cd255294c5d",
       "mode": 420
     },
     "skills/sync-pstack/agents/openai.yaml": {
@@ -91,7 +91,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "76c7f23c226d3a2e0fe40e371a187c984e8149063917994919a891802e609744",
+      "sha256": "1d1a7a6fbd4ff58767acb242f889c970a9b16a9f81a5497339bdedd29f29200c",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/cross.mjs": {
@@ -143,11 +143,11 @@
       "mode": 420
     },
     "skills/test-audit/SKILL.md": {
-      "sha256": "117c2b5791f518231b097abb1c71afe32dfad1668854995dfdff644220a86f98",
+      "sha256": "e67755b4c6e0bc6231515f0eace249ddc342debc6e6d2f3343d482d8ad5671dc",
       "mode": 420
     },
     "skills/video-transcripts/SKILL.md": {
-      "sha256": "ff18c0959ad0f8e2440566db80088c7882d89d99c4dfd2861df0e43d2d912bcf",
+      "sha256": "9e024feb642a41168c77202cf3848eaf09eebfaba16b7b985847992d06668e4c",
       "mode": 420
     },
     "skills/video-transcripts/scripts/generate_video_transcript.sh": {
@@ -155,7 +155,7 @@
       "mode": 493
     },
     "skills/walkthrough/SKILL.md": {
-      "sha256": "e48272459875aa87b0d1d4306f5065ea90030f20686d429b94363c42607c7902",
+      "sha256": "f8011fa576cf3603a58ce4311b951d3f04aa537e854875c5babec5a7d4af6a10",
       "mode": 420
     },
     "skills/walkthrough/agents/openai.yaml": {
@@ -167,7 +167,7 @@
       "mode": 420
     },
     "skills/walkthrough/references/baseline.md": {
-      "sha256": "c8a74120404a4976ddfe6ccdc15d9c53261d5180ee0a3facfbd36e787fc33f7d",
+      "sha256": "7fe1908528a0799d8a1da7f9f60d5ed1d7599793f42bf0e134ee9c812d49b81f",
       "mode": 420
     },
     "skills/walkthrough/scripts/diff-baseline.mjs": {

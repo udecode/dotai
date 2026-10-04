@@ -8,25 +8,25 @@ metadata:
 
 # Plan page
 
-The user reads pages, not replies. Every stop that hands work back publishes a page first, and the reply is its link alone, except after a review-only panel, whose findings go in the reply. A subject is one thing the work changes, and it has one page. Its file, `<plans>/topics/<slug>.md`, holds the current state. Each plan that continues it is an iteration carrying only its delta. `node .agents/pstack/plan-page.mjs <plan>` renders the page from both into `<plans>/artifacts/`, which is the durable copy. `node .agents/pstack/plan-page.mjs --index` renders every subject's page there and an index linking them. A published claude.ai page is where the user comments on one hand-back; it is not the record. sync-pstack ships that renderer and `status.mjs` into every project it manages.
+The user reads pages, not replies; the block's Plan pages rule says when to publish and what the reply holds. A subject is one thing the work changes, and it has one page. Its file, `<plans>/topics/<slug>.md`, holds the current state. Each plan that continues it is an iteration carrying only its delta. `node .agents/pstack/plan-page.mjs <plan>` renders the page from both into `<plans>/artifacts/`, which is the durable copy. `node .agents/pstack/plan-page.mjs --index` renders every subject's page there and an index linking them. A published claude.ai page is where the user comments on one hand-back; it is not the record. sync-pstack ships that renderer and `status.mjs` into every project it manages.
 
 Read [references/shape.md](references/shape.md) before writing a plan or a subject file. It holds every file shape, the page order and the renderer's refusals.
 
 | Mode | Use it to |
 | --- | --- |
-| [Render](#render) | publish a page at every stop that hands work back: a plan written, back from review, revised or built, a review verdict other than a review-only panel's, a "next" answer, a playbook's close, a blocked run's ask, reflect's list awaiting approval, or a subject file change |
+| [Render](#render) | publish a page at every stop the block's Plan pages rule lists |
 | [Check](#check) | audit a plan and its subject before handing the page back |
 | [Repair](#repair) | fix a page whose shape is wrong |
 | [Change](#change) | change the page shape, the renderer, or a playbook's page sections |
 
 ## Render
 
-1. Pick the subject before writing the plan. Continue the subject whose thing the work changes. Start a new one only for a new thing that will be revisited. A one-off plan, such as a single fix or check, has no subject and keeps its own page. A stop with no plan yet, such as a review verdict or a close of work that wrote none, writes one now, either the iteration that later stops continue or a one-off plan. After a review-only panel, on work the run does not change such as another person's PR, the lead writes no plan and publishes no page; the findings go in the reply, per the Panel review rule.
+1. Pick the subject before writing the plan. Continue the subject whose thing the work changes. Start a new one only for a new thing that will be revisited. A one-off plan, such as a single fix or check, has no subject and keeps its own page. A stop with no plan yet, such as a review verdict or a close of work that wrote none, writes one now, either the iteration that later stops continue or a one-off plan.
 2. Name the subject with `Topic: <slug>` under `Status:`, or through the first entry of the frontmatter list the project names in `pageTopic.field`, so list the scope that owns the change first. A plan whose list-named subject has no file yet keeps its own page until someone creates that file; the renderer refuses a `Topic:` line whose subject has no file until that file exists.
 3. When a project playbook in `.agents/playbooks/` writes the plan, name it with `Playbook: <name>` under `Status:`, so its page sections lead and its required sections apply. Otherwise leave the line out; the renderer refuses a name with no playbook file.
 4. Walk [Check](#check)'s reading list before the first publish and after each revision, then run `node .agents/pstack/plan-page.mjs <plan>`. It refuses every shape it can check and names the fix. Fix the plan or the subject file, never the HTML.
-5. At a close, write the plan's `## Close` before rendering: what landed, the proof and its limits, the done, skipped, blocked and open counts, reversals and deviations first, and open work with owners.
-6. Publish the printed file with the Artifact tool to the subject's `Page:` URL, or to the one-off plan's own, so the user can comment on it. The first publish writes `Page: <url>` under the subject file's title, or under a one-off plan's `Status:` line. When that link no longer opens, because the page was deleted or belongs to another account, publish a new page and replace the line. The reply is the link alone. Codex sessions cannot publish, so they reply with the printed file's path, and the lead publishes when the user returns.
+5. At a close, write the plan's `## Close` before rendering: what landed, the proof and its limits, the counts the block's Todo list and close rule requires, reversals and deviations first, and open work with owners.
+6. Publish the printed file with the Artifact tool to the subject's `Page:` URL, or to the one-off plan's own, so the user can comment on it. The first publish writes `Page: <url>` under the subject file's title, or under a one-off plan's `Status:` line. When that link no longer opens, because the page was deleted or belongs to another account, publish a new page and replace the line. The block's Plan pages rule says what the reply holds and what a Codex session does instead.
 7. After a subject page renders, run `node .agents/pstack/plan-page.mjs --index`, which renders every subject's page and the index locally. The index is never published.
 
 ## Check
@@ -38,7 +38,6 @@ Run `node .agents/pstack/plan-page.mjs <plan> --check`. It runs every refusal an
 - Every subject section the plan changes carries a Delta table keyed to the subject's rows. Otherwise the page marks the section unchanged.
 - Main changes lists only non-public changes that alter how the code works.
 - `Status:` is one short line: the state word, then what the plan waits on. Open items go in their own section, each with its owner and where it is tracked.
-- Open questions holds only calls with no safe default. Every other call is a Defaults row.
 
 ## Repair
 
