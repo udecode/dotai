@@ -1559,7 +1559,7 @@ test('plan-open fails a gate row that leaves Applies, evidence or another column
   assert.doesNotMatch(result.stderr, /Package proof/);
 });
 
-test('plan-open makes a newly closed box name its artifact and a deferred finding name its owner', () => {
+test('plan-open makes a newly closed box name its artifact and a deferred finding name its owner and stop', () => {
   const { dir, run } = sandbox();
   const legacy = '# Plan\n\nStatus: In progress.\n\n- [x] shipped long ago\n';
   const root = project(dir, 'app', { files: { 'plan.md': legacy } });
@@ -1567,12 +1567,26 @@ test('plan-open makes a newly closed box name its artifact and a deferred findin
   run('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'plan'], root);
   const check = () => run(process.execPath, [join(HELPERS, 'plan-open.mjs'), 'plan.md'], root);
 
-  writeFileSync(join(root, 'plan.md'), `${legacy}- [x] writing passes ran\n- [x] tests pass: \`bun test ./src/a.test.ts\`\n- [x] docs: skip: no docs changed\n\n## Deferred\n\n- schema check\n- ledger merge, owner: issue-harvester in docs/plans/next.md\n`);
+  writeFileSync(join(root, 'plan.md'), `${legacy}- [x] writing passes ran\n- [x] tests pass: \`bun test ./src/a.test.ts\`\n- [x] docs: skip: no docs changed\n\n## Deferred\n\n- schema check\n- ledger merge, owner: issue-harvester in docs/plans/next.md, stop: when the merged ledger's check passes\n`);
   const result = check();
   assert.equal(result.status, 1);
   assert.match(result.stderr, /plan\.md:6: .*writing passes ran/);
   assert.match(result.stderr, /plan\.md:12: .*schema check/);
   assert.doesNotMatch(result.stderr, /:5:|:7:|:8:|:13:/);
+});
+
+test('plan-open makes an Open work item added since HEAD name its owner and its stop', () => {
+  const { dir, run } = sandbox();
+  const legacy = '# Plan\n\nStatus: In progress.\n\n## Open work\n\n- old backlog item\n';
+  const root = project(dir, 'app', { files: { 'plan.md': legacy } });
+  run('git', ['add', '.'], root);
+  run('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'plan'], root);
+
+  writeFileSync(join(root, 'plan.md'), `${legacy}- split the ledger, owner: lead in docs/plans/topics/ledger.md\n- drop the dossier, owner: lead in docs/plans/topics/ledger.md, stop: when slate mode is retired\n`);
+  const result = run(process.execPath, [join(HELPERS, 'plan-open.mjs'), 'plan.md'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /plan\.md:8: .*split the ledger.*stop:/);
+  assert.doesNotMatch(result.stderr, /:7:|:9:/);
 });
 
 test('decisions-check append writes only a row that passes the check', () => {
