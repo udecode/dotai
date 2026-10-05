@@ -46,7 +46,7 @@ A subject file never holds a `before` or `after` fence.
 When the leading plan has a brief, the page shows:
 
 1. The header: the leading plan's state, its title and its own latest review round.
-2. The brief. Needs you renders under "What do you need from me?".
+2. The brief, then Needs you, so all five answers stay on the first screen.
 3. Public API, when the leading plan changes it.
 4. Everything else, each folded to one line: Close, an unchanged Public API, the plan's lead paragraph, the `page-lead` sections, Main changes, Picked for you, the subject's current state, iterations or history, details and review history.
 

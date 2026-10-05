@@ -1234,7 +1234,7 @@ test('plan-page --check refuses an open plan whose Defaults is not the decision 
   assert.ok(!existsSync(join(root, 'docs/plans/artifacts/plan.html')));
 });
 
-test('plan-page opens an open plan with its brief, asks its open questions inside it and folds the rest', () => {
+test('plan-page opens an open plan with its brief, asks its open questions right after it and folds the rest', () => {
   const { dir, run } = sandbox();
   const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Open questions\n\n### Build\n\nBuild it?\n\n- **build** (recommended): build.\n- **hold**: wait.\n\n## Main changes\n\n- Moves the owner.\n`;
   const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
@@ -1242,7 +1242,7 @@ test('plan-page opens an open plan with its brief, asks its open questions insid
   assert.equal(result.status, 0, result.stderr);
   const html = read(root, 'docs/plans/artifacts/plan.html');
   assert.ok(html.indexOf('What did you find?') < html.indexOf('Build it?'), 'the brief leads the page');
-  assert.ok(html.indexOf('Build it?') < html.indexOf('What happens if I say go?'), 'the open question sits under what the owner must do');
+  assert.ok(html.indexOf('Old plans need a brief.') < html.indexOf('Build it?'), 'every answer stays above the open questions');
   assert.match(html, /<details class="fold"><summary>Main changes<\/summary>/);
 });
 

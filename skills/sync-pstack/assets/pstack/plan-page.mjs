@@ -1069,14 +1069,7 @@ function page(planPath, { folded = false } = {}) {
     const round = reviewed.find(({ entry }) => entry.path === leader.path)?.rounds.findLast((entry) => entry.kind === 'panel');
     const roundTag = round ? `<span>Review round <strong>${round.round}</strong>${round.seats ? ` <code>${escapeHtml(round.seats)}</code>` : ''}</span>` : '';
     const asking = needs || olderNeeds.length ? needsHtml(needs?.lines ?? [], olderNeeds) : '';
-    const asks = brief.findIndex((answer) => sameText(answer.question) === sameText(BRIEF[2]));
-    const answers = brief
-      .map((answer, index) =>
-        index === asks && asking
-          ? `<div class="qa panel needs"><h2>${inline(answer.question)}</h2>${blocksHtml(answer.lines)}${asking}</div>`
-          : `<div class="qa"><h2>${inline(answer.question)}</h2>${blocksHtml(answer.lines)}</div>`
-      )
-      .join('');
+    const answers = brief.map((answer) => `<div class="qa"><h2>${inline(answer.question)}</h2>${blocksHtml(answer.lines)}</div>`).join('');
     const fold = (label, body) => (body.trim() ? `<details class="fold"><summary>${label}</summary>${body}</details>` : '');
     const count = (label, n) => `${label} <span class="count">${n}</span>`;
     const leadTitles = delta ? ordered('lead') : byRole('lead').map((section) => section.title);
@@ -1091,7 +1084,7 @@ function page(planPath, { folded = false } = {}) {
     <h1>${title}</h1>
     <div class="meta"><span class="pill ${statusTone(shownStatus)}">${escapeHtml(shownStatus)}</span>${delta ? `<span>Plan <strong>${inline(focus.title || basename(focusEntry.path, '.md'))}</strong></span>` : ''}${roundTag}<span>Updated ${updated} UTC</span></div>
   </header>
-  <section class="panel brief">${answers}</section>${asks < 0 && asking ? `<section class="panel needs"><h2>Needs you</h2>${asking}</section>` : ''}
+  <section class="panel brief">${answers}</section>${asking ? `<section class="panel needs"><h2>Needs you</h2>${asking}</section>` : ''}
   ${apiChanged ? changeHtml('api') : ''}
   <div>
   ${fold('Close', close ? blocksHtml(close.lines) : '')}
