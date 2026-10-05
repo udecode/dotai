@@ -218,6 +218,7 @@ function pageConfig(root) {
           const { meta } = parsePlan(readFileSync(join(dir, name), 'utf-8'));
           return {
             name: basename(name, '.md'),
+            extends: listOf(meta, 'extends'),
             lead: listOf(meta, 'page-lead'),
             pairs: listOf(meta, 'page-pairs'),
             require: listOf(meta, 'page-require'),
@@ -227,9 +228,17 @@ function pageConfig(root) {
   return { playbooks, plans: config.plans ?? 'docs/plans', topic: config.pageTopic ?? {} };
 }
 
+const PSTACK_PLAYBOOKS = [
+  'authoring-a-skill', 'autonomous-run', 'autopilot-full', 'autopilot-stack', 'babysit', 'bug-fix', 'eval', 'feature', 'figure-it-out',
+  'hillclimb', 'investigation', 'multi-phase-plan', 'opening-a-pr', 'orchestrate', 'pause-safely', 'perf-issue', 'prototype',
+  'refactoring', 'runtime-forensics', 'session-pickup', 'shipping', 'trace-forensics', 'visual-parity', 'worktree-cleanup',
+];
+
 function pageSections(playbooks, name, where) {
   const named = name ? playbooks.find((entry) => entry.name === name) : null;
-  if (name && !named) throw new Error(`${where} names playbook ${name}, but .agents/playbooks/${name}.md does not exist`);
+  if (name && !named && !PSTACK_PLAYBOOKS.includes(name)) {
+    throw new Error(`${where} names playbook ${name}, which is neither .agents/playbooks/${name}.md nor a pstack playbook such as feature or bug-fix`);
+  }
   const union = (key, list) => [...new Set(list.flatMap((entry) => entry[key]))];
   const lower = (list) => list.map((title) => title.toLowerCase());
   return {
@@ -974,27 +983,29 @@ const STAGE_PHASES = {
   Review: ['panel', 'interrogate'],
   Build: ['build'],
   Writing: ['writing'],
-  Proof: ['proof', 'verify'],
+  Verify: ['verify', 'proof'],
   Ship: ['ship', 'delivery'],
   Reflect: ['reflect', 'lesson'],
   Audit: ['trail'],
 };
 const STAGE_HINTS = {
-  Plan: 'The plan file and its brief.',
+  Plan: 'The plan file and its brief; the badges name the playbook poteto-mode picked.',
   Design: 'architect, prototype, arena, how or why explored the design.',
   'Plan review': 'interrogate panel rounds on the plan, before the build.',
   Build: 'Code written; the count is checked Steps.',
   Writing: 'deslop, no-comments and unslop cleanup passes.',
   'Code review': 'interrogate panel rounds on the code.',
-  Proof: 'verify or a proof run on the real app.',
-  Audit: 'Another model checks each decision-log claim against the conversation.',
+  Verify: 'The verify skill or a proof run on the real app.',
+  Audit: "show-me-your-work's decision-trail review: another model checks each decision-log claim against the conversation.",
   Ship: 'The work landed.',
   Reflect: 'Lessons saved with reflect.',
 };
 const WRITING_PASSES = ['deslop', 'no-comments', 'unslop'];
 
-function flowOf(entry, status) {
+function flowOf(entry, status, playbooks) {
   const rows = logRowsOf(entry.path);
+  const named = entry.plan.meta.playbook;
+  const picked = named ? [...new Set([named, ...(playbooks.find((each) => each.name === named)?.extends ?? [])])] : [];
   const of = (stage) => rows.filter((row) => STAGE_PHASES[stage].includes(row.phase));
   const firstBuild = rows.findIndex((row) => STAGE_PHASES.Build.includes(row.phase));
   const panelRounds = (beforeBuild) => {
@@ -1009,17 +1020,20 @@ function flowOf(entry, status) {
   const { lead, state, hue } = statusLead(status);
   const ended = state === 'done';
   const stages = [
-    { label: 'Plan', ran: true },
+    { label: 'Plan', ran: true, tools: picked },
     { label: 'Design', ran: design.length > 0, tools: design.filter((phase) => phase !== 'design') },
-    { label: 'Plan review', rounds: panelRounds(true) },
+    { label: 'Plan review', rounds: panelRounds(true), tools: ['interrogate'] },
     { label: 'Build', ran: firstBuild >= 0 || stepsDone > 0, meta: steps.length ? `${stepsDone}/${steps.length}` : '' },
     { label: 'Writing', ran: of('Writing').length > 0, tools: passes },
-    { label: 'Code review', rounds: panelRounds(false) },
-    { label: 'Proof', ran: of('Proof').length > 0 },
-    { label: 'Audit', rounds: handOffPhases.size || (of('Audit').length ? 1 : 0) },
+    { label: 'Code review', rounds: panelRounds(false), tools: ['interrogate'] },
+    { label: 'Verify', ran: of('Verify').length > 0 },
+    { label: 'Audit', rounds: handOffPhases.size || (of('Audit').length ? 1 : 0), tools: ['show-me-your-work'] },
     { label: 'Ship', ran: landed(status) || of('Ship').length > 0 },
     { label: 'Reflect', ran: of('Reflect').length > 0 },
-  ].map((stage) => ({ ...stage, ran: stage.ran ?? stage.rounds > 0 }));
+  ].map((stage) => {
+    const ran = stage.ran ?? stage.rounds > 0;
+    return { ...stage, ran, tools: ran ? (stage.tools ?? []) : [] };
+  });
   const furthest = stages.findLastIndex((stage) => stage.ran);
   for (const [index, stage] of stages.entries()) stage.state = stage.ran ? 'done' : ended || index < furthest ? 'skipped' : 'left';
   if (ended && !landed(status)) stages.splice(furthest + 1, 0, { label: `${lead.charAt(0).toUpperCase()}${lead.slice(1)}`, state: 'stopped' });
@@ -1036,7 +1050,7 @@ function flowRailHtml(stages) {
     .join('<li class="arrow" aria-hidden="true">→</li>')}</ol>`;
 }
 
-const flowHtml = (entry, status) => `<div class="flow">${flowRailHtml(flowOf(entry, status))}</div>`;
+const flowHtml = (entry, status, playbooks) => `<div class="flow">${flowRailHtml(flowOf(entry, status, playbooks))}</div>`;
 
 function askHtml(ask, index) {
   const style = `--c: var(--c-${ATTENTION[levelOf(ask)][1]})`;
@@ -1366,7 +1380,7 @@ function page(planPath, { folded = false } = {}) {
     return `<main>
   <header>
     <h1>${title}</h1>
-    ${flowHtml(pageEntry ?? { path: planPath, plan }, shownStatus)}
+    ${flowHtml(pageEntry ?? { path: planPath, plan }, shownStatus, playbooks)}
     <div class="meta">${delta ? `<span>Plan <strong>${inline(focus.title || basename(focusEntry.path, '.md'))}</strong></span>` : ''}${roundTag}<span>Updated ${updated} UTC</span></div>
   </header>
   <section class="brief card">${answers}</section>
@@ -1382,7 +1396,7 @@ ${PAGE_HEAD}
 ${brief ? briefMain() : `<main>
   <header>
     <h1>${title}</h1>
-    ${flowHtml(pageEntry ?? { path: planPath, plan }, shownStatus)}
+    ${flowHtml(pageEntry ?? { path: planPath, plan }, shownStatus, playbooks)}
     <div class="meta"><code>${escapeHtml(where)}</code>${hub ? `<span>History <code>${escapeHtml(hub)}</code></span>` : ''}${reviewTag}<span>Updated ${updated} UTC</span></div>
   </header>
   ${needs || olderNeeds.length ? needsSection(needs?.lines ?? [], olderNeeds) : ''}${close ? sectionHtml(close, 'panel') : ''}

@@ -75,11 +75,11 @@
       "mode": 493
     },
     "skills/plan-page/SKILL.md": {
-      "sha256": "40b3c5db78819363a42c405b43728eaa7f30a8ad11e875eed8191672c4e31e4e",
+      "sha256": "a9442d864388f66a70e262bd06ce0080ccc9c454975316962319b675f46b1237",
       "mode": 420
     },
     "skills/plan-page/references/shape.md": {
-      "sha256": "c52973a593ce1e7669bbff19a61e22288bae847c9934f484563f33b6d816384c",
+      "sha256": "76899f1e353be4d0e76a9d919232b4f2a335fa4aab56d3659b9759c5ac135921",
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
@@ -107,7 +107,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/plan-page.mjs": {
-      "sha256": "2a0db7fe5eb1958b71795bacb731c7b9b59732a2aac9d75e610d770fee808bad",
+      "sha256": "e4f51ed799c894d994b91bec898c139a47108b5c1b0caadb75f0a8b7c73bf389",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/status.mjs": {
@@ -131,11 +131,11 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.mjs": {
-      "sha256": "502d81e0c2c6fd853f5c3693ff34a39e2f1e980b1c513ba280755c6b78310bf8",
+      "sha256": "966712a59224e6d9b6eeb2f4f98a33891965ba5519d4a11f74bb863ca35ee7fe",
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "e6656ad31c179edf9d875cfdd67f15cbce8360c19a97bed5f4467e3c33af6bc4",
+      "sha256": "b89efdd2c174fe6a86343d89f20096f80ef36000a43bfdb60ffd9f2cddd3bd9c",
       "mode": 420
     },
     "skills/test-audit/LICENSE": {

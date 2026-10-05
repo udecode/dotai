@@ -18,7 +18,7 @@ A subject file never holds a `before` or `after` fence.
 
 ## Plan
 
-- Optional frontmatter, then `# Title`, then `Status:`, `Topic:` and, when a project playbook writes the plan, `Playbook:` lines.
+- Optional frontmatter, then `# Title`, then `Status:`, `Topic:` and `Playbook:` lines. `Playbook:` names the playbook poteto-mode picked. That is the project playbook that writes the plan, or pstack's when no project playbook does, such as `feature`, `bug-fix` or `figure-it-out`.
 - `Status:` starts with a state word from `.agents/pstack/status.mjs`, such as `planning`, `building`, `blocked`, `reopened` or `executed`.
 - `## Brief`: five `###` questions in this order, each answered in at most 40 words: What did you find? What will change? What do you need from me? What happens if I say go? What could go wrong? The owner reads only this, so each answer names the decision, the number or the next action, and the go answer says what "go" picks. The page labels the answers Found, Changes, Your call, On go and Risks. An open plan that leads its page needs one.
 - A plan that continues a subject carries only its delta, under the subject's section titles:
@@ -67,7 +67,7 @@ A subject file never holds a `before` or `after` fence.
 
 ## Page order
 
-Every page opens with a header: the title, the flow rail and the latest review round with its seats. The rail shows the stages Plan, Design, Plan review, Build, Writing, Code review, Proof, Audit, Ship and Reflect. Hovering a stage shows the pstack step behind it. A stage that ran is a filled green badge, a skipped one is dashed grey and the rest are outlined blue. The next stage is an amber ring while work goes on, a filled orange badge when the `Status:` waits on the owner, and a filled red badge when it is held. A plan that ended without landing, such as a superseded one, adds its word in grey after its last stage and shows every stage it never ran as skipped. Review stages count their rounds, Build counts its checked steps, and Design and Writing name the tools that ran. Phases outside this table never move the rail, so log each stage's rows under its phase:
+Every page opens with a header: the title, the flow rail and the latest review round with its seats. The rail shows the stages Plan, Design, Plan review, Build, Writing, Code review, Verify, Audit, Ship and Reflect. Hovering a stage shows the pstack step behind it, and each stage that ran names its pstack skills in small badges. A stage that ran is a filled green badge, a skipped one is dashed grey and the rest are outlined blue. The next stage is an amber ring while work goes on, a filled orange badge when the `Status:` waits on the owner, and a filled red badge when it is held. A plan that ended without landing, such as a superseded one, adds its word in grey after its last stage and shows every stage it never ran as skipped. Plan names the playbook from the `Playbook:` line and, for a project playbook, the pstack playbooks it extends. Design and Writing name the tools that ran, the review stages name `interrogate` and count their rounds, Audit names `show-me-your-work`, and Build counts its checked steps. Phases outside this table never move the rail, so log each stage's rows under its phase:
 
 | Stage | Ran when |
 | --- | --- |
@@ -77,7 +77,7 @@ Every page opens with a header: the title, the flow rail and the latest review r
 | Build | the log has a `build` row, or Steps has a checked box |
 | Writing | the log has a `writing` row; the stage names the `deslop`, `no-comments` and `unslop` passes those rows mention |
 | Code review | the log has a `panel` or `interrogate` row after the first `build` row |
-| Proof | the log has a `proof` or `verify` row |
+| Verify | the log has a `verify` or `proof` row |
 | Audit | the log has a `trail` row, or a hand-off reviewer's row whose phase starts with `review`; each distinct `review` phase is a round. This is the decision-trail review: another model family checks each logged claim against the conversation |
 | Ship | the log has a `ship` or `delivery` row, or `Status:` starts with a word for landed work, such as executed or done |
 | Reflect | the log has a `reflect` or `lesson` row |

@@ -278,7 +278,7 @@ test('a bump refuses when pstack dropped the step a playbook anchors on, and sho
 
 test('verify flags a playbook that extends a missing pstack playbook, a change with no anchor, and an override pstack no longer says', () => {
   const upstream = pstackRepo(mkdtempSync(join(tmpdir(), 'sync-pstack-upstream-')), {
-    'v0.9.52': { 'poteto-mode/playbooks/feature.md': ABSENT },
+    'v0.9.52': { 'poteto-mode/playbooks/feature.md': ABSENT, 'poteto-mode/playbooks/triage.md': '1. Sort it.\n' },
   });
   const { dir, cli } = sandbox({ upstream });
   const root = project(dir, 'app', {
@@ -295,6 +295,8 @@ test('verify flags a playbook that extends a missing pstack playbook, a change w
   assert.match(result.stdout, /\.agents\/playbooks\/ship\.md extends `shipping-v2`, which pstack v0\.9\.52 does not have/);
   assert.match(result.stdout, /\.agents\/playbooks\/fix\.md has a change with no straight-quoted pstack text to anchor on/);
   assert.match(result.stdout, /the block overrides poteto-mode\/playbooks\/feature\.md, which pstack v0\.9\.52 no longer has/);
+  assert.match(result.stdout, /pstack v0\.9\.52 has the triage playbook, which PSTACK_PLAYBOOKS in the plan-page renderer lacks/);
+  assert.doesNotMatch(result.stdout, /has the bug-fix playbook/);
 });
 
 test('smoke runs each prompt in both runtimes from the project root, without CLAUDECODE, and prints only their answers', () => {
@@ -961,7 +963,7 @@ test('plan-page tags the latest panel round and lists every round at the bottom 
 
 test("plan-page draws the flow rail from the log's stage phases and the Status, never from words inside a row", () => {
   const { dir, run } = sandbox();
-  const plan = '# Plan\n\nStatus: waiting for the owner\n\n## Main changes\n\n- Draw the rail.\n' + brief();
+  const plan = '# Plan\n\nStatus: waiting for the owner\nPlaybook: audit\n\n## Main changes\n\n- Draw the rail.\n' + brief();
   const log = [
     'ts\tphase\tdecision\twhy\tevidence\tresult',
     reviewRow('plan', 'Run architect now and reflect after ship', 'decided'),
@@ -974,12 +976,24 @@ test("plan-page draws the flow rail from the log's stage phases and the Status, 
     reviewRow('verify', 'Prove the rail', 'verified'),
     reviewRow('review', 'Accept the hand-off', 'kept'),
   ].join('\n');
-  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan, 'docs/plans/plan.decisions.tsv': `${log}\n` } });
+  const files = { '.agents/playbooks/audit.md': '---\nextends: autonomous-run\nwhen: Use it to audit.\n---\n', 'docs/plans/plan.md': plan, 'docs/plans/plan.decisions.tsv': `${log}\n` };
+  const root = project(dir, 'app', { files });
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
   assert.equal(result.status, 0, result.stderr);
   const html = read(root, 'docs/plans/artifacts/plan.html');
   const rail = [...html.matchAll(/<li class="fs (\w+)"[^>]*>(.*?)<\/li>/gu)].map(([, state, body]) => `${state}:${body.replace(/<[^>]+>/gu, ' ').replace(/\s+/gu, ' ').trim()}`);
-  assert.deepEqual(rail, ['done:Plan', 'done:Design architect', 'done:Plan review', 'done:Build', 'done:Writing deslop no-comments', 'done:Code review ×2', 'done:Proof', 'done:Audit', 'waiting:Ship', 'left:Reflect']);
+  assert.deepEqual(rail, [
+    'done:Plan audit autonomous-run',
+    'done:Design architect',
+    'done:Plan review interrogate',
+    'done:Build',
+    'done:Writing deslop no-comments',
+    'done:Code review ×2 interrogate',
+    'done:Verify',
+    'done:Audit show-me-your-work',
+    'waiting:Ship',
+    'left:Reflect',
+  ]);
 });
 
 test('plan-page keeps a subject\'s latest review in its header and history after newer unreviewed iterations', () => {
@@ -1220,6 +1234,7 @@ test("plan-page applies each iteration's own refusals whichever iteration render
   };
   assert.match(render(older('\n## Defaults\n\n- **Local only.**\n')).stderr, /## Defaults in docs\/plans\/2025-12-15-older\.md needs a table/);
   assert.match(render(older('Playbook: plna\n')).stderr, /2025-12-15-older\.md names playbook plna/);
+  assert.equal(render(older('Playbook: feature\n')).status, 0, "a pstack playbook's name renders");
   assert.match(render(older('\n## Public API\n\n```ts before\nlater();\n```\n\nIt moved.\n\n```ts after\nlatest();\n```\n')).stderr, /needs each before fence followed directly by its after fence/);
   assert.match(render(older('\n## Layer and owner\n\n| Delta | Change | Layer |\n| --- | --- | --- |\n| changed | Drop veto | Plate |\n')).stderr, /already shows the changed row "Drop veto"/);
   assert.match(render(older('\n## Layer and owner\n\n| Delta | Change | Layer |\n| --- | --- | --- |\n| modified | Drop veto | Plite |\n')).stderr, /A Delta cell in ## Layer and owner of docs\/plans\/2025-12-15-older\.md is added, changed or removed, not "modified"/);

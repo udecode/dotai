@@ -192,12 +192,19 @@ function upstream() {
     const cloned = spawnSync('git', ['clone', '-q', '--bare', '--filter=blob:none', url, cache], { encoding: 'utf8' });
     if (cloned.status !== 0) throw new Error(`cannot clone ${url}: ${cloned.stderr.trim()}`);
   };
+  const at = (tag) => {
+    ensure();
+    if (!has(tag)) spawnSync('git', ['-C', cache, 'fetch', '-q', '--tags', '--force', url]);
+    if (!has(tag)) throw new Error(`${url} has no tag ${tag}`);
+  };
   return {
     file(tag, path) {
-      ensure();
-      if (!has(tag)) spawnSync('git', ['-C', cache, 'fetch', '-q', '--tags', '--force', url]);
-      if (!has(tag)) throw new Error(`${url} has no tag ${tag}`);
+      at(tag);
       return gitRaw(cache, 'show', `${tag}:${UPSTREAM_SKILLS}/${path}`);
+    },
+    names(tag, dir) {
+      at(tag);
+      return (git(cache, 'ls-tree', '--name-only', `${tag}:${UPSTREAM_SKILLS}/${dir}`) ?? '').split('\n').filter(Boolean);
     },
     diff: (from, to, path) => gitRaw(cache, 'diff', '--no-color', from, to, '--', `${UPSTREAM_SKILLS}/${path}`)?.trimEnd() || null,
     version() {
@@ -257,6 +264,15 @@ export function anchorProblems(root, tag) {
       for (const anchor of playbook.anchors) {
         if (bases.some((base) => base.text && flat(base.text).includes(flat(anchor)))) continue;
         problems.push({ reason: `${playbook.path} anchors a change on "${anchor}", which no playbook it extends says at pstack ${tag}` });
+      }
+    }
+    const listed = readFileSync(join(HELPERS, 'plan-page.mjs'), 'utf8').match(/const PSTACK_PLAYBOOKS = \[([^\]]*)\]/u);
+    if (!listed) problems.push({ reason: 'the plan-page renderer has no PSTACK_PLAYBOOKS list to check against pstack' });
+    else {
+      const known = new Set([...listed[1].matchAll(/'([^']+)'/gu)].map(([, name]) => name));
+      for (const file of source.names(tag, 'poteto-mode/playbooks').filter((file) => file.endsWith('.md'))) {
+        const name = file.slice(0, -'.md'.length);
+        if (!known.has(name)) problems.push({ reason: `pstack ${tag} has the ${name} playbook, which PSTACK_PLAYBOOKS in the plan-page renderer lacks, so the renderer refuses a plan that names it` });
       }
     }
   } catch (error) {
