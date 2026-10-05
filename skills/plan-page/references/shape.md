@@ -31,9 +31,11 @@ A subject file never holds a `before` or `after` fence.
   1. The decision in one line that ends in `?`.
   2. `Why it needs you:` and one sentence on why no safe default exists.
   3. One or two facts the owner needs to decide, as plain bullets.
-  4. Two or more options, the recommended one first, each as `- **<label>** (recommended): <what happens> Cost: <what it costs or risks>`. The label is a plain phrase the owner recognizes, never a code word to type back. What happens names only what the option authorizes now; an irreversible or outward step after it, such as a later delete, comes back as its own question.
-  5. `Why I pick it:` and one sentence, when one option is recommended. A question with no clear recommendation marks none and leaves this line out.
-  6. `If you say go:` only when no option is recommended; it says that go leaves the question open. When one option is recommended, go takes it, and the head of Needs you says so.
+  4. `Pick any.` on its own line when the owner can choose several options; leave it out for a pick-one question.
+  5. Two or more options, each as `- **<label>** (recommended): <what happens> Cost: <what it costs or risks>`. Only a `Pick any.` question marks more than one option recommended. The label is a plain phrase the owner recognizes, never a code word to type back. What happens names only what the option authorizes now; an irreversible or outward step after it, such as a later delete, comes back as its own question.
+  6. `Why I pick it:` and one sentence, when an option is recommended. A question with no clear recommendation marks none and leaves this line out.
+  7. `Attention:` and one word, when an option is recommended: `safe` when the pick is easy to undo and you are sure, `look` when it is costly, hard to undo or you are unsure, and `answer` when it cannot be taken back, such as a delete or a message to customers.
+  8. `If you say go:` only when no option is recommended; it says that go leaves the question open. A question with no pick always counts as `answer`.
 
   ```md
   ### Workflow guides
@@ -48,6 +50,8 @@ A subject file never holds a `before` or `after` fence.
   - **New pages**: I publish both guides again under this account. Cost: Two more pages to update by hand.
 
   Why I pick it: A repo file gets reviewed, and every teammate can read it.
+
+  Attention: safe
   ```
 - `## Close`: written at every stop that hands work back after work ran, such as a build, fix or review close. It holds what landed, the proof and its limits, the counts the block's Todo list and close rule requires, reversals and deviations first, open work with owners and, after a decision-trail review, its Attention section. A pstack playbook's Reply line lists what else it holds.
 - On a page without a brief, Scope, Steps, Evidence, Proof, Claims, Asks, Verification, Notes and Panel gate render under Details, and a one-off plan shows its other sections. A page with a brief leaves them in the plan file.
@@ -92,7 +96,7 @@ When the leading plan has a brief, the page shows what a reviewer needs to judge
 
 Write the brief, Needs you and Defaults in Simplified Technical English. Use short sentences, the active voice and common words, and leave out code, file paths and commit hashes. The renderer refuses an open plan whose brief, Open questions or Defaults holds code in backticks. After a build, the Found, Changes and Risks answers also tell the owner what the Close holds: what landed, where the proof stops, any reversal and the warnings of a decision-trail review.
 
-Needs you collects the Open questions of every iteration, the leader's first, and an older iteration's question names its plan. Its head lists each decision's pick after a go badge, because go takes the pick on every decision that has one, so the owner can say go without reading further. Otherwise the owner answers in their own words. Each question then renders as a numbered decision: the question, why it needs you, the facts, each option with what happens and what it costs, and the pick in the call-to-action color with its reason. A decision with no pick also shows its go line. In Needs you and the header, only badges, such as the go badge, the decision number, the My pick badge and a finished rail stage, have a background; everything else uses text color and borders. An executed plan's older question renders with the parts it has.
+Needs you collects the Open questions of every iteration, the leader's first, and an older iteration's question names its plan. Each question's number takes its attention color: red for answer, amber for look and green for safe. Red questions come first, the head counts each color, and the frame takes the most urgent one. Each option is a row with its label, what happens and its cost, under one Then and Cost header. Your pick starts checked, as a radio or, for a `Pick any.` question, a checkbox, and its reason sits under it. A bar at the bottom says go while every pick stands; when the owner changes a pick or answers a question with no pick, it shows a reply to copy, such as go, except Last fixes: Review first. In Needs you and the header, only badges, such as the question numbers and a finished rail stage, have a background; everything else uses text color and borders. An executed plan's older question renders with the parts it has.
 
 Without a brief, the page shows the whole record, with every section open:
 

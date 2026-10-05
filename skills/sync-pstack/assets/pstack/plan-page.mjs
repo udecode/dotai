@@ -22,7 +22,7 @@ const PAGE_HEAD = `<meta charset="utf-8">
 :root {
   --ground: #ffffff; --paper: #ffffff; --ink: #15181d; --muted: #4a535e; --faint: #626b77; --rule: #e4e7eb;
   --c-red: #c2261c; --c-orange: #b8460b; --c-amber: #946000; --c-lime: #4d7c0f; --c-green: #1f7a3d; --c-teal: #0f766e; --c-cyan: #0e7490; --c-blue: #1d5fc2; --c-indigo: #4338ca; --c-violet: #6d28d9; --c-pink: #c0156b; --c-grey: #5f6874; --badge-ink: #ffffff;
-  --cta: var(--c-pink); --cta-ink: var(--badge-ink); --accent: #2c5b8f; --accent-soft: #eaf1f8;
+  --cta: var(--c-orange); --cta-ink: var(--badge-ink); --accent: #2c5b8f; --accent-soft: #eaf1f8;
   --amber: #9a5b00; --amber-soft: #fbf1df; --green: #2f6b3f; --green-soft: #e5f2e8; --red: #b3362b; --red-soft: #f8e6e3; --code: #f4f5f7;
   --kw: #8a3f9e; --str: #3d6b21; --fn: #2c5b8f; --num: #a24d12;
   --sans: "Schibsted Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -31,14 +31,14 @@ const PAGE_HEAD = `<meta charset="utf-8">
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --ground: #111316; --paper: #111316; --ink: #e6e8eb; --muted: #c0c7cf; --faint: #9ea7b2; --rule: #262b31;
   --c-red: #ff6b5e; --c-orange: #ffa45c; --c-amber: #f5c35b; --c-lime: #b5e05a; --c-green: #7fd99a; --c-teal: #5fd4c6; --c-cyan: #67d1ee; --c-blue: #8ab8ff; --c-indigo: #a5a8ff; --c-violet: #c4a6ff; --c-pink: #ff8cc6; --c-grey: #a7b0ba; --badge-ink: #111316;
-  --cta: var(--c-pink); --cta-ink: var(--badge-ink); --accent: #8db6e6; --accent-soft: #1f2d3d;
+  --cta: var(--c-orange); --cta-ink: var(--badge-ink); --accent: #8db6e6; --accent-soft: #1f2d3d;
   --amber: #f0b45c; --amber-soft: #33270f; --green: #8fcf9f; --green-soft: #18291d; --red: #f0968c; --red-soft: #3a1c19; --code: #1a1d21;
   --kw: #d7a1e6; --str: #a8d48a; --fn: #8db6e6; --num: #f0a66e; color-scheme: dark;
 } }
 :root[data-theme="dark"] {
   --ground: #111316; --paper: #111316; --ink: #e6e8eb; --muted: #c0c7cf; --faint: #9ea7b2; --rule: #262b31;
   --c-red: #ff6b5e; --c-orange: #ffa45c; --c-amber: #f5c35b; --c-lime: #b5e05a; --c-green: #7fd99a; --c-teal: #5fd4c6; --c-cyan: #67d1ee; --c-blue: #8ab8ff; --c-indigo: #a5a8ff; --c-violet: #c4a6ff; --c-pink: #ff8cc6; --c-grey: #a7b0ba; --badge-ink: #111316;
-  --cta: var(--c-pink); --cta-ink: var(--badge-ink); --accent: #8db6e6; --accent-soft: #1f2d3d;
+  --cta: var(--c-orange); --cta-ink: var(--badge-ink); --accent: #8db6e6; --accent-soft: #1f2d3d;
   --amber: #f0b45c; --amber-soft: #33270f; --green: #8fcf9f; --green-soft: #18291d; --red: #f0968c; --red-soft: #3a1c19; --code: #1a1d21;
   --kw: #d7a1e6; --str: #a8d48a; --fn: #8db6e6; --num: #f0a66e; color-scheme: dark;
 }
@@ -52,32 +52,44 @@ h3, h4, h5 { font-size: 0.95rem; margin: 10px 0 2px; }
 .panel { min-width: 0; }
 .count { font-size: 0.78rem; color: var(--faint); font-weight: 500; letter-spacing: 0; text-transform: none; }
 .chip { font: 700 0.68rem var(--sans); letter-spacing: 0.05em; text-transform: uppercase; color: var(--cta-ink); background: var(--cta); border-radius: 999px; padding: 1px 7px; }
-.needs { display: grid; gap: 12px; border-top: 2px solid var(--cta); padding-top: 10px; }
-.needs-head { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; }
-.needs-head h2 { color: var(--cta); margin: 0; }
-.go-cta { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; font-size: 0.85rem; color: var(--muted); }
-.go-badge { font: 700 0.8rem var(--mono); color: var(--cta-ink); background: var(--cta); border-radius: 6px; padding: 1px 8px; }
-.go-cta b { color: var(--cta); font-weight: 600; }
-.ask { display: grid; gap: 6px; min-width: 0; }
-.ask + .ask { border-top: 1px solid var(--rule); padding-top: 12px; }
-.ask-q { display: flex; gap: 8px; align-items: baseline; }
-.ask-q h3 { margin: 0; font-size: 1rem; line-height: 1.35; text-wrap: balance; }
-.ask-num { flex: none; font: 700 0.75rem var(--mono); color: var(--cta-ink); background: var(--cta); border-radius: 999px; min-width: 1.6em; text-align: center; padding: 1px 0; }
-.why { margin: 0; color: var(--muted); font-size: 0.88rem; }
-.facts { margin: 0; padding-left: 1.1em; display: grid; gap: 1px; font-size: 0.88rem; color: var(--muted); }
-.opts { list-style: none; margin: 2px 0 0; padding: 0; display: grid; gap: 4px; }
-.opt { display: grid; grid-template-columns: 1.2em minmax(0, 1fr); gap: 0 4px; font-size: 0.92rem; }
-.opt::before { content: "○"; color: var(--faint); }
-.opt.picked::before { content: "●"; color: var(--cta); }
-.opt-label { font-weight: 600; }
-.opt.picked .opt-label { color: var(--cta); }
-.pick { font: 700 0.62rem var(--sans); letter-spacing: 0.05em; text-transform: uppercase; color: var(--cta-ink); background: var(--cta); border-radius: 999px; padding: 1px 6px; margin-left: 4px; vertical-align: 1px; }
-.cost { color: var(--faint); }
-.sep { color: var(--faint); }
-.reason { grid-column: 2; color: var(--muted); font-size: 0.86rem; }
-.go { margin: 2px 0 0; font-size: 0.9rem; }
-.go b { color: var(--cta); }
+.needs { display: grid; border: 2px solid var(--frame, var(--c-amber)); border-radius: 12px; padding: 12px 16px 0; min-width: 0; }
+.needs:not(:has(.bar)) { padding-bottom: 12px; }
+.needs-head { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; padding-bottom: 4px; }
+.needs-head h2 { margin: 0; color: var(--frame, var(--c-amber)); }
+.lg { color: var(--c); font-size: 0.8rem; font-weight: 600; }
+.lg::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--c); margin-right: 5px; vertical-align: 1px; }
+.q { display: grid; gap: 4px; padding: 12px 0; border-top: 1px solid var(--rule); min-width: 0; }
+.q h3 { margin: 0; font-size: 1.02rem; line-height: 1.35; display: flex; gap: 9px; align-items: baseline; text-wrap: balance; }
+.n { flex: none; font: 700 0.74rem var(--mono); color: var(--badge-ink); background: var(--c); border-radius: 999px; min-width: 1.65em; text-align: center; padding: 1px 0; }
+.ctx { margin: 0 0 2px 2.25em; font-size: 0.86rem; color: var(--muted); }
+.fact { color: var(--faint); }
+.fact::before { content: "· "; }
+.opts { display: grid; grid-template-columns: 1.3em minmax(7.5em, max-content) minmax(0, 1.2fr) minmax(0, 1fr); gap: 0 12px; margin-left: 2.25em; font-size: 0.9rem; }
+.hd { font: 700 0.62rem var(--sans); letter-spacing: 0.07em; text-transform: uppercase; color: var(--faint); padding-bottom: 2px; }
+.o { display: contents; cursor: pointer; }
+.o > * { padding: 4px 0; border-top: 1px solid var(--rule); }
+.o input { margin: 7px 0 0; width: 1.05em; height: 1.05em; accent-color: var(--c); }
+.o b { font-weight: 650; }
+.o .cost { color: var(--muted); }
+.o.is-selected b { color: var(--c); }
+.o .why { grid-column: 3 / -1; border-top: 0; padding: 0 0 4px; margin-top: -2px; color: var(--muted); font-size: 0.82rem; font-style: italic; }
+.why-all, .nopick { margin: 2px 0 0 2.25em; font-size: 0.82rem; color: var(--muted); font-style: italic; }
+.nopick { color: var(--c); font-style: normal; font-weight: 600; }
 .from { color: var(--faint); font-weight: 400; font-size: 0.8rem; }
+.bar { position: sticky; bottom: env(safe-area-inset-bottom, 0px); display: flex; gap: 10px; align-items: center; margin: 4px -16px 0; padding: 9px 16px; background: var(--ground); border-top: 2px solid var(--frame, var(--c-amber)); border-radius: 0 0 10px 10px; }
+.bar code { flex: 1 1 auto; min-width: 0; font: 600 0.88rem var(--mono); overflow-wrap: anywhere; padding: 0; }
+.bar.is-default code { color: var(--c-green); }
+.bar.is-changed code { color: var(--c-amber); }
+.bar.is-missing code { color: var(--c-red); }
+.bar button { padding: 4px 12px; font-weight: 700; color: var(--frame, var(--c-amber)); border-color: var(--frame, var(--c-amber)); }
+.bar button:disabled { opacity: 0.4; cursor: not-allowed; }
+@media (max-width: 620px) {
+  .opts { grid-template-columns: 1.3em minmax(0, 1fr); margin-left: 0; }
+  .hd { display: none; }
+  .o > span { grid-column: 2; border-top: 0; padding: 0; }
+  .o > .cost { padding-bottom: 6px; }
+  .ctx, .why-all, .nopick { margin-left: 0; }
+}
 .topics { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
 .topic { display: grid; gap: 2px; min-width: 0; }
 .topic-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; font-weight: 600; }
@@ -153,7 +165,6 @@ details.iteration[open] > summary { margin-bottom: 4px; }
 .brief .qa + .qa { border-top: 1px solid var(--rule); }
 .brief .qa > h2 { color: var(--hue); font-size: 0.7rem; margin: 2px 0 0; }
 .brief .qa > :not(h2) { grid-column: 2; }
-.needs.card { border: 2px solid var(--cta); border-top-width: 4px; padding: 12px 16px 14px; }
 .findings { list-style: none; padding: 0; display: grid; gap: 4px; }
 .findings li { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
 
@@ -767,7 +778,12 @@ const ASK_FIELDS = [
   ['why', /^why it needs you:\s*/i],
   ['reason', /^why i pick it:\s*/i],
   ['go', /^if you say go:\s*/i],
+  ['attention', /^attention:\s*/i],
 ];
+const PICK_ANY = /^pick any\.?$/i;
+const ATTENTION = { answer: ['needs you', 'red'], look: ['worth a look', 'amber'], safe: ['safe', 'green'] };
+const LEVELS = Object.keys(ATTENTION);
+const levelOf = (ask) => (ask.options.some((option) => option.recommended) ? (ATTENTION[ask.attention] ? ask.attention : 'look') : 'answer');
 
 const splitCost = (text) => {
   const at = text.search(/\bCost:\s*/);
@@ -794,11 +810,12 @@ function questionGroups(lines, older = []) {
 }
 
 function askOf({ header, lines, from }) {
-  const ask = { header, from, lines, question: [], why: '', facts: [], options: [], reason: '', go: '', rest: [] };
+  const ask = { header, from, lines, question: [], why: '', facts: [], options: [], reason: '', go: '', attention: '', multi: false, rest: [] };
   let last = null;
   for (const line of lines) {
     const text = line.trim();
-    if (!text) {
+    if (PICK_ANY.test(text)) ask.multi = true;
+    if (!text || PICK_ANY.test(text)) {
       last = null;
       continue;
     }
@@ -825,6 +842,7 @@ function askOf({ header, lines, from }) {
       last = null;
     }
   }
+  ask.attention = ask.attention.trim().toLowerCase().replace(/\.$/, '');
   return ask;
 }
 
@@ -835,8 +853,9 @@ function missingParts(ask) {
     !ask.why && 'Why it needs you:',
     ask.options.length < 2 && 'two or more options',
     ask.options.some((option) => !option.cost) && 'a Cost: on every option',
-    picks > 1 && 'at most one (recommended) option',
-    picks === 1 && !ask.reason && 'Why I pick it:',
+    picks > 1 && !ask.multi && 'at most one (recommended) option, or a Pick any. line',
+    picks > 0 && !ask.reason && 'Why I pick it:',
+    picks > 0 && !ATTENTION[ask.attention] && 'Attention: safe, look or answer',
     picks === 0 && !ask.go && 'If you say go:',
   ].filter(Boolean);
 }
@@ -933,7 +952,7 @@ function findingHtml(decision, result) {
   return `<li>${body}${resultHtml}</li>`;
 }
 
-const BRIEF_HUES = ['blue', 'violet', 'pink', 'green', 'red'];
+const BRIEF_HUES = ['blue', 'violet', 'orange', 'green', 'red'];
 
 const stepChecks = (plan) => (sectionNamed(plan, 'Steps')?.lines ?? []).flatMap((line) => line.match(/^\s*(?:\d+\.\s+)?[-*+]\s+\[([ xX])\]/)?.slice(1) ?? []).map((mark) => mark !== ' ');
 
@@ -1019,25 +1038,71 @@ function flowRailHtml(stages) {
 
 const flowHtml = (entry, status) => `<div class="flow">${flowRailHtml(flowOf(entry, status))}</div>`;
 
-function askHtml(ask, index, count) {
-  const head = `<div class="ask-q"><span class="ask-num">${index + 1}</span><h3>${ask.options.length ? inline(ask.question.join(' ')) : inline(ask.header)}${ask.from ? ` <span class="from">from ${inline(ask.from)}</span>` : ''}</h3></div>`;
-  if (ask.options.length === 0) return `<article class="ask">${head}${blocksHtml(ask.lines)}</article>`;
-  const ordered = [...ask.options.filter((option) => option.recommended), ...ask.options.filter((option) => !option.recommended)];
-  const options = ordered
-    .map((option) => `<li class="opt${option.recommended ? ' picked' : ''}"><span><span class="opt-label">${inline(option.label)}</span>${option.recommended ? '<span class="pick">My pick</span>' : ''}${option.does ? ` <span class="sep">·</span> ${inline(option.does)}` : ''}${option.cost ? ` <span class="cost">Cost: ${inline(option.cost)}</span>` : ''}</span>${option.recommended && ask.reason ? `<span class="reason">Why: ${inline(ask.reason)}</span>` : ''}</li>`)
+function askHtml(ask, index) {
+  const style = `--c: var(--c-${ATTENTION[levelOf(ask)][1]})`;
+  const head = `<h3><span class="n">${index + 1}</span><span>${ask.options.length ? inline(ask.question.join(' ')) : inline(ask.header)}${ask.from ? ` <span class="from">from ${inline(ask.from)}</span>` : ''}</span></h3>`;
+  if (ask.options.length === 0) return `<article class="q" style="${style}">${head}${blocksHtml(ask.lines)}</article>`;
+  const picks = ask.options.filter((option) => option.recommended).map((option) => option.label);
+  const type = ask.multi ? 'checkbox' : 'radio';
+  const context = [ask.why && inline(ask.why), ...ask.facts.map((fact) => `<span class="fact">${inline(fact)}</span>`)].filter(Boolean).join(' ');
+  const rows = ask.options
+    .map((option) => `<label class="o"><input type="${type}" name="q${index}" value="${escapeHtml(option.label)}"${option.recommended ? ' checked' : ''}><b>${inline(option.label)}</b><span>${inline(option.does)}</span><span class="cost">${inline(option.cost)}</span>${option.recommended && ask.reason && !ask.multi ? `<span class="why">${inline(ask.reason)}</span>` : ''}</label>`)
     .join('');
-  return `<article class="ask">${head}${ask.why ? `<p class="why">${inline(ask.why)}</p>` : ''}${ask.facts.length ? `<ul class="facts">${ask.facts.map((fact) => `<li>${inline(fact)}</li>`).join('')}</ul>` : ''}<ol class="opts">${options}</ol>${blocksHtml(ask.rest)}${ask.go && !ordered[0].recommended ? `<p class="go"><b>go</b> ${inline(ask.go)}</p>` : ''}</article>`;
+  const after = picks.length === 0 ? `<p class="nopick">${inline(ask.go || 'No pick: choose one.')}</p>` : ask.multi && ask.reason ? `<p class="why-all">${inline(ask.reason)}</p>` : '';
+  return `<article class="q" style="${style}" data-title="${escapeHtml(ask.header)}" data-multi="${ask.multi ? 1 : 0}" data-default="${escapeHtml(JSON.stringify(picks))}">${head}${context ? `<p class="ctx">${context}</p>` : ''}<div class="opts" role="${ask.multi ? 'group' : 'radiogroup'}"><span class="hd"></span><span class="hd"></span><span class="hd">Then</span><span class="hd">Cost</span>${rows}</div>${blocksHtml(ask.rest)}${after}</article>`;
 }
+
+const ANSWER_SCRIPT = `<script>
+(() => {
+  const root = document.querySelector('.needs');
+  const bar = root.querySelector('.bar');
+  const text = bar.querySelector('code');
+  const copy = bar.querySelector('button');
+  const update = () => {
+    const changed = [];
+    const missing = [];
+    for (const q of root.querySelectorAll('.q[data-title]')) {
+      for (const input of q.querySelectorAll('input')) input.closest('.o').classList.toggle('is-selected', input.checked);
+      const chosen = [...q.querySelectorAll('input:checked')].map((input) => input.value);
+      const picks = JSON.parse(q.dataset.default);
+      if (q.dataset.multi !== '1' && chosen.length === 0) {
+        missing.push(q.dataset.title);
+        continue;
+      }
+      if (chosen.length !== picks.length || chosen.some((value) => !picks.includes(value))) changed.push(q.dataset.title + ': ' + (chosen.join(', ') || 'none'));
+    }
+    bar.className = 'bar ' + (missing.length ? 'is-missing' : changed.length ? 'is-changed' : 'is-default');
+    text.textContent = missing.length ? 'Answer ' + missing.join(', ') : changed.length ? 'go, except ' + changed.join('; ') : 'go';
+    copy.disabled = missing.length > 0;
+    copy.textContent = 'Copy';
+  };
+  root.addEventListener('change', update);
+  copy.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(text.textContent);
+      copy.textContent = 'Copied';
+    } catch {
+      const range = document.createRange();
+      range.selectNodeContents(text);
+      getSelection().removeAllRanges();
+      getSelection().addRange(range);
+      copy.textContent = 'Selected';
+    }
+  });
+  update();
+})();
+</script>`;
 
 function needsSection(lines, older = []) {
   const { intro, groups } = questionGroups(lines, older);
-  if (groups.length === 0) return `<section class="needs card"><div class="needs-head"><h2>Needs you</h2></div>${blocksHtml([...lines, ...older.flatMap((source) => source.lines)])}</section>`;
-  const asks = groups.map(askOf);
-  const picks = asks.map((ask, index) => {
-    const pick = ask.options.find((option) => option.recommended);
-    return pick ? `<span>${index + 1}. <b>${inline(pick.label)}</b></span>` : `<span>${index + 1}. your answer</span>`;
-  });
-  return `<section class="needs card"><div class="needs-head"><h2>Needs you</h2><span class="count">${asks.length} ${asks.length === 1 ? 'decision' : 'decisions'}</span><span class="go-cta"><span class="go-badge">go</span>takes ${picks.join(' ')}</span></div>${blocksHtml(intro)}${asks.map((ask, index) => askHtml(ask, index, asks.length)).join('')}</section>`;
+  if (groups.length === 0) return `<section class="needs"><div class="needs-head"><h2>Needs you</h2></div>${blocksHtml([...lines, ...older.flatMap((source) => source.lines)])}</section>`;
+  const asks = groups.map(askOf).sort((a, b) => LEVELS.indexOf(levelOf(a)) - LEVELS.indexOf(levelOf(b)));
+  const legend = LEVELS.map((level) => [level, asks.filter((ask) => levelOf(ask) === level).length])
+    .filter(([, count]) => count)
+    .map(([level, count]) => `<span class="lg" style="--c: var(--c-${ATTENTION[level][1]})">${count} ${ATTENTION[level][0]}</span>`)
+    .join('');
+  const answerable = asks.some((ask) => ask.options.length);
+  return `<section class="needs" style="--frame: var(--c-${ATTENTION[levelOf(asks[0])][1]})"><div class="needs-head"><h2>Needs you</h2>${legend}</div>${blocksHtml(intro)}${asks.map((ask, index) => askHtml(ask, index)).join('')}${answerable ? '<div class="bar" aria-live="polite"><code></code><button type="button">Copy</button></div>' : ''}</section>${answerable ? ANSWER_SCRIPT : ''}`;
 }
 
 function parsePlan(source) {
