@@ -815,7 +815,7 @@ const playbook = (fields) => `---\nextends: multi-phase-plan\nwhen: Use it for a
 
 test("plan-page renders a playbook's page-lead sections right after Public API", () => {
   const { dir, run } = sandbox();
-  const plan = '# Plan\n\nStatus: planning\n\n## Main changes\n\n- Moves the owner.\n\n## What other editors do\n\n- Lexical keeps it in the node.\n\n## Public API\n\n```ts before\nold()\n```\n\n```ts after\nnext()\n```\n' + brief();
+  const plan = '# Plan\n\nStatus: executed\n\n## Main changes\n\n- Moves the owner.\n\n## What other editors do\n\n- Lexical keeps it in the node.\n\n## Public API\n\n```ts before\nold()\n```\n\n```ts after\nnext()\n```\n';
   const root = project(dir, 'app', { files: { '.agents/playbooks/plan.md': playbook('page-lead: What other editors do\n'), 'docs/plans/plan.md': plan } });
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
   assert.equal(result.status, 0, result.stderr);
@@ -872,7 +872,7 @@ test('plan-page renders a short-dash table and a stray pipe line instead of hang
   assert.match(html, /a pipe that starts no table/);
 });
 
-test('plan-page renders a topic plan as its subject page with every iteration, newest first', () => {
+test('plan-page renders a topic plan as its subject page, led by its newest open iteration, and names both files', () => {
   const { dir, run } = sandbox();
   const topic = '# Workflow\n\nPage: https://example.test/page\n\n## Main changes\n\n- Pages follow subjects.\n';
   const first = '# First pass\n\nStatus: done\nTopic: workflow\n\n## Main changes\n\n- Moved the renderer.\n';
@@ -883,8 +883,9 @@ test('plan-page renders a topic plan as its subject page with every iteration, n
   assert.equal(result.status, 0, result.stderr);
   assert.ok(result.stdout.trim().endsWith('docs/plans/artifacts/topics/workflow.html'), result.stdout);
   const html = read(root, 'docs/plans/artifacts/topics/workflow.html');
-  assert.ok(html.includes('Pages follow subjects') && html.includes('Keep the old pages?'));
-  assert.ok(html.indexOf('Second pass') < html.indexOf('First pass'));
+  const text = html.replace(/<[^>]+>/gu, '');
+  assert.ok(text.includes('Plan Second pass') && text.includes('Keep the old pages?'), 'the newest open iteration leads with its question');
+  assert.match(text, /technical details are in docs\/plans\/2026-02-01-second\.md and docs\/plans\/topics\/workflow\.md/);
   assert.ok(!html.includes('Unrelated'));
 });
 
@@ -934,7 +935,7 @@ const reviewRow = (phase, decision, result) => `2026-01-01T00:00:00Z\t${phase}\t
 
 test('plan-page tags the latest panel round and lists every round at the bottom by priority', () => {
   const { dir, run } = sandbox();
-  const plan = '# Plan\n\nStatus: planning\n\n## Main changes\n\n- Seat Codex.\n' + brief();
+  const plan = '# Plan\n\nStatus: executed\n\n## Main changes\n\n- Seat Codex.\n';
   const log = [
     'ts\tphase\tdecision\twhy\tevidence\tresult',
     reviewRow('plan', 'Pick seats', 'decided'),
@@ -1070,17 +1071,6 @@ const deltaProject = (dir, topic, plan) =>
     files: { '.agents/playbooks/plan.md': playbook('page-lead: Layer and owner\n'), 'docs/plans/topics/drag.md': topic, 'docs/plans/2026-01-01-landing.md': plan },
   });
 
-test("plan-page leads an open plan's subject page with its marked rows and the rows they replace", () => {
-  const { dir, run } = sandbox();
-  const root = deltaProject(dir, DELTA_TOPIC, DELTA_PLAN);
-  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md'], root);
-  assert.equal(result.status, 0, result.stderr);
-  const html = read(root, 'docs/plans/artifacts/topics/drag.html');
-  assert.match(html, /<tr class="added">.*?<td>Schema landing<\/td>/);
-  assert.match(html, /<tr class="changed">.*?<td>Plite<\/td><\/tr><tr class="was">.*?<td>Upload veto<\/td><td>Plate<\/td>/);
-  assert.match(html, /<tr class="removed">.*?<td>Column landing<\/td>/);
-});
-
 test('plan-page refuses a Delta row whose key the subject file does not have', () => {
   const { dir, run } = sandbox();
   const root = deltaProject(dir, DELTA_TOPIC, DELTA_PLAN.replace('| changed | Upload veto |', '| changed | Upload vetoes |'));
@@ -1111,8 +1101,6 @@ test("plan-page --folded refuses an executed plan until the subject file holds i
   assert.match(oldKept.stderr, /still shows the before line/);
   const { root, result } = render(folded);
   assert.equal(result.status, 0, result.stderr);
-  const html = read(root, 'docs/plans/artifacts/topics/drag.html');
-  assert.ok(html.includes('Schema landing') && !html.includes('class="mark') && !html.includes('old();'));
   writeFileSync(join(root, 'docs/plans/2026-01-01-landing.md'), done.replace(CLOSE, ''));
   const unclosed = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md', '--folded'], root);
   assert.equal(unclosed.status, 1, 'a fold without its Close');
@@ -1145,7 +1133,7 @@ test("plan-page shows the leader's Close after Needs you, keeps it on top once e
   assert.ok(page.indexOf('Ship it?') < page.indexOf('Fixed the caret') && page.indexOf('Fixed the caret') < page.indexOf('The fix lead.'), 'a one-off plan shows its Close between Needs you and its lead');
 });
 
-test("plan-page keeps an open iteration's delta on top when a finished one renders", () => {
+test('plan-page leads with the open iteration when a finished one renders', () => {
   const { dir, run } = sandbox();
   const folded = '# Drag\n\n## Public API\n\n```ts\nnext();\n```\n\n## Layer and owner\n\n| Change | Layer |\n| --- | --- |\n| Schema landing | Plite |\n| Upload veto | Plite |\n';
   const root = deltaProject(dir, folded, DELTA_PLAN.replace('Status: planning', 'Status: done'));
@@ -1155,9 +1143,7 @@ test("plan-page keeps an open iteration's delta on top when a finished one rende
   writeFileSync(join(root, 'docs/plans/2026-03-01-stale.md'), stale);
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md'], root);
   assert.equal(result.status, 0, result.stderr);
-  const html = read(root, 'docs/plans/artifacts/topics/drag.html');
-  assert.match(html, /<tr class="added">.*?<td>Row veto<\/td>/);
-  assert.ok(!html.includes('Stale veto'));
+  assert.match(read(root, 'docs/plans/artifacts/topics/drag.html').replace(/<[^>]+>/gu, ''), /Plan Rows/);
 });
 
 test('plan-page renders a plan reopened after its delta was folded', () => {
@@ -1166,7 +1152,6 @@ test('plan-page renders a plan reopened after its delta was folded', () => {
   const root = deltaProject(dir, folded, DELTA_PLAN.replace('Status: planning', 'Status: reopened; the execution review found a gap'));
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md'], root);
   assert.equal(result.status, 0, result.stderr);
-  assert.match(read(root, 'docs/plans/artifacts/topics/drag.html'), /<tr class="added">.*?<td>Schema landing<\/td>/);
 });
 
 test('plan-page refuses a subject folded while its plan is still open', () => {
@@ -1258,7 +1243,7 @@ test('plan-page --check refuses an open plan whose Defaults is not the decision 
   assert.ok(!existsSync(join(root, 'docs/plans/artifacts/plan.html')));
 });
 
-test('plan-page opens an open plan with its brief, asks its open questions right after it and folds the rest', () => {
+test('plan-page opens an open plan with its brief and its open questions, and leaves the technical sections to the plan file', () => {
   const { dir, run } = sandbox();
   const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Open questions\n\n${MEMO}\n## Main changes\n\n- Moves the owner.\n`;
   const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
@@ -1267,7 +1252,8 @@ test('plan-page opens an open plan with its brief, asks its open questions right
   const html = read(root, 'docs/plans/artifacts/plan.html');
   assert.ok(html.indexOf('What did you find?') < html.indexOf('Build the memo now?'), 'the brief leads the page');
   assert.ok(html.indexOf('Old plans need a brief.') < html.indexOf('Build the memo now?'), 'every answer stays above the open questions');
-  assert.match(html, /<details class="fold"><summary>Main changes<\/summary>/);
+  assert.ok(!html.includes('Moves the owner.'), 'Main changes stays in the plan file');
+  assert.match(html.replace(/<[^>]+>/gu, ''), /technical details are in docs\/plans\/plan\.md/);
 });
 
 test('plan-page renders an open question as a decision memo: why it needs you, the facts, each option with what happens and its cost, the pick with its reason, and what go does', () => {
@@ -1317,6 +1303,17 @@ test('plan-page refuses an open question whose part runs past its word budget or
   assert.equal(many.status, 1);
   assert.match(many.stderr, /runs long: 3 facts, where 2 is the most/);
   const executed = render(project(dir, 'executed', { files: { 'docs/plans/plan.md': `# Plan\n\nStatus: executed\n\n## Open questions\n\n${longFact}\n## Close\n\n- Shipped.\n` } }));
+  assert.equal(executed.status, 0, executed.stderr);
+});
+
+test('plan-page refuses code in an open plan\'s brief, questions or defaults, and renders an executed plan that has it', () => {
+  const { dir, run } = sandbox();
+  const render = (root) => run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  const coded = brief().replace('Old plans need a brief.', 'Old plans need a `## Brief`.');
+  const open = render(project(dir, 'open', { files: { 'docs/plans/plan.md': `# Plan\n\nStatus: planning\n\n${coded}` } }));
+  assert.equal(open.status, 1);
+  assert.match(open.stderr, /## Brief in docs\/plans\/plan\.md holds code `## Brief`; the page shows this section, so write it in plain words/);
+  const executed = render(project(dir, 'executed', { files: { 'docs/plans/plan.md': `# Plan\n\nStatus: executed\n\n${coded}## Close\n\n- Shipped.\n` } }));
   assert.equal(executed.status, 0, executed.stderr);
 });
 
@@ -1436,7 +1433,6 @@ test("plan-page reads a subject iteration's state from the first word of its Sta
   assert.match(unknown.stderr, /needs a Status: line that starts with a state word/);
   const reopened = status('Re-opened after the execution review');
   assert.equal(reopened.status, 0, reopened.stderr);
-  assert.match(read(reopened.root, 'docs/plans/artifacts/topics/drag.html'), /<tr class="added">.*?<td>Schema landing<\/td>/, 'a reopened plan stays open and leads with its delta');
 });
 
 test('plan-page leads with the dated open iteration over an undated issue plan', () => {

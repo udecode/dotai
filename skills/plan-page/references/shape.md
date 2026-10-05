@@ -26,7 +26,7 @@ A subject file never holds a `before` or `after` fence.
   - `## Main changes`: its own changes.
   - Any other subject section: a table whose first column is `Delta`. Each row is `added`, `changed` or `removed`, and its next cell keys it to the subject's row in a table with the same columns. New prose or tables go beside it.
 - A one-off plan carries its own `## Public API` pairs and `## Main changes`.
-- `## Defaults`: a table whose columns start with `Decision | Pick | Alternative | Word`, one row per call made for the owner. The word reverses the pick. Leave the section out when no call was made.
+- `## Defaults`: a table whose columns start with `Decision | Pick | Alternative | Word`, one row per call made for the owner, in plain words. The word reverses the pick. Leave the section out when no call was made.
 - `## Open questions`: one `### <short header>` per decision, unique on the page, written as a decision memo the owner answers in seconds without reading anything else on the page. Write it for the owner, not for another agent. Use plain everyday words and one thought per sentence, and name what the owner sees happen. Leave out file paths, commands, commit hashes and internal tool names; that evidence goes in the decision log. Every part runs at most 15 words, an option's label at most 3, and a memo holds at most 2 facts. The renderer refuses an open plan's question that skips a part or runs past a budget:
   1. The decision in one line that ends in `?`.
   2. `Why it needs you:` and one sentence on why no safe default exists.
@@ -50,17 +50,16 @@ A subject file never holds a `before` or `after` fence.
   Why I pick it: A repo file gets reviewed, and every teammate can read it.
   ```
 - `## Close`: written at every stop that hands work back after work ran, such as a build, fix or review close. It holds what landed, the proof and its limits, the counts the block's Todo list and close rule requires, reversals and deviations first, open work with owners and, after a decision-trail review, its Attention section. A pstack playbook's Reply line lists what else it holds.
-- Scope, Steps, Evidence, Proof, Claims, Asks, Verification and Notes render collapsed under Details. In a subject iteration, so does any other section the subject file lacks; a one-off plan shows its other sections open.
+- On a page without a brief, Scope, Steps, Evidence, Proof, Claims, Asks, Verification and Notes render under Details, and a one-off plan shows its other sections. A page with a brief leaves them in the plan file.
 
 ## Lifecycle
 
 - A plan is open until its `Status:` starts with a `done` word from `status.mjs`, such as executed, done, superseded or cancelled.
-- While a plan is open, the subject file keeps the state before it. The page leads each section with the plan's delta, strikes through the current version of each changed or removed row, and collapses the current state.
+- While a plan is open, the subject file keeps the state before it, and the plan file holds the delta.
 - When execution ends, and before `Status:` says executed, write the plan's `## Close` and fold the delta into the subject file. Replace or join the call sites with each after fence. Add, replace or delete each marked row, dropping its Delta cell. Move the rest into its section, and move the plan's open work into the subject file's `## Open work`, each item with its owner. Then render with `--folded`, and flip `Status:` in the same edit, because a plain render refuses the folded subject while the plan is still open.
 - A plan reopened after its fold starts its `Status:` with `reopened`.
-- Once no iteration is open, the page shows the current state alone and lists the iterations as history.
+- Once no iteration is open, the newest iteration leads. Without a brief, its page shows the subject's current state and lists the iterations as history.
 - The open iteration whose file name starts with the latest date leads the page, whichever plan renders it. A name without a date counts as the oldest, and iterations from one date order by their decision log's latest row, then by name.
-- The leading iteration's Close shows open right after Needs you. Once no iteration is open, the newest iteration leads, so its Close stays on top until a newer iteration opens.
 
 ## Page order
 
@@ -79,23 +78,28 @@ Every page opens with a header: the title, the flow rail and the latest review r
 | Ship | the log has a `ship` or `delivery` row, or `Status:` starts with a word for landed work, such as executed or done |
 | Reflect | the log has a `reflect` or `lesson` row |
 
-When the leading plan has a brief, the page shows:
+When the leading plan has a brief, the page holds only what the owner needs to decide, and nothing on it folds:
 
 1. The header.
-2. The brief in one card, then Needs you, so all five answers stay on the first screen.
-3. Public API, when the leading plan changes it.
-4. Everything else, each folded to one line: Close, an unchanged Public API, the plan's lead paragraph, the `page-lead` sections, Main changes, Picked for you, the subject's current state, iterations or history, details and review history.
+2. The brief in one card.
+3. Needs you.
+4. Picked for you, from Defaults.
+5. One line that names the plan and subject files. They hold the technical details: Main changes, Public API, the `page-lead` sections, Close, Steps, iterations and the review rounds.
 
-Without a brief, the page shows:
+Write the brief, Needs you and Defaults in Simplified Technical English. Use short sentences, the active voice and common words, and leave out code, file paths and commit hashes. The renderer refuses an open plan whose brief, Open questions or Defaults holds code in backticks. After a build, the Found, Changes and Risks answers also tell the owner what the Close holds: what landed, where the proof stops, any reversal and the warnings of a decision-trail review.
 
-1. Needs you, from the Open questions of every iteration, the leader's first; an older iteration's question names its plan. Its head lists each decision's pick after a go badge, because go takes the pick on every decision that has one, so the owner can say go without reading further. Otherwise the owner answers in their own words. Each question then renders as a numbered decision: the question, why it needs you, the facts, each option with what happens and what it costs, and the pick in the call-to-action color with its reason. A decision with no pick also shows its go line. In Needs you and the header, only badges, such as the go badge, the decision number, the My pick badge and a finished rail stage, have a background; everything else uses text color and borders. An executed plan's older question renders with the parts it has.
+Needs you collects the Open questions of every iteration, the leader's first, and an older iteration's question names its plan. Its head lists each decision's pick after a go badge, because go takes the pick on every decision that has one, so the owner can say go without reading further. Otherwise the owner answers in their own words. Each question then renders as a numbered decision: the question, why it needs you, the facts, each option with what happens and what it costs, and the pick in the call-to-action color with its reason. A decision with no pick also shows its go line. In Needs you and the header, only badges, such as the go badge, the decision number, the My pick badge and a finished rail stage, have a background; everything else uses text color and borders. An executed plan's older question renders with the parts it has.
+
+Without a brief, the page shows the whole record, with every section open:
+
+1. Needs you.
 2. Close, from the leading iteration's or the one-off plan's `## Close`.
 3. The leading plan's lead paragraph.
 4. Public API, then the `page-lead` sections, then Main changes.
 5. Picked for you, from Defaults.
 6. The subject's lead paragraph and other sections.
-7. Iterations newest first, or History once none is open.
-8. Details, collapsed.
+7. History, newest first.
+8. Details.
 9. Review history, from the decision log's `panel` and `review` rows, with the latest round tagged in the header.
 
 ## Refusals
@@ -105,6 +109,7 @@ Without a brief, the page shows:
 - A paired section has no pair, or a `before` fence not followed directly by its `after` fence.
 - A subject file keeps a pair in a paired section.
 - A Delta cell is not `added`, `changed` or `removed`; an added row's key is already in the subject with other cells; or a changed row's key is not in the subject. This holds for a Delta table in any section.
+- An open plan's `## Brief`, `## Open questions` or `## Defaults` holds code in backticks, because the page shows those sections.
 - A subject iteration's `Status:` starts with no state word.
 - A `Topic:` line names a subject with no file.
 - An iteration names a playbook that `.agents/playbooks/` lacks.

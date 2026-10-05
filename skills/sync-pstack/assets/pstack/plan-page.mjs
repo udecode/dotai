@@ -126,17 +126,6 @@ a { color: var(--accent); }
 }
 .details { border-top: 1px solid var(--rule); padding-top: 10px; display: grid; gap: 14px; }
 .details > summary { cursor: pointer; color: var(--muted); font-size: 0.86rem; }
-.mark { font-size: 0.66rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; padding: 1px 6px; border-radius: 999px; white-space: nowrap; }
-.mark.added { background: var(--green-soft); color: var(--green); }
-.mark.changed { background: var(--amber-soft); color: var(--amber); }
-.mark.removed { background: var(--red-soft); color: var(--red); }
-.mark.was { color: var(--faint); }
-tr.was td, tr.removed td:not(:first-child) { color: var(--faint); text-decoration: line-through; }
-tr.was td:first-child { text-decoration: none; }
-details.current { margin-top: 4px; }
-details.current > summary, details.unchanged > summary { cursor: pointer; color: var(--muted); }
-details.unchanged > summary { font-weight: 600; }
-details.unchanged[open] > summary { margin-bottom: 6px; }
 .iteration { margin: 6px 0; }
 details.iteration > summary { cursor: pointer; }
 details.iteration[open] > summary { margin-bottom: 4px; }
@@ -146,9 +135,7 @@ details.iteration[open] > summary { margin-bottom: 4px; }
 .hljs-number, .hljs-literal { color: var(--num); }
 .hljs-attr, .hljs-property, .hljs-params { color: var(--ink); }
 .hljs-comment { color: var(--faint); font-style: italic; }
-details.fold { border-top: 1px solid var(--rule); padding-top: 8px; }
-details.fold > summary { cursor: pointer; color: var(--muted); font-weight: 600; font-size: 0.9rem; }
-details.fold[open] > summary { margin-bottom: 10px; }
+.source { color: var(--muted); font-size: 0.85rem; margin: 0; }
 .hue-red { --hue: var(--c-red); } .hue-orange { --hue: var(--c-orange); } .hue-amber { --hue: var(--c-amber); } .hue-lime { --hue: var(--c-lime); }
 .hue-green { --hue: var(--c-green); } .hue-teal { --hue: var(--c-teal); } .hue-cyan { --hue: var(--c-cyan); } .hue-blue { --hue: var(--c-blue); }
 .hue-indigo { --hue: var(--c-indigo); } .hue-violet { --hue: var(--c-violet); } .hue-pink { --hue: var(--c-pink); } .hue-grey { --hue: var(--c-grey); }
@@ -185,7 +172,6 @@ details.fold[open] > summary { margin-bottom: 10px; }
 .tool { font: 500 0.68rem var(--mono); border: 1px solid currentColor; border-radius: 4px; padding: 0 4px; opacity: 0.9; }
 </style>`;
 
-// The owner reads the top of the page and rarely opens the details.
 const ROLES = [
   [/^brief$/i, 'brief'],
   [/^open questions$/i, 'needs'],
@@ -623,22 +609,20 @@ function splitRow(row) {
 }
 
 const tds = (row) => row.map((cell) => `<td>${inline(cell)}</td>`).join('');
-const markedRow = (mark, row) => `<tr class="${mark}"><td><span class="mark ${mark}">${mark}</span></td>${tds(row)}</tr>`;
 
-function deltaRow([cell, ...row], prior, marks) {
+function assertDeltaRow([cell, ...row], prior, context) {
   const mark = sameText(cell);
-  const of = marks.name ? ` of ${marks.name}` : '';
+  const of = context.name ? ` of ${context.name}` : '';
   if (!DELTA.includes(mark)) {
-    throw new Error(`A Delta cell in ## ${marks.title}${of} is added, changed or removed, not "${cell}"`);
+    throw new Error(`A Delta cell in ## ${context.title}${of} is added, changed or removed, not "${cell}"`);
   }
   const old = prior.get(sameText(row[0] ?? ''));
   const folded = old ? sameCells(old, row) : mark === 'removed';
   if (!folded && (mark === 'added') === Boolean(old)) {
     throw new Error(
-      `## ${marks.title}${of} marks "${row[0]}" ${mark}, but ${marks.where} ${old ? 'already has that row' : 'has no such row'}`
+      `## ${context.title}${of} marks "${row[0]}" ${mark}, but ${context.where} ${old ? 'already has that row' : 'has no such row'}`
     );
   }
-  return { mark, old, folded, row };
 }
 
 function assertDelta(plan, doc, { name, where }) {
@@ -646,22 +630,13 @@ function assertDelta(plan, doc, { name, where }) {
     const current = sectionNamed(doc, section.title)?.lines ?? [];
     for (const table of tablesOf(section.lines).filter((entry) => isDelta(entry.head))) {
       const prior = rowsByKey(current, table.head.slice(1));
-      for (const row of table.rows) deltaRow(row, prior, { name, title: section.title, where });
+      for (const row of table.rows) assertDeltaRow(row, prior, { name, title: section.title, where });
     }
   }
 }
 
-function deltaRowHtml(cells, prior, marks) {
-  const { mark, old, folded, row } = deltaRow(cells, prior, marks);
-  if (mark === 'removed') return markedRow(mark, old ?? row);
-  return markedRow(mark, row) + (old && !folded ? markedRow('was', old) : '');
-}
-
-function tableHtml(head, rows, marks) {
-  const prior = marks && isDelta(head) ? rowsByKey(marks.current?.lines ?? [], head.slice(1)) : null;
-  const body = rows
-    .map((row) => (prior ? deltaRowHtml(row, prior, marks) : `<tr>${tds(row)}</tr>`))
-    .join('');
+function tableHtml(head, rows) {
+  const body = rows.map((row) => `<tr>${tds(row)}</tr>`).join('');
   return `<div class="scroll"><table><thead><tr>${head.map((cell) => `<th>${inline(cell)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
@@ -692,7 +667,7 @@ function listHtml(items, start) {
   };
 }
 
-function blocksHtml(lines, marks = null) {
+function blocksHtml(lines) {
   const html = [];
   let index = 0;
   const startsBlock = (line) =>
@@ -734,7 +709,7 @@ function blocksHtml(lines, marks = null) {
       ) {
         rows.push(splitRow(lines[index]));
       }
-      html.push(tableHtml(head, rows, marks));
+      html.push(tableHtml(head, rows));
       continue;
     }
     if (LIST_ITEM.test(line)) {
@@ -883,6 +858,15 @@ function longParts(ask) {
     ...ask.options.filter((option) => wordCount(option.label) > MEMO_LABEL_WORDS).map((option) => `the label "${option.label}" at ${wordCount(option.label)} words, where ${MEMO_LABEL_WORDS} is the most`),
     ...parts.filter(([, text]) => wordCount(text) > MEMO_WORDS).map(([name, text]) => `${name} at ${wordCount(text)} words, where ${MEMO_WORDS} is the most`),
   ].filter(Boolean);
+}
+
+const PAGE_PARTS = ['Brief', 'Open questions', 'Defaults'];
+
+function assertPlain(plan, where) {
+  for (const title of PAGE_PARTS) {
+    const code = sectionNamed(plan, title)?.lines.join('\n').match(/`[^`\n]+`/);
+    if (code) throw new Error(`## ${title} in ${where} holds code ${code[0]}; the page shows this section, so write it in plain words and keep code in the plan's other sections`);
+  }
 }
 
 const listed = (items) => (items.length > 1 ? `${items.slice(0, -1).join(', ')} and ${items.at(-1)}` : items[0]);
@@ -1117,8 +1101,6 @@ function reviewRounds(rows) {
 
 const finished = (status) => stateOf(status) === 'done';
 
-const statusTone = (status) => stateOf(status) ?? 'unknown';
-
 function page(planPath, { folded = false } = {}) {
   const plan = parsePlan(readFileSync(planPath, 'utf-8'));
   const root = execFileSync('git', ['rev-parse', '--show-toplevel'], {
@@ -1171,7 +1153,10 @@ function page(planPath, { folded = false } = {}) {
     assertPairs(entry.plan.sections, pairs, where);
     if (!finished(entry.plan.meta.status ?? '')) assertDefaults(entry.plan, where);
     if (!finished(entry.plan.meta.status ?? '') && owesBrief(entry)) assertBrief(entry.plan, where);
-    if (stateOf(entry.plan.meta.status ?? '') && !finished(entry.plan.meta.status ?? '')) assertAsks(entry.plan, where);
+    if (stateOf(entry.plan.meta.status ?? '') && !finished(entry.plan.meta.status ?? '')) {
+      assertAsks(entry.plan, where);
+      assertPlain(entry.plan, where);
+    }
     if (doc !== plan && isOpen(entry)) assertDelta(entry.plan, doc, { name: where, where: subjectWhere });
   }
   if (folded && doc === plan) throw new Error(`${repoPath} has no subject file to fold into`);
@@ -1198,32 +1183,11 @@ function page(planPath, { folded = false } = {}) {
     );
   const sectionHtml = (section, className = 'plan') =>
     `<section class="${className}"><h2>${inline(section.title)}</h2>${blocksHtml(section.lines)}</section>`;
-  const unchangedHtml = (section) =>
-    `<details class="panel unchanged"><summary>${inline(section.title)} <span class="count">unchanged</span></summary>${blocksHtml(section.lines)}</details>`;
-  const deltaHtml = (title) => {
-    const change = byRole(roleOf({ title }, lead), focus).find((section) => sameText(section.title) === sameText(title));
-    const current = byRole(roleOf({ title }, lead)).find((section) => sameText(section.title) === sameText(title));
-    if (!change) return unchangedHtml(current);
-    return `<section class="panel"><h2>${inline(change.title)} <span class="count">this plan</span></h2>${blocksHtml(change.lines, {
-      current,
-      title: change.title,
-      where: subjectWhere,
-    })}${current ? `<details class="current"><summary>Current state</summary>${blocksHtml(current.lines)}</details>` : ''}</section>`;
-  };
-  const ordered = (role) => {
-    const seen = new Map();
-    for (const section of [...byRole(role, focus), ...byRole(role)]) {
-      if (!seen.has(sameText(section.title))) seen.set(sameText(section.title), section.title);
-    }
-    return [...seen.values()].sort((a, b) => lead.indexOf(a.toLowerCase()) - lead.indexOf(b.toLowerCase()));
-  };
   const changeHtml = (role) =>
-    delta
-      ? ordered(role).map(deltaHtml).join('\n  ')
-      : byRole(role)
-          .sort((a, b) => lead.indexOf(a.title.toLowerCase()) - lead.indexOf(b.title.toLowerCase()))
-          .map((section) => sectionHtml(section, 'panel'))
-          .join('\n  ');
+    byRole(role)
+      .sort((a, b) => lead.indexOf(a.title.toLowerCase()) - lead.indexOf(b.title.toLowerCase()))
+      .map((section) => sectionHtml(section, 'panel'))
+      .join('\n  ');
   const [needs] = byRole('needs', leader.plan);
   const olderNeeds = iterations
     .filter((entry) => entry.path !== leader.path)
@@ -1245,15 +1209,14 @@ function page(planPath, { folded = false } = {}) {
         ? ''
         : shown.map((section) => `<h3>${inline(section.title)}</h3>${blocksHtml(section.lines)}`).join('');
     return body
-      ? `<details class="iteration"${open ? ' open' : ''}><summary>${head}</summary>${body}</details>`
+      ? `<details open class="iteration"><summary>${head}</summary>${body}</details>`
       : `<p class="iteration">${head}</p>`;
   };
   const iterationList = iterations.length
-    ? `<section class="plan"><h2>${delta ? 'Iterations' : 'History'} <span class="count">${iterations.length}</span></h2>${iterations.map(iterationHtml).join('')}</section>`
+    ? `<section class="plan"><h2>History <span class="count">${iterations.length}</span></h2>${iterations.map(iterationHtml).join('')}</section>`
     : '';
   const own = delta ? focus : doc === plan ? plan : null;
   const details = own ? byRole('details', own) : [];
-  if (delta) details.push(...byRole('idea', focus).filter((section) => !sectionNamed(doc, section.title)));
   const hubPath = subject && topic.hub ? topic.hub.replaceAll('{topic}', subject) : null;
   const hub = hubPath && existsSync(join(root, hubPath)) ? hubPath : null;
   if (hub) {
@@ -1310,15 +1273,11 @@ function page(planPath, { folded = false } = {}) {
         return `<div class="qa hue-${BRIEF_HUES[index] ?? 'grey'}"><h2 title="${escapeHtml(answer.question)}">${label ?? inline(answer.question)}</h2>${blocksHtml(answer.lines)}</div>`;
       })
       .join('');
-    const fold = (label, body) => (body.trim() ? `<details class="fold"><summary>${label}</summary>${body}</details>` : '');
-    const count = (label, n) => `${label} <span class="count">${n}</span>`;
-    const leadTitles = delta ? ordered('lead') : byRole('lead').map((section) => section.title);
-    const apiChanged = !delta || byRole('api', focus).length > 0;
     const picked = own ? byRole('picked', own) : [];
-    const state = [
-      doc.lead.some((line) => line.trim()) ? `<section class="plan">${blocksHtml(doc.lead)}</section>` : '',
-      ...byRole('idea').map((section) => (delta ? deltaHtml(section.title) : sectionHtml(section))),
-    ].join('');
+    const files = [leader.path, subjectPath]
+      .filter(Boolean)
+      .map((path) => `<code>${escapeHtml(relative(root, path))}</code>`)
+      .join(' and ');
     return `<main>
   <header>
     <h1>${title}</h1>
@@ -1327,19 +1286,8 @@ function page(planPath, { folded = false } = {}) {
   </header>
   <section class="brief card">${answers}</section>
   ${asking}
-  ${apiChanged ? changeHtml('api') : ''}
-  <div>
-  ${fold('Close', close ? blocksHtml(close.lines) : '')}
-  ${apiChanged ? '' : fold('Public API', byRole('api').map((section) => blocksHtml(section.lines)).join(''))}
-  ${fold('Plan', delta && focus.lead.some((line) => line.trim()) ? blocksHtml(focus.lead) : '')}
-  ${fold(escapeHtml(leadTitles.join(', ')), changeHtml('lead'))}
-  ${fold('Main changes', changeHtml('main'))}
-  ${fold(count('Picked for you', tablesOf(picked.flatMap((section) => section.lines)).reduce((sum, table) => sum + table.rows.length, 0)), picked.map((section) => blocksHtml(section.lines)).join(''))}
-  ${fold(doc === plan ? 'More' : `${title} today`, state)}
-  ${fold(count(delta ? 'Iterations' : 'History', iterations.length), iterations.map(iterationHtml).join(''))}
-  ${fold(escapeHtml(details.map((section) => section.title).join(', ')), details.map((section) => sectionHtml(section)).join(''))}
-  ${fold('Review history', reviewRoundsHtml)}
-  </div>
+  ${picked.map((section) => sectionHtml({ ...section, title: 'Picked for you' })).join('')}
+  <p class="source">The technical details are in ${files}.</p>
 </main>`;
   };
 
@@ -1349,10 +1297,9 @@ ${brief ? briefMain() : `<main>
   <header>
     <h1>${title}</h1>
     ${flowHtml(pageEntry ?? { path: planPath, plan }, shownStatus)}
-    <div class="meta"><code>${escapeHtml(where)}</code>${delta ? `<span>Plan <strong>${inline(focus.title || basename(focusEntry.path, '.md'))}</strong> <code>${escapeHtml(relative(root, focusEntry.path))}</code></span>` : ''}${hub ? `<span>History <code>${escapeHtml(hub)}</code></span>` : ''}${reviewTag}<span>Updated ${updated} UTC</span></div>
+    <div class="meta"><code>${escapeHtml(where)}</code>${hub ? `<span>History <code>${escapeHtml(hub)}</code></span>` : ''}${reviewTag}<span>Updated ${updated} UTC</span></div>
   </header>
   ${needs || olderNeeds.length ? needsSection(needs?.lines ?? [], olderNeeds) : ''}${close ? sectionHtml(close, 'panel') : ''}
-  ${delta && focus.lead.some((line) => line.trim()) ? `<section class="plan">${blocksHtml(focus.lead)}</section>` : ''}
   ${changeHtml('api')}
   ${changeHtml('lead')}
   ${changeHtml('main')}
@@ -1363,12 +1310,12 @@ ${brief ? briefMain() : `<main>
     : ''}
   ${doc.lead.some((line) => line.trim()) ? `<section class="plan">${blocksHtml(doc.lead)}</section>` : ''}
   ${byRole('idea')
-    .map((section) => (delta ? deltaHtml(section.title) : sectionHtml(section)))
+    .map((section) => sectionHtml(section))
     .join('\n  ')}
   ${iterationList}
   ${
     details.length
-      ? `<details class="details"><summary>Details: ${details
+      ? `<details open class="details"><summary>Details: ${details
           .map((section) => escapeHtml(section.title.toLowerCase()))
           .join(', ')}</summary>${details.map((section) => sectionHtml(section)).join('')}</details>`
       : ''
