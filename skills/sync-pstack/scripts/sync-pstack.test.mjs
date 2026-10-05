@@ -815,7 +815,7 @@ const playbook = (fields) => `---\nextends: multi-phase-plan\nwhen: Use it for a
 
 test("plan-page renders a playbook's page-lead sections right after Public API", () => {
   const { dir, run } = sandbox();
-  const plan = '# Plan\n\nStatus: executed\n\n## Main changes\n\n- Moves the owner.\n\n## What other editors do\n\n- Lexical keeps it in the node.\n\n## Public API\n\n```ts before\nold()\n```\n\n```ts after\nnext()\n```\n';
+  const plan = '# Plan\n\nStatus: planning\n\n## Main changes\n\n- Moves the owner.\n\n## What other editors do\n\n- Lexical keeps it in the node.\n\n## Public API\n\n```ts before\nold()\n```\n\n```ts after\nnext()\n```\n' + brief();
   const root = project(dir, 'app', { files: { '.agents/playbooks/plan.md': playbook('page-lead: What other editors do\n'), 'docs/plans/plan.md': plan } });
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
   assert.equal(result.status, 0, result.stderr);
@@ -885,7 +885,7 @@ test('plan-page renders a topic plan as its subject page, led by its newest open
   const html = read(root, 'docs/plans/artifacts/topics/workflow.html');
   const text = html.replace(/<[^>]+>/gu, '');
   assert.ok(text.includes('Plan Second pass') && text.includes('Keep the old pages?'), 'the newest open iteration leads with its question');
-  assert.match(text, /technical details are in docs\/plans\/2026-02-01-second\.md and docs\/plans\/topics\/workflow\.md/);
+  assert.match(text, /review rounds are in docs\/plans\/2026-02-01-second\.md and docs\/plans\/topics\/workflow\.md/);
   assert.ok(!html.includes('Unrelated'));
 });
 
@@ -1243,17 +1243,18 @@ test('plan-page --check refuses an open plan whose Defaults is not the decision 
   assert.ok(!existsSync(join(root, 'docs/plans/artifacts/plan.html')));
 });
 
-test('plan-page opens an open plan with its brief and its open questions, and leaves the technical sections to the plan file', () => {
+test('plan-page opens an open plan with its brief, its open questions and its changes, and leaves proof and steps to the plan file', () => {
   const { dir, run } = sandbox();
-  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Open questions\n\n${MEMO}\n## Main changes\n\n- Moves the owner.\n`;
+  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Open questions\n\n${MEMO}\n## Main changes\n\n- Moves the owner.\n\n## Steps\n\n- [ ] Ship the owner move.\n\n## Close\n\n- Landed nothing yet.\n`;
   const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
   assert.equal(result.status, 0, result.stderr);
   const html = read(root, 'docs/plans/artifacts/plan.html');
   assert.ok(html.indexOf('What did you find?') < html.indexOf('Build the memo now?'), 'the brief leads the page');
   assert.ok(html.indexOf('Old plans need a brief.') < html.indexOf('Build the memo now?'), 'every answer stays above the open questions');
-  assert.ok(!html.includes('Moves the owner.'), 'Main changes stays in the plan file');
-  assert.match(html.replace(/<[^>]+>/gu, ''), /technical details are in docs\/plans\/plan\.md/);
+  assert.ok(html.indexOf('Build the memo now?') < html.indexOf('Moves the owner.'), 'Main changes shows after the open questions');
+  assert.ok(!html.includes('Ship the owner move.') && !html.includes('Landed nothing yet.'), 'Steps and Close stay in the plan file');
+  assert.match(html.replace(/<[^>]+>/gu, ''), /review rounds are in docs\/plans\/plan\.md/);
 });
 
 test('plan-page renders an open question as a decision memo: why it needs you, the facts, each option with what happens and its cost, the pick with its reason, and what go does', () => {
@@ -1304,6 +1305,18 @@ test('plan-page refuses an open question whose part runs past its word budget or
   assert.match(many.stderr, /runs long: 3 facts, where 2 is the most/);
   const executed = render(project(dir, 'executed', { files: { 'docs/plans/plan.md': `# Plan\n\nStatus: executed\n\n## Open questions\n\n${longFact}\n## Close\n\n- Shipped.\n` } }));
   assert.equal(executed.status, 0, executed.stderr);
+});
+
+test("plan-page shows the subject's page-lead section, marked current, when the open plan has none", () => {
+  const { dir, run } = sandbox();
+  const topic = '# Workflow\n\nPage: https://example.test/page\n\n## What other editors do\n\n- Lexical keeps it in the node.\n\n## Main changes\n\n- Pages follow subjects.\n';
+  const second = '# Second pass\n\nStatus: planning\nTopic: workflow\n\n## Main changes\n\n- Moves the owner.\n' + brief();
+  const root = project(dir, 'app', { files: { '.agents/playbooks/plan.md': playbook('page-lead: What other editors do\n'), 'docs/plans/topics/workflow.md': topic, 'docs/plans/2026-02-01-second.md': second } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-02-01-second.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const text = read(root, 'docs/plans/artifacts/topics/workflow.html').replace(/<[^>]+>/gu, '');
+  assert.match(text, /What other editors do current\s*Lexical keeps it in the node\./);
+  assert.ok(text.indexOf('Lexical keeps it') < text.indexOf('Moves the owner.') && !text.includes('Pages follow subjects'), "the plan's changes show, and the subject's own Main changes stays in its file");
 });
 
 test('plan-page refuses code in an open plan\'s brief, questions or defaults, and renders an executed plan that has it', () => {

@@ -50,7 +50,7 @@ A subject file never holds a `before` or `after` fence.
   Why I pick it: A repo file gets reviewed, and every teammate can read it.
   ```
 - `## Close`: written at every stop that hands work back after work ran, such as a build, fix or review close. It holds what landed, the proof and its limits, the counts the block's Todo list and close rule requires, reversals and deviations first, open work with owners and, after a decision-trail review, its Attention section. A pstack playbook's Reply line lists what else it holds.
-- On a page without a brief, Scope, Steps, Evidence, Proof, Claims, Asks, Verification and Notes render under Details, and a one-off plan shows its other sections. A page with a brief leaves them in the plan file.
+- On a page without a brief, Scope, Steps, Evidence, Proof, Claims, Asks, Verification, Notes and Panel gate render under Details, and a one-off plan shows its other sections. A page with a brief leaves them in the plan file.
 
 ## Lifecycle
 
@@ -78,13 +78,17 @@ Every page opens with a header: the title, the flow rail and the latest review r
 | Ship | the log has a `ship` or `delivery` row, or `Status:` starts with a word for landed work, such as executed or done |
 | Reflect | the log has a `reflect` or `lesson` row |
 
-When the leading plan has a brief, the page holds only what the owner needs to decide, and nothing on it folds:
+When the leading plan has a brief, the page shows what a reviewer needs to judge the plan, with nothing folded, and leaves the internals in the files:
 
 1. The header.
 2. The brief in one card.
 3. Needs you.
 4. Picked for you, from Defaults.
-5. One line that names the plan and subject files. They hold the technical details: Main changes, Public API, the `page-lead` sections, Close, Steps, iterations and the review rounds.
+5. Public API, from the leading plan.
+6. The `page-lead` sections in their playbook order, each from the leading plan, or from the subject and marked current when the plan has none.
+7. Main changes.
+8. The leading plan's other sections.
+9. One line that names the plan and subject files, which keep the internals: Close, Scope, Steps, Evidence, Proof, Claims, Asks, Verification, Notes, Panel gate, iterations and the review rounds.
 
 Write the brief, Needs you and Defaults in Simplified Technical English. Use short sentences, the active voice and common words, and leave out code, file paths and commit hashes. The renderer refuses an open plan whose brief, Open questions or Defaults holds code in backticks. After a build, the Found, Changes and Risks answers also tell the owner what the Close holds: what landed, where the proof stops, any reversal and the warnings of a decision-trail review.
 

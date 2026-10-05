@@ -179,7 +179,7 @@ const ROLES = [
   [/^main changes$/i, 'main'],
   [/^defaults$/i, 'picked'],
   [/^close$/i, 'close'],
-  [/^(scope|steps|evidence|proof|claims|asks|verification|notes)$/i, 'details'],
+  [/^(scope|steps|evidence|proof|claims|asks|verification|notes|panel gate)$/i, 'details'],
 ];
 const roleOf = (section, lead) =>
   lead.includes(section.title.toLowerCase())
@@ -1179,8 +1179,8 @@ function page(planPath, { folded = false } = {}) {
     source.sections.filter(
       (section) => roleOf(section, lead) === role && hasContent(section)
     );
-  const sectionHtml = (section, className = 'plan') =>
-    `<section class="${className}"><h2>${inline(section.title)}</h2>${blocksHtml(section.lines)}</section>`;
+  const sectionHtml = (section, className = 'plan', tag = '') =>
+    `<section class="${className}"><h2>${inline(section.title)}${tag ? ` <span class="count">${tag}</span>` : ''}</h2>${blocksHtml(section.lines)}</section>`;
   const changeHtml = (role) =>
     byRole(role)
       .sort((a, b) => lead.indexOf(a.title.toLowerCase()) - lead.indexOf(b.title.toLowerCase()))
@@ -1271,7 +1271,17 @@ function page(planPath, { folded = false } = {}) {
         return `<div class="qa hue-${BRIEF_HUES[index] ?? 'grey'}"><h2 title="${escapeHtml(answer.question)}">${label ?? inline(answer.question)}</h2>${blocksHtml(answer.lines)}</div>`;
       })
       .join('');
-    const picked = own ? byRole('picked', own) : [];
+    const source = leader.plan;
+    const planLead = byRole('lead', source);
+    const currentLead = doc === source ? [] : byRole('lead').filter((section) => !planLead.some((own) => sameText(own.title) === sameText(section.title)));
+    const changes = [
+      ...byRole('api', source).map((section) => sectionHtml(section)),
+      ...[...planLead, ...currentLead]
+        .sort((a, b) => lead.indexOf(a.title.toLowerCase()) - lead.indexOf(b.title.toLowerCase()))
+        .map((section) => sectionHtml(section, 'plan', currentLead.includes(section) ? 'current' : '')),
+      ...byRole('main', source).map((section) => sectionHtml(section)),
+      ...byRole('idea', source).map((section) => sectionHtml(section)),
+    ].join('\n  ');
     const files = [leader.path, subjectPath]
       .filter(Boolean)
       .map((path) => `<code>${escapeHtml(relative(root, path))}</code>`)
@@ -1284,8 +1294,9 @@ function page(planPath, { folded = false } = {}) {
   </header>
   <section class="brief card">${answers}</section>
   ${asking}
-  ${picked.map((section) => sectionHtml({ ...section, title: 'Picked for you' })).join('')}
-  <p class="source">The technical details are in ${files}.</p>
+  ${byRole('picked', source).map((section) => sectionHtml({ ...section, title: 'Picked for you' })).join('')}
+  ${changes}
+  <p class="source">Proof, steps, history and review rounds are in ${files}.</p>
 </main>`;
   };
 
