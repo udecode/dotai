@@ -75,7 +75,7 @@ When the leading plan has a brief, the page shows:
 
 Without a brief, the page shows:
 
-1. Needs you, from the Open questions of every iteration, the leader's first; an older iteration's question names its plan. A green strip on top lists each decision's pick, so the owner can say go without reading further. Each question then renders as a numbered decision card: the question, why it needs you, the facts, each option with what happens and what it costs, the pick filled in green with its reason, and what go does. The section says the owner answers in their own words and that go takes the pick on every decision that has one. An executed plan's older question renders with the parts it has.
+1. Needs you, from the Open questions of every iteration, the leader's first; an older iteration's question names its plan. A green strip on top lists each decision's pick, so the owner can say go without reading further. Each question then renders as a numbered decision card: the question, why it needs you, the facts, each option with what happens and what it costs, the pick's title line in green with its reason, and what go does. Color fills only one-line parts, such as chips, the header band and the pick's title line, never a whole card. The section says the owner answers in their own words and that go takes the pick on every decision that has one. An executed plan's older question renders with the parts it has.
 2. Close, from the leading iteration's or the one-off plan's `## Close`.
 3. The leading plan's lead paragraph.
 4. Public API, then the `page-lead` sections, then Main changes.
