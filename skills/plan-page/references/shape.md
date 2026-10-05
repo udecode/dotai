@@ -34,7 +34,7 @@ A subject file never holds a `before` or `after` fence.
   4. `Pick any.` on its own line when the owner can choose several options; leave it out for a pick-one question.
   5. Two or more options, each as `- **<label>** (recommended): <what happens> Cost: <what it costs or risks>`. Only a `Pick any.` question marks more than one option recommended. The label is a plain phrase the owner recognizes, never a code word to type back. What happens names only what the option authorizes now; an irreversible or outward step after it, such as a later delete, comes back as its own question.
   6. `Why I pick it:` and one sentence, when an option is recommended. A question with no clear recommendation marks none and leaves this line out.
-  7. `Attention:` and one word, when an option is recommended: `safe` when the pick is easy to undo and you are sure, `look` when it is costly, hard to undo or you are unsure, and `answer` when it cannot be taken back, such as a delete or a message to customers.
+  7. `Attention:` and one word, when an option is recommended: `safe` when the pick is easy to undo and you are sure, `look` when it is costly, hard to undo or you are unsure, and `answer` when it cannot be taken back, such as a delete or a message to customers. Attention rates the recommended option, not the question, so a delete question whose pick keeps the data is `look` or `safe`.
   8. `If you say go:` only when no option is recommended; it says that go leaves the question open. A question with no pick always counts as `answer`.
 
   ```md
