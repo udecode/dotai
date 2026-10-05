@@ -1278,7 +1278,7 @@ test('plan-page renders an open question as a decision memo: why it needs you, t
   assert.equal(result.status, 0, result.stderr);
   const html = read(root, 'docs/plans/artifacts/plan.html');
   const needs = html.slice(html.indexOf('Needs you'));
-  const order = ['Build the memo now?', 'The renderer is shared by every project.', 'Another session changed it this morning.', 'I build it today.', 'A design mistake shows up after the build.', 'The prototype settled the design.', 'Nothing changes.', 'Needs you stays hard to read.', 'I build the memo renderer.'];
+  const order = ['Build the memo now?', 'The renderer is shared by every project.', 'Another session changed it this morning.', 'I build it today.', 'A design mistake shows up after the build.', 'The prototype settled the design.', 'Nothing changes.', 'Needs you stays hard to read.'];
   order.forEach((text) => assert.ok(needs.includes(text), `the memo shows "${text}"`));
   assert.ok(needs.indexOf('The prototype settled the design.') < needs.indexOf('Nothing changes.'), 'the reason sits with the pick, before the other options');
   assert.match(needs, /Build now[\s\S]*?My pick/, 'the recommended option carries the pick');
@@ -1293,7 +1293,7 @@ test('plan-page refuses an open question that skips a memo part, accepts one wit
   const old = '### Ship\n\nShip it?\n\n- **ship** (recommended): ship.\n- **hold**: wait.\n';
   const refused = render(project(dir, 'old', { files: { 'docs/plans/plan.md': `# Plan\n\nStatus: planning\n\n${brief()}## Open questions\n\n${old}` } }));
   assert.equal(refused.status, 1);
-  assert.match(refused.stderr, /"Ship" in docs\/plans\/plan\.md needs Why it needs you:, a Cost: on every option, Why I pick it: and If you say go:/);
+  assert.match(refused.stderr, /"Ship" in docs\/plans\/plan\.md needs Why it needs you:, a Cost: on every option and Why I pick it:/);
   const noPick = MEMO.replace(' (recommended)', '').replace('\nWhy I pick it: The prototype settled the design.\n', '').replace('I build the memo renderer.', 'go leaves this open.');
   const accepted = render(project(dir, 'nopick', { files: { 'docs/plans/plan.md': `# Plan\n\nStatus: planning\n\n${brief()}## Open questions\n\n${noPick}` } }));
   assert.equal(accepted.status, 0, accepted.stderr);
@@ -1303,6 +1303,33 @@ test('plan-page refuses an open question that skips a memo part, accepts one wit
   const legacy = project(dir, 'legacy', { files: { 'docs/plans/plan.md': `# Plan\n\n## Open questions\n\n${old}\n### Resolve before planning\n\n- Should the doc ship alone, or\n  with an appendix?\n` } });
   assert.equal(render(legacy).status, 0, 'a plan with no Status: line keeps its old question');
   assert.ok(read(legacy, 'docs/plans/artifacts/plan.html').includes('Should the doc ship alone, or with an appendix?'), 'a question with no options renders its text whole');
+});
+
+test('plan-page refuses an open question whose part runs past its word budget or holds more than two facts, and renders an executed plan\'s long question', () => {
+  const { dir, run } = sandbox();
+  const render = (root) => run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  const longFact = MEMO.replace('Another session changed it this morning.', 'Another session changed the shared renderer this morning while two other sessions were still rendering their pages.');
+  const long = render(project(dir, 'long', { files: { 'docs/plans/plan.md': `# Plan\n\nStatus: planning\n\n${brief()}## Open questions\n\n${longFact}` } }));
+  assert.equal(long.status, 1);
+  assert.match(long.stderr, /"Build" in docs\/plans\/plan\.md runs long: fact 1 at 17 words, where 15 is the most/);
+  const threeFacts = MEMO.replace('- Another session changed it this morning.\n', '- Another session changed it this morning.\n- The tests pass.\n- The corpus renders.\n');
+  const many = render(project(dir, 'many', { files: { 'docs/plans/plan.md': `# Plan\n\nStatus: planning\n\n${brief()}## Open questions\n\n${threeFacts}` } }));
+  assert.equal(many.status, 1);
+  assert.match(many.stderr, /runs long: 3 facts, where 2 is the most/);
+  const executed = render(project(dir, 'executed', { files: { 'docs/plans/plan.md': `# Plan\n\nStatus: executed\n\n## Open questions\n\n${longFact}\n## Close\n\n- Shipped.\n` } }));
+  assert.equal(executed.status, 0, executed.stderr);
+});
+
+test('plan-page ends a superseded plan\'s rail at its status word instead of Ship', () => {
+  const { dir, run } = sandbox();
+  const plan = '# Plan\n\nStatus: superseded by the next plan\n\n## Main changes\n\n- Draw the rail.\n';
+  const log = ['ts\tphase\tdecision\twhy\tevidence\tresult', reviewRow('build', 'Port the rail', 'fixed')].join('\n');
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan, 'docs/plans/plan.decisions.tsv': `${log}\n` } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const rail = [...read(root, 'docs/plans/artifacts/plan.html').matchAll(/<li class="fs (\w+)">(.*?)<\/li>/gu)].map(([, state, body]) => `${state}:${body.replace(/<[^>]+>/gu, '')}`);
+  assert.deepEqual(rail.slice(3, 6), ['done:Build', 'stopped:Superseded', 'skipped:Writing']);
+  assert.ok(rail.includes('skipped:Ship'), 'a superseded plan never shows Ship as done');
 });
 
 test('plan-page refuses an open plan that leads its page without a brief, and renders older and executed plans without one', () => {

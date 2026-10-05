@@ -161,12 +161,11 @@ details.fold[open] > summary { margin-bottom: 10px; }
 .round-tag { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .card { border: 1px solid var(--rule); border-top: 3px solid var(--hue, var(--rule)); border-radius: 10px; padding: 10px 14px 12px; min-width: 0; }
 .brief.card { display: grid; gap: 0; padding: 2px 14px; border-top: 1px solid var(--rule); }
-.brief .qa { display: grid; grid-template-columns: 12em minmax(0, 1fr); gap: 0 14px; padding: 7px 0; min-width: 0; }
+.brief .qa { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); gap: 0 14px; padding: 7px 0; min-width: 0; }
 .brief .qa > p { margin: 0; }
 .brief .qa + .qa { border-top: 1px solid var(--rule); }
 .brief .qa > h2 { color: var(--hue); font-size: 0.7rem; margin: 2px 0 0; }
 .brief .qa > :not(h2) { grid-column: 2; }
-@media (max-width: 620px) { .brief .qa { grid-template-columns: minmax(0, 1fr); } .brief .qa > :not(h2) { grid-column: 1; } }
 .needs.card { border: 2px solid var(--cta); border-top-width: 4px; padding: 12px 16px 14px; }
 .findings { list-style: none; padding: 0; display: grid; gap: 4px; }
 .findings li { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
@@ -175,7 +174,7 @@ details.fold[open] > summary { margin-bottom: 10px; }
 .status-rest { color: var(--muted); font-size: 0.82rem; }
 .flow { margin: 8px 0 4px; }
 .fs { --hue: var(--c-blue); }
-.fs.done { --hue: var(--c-green); } .fs.now { --hue: var(--c-amber); } .fs.blocked { --hue: var(--c-red); } .fs.skipped { --hue: var(--c-grey); }
+.fs.done { --hue: var(--c-green); } .fs.now { --hue: var(--c-amber); } .fs.blocked { --hue: var(--c-red); } .fs.skipped, .fs.stopped { --hue: var(--c-grey); }
 .flow-rail { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 4px; align-items: center; }
 .flow-rail .arrow { color: var(--faint); font-size: 0.8rem; }
 .fs { display: inline-flex; gap: 5px; align-items: baseline; border: 1.5px solid var(--hue); color: var(--hue); border-radius: 999px; padding: 2px 10px; font: 600 0.76rem var(--sans); white-space: nowrap; }
@@ -469,6 +468,8 @@ function assertDefaults(plan, where) {
 
 const BRIEF = ['What did you find?', 'What will change?', 'What do you need from me?', 'What happens if I say go?', 'What could go wrong?'];
 const BRIEF_WORDS = 40;
+const BRIEF_LABELS = ['Found', 'Changes', 'Your call', 'On go', 'Risks'];
+const wordCount = (text) => text.split(/\s+/).filter(Boolean).length;
 
 function briefOf(plan) {
   const section = sectionNamed(plan, 'Brief');
@@ -491,7 +492,7 @@ function assertBrief(plan, where) {
     throw new Error(`## Brief in ${where} asks ${asked.join(' ') || 'nothing'}, but it needs ${shape}`);
   }
   for (const { question, lines } of answers) {
-    const words = lines.join(' ').split(/\s+/).filter(Boolean).length;
+    const words = wordCount(lines.join(' '));
     if (words === 0) throw new Error(`## Brief in ${where} leaves "${question}" unanswered`);
     if (words > BRIEF_WORDS) throw new Error(`## Brief in ${where} answers "${question}" in ${words} words; keep each answer to ${BRIEF_WORDS}`);
   }
@@ -861,18 +862,41 @@ function missingParts(ask) {
     ask.options.some((option) => !option.cost) && 'a Cost: on every option',
     picks > 1 && 'at most one (recommended) option',
     picks === 1 && !ask.reason && 'Why I pick it:',
-    !ask.go && 'If you say go:',
+    picks === 0 && !ask.go && 'If you say go:',
   ].filter(Boolean);
 }
+
+const MEMO_WORDS = 15;
+const MEMO_LABEL_WORDS = 3;
+const MEMO_FACTS = 2;
+function longParts(ask) {
+  const parts = [
+    ['the question', ask.question.join(' ')],
+    ['Why it needs you:', ask.why],
+    ...ask.facts.map((fact, index) => [`fact ${index + 1}`, fact]),
+    ...ask.options.flatMap((option) => [[`"${option.label}"`, option.does], [`"${option.label}" Cost:`, option.cost]]),
+    ['Why I pick it:', ask.reason],
+    ['If you say go:', ask.go],
+  ];
+  return [
+    ask.facts.length > MEMO_FACTS && `${ask.facts.length} facts, where ${MEMO_FACTS} is the most`,
+    ...ask.options.filter((option) => wordCount(option.label) > MEMO_LABEL_WORDS).map((option) => `the label "${option.label}" at ${wordCount(option.label)} words, where ${MEMO_LABEL_WORDS} is the most`),
+    ...parts.filter(([, text]) => wordCount(text) > MEMO_WORDS).map(([name, text]) => `${name} at ${wordCount(text)} words, where ${MEMO_WORDS} is the most`),
+  ].filter(Boolean);
+}
+
+const listed = (items) => (items.length > 1 ? `${items.slice(0, -1).join(', ')} and ${items.at(-1)}` : items[0]);
 
 function assertAsks(plan, where) {
   const section = sectionNamed(plan, 'Open questions');
   if (!section) return;
   for (const group of questionGroups(section.lines).groups) {
-    const missing = missingParts(askOf(group));
-    if (missing.length === 0) continue;
-    const list = missing.length > 1 ? `${missing.slice(0, -1).join(', ')} and ${missing.at(-1)}` : missing[0];
-    throw new Error(`"${group.header}" in ${where} needs ${list}; write it as the decision memo in the plan-page skill's references/shape.md`);
+    const ask = askOf(group);
+    const fix = "write it as the decision memo in the plan-page skill's references/shape.md";
+    const missing = missingParts(ask);
+    if (missing.length) throw new Error(`"${group.header}" in ${where} needs ${listed(missing)}; ${fix}`);
+    const long = longParts(ask);
+    if (long.length) throw new Error(`"${group.header}" in ${where} runs long: ${listed(long)}; ${fix}`);
   }
 }
 
@@ -950,6 +974,7 @@ const STAGE_PHASES = {
   Proof: ['proof', 'verify'],
   Ship: ['ship', 'delivery'],
   Reflect: ['reflect', 'lesson'],
+  'Log review': ['trail'],
 };
 const WRITING_PASSES = ['deslop', 'no-comments', 'unslop'];
 
@@ -962,7 +987,6 @@ function flowOf(entry, status) {
     return half.filter((row) => SEATS.test(row.decision)).length || (half.length ? 1 : 0);
   };
   const handOffPhases = new Set(rows.filter((row) => /^review/.test(row.phase)).map((row) => row.phase));
-  const trailReviews = rows.filter((row) => row.phase === 'trail' && /trail review/i.test(row.decision)).length;
   const steps = stepChecks(entry.plan);
   const stepsDone = steps.filter(Boolean).length;
   const design = [...new Set(of('Design').map((row) => row.phase))];
@@ -977,17 +1001,16 @@ function flowOf(entry, status) {
     { label: 'Writing', ran: of('Writing').length > 0, tools: passes },
     { label: 'Code review', rounds: panelRounds(false) },
     { label: 'Proof', ran: of('Proof').length > 0 },
-    { label: 'Log review', rounds: Math.max(handOffPhases.size, trailReviews) },
-    { label: 'Ship', ran: ended || of('Ship').length > 0 },
+    { label: 'Log review', rounds: handOffPhases.size || (of('Log review').length ? 1 : 0) },
+    { label: 'Ship', ran: landed(status) || of('Ship').length > 0 },
     { label: 'Reflect', ran: of('Reflect').length > 0 },
   ].map((stage) => ({ ...stage, ran: stage.ran ?? stage.rounds > 0 }));
   const furthest = stages.findLastIndex((stage) => stage.ran);
-  for (const [index, stage] of stages.entries()) stage.state = stage.ran ? 'done' : index < furthest ? 'skipped' : 'left';
-  if (!ended) {
-    const at = stages.findIndex((stage) => stage.state === 'left');
-    if (hue === 'orange' || state === 'held') stages.splice(at < 0 ? stages.length : at, 0, { label: `${lead[0].toUpperCase()}${lead.slice(1)}`, state: state === 'held' ? 'blocked' : 'now' });
-    else if (at >= 0) stages[at].state = 'now';
-  }
+  for (const [index, stage] of stages.entries()) stage.state = stage.ran ? 'done' : ended || index < furthest ? 'skipped' : 'left';
+  const word = `${lead.charAt(0).toUpperCase()}${lead.slice(1)}`;
+  if (ended && !landed(status)) stages.splice(furthest + 1, 0, { label: word, state: 'stopped' });
+  else if (hue === 'orange' || state === 'held') stages.splice(furthest + 1, 0, { label: word, state: state === 'held' ? 'blocked' : 'now' });
+  else if (!ended && stages[furthest + 1]) stages[furthest + 1].state = 'now';
   return stages;
 }
 
@@ -1009,7 +1032,7 @@ function askHtml(ask, index, count) {
   const options = ordered
     .map((option) => `<li class="opt${option.recommended ? ' picked' : ''}"><span><span class="opt-label">${inline(option.label)}</span>${option.recommended ? '<span class="pick">My pick</span>' : ''}${option.does ? ` <span class="sep">·</span> ${inline(option.does)}` : ''}${option.cost ? ` <span class="cost">Cost: ${inline(option.cost)}</span>` : ''}</span>${option.recommended && ask.reason ? `<span class="reason">Why: ${inline(ask.reason)}</span>` : ''}</li>`)
     .join('');
-  return `<article class="ask">${head}${ask.why ? `<p class="why">${inline(ask.why)}</p>` : ''}${ask.facts.length ? `<ul class="facts">${ask.facts.map((fact) => `<li>${inline(fact)}</li>`).join('')}</ul>` : ''}<ol class="opts">${options}</ol>${blocksHtml(ask.rest)}${ask.go ? `<p class="go"><b>go</b> ${inline(ask.go)}</p>` : ''}</article>`;
+  return `<article class="ask">${head}${ask.why ? `<p class="why">${inline(ask.why)}</p>` : ''}${ask.facts.length ? `<ul class="facts">${ask.facts.map((fact) => `<li>${inline(fact)}</li>`).join('')}</ul>` : ''}<ol class="opts">${options}</ol>${blocksHtml(ask.rest)}${ask.go && !ordered[0].recommended ? `<p class="go"><b>go</b> ${inline(ask.go)}</p>` : ''}</article>`;
 }
 
 function needsSection(lines, older = []) {
@@ -1281,7 +1304,12 @@ function page(planPath, { folded = false } = {}) {
     const round = reviewed.find(({ entry }) => entry.path === leader.path)?.rounds.findLast((entry) => entry.kind === 'panel');
     const roundTag = round ? roundTagHtml(round.round, round.seats) : '';
     const asking = needs || olderNeeds.length ? needsSection(needs?.lines ?? [], olderNeeds) : '';
-    const answers = brief.map((answer, index) => `<div class="qa hue-${BRIEF_HUES[index] ?? 'grey'}"><h2>${inline(answer.question)}</h2>${blocksHtml(answer.lines)}</div>`).join('');
+    const answers = brief
+      .map((answer, index) => {
+        const label = BRIEF_LABELS[BRIEF.findIndex((question) => sameText(question) === sameText(answer.question))];
+        return `<div class="qa hue-${BRIEF_HUES[index] ?? 'grey'}"><h2 title="${escapeHtml(answer.question)}">${label ?? inline(answer.question)}</h2>${blocksHtml(answer.lines)}</div>`;
+      })
+      .join('');
     const fold = (label, body) => (body.trim() ? `<details class="fold"><summary>${label}</summary>${body}</details>` : '');
     const count = (label, n) => `${label} <span class="count">${n}</span>`;
     const leadTitles = delta ? ordered('lead') : byRole('lead').map((section) => section.title);

@@ -20,36 +20,34 @@ A subject file never holds a `before` or `after` fence.
 
 - Optional frontmatter, then `# Title`, then `Status:`, `Topic:` and, when a project playbook writes the plan, `Playbook:` lines.
 - `Status:` starts with a state word from `.agents/pstack/status.mjs`, such as `planning`, `building`, `blocked`, `reopened` or `executed`.
-- `## Brief`: five `###` questions in this order, each answered in at most 40 words: What did you find? What will change? What do you need from me? What happens if I say go? What could go wrong? The owner reads only this, so each answer names the decision, the number or the next action, and the go answer says what "go" picks. An open plan that leads its page needs one.
+- `## Brief`: five `###` questions in this order, each answered in at most 40 words: What did you find? What will change? What do you need from me? What happens if I say go? What could go wrong? The owner reads only this, so each answer names the decision, the number or the next action, and the go answer says what "go" picks. The page labels the answers Found, Changes, Your call, On go and Risks. An open plan that leads its page needs one.
 - A plan that continues a subject carries only its delta, under the subject's section titles:
   - `## Public API`: one ```` ```ts before ```` and ```` ```ts after ```` pair per call it changes. A deleted call has an empty after fence, and a new call an empty before fence.
   - `## Main changes`: its own changes.
   - Any other subject section: a table whose first column is `Delta`. Each row is `added`, `changed` or `removed`, and its next cell keys it to the subject's row in a table with the same columns. New prose or tables go beside it.
 - A one-off plan carries its own `## Public API` pairs and `## Main changes`.
 - `## Defaults`: a table whose columns start with `Decision | Pick | Alternative | Word`, one row per call made for the owner. The word reverses the pick. Leave the section out when no call was made.
-- `## Open questions`: one `### <short header>` per decision, unique on the page, written as a decision memo the owner can answer without reading anything else on the page. The renderer refuses an open plan's question that skips a part:
+- `## Open questions`: one `### <short header>` per decision, unique on the page, written as a decision memo the owner answers in seconds without reading anything else on the page. Write it for the owner, not for another agent. Use plain everyday words and one thought per sentence, and name what the owner sees happen. Leave out file paths, commands, commit hashes and internal tool names; that evidence goes in the decision log. Every part runs at most 15 words, an option's label at most 3, and a memo holds at most 2 facts. The renderer refuses an open plan's question that skips a part or runs past a budget:
   1. The decision in one line that ends in `?`.
-  2. `Why it needs you:` and one or two sentences on why no safe default exists.
-  3. The facts the owner needs to decide, as plain bullets.
-  4. Two or more options, the recommended one first, each as `- **<label>** (recommended): <what happens> Cost: <what it costs or risks>`. The label is a plain phrase the owner recognizes, never a code word to type back.
+  2. `Why it needs you:` and one sentence on why no safe default exists.
+  3. One or two facts the owner needs to decide, as plain bullets.
+  4. Two or more options, the recommended one first, each as `- **<label>** (recommended): <what happens> Cost: <what it costs or risks>`. The label is a plain phrase the owner recognizes, never a code word to type back. What happens names only what the option authorizes now; an irreversible or outward step after it, such as a later delete, comes back as its own question.
   5. `Why I pick it:` and one sentence, when one option is recommended. A question with no clear recommendation marks none and leaves this line out.
-  6. `If you say go:` and what the lead does next, or that go leaves the question open. It names only what go authorizes now; an irreversible or outward step after it, such as a later delete, comes back as its own question.
+  6. `If you say go:` only when no option is recommended; it says that go leaves the question open. When one option is recommended, go takes it, and the head of Needs you says so.
 
   ```md
   ### Workflow guides
 
   Where should the two workflow guides live?
 
-  Why it needs you: Another account owns both pages, and the choice changes what teammates read.
+  Why it needs you: Another account owns both pages, and teammates read them.
 
-  - plate-2 already keeps a repo guide, `docs/development/agent-skills.md`.
+  - plate-2 already keeps its guide in the repo.
 
-  - **Keep them in the repo** (recommended): Both `AGENTS.md` files link to a repo guide. Cost: The old pages stay up until you delete them.
-  - **Rebuild them as new pages**: I publish both guides under this account. Cost: Two more pages to keep in sync by hand.
+  - **In the repo** (recommended): Both projects link to a guide file in the repo. Cost: The old pages stay up until you delete them.
+  - **New pages**: I publish both guides again under this account. Cost: Two more pages to update by hand.
 
-  Why I pick it: A repo file is reviewed, versioned and readable by every teammate.
-
-  If you say go: I write Ellie's repo guide and repoint both links.
+  Why I pick it: A repo file gets reviewed, and every teammate can read it.
   ```
 - `## Close`: written at every stop that hands work back after work ran, such as a build, fix or review close. It holds what landed, the proof and its limits, the counts the block's Todo list and close rule requires, reversals and deviations first, open work with owners and, after a decision-trail review, its Attention section. A pstack playbook's Reply line lists what else it holds.
 - Scope, Steps, Evidence, Proof, Claims, Asks, Verification and Notes render collapsed under Details. In a subject iteration, so does any other section the subject file lacks; a one-off plan shows its other sections open.
@@ -66,7 +64,7 @@ A subject file never holds a `before` or `after` fence.
 
 ## Page order
 
-Every page opens with a header: the title, the flow rail and the latest review round with its seats. The rail shows the stages Plan, Design, Plan review, Build, Writing, Code review, Proof, Log review, Ship and Reflect. A stage that ran is a filled green badge, a skipped one is dashed grey, the next one has an amber ring and the rest are outlined blue. A `Status:` that waits or is held adds its own word, such as Waiting, before the stages left. Review stages count their rounds, Build counts its checked steps, and Design and Writing name the tools that ran. Phases outside this table never move the rail, so log each stage's rows under its phase:
+Every page opens with a header: the title, the flow rail and the latest review round with its seats. The rail shows the stages Plan, Design, Plan review, Build, Writing, Code review, Proof, Log review, Ship and Reflect. A stage that ran is a filled green badge, a skipped one is dashed grey, the next one has an amber ring and the rest are outlined blue. A `Status:` that waits or is held adds its own word, such as Waiting, before the stages left. A plan that ended without landing, such as a superseded one, adds its word in grey after its last stage and shows every stage it never ran as skipped. Review stages count their rounds, Build counts its checked steps, and Design and Writing name the tools that ran. Phases outside this table never move the rail, so log each stage's rows under its phase:
 
 | Stage | Ran when |
 | --- | --- |
@@ -77,8 +75,8 @@ Every page opens with a header: the title, the flow rail and the latest review r
 | Writing | the log has a `writing` row; the stage names the `deslop`, `no-comments` and `unslop` passes those rows mention |
 | Code review | the log has a `panel` or `interrogate` row after the first `build` row |
 | Proof | the log has a `proof` or `verify` row |
-| Log review | the log has a hand-off reviewer's row, whose phase starts with `review`, or a `trail` row whose decision names the trail review |
-| Ship | the log has a `ship` or `delivery` row, or `Status:` ends the plan |
+| Log review | the log has a `trail` row, or a hand-off reviewer's row whose phase starts with `review`; each distinct `review` phase is a round |
+| Ship | the log has a `ship` or `delivery` row, or `Status:` starts with a word for landed work, such as executed or done |
 | Reflect | the log has a `reflect` or `lesson` row |
 
 When the leading plan has a brief, the page shows:
@@ -90,7 +88,7 @@ When the leading plan has a brief, the page shows:
 
 Without a brief, the page shows:
 
-1. Needs you, from the Open questions of every iteration, the leader's first; an older iteration's question names its plan. Its head lists each decision's pick after a go badge, because go takes the pick on every decision that has one, so the owner can say go without reading further. Otherwise the owner answers in their own words. Each question then renders as a numbered decision: the question, why it needs you, the facts, each option with what happens and what it costs, the pick in the call-to-action color with its reason, and what go does. Only badges, such as the go badge, the decision number, the My pick badge and a finished rail stage, have a background; everything else uses text color and borders. An executed plan's older question renders with the parts it has.
+1. Needs you, from the Open questions of every iteration, the leader's first; an older iteration's question names its plan. Its head lists each decision's pick after a go badge, because go takes the pick on every decision that has one, so the owner can say go without reading further. Otherwise the owner answers in their own words. Each question then renders as a numbered decision: the question, why it needs you, the facts, each option with what happens and what it costs, and the pick in the call-to-action color with its reason. A decision with no pick also shows its go line. In Needs you and the header, only badges, such as the go badge, the decision number, the My pick badge and a finished rail stage, have a background; everything else uses text color and borders. An executed plan's older question renders with the parts it has.
 2. Close, from the leading iteration's or the one-off plan's `## Close`.
 3. The leading plan's lead paragraph.
 4. Public API, then the `page-lead` sections, then Main changes.
