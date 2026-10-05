@@ -161,13 +161,13 @@ details.iteration[open] > summary { margin-bottom: 4px; }
 .status-rest { color: var(--muted); font-size: 0.82rem; }
 .flow { margin: 8px 0 4px; }
 .fs { --hue: var(--c-blue); }
-.fs.done { --hue: var(--c-green); } .fs.now { --hue: var(--c-amber); } .fs.blocked { --hue: var(--c-red); } .fs.skipped, .fs.stopped { --hue: var(--c-grey); }
+.fs.done { --hue: var(--c-green); } .fs.now { --hue: var(--c-amber); } .fs.waiting { --hue: var(--c-orange); } .fs.blocked { --hue: var(--c-red); } .fs.skipped, .fs.stopped { --hue: var(--c-grey); }
 .flow-rail { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 4px; align-items: center; }
 .flow-rail .arrow { color: var(--faint); font-size: 0.8rem; }
 .fs { display: inline-flex; gap: 5px; align-items: baseline; border: 1.5px solid var(--hue); color: var(--hue); border-radius: 999px; padding: 2px 10px; font: 600 0.76rem var(--sans); white-space: nowrap; }
 .fs.done { color: var(--badge-ink); background: var(--hue); }
 .fs.skipped { border-style: dashed; opacity: 0.75; font-weight: 500; }
-.fs.now { box-shadow: 0 0 0 3px color-mix(in srgb, var(--hue) 25%, transparent); }
+.fs.now, .fs.waiting, .fs.blocked { box-shadow: 0 0 0 3px color-mix(in srgb, var(--hue) 25%, transparent); }
 .fs-meta { font: 700 0.7rem var(--mono); opacity: 0.9; }
 .tool { font: 500 0.68rem var(--mono); border: 1px solid currentColor; border-radius: 4px; padding: 0 4px; opacity: 0.9; }
 </style>`;
@@ -991,10 +991,8 @@ function flowOf(entry, status) {
   ].map((stage) => ({ ...stage, ran: stage.ran ?? stage.rounds > 0 }));
   const furthest = stages.findLastIndex((stage) => stage.ran);
   for (const [index, stage] of stages.entries()) stage.state = stage.ran ? 'done' : ended || index < furthest ? 'skipped' : 'left';
-  const word = `${lead.charAt(0).toUpperCase()}${lead.slice(1)}`;
-  if (ended && !landed(status)) stages.splice(furthest + 1, 0, { label: word, state: 'stopped' });
-  else if (hue === 'orange' || state === 'held') stages.splice(furthest + 1, 0, { label: word, state: state === 'held' ? 'blocked' : 'now' });
-  else if (!ended && stages[furthest + 1]) stages[furthest + 1].state = 'now';
+  if (ended && !landed(status)) stages.splice(furthest + 1, 0, { label: `${lead.charAt(0).toUpperCase()}${lead.slice(1)}`, state: 'stopped' });
+  else if (!ended && stages[furthest + 1]) stages[furthest + 1].state = state === 'held' ? 'blocked' : hue === 'orange' ? 'waiting' : 'now';
   return stages;
 }
 

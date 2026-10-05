@@ -63,7 +63,7 @@ A subject file never holds a `before` or `after` fence.
 
 ## Page order
 
-Every page opens with a header: the title, the flow rail and the latest review round with its seats. The rail shows the stages Plan, Design, Plan review, Build, Writing, Code review, Proof, Log review, Ship and Reflect. A stage that ran is a filled green badge, a skipped one is dashed grey, the next one has an amber ring and the rest are outlined blue. A `Status:` that waits or is held adds its own word, such as Waiting, before the stages left. A plan that ended without landing, such as a superseded one, adds its word in grey after its last stage and shows every stage it never ran as skipped. Review stages count their rounds, Build counts its checked steps, and Design and Writing name the tools that ran. Phases outside this table never move the rail, so log each stage's rows under its phase:
+Every page opens with a header: the title, the flow rail and the latest review round with its seats. The rail shows the stages Plan, Design, Plan review, Build, Writing, Code review, Proof, Log review, Ship and Reflect. A stage that ran is a filled green badge, a skipped one is dashed grey and the rest are outlined blue. The next stage has a ring: amber while work goes on, orange when the `Status:` waits on the owner and red when it is held. A plan that ended without landing, such as a superseded one, adds its word in grey after its last stage and shows every stage it never ran as skipped. Review stages count their rounds, Build counts its checked steps, and Design and Writing name the tools that ran. Phases outside this table never move the rail, so log each stage's rows under its phase:
 
 | Stage | Ran when |
 | --- | --- |

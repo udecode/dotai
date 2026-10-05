@@ -979,7 +979,7 @@ test("plan-page draws the flow rail from the log's stage phases and the Status, 
   assert.equal(result.status, 0, result.stderr);
   const html = read(root, 'docs/plans/artifacts/plan.html');
   const rail = [...html.matchAll(/<li class="fs (\w+)">(.*?)<\/li>/gu)].map(([, state, body]) => `${state}:${body.replace(/<[^>]+>/gu, ' ').replace(/\s+/gu, ' ').trim()}`);
-  assert.deepEqual(rail, ['done:Plan', 'done:Design architect', 'done:Plan review', 'done:Build', 'done:Writing deslop no-comments', 'done:Code review ×2', 'done:Proof', 'done:Log review', 'now:Waiting', 'left:Ship', 'left:Reflect']);
+  assert.deepEqual(rail, ['done:Plan', 'done:Design architect', 'done:Plan review', 'done:Build', 'done:Writing deslop no-comments', 'done:Code review ×2', 'done:Proof', 'done:Log review', 'waiting:Ship', 'left:Reflect']);
 });
 
 test('plan-page keeps a subject\'s latest review in its header and history after newer unreviewed iterations', () => {
