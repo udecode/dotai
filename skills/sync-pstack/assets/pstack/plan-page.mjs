@@ -170,6 +170,7 @@ details.iteration[open] > summary { margin-bottom: 4px; }
 
 .effort { color: var(--muted); font: 500 0.7rem var(--sans); margin-left: 2px; }
 .status-rest { color: var(--muted); font-size: 0.82rem; }
+.status-line { margin: 0; font-weight: 500; }
 .flow { margin: 8px 0 4px; }
 .fs { --hue: var(--c-blue); }
 .fs.done { --hue: var(--c-green); } .fs.now { --hue: var(--c-amber); } .fs.waiting { --hue: var(--c-orange); } .fs.blocked { --hue: var(--c-red); } .fs.skipped, .fs.stopped { --hue: var(--c-grey); }
@@ -472,9 +473,10 @@ function assertDefaults(plan, where) {
   }
 }
 
-const BRIEF = ['What did you find?', 'What will change?', 'What do you need from me?', 'What happens if I say go?', 'What could go wrong?'];
+const BRIEF = ['What will change?', 'What could go wrong?'];
 const BRIEF_WORDS = 40;
-const BRIEF_LABELS = ['Found', 'Changes', 'Your call', 'On go', 'Risks'];
+const BRIEF_LABELS = ['Changes', 'Risks'];
+const RETIRED_BRIEF = ['What did you find?', 'What do you need from me?', 'What happens if I say go?'];
 const wordCount = (text) => text.split(/\s+/).filter(Boolean).length;
 
 function briefOf(plan) {
@@ -494,6 +496,10 @@ function assertBrief(plan, where) {
   const answers = briefOf(plan);
   if (!answers) throw new Error(`${where} leads its page while open, so it needs ${shape}`);
   const asked = answers.map((answer) => answer.question);
+  const cut = asked.filter((question) => RETIRED_BRIEF.some((old) => sameText(old) === sameText(question)));
+  if (cut.length) {
+    throw new Error(`## Brief in ${where} asks the older questions; drop ${listed(cut.map((question) => `"${question}"`))}; an ask that is not a decision goes on the Status: line`);
+  }
   if (asked.length !== BRIEF.length || asked.some((question, index) => sameText(question) !== sameText(BRIEF[index]))) {
     throw new Error(`## Brief in ${where} asks ${asked.join(' ') || 'nothing'}, but it needs ${shape}`);
   }
@@ -961,7 +967,7 @@ function findingHtml(decision, result) {
   return `<li>${body}${resultHtml}</li>`;
 }
 
-const BRIEF_HUES = ['blue', 'violet', 'orange', 'green', 'red'];
+const BRIEF_HUES = ['violet', 'red'];
 
 const stepChecks = (plan) => (sectionNamed(plan, 'Steps')?.lines ?? []).flatMap((line) => line.match(/^\s*(?:\d+\.\s+)?[-*+]\s+\[([ xX])\]/)?.slice(1) ?? []).map((mark) => mark !== ' ');
 
@@ -1349,6 +1355,8 @@ function page(planPath, { folded = false } = {}) {
     .slice(0, 16)
     .replace('T', ' ');
   const shownStatus = pageEntry?.plan.meta.status ?? status;
+  const sentence = shownStatus.trim();
+  const statusLine = sentence ? `<p class="status-line">${inline(sentence[0].toUpperCase() + sentence.slice(1))}</p>` : '';
   const title = escapeHtml(doc.title || basename(planPath, '.md'));
   const where = subjectPath ? relative(root, subjectPath) : repoPath;
   const brief = briefOf(leader.plan);
@@ -1357,10 +1365,9 @@ function page(planPath, { folded = false } = {}) {
     const roundTag = round ? roundTagHtml(round.round, round.seats) : '';
     const asking = needs || olderNeeds.length ? needsSection(needs?.lines ?? [], olderNeeds) : '';
     const answers = brief
-      .map((answer, index) => {
-        const label = BRIEF_LABELS[BRIEF.findIndex((question) => sameText(question) === sameText(answer.question))];
-        return `<div class="qa hue-${BRIEF_HUES[index] ?? 'grey'}"><h2 title="${escapeHtml(answer.question)}">${label ?? inline(answer.question)}</h2>${blocksHtml(answer.lines)}</div>`;
-      })
+      .map((answer) => ({ answer, index: BRIEF.findIndex((question) => sameText(question) === sameText(answer.question)) }))
+      .filter(({ index }) => index >= 0)
+      .map(({ answer, index }) => `<div class="qa hue-${BRIEF_HUES[index]}"><h2 title="${escapeHtml(answer.question)}">${BRIEF_LABELS[index]}</h2>${blocksHtml(answer.lines)}</div>`)
       .join('');
     const source = leader.plan;
     const planLead = byRole('lead', source);
@@ -1381,6 +1388,7 @@ function page(planPath, { folded = false } = {}) {
   <header>
     <h1>${title}</h1>
     ${flowHtml(pageEntry ?? { path: planPath, plan }, shownStatus, playbooks)}
+    ${statusLine}
     <div class="meta">${delta ? `<span>Plan <strong>${inline(focus.title || basename(focusEntry.path, '.md'))}</strong></span>` : ''}${roundTag}<span>Updated ${updated} UTC</span></div>
   </header>
   <section class="brief card">${answers}</section>
@@ -1397,6 +1405,7 @@ ${brief ? briefMain() : `<main>
   <header>
     <h1>${title}</h1>
     ${flowHtml(pageEntry ?? { path: planPath, plan }, shownStatus, playbooks)}
+    ${statusLine}
     <div class="meta"><code>${escapeHtml(where)}</code>${hub ? `<span>History <code>${escapeHtml(hub)}</code></span>` : ''}${reviewTag}<span>Updated ${updated} UTC</span></div>
   </header>
   ${needs || olderNeeds.length ? needsSection(needs?.lines ?? [], olderNeeds) : ''}${close ? sectionHtml(close, 'panel') : ''}

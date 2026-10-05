@@ -804,11 +804,15 @@ test('plan-open reads a checkbox nested in a numbered step', () => {
 });
 
 const BRIEF_ANSWERS = [
-  ['What did you find?', 'The page hides its answer.'],
   ['What will change?', 'It opens with a brief.'],
+  ['What could go wrong?', 'Old plans need a brief.'],
+];
+const FIVE_ROW_BRIEF = [
+  ['What did you find?', 'The page hides its answer.'],
+  BRIEF_ANSWERS[0],
   ['What do you need from me?', 'Pick build or hold.'],
   ['What happens if I say go?', 'The renderer changes.'],
-  ['What could go wrong?', 'Old plans need a brief.'],
+  BRIEF_ANSWERS[1],
 ];
 const brief = (answers = BRIEF_ANSWERS) => `## Brief\n\n${answers.map(([question, answer]) => `### ${question}\n\n${answer}\n`).join('\n')}\n`;
 
@@ -929,7 +933,7 @@ test('plan-page keeps an older iteration\'s open question in Needs you under a n
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-02-01-next.md'], root);
   assert.equal(result.status, 0, result.stderr);
   const html = read(root, 'docs/plans/artifacts/topics/workflow.html');
-  assert.match(html, /What do you need from me\?[\s\S]*Apply the reflect lessons\?/, 'the older question stays under the newer plan');
+  assert.match(html, /It opens with a brief\.[\s\S]*Apply the reflect lessons\?/, 'the older question stays under the newer plan');
   assert.match(html, /Apply the reflect lessons\?[\s\S]*?from[\s\S]*?Built/, 'the question names the plan it belongs to');
 });
 
@@ -1265,7 +1269,7 @@ test('plan-page opens an open plan with its brief, its open questions and its ch
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
   assert.equal(result.status, 0, result.stderr);
   const html = read(root, 'docs/plans/artifacts/plan.html');
-  assert.ok(html.indexOf('What did you find?') < html.indexOf('Build the memo now?'), 'the brief leads the page');
+  assert.ok(html.indexOf('It opens with a brief.') < html.indexOf('Build the memo now?'), 'the brief leads the page');
   assert.ok(html.indexOf('Old plans need a brief.') < html.indexOf('Build the memo now?'), 'every answer stays above the open questions');
   assert.ok(html.indexOf('Build the memo now?') < html.indexOf('Moves the owner.'), 'Main changes shows after the open questions');
   assert.ok(!html.includes('Ship the owner move.') && !html.includes('Landed nothing yet.'), 'Steps and Close stay in the plan file');
@@ -1403,10 +1407,11 @@ test('plan-page refuses an open plan that leads its page without a brief, and re
 test('plan-page refuses a brief that skips or reorders a question, leaves one empty or runs long', () => {
   const { dir, run } = sandbox();
   const cases = [
-    [BRIEF_ANSWERS.slice(0, 4), /asks .* but it needs a ## Brief/],
-    [[BRIEF_ANSWERS[1], BRIEF_ANSWERS[0], ...BRIEF_ANSWERS.slice(2)], /asks .* but it needs a ## Brief/],
-    [BRIEF_ANSWERS.map(([question, answer], index) => [question, index === 3 ? '' : answer]), /leaves "What happens if I say go\?" unanswered/],
-    [BRIEF_ANSWERS.map(([question, answer], index) => [question, index === 0 ? 'word '.repeat(41) : answer]), /answers "What did you find\?" in 41 words; keep each answer to 40/],
+    [BRIEF_ANSWERS.slice(0, 1), /asks .* but it needs a ## Brief/],
+    [[BRIEF_ANSWERS[1], BRIEF_ANSWERS[0]], /asks .* but it needs a ## Brief/],
+    [BRIEF_ANSWERS.map(([question, answer], index) => [question, index === 1 ? '' : answer]), /leaves "What could go wrong\?" unanswered/],
+    [BRIEF_ANSWERS.map(([question, answer], index) => [question, index === 0 ? 'word '.repeat(41) : answer]), /answers "What will change\?" in 41 words; keep each answer to 40/],
+    [FIVE_ROW_BRIEF, /drop "What did you find\?", "What do you need from me\?" and "What happens if I say go\?"; an ask that is not a decision goes on the Status: line/],
   ];
   for (const [index, [answers, message]] of cases.entries()) {
     const root = project(dir, `case-${index}`, { files: { 'docs/plans/plan.md': `# Plan\n\nStatus: planning\n\n${brief(answers)}` } });
@@ -1414,6 +1419,27 @@ test('plan-page refuses a brief that skips or reorders a question, leaves one em
     assert.equal(result.status, 1, `case ${index} renders`);
     assert.match(result.stderr, message);
   }
+});
+
+test("plan-page shows an open plan's Status sentence in the page header", () => {
+  const { dir, run } = sandbox();
+  const plan = `# Plan\n\nStatus: waiting on your answer, then your commit of the guide\n\n${brief()}## Open questions\n\n${MEMO}`;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const header = read(root, 'docs/plans/artifacts/plan.html').match(/<header>[\s\S]*?<\/header>/u)?.[0] ?? '';
+  assert.match(header.replace(/<[^>]+>/gu, ''), /Waiting on your answer, then your commit of the guide/);
+});
+
+test("plan-page shows only Changes and Risks from an executed plan's five-row brief", () => {
+  const { dir, run } = sandbox();
+  const plan = `# Plan\n\nStatus: executed\n\n${brief(FIVE_ROW_BRIEF)}## Main changes\n\n- Moved the owner.\n`;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const card = read(root, 'docs/plans/artifacts/plan.html').match(/<section class="brief card">[\s\S]*?<\/section>/u)?.[0] ?? '';
+  assert.deepEqual([...card.matchAll(/<h2[^>]*>([^<]+)<\/h2>/gu)].map((match) => match[1]), ['Changes', 'Risks']);
+  assert.ok(!card.includes('Pick build or hold.') && !card.includes('The renderer changes.'), 'the cut rows stay in the plan file');
 });
 
 test("plan-page shows only the leading plan's own review round on a brief page", () => {
