@@ -810,6 +810,7 @@ const BRIEF_ANSWERS = [
 ];
 const brief = (answers = BRIEF_ANSWERS) => `## Brief\n\n${answers.map(([question, answer]) => `### ${question}\n\n${answer}\n`).join('\n')}\n`;
 
+const MEMO = '### Build\n\nBuild the memo now?\n\nWhy it needs you: The renderer is shared by every project.\n\n- Another session changed it this morning.\n\n- **Build now** (recommended): I build it today. Cost: A design mistake shows up after the build.\n- **Hold**: Nothing changes. Cost: Needs you stays hard to read.\n\nWhy I pick it: The prototype settled the design.\n\nIf you say go: I build the memo renderer.\n';
 const playbook = (fields) => `---\nextends: multi-phase-plan\nwhen: Use it for a plan.\n${fields}---\n\n# Plan\n`;
 
 test("plan-page renders a playbook's page-lead sections right after Public API", () => {
@@ -895,7 +896,7 @@ test('plan-page --index renders every subject page locally and lists it with its
     'docs/plans/topics/busy.md': '# Busy topic\n\nPage: https://example.test/busy\n\nThe busy lead.\n\n## Main changes\n\n- Moving.\n',
     'docs/plans/2026-03-01-quiet-pass.md': '# Quiet pass\n\nStatus: executed\nTopic: quiet\n\n## Main changes\n\n- Done.\n',
     'docs/plans/2026-01-01-busy-one.md': '# Busy one\n\nStatus: executed\nTopic: busy\n\n## Main changes\n\n- One.\n',
-    'docs/plans/2026-01-02-busy-two.md': '# Busy two\n\nStatus: planning, waiting for Build now\nTopic: busy\n\n## Open questions\n\n### Build\n\nBuild it?\n\n- **go** (recommended): build.\n- **hold**: wait.\n' + brief(),
+    'docs/plans/2026-01-02-busy-two.md': '# Busy two\n\nStatus: planning, waiting for Build now\nTopic: busy\n\n## Open questions\n\n' + MEMO + brief(),
     'docs/plans/topics/broken.md': '# Broken topic\n\nThe broken lead.\n\n## Main changes\n\n- Stuck.\n',
     'docs/plans/2026-01-03-broken-pass.md': '# Broken pass\n\nStatus: someday maybe\nTopic: broken\n\n## Main changes\n\n- Stuck.\n',
     'docs/research/features/busy.md': '# Busy feature\n',
@@ -1111,7 +1112,7 @@ test("plan-page shows the leader's Close after Needs you, keeps it on top once e
   writeFileSync(join(root, 'docs/plans/2026-01-01-built.md'), built + '\n## Open questions\n\n### Lessons\n\nApply the reflect lessons?\n\n- **apply** (recommended): apply them.\n- **skip**: drop them.\n');
   const asking = render('docs/plans/2026-01-01-built.md');
   assert.ok(asking.includes('Needs you') && asking.indexOf('Apply the reflect lessons?') < asking.indexOf('Landed the renderer move'), 'an executed leader still asks its open question');
-  writeFileSync(join(root, 'docs/plans/2026-02-01-next.md'), '# Next\n\nStatus: planning\nTopic: workflow\n\n## Open questions\n\n### Scope\n\nTake the next pass?\n\n- **yes** (recommended): take it.\n- **no**: hold.\n' + brief());
+  writeFileSync(join(root, 'docs/plans/2026-02-01-next.md'), '# Next\n\nStatus: planning\nTopic: workflow\n\n## Open questions\n\n' + MEMO + brief());
   assert.ok(!render('docs/plans/2026-02-01-next.md').includes('Landed the renderer move'), 'newer open work replaces the old Close');
   const oneOff = '# Fix\n\nStatus: executed\n\nThe fix lead.\n\n## Open questions\n\n### Ship\n\nShip it?\n\n- **ship** (recommended): ship.\n- **hold**: wait.\n\n## Close\n\n- Fixed the caret, 1 done.\n';
   writeFileSync(join(root, 'docs/plans/2026-03-01-fix.md'), oneOff);
@@ -1236,14 +1237,46 @@ test('plan-page --check refuses an open plan whose Defaults is not the decision 
 
 test('plan-page opens an open plan with its brief, asks its open questions right after it and folds the rest', () => {
   const { dir, run } = sandbox();
-  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Open questions\n\n### Build\n\nBuild it?\n\n- **build** (recommended): build.\n- **hold**: wait.\n\n## Main changes\n\n- Moves the owner.\n`;
+  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Open questions\n\n${MEMO}\n## Main changes\n\n- Moves the owner.\n`;
   const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
   assert.equal(result.status, 0, result.stderr);
   const html = read(root, 'docs/plans/artifacts/plan.html');
-  assert.ok(html.indexOf('What did you find?') < html.indexOf('Build it?'), 'the brief leads the page');
-  assert.ok(html.indexOf('Old plans need a brief.') < html.indexOf('Build it?'), 'every answer stays above the open questions');
+  assert.ok(html.indexOf('What did you find?') < html.indexOf('Build the memo now?'), 'the brief leads the page');
+  assert.ok(html.indexOf('Old plans need a brief.') < html.indexOf('Build the memo now?'), 'every answer stays above the open questions');
   assert.match(html, /<details class="fold"><summary>Main changes<\/summary>/);
+});
+
+test('plan-page renders an open question as a decision memo: why it needs you, the facts, each option with what happens and its cost, the pick with its reason, and what go does', () => {
+  const { dir, run } = sandbox();
+  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Open questions\n\n${MEMO}`;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const html = read(root, 'docs/plans/artifacts/plan.html');
+  const needs = html.slice(html.indexOf('Needs you'));
+  const order = ['Build the memo now?', 'The renderer is shared by every project.', 'Another session changed it this morning.', 'I build it today.', 'A design mistake shows up after the build.', 'The prototype settled the design.', 'Nothing changes.', 'Needs you stays hard to read.', 'I build the memo renderer.'];
+  order.forEach((text) => assert.ok(needs.includes(text), `the memo shows "${text}"`));
+  assert.ok(needs.indexOf('The prototype settled the design.') < needs.indexOf('Nothing changes.'), 'the reason sits with the pick, before the other options');
+  assert.match(needs, /Build now[\s\S]*?My pick/, 'the recommended option carries the pick');
+  assert.ok(!html.includes('type="radio"') && !html.includes('Copy answer'), 'the owner answers in their own words');
+});
+
+test('plan-page refuses an open question that skips a memo part, accepts one with no pick, and renders an executed plan\'s old question', () => {
+  const { dir, run } = sandbox();
+  const render = (root) => run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  const old = '### Ship\n\nShip it?\n\n- **ship** (recommended): ship.\n- **hold**: wait.\n';
+  const refused = render(project(dir, 'old', { files: { 'docs/plans/plan.md': `# Plan\n\nStatus: planning\n\n${brief()}## Open questions\n\n${old}` } }));
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /"Ship" in docs\/plans\/plan\.md needs Why it needs you:, a Cost: on every option, Why I pick it: and If you say go:/);
+  const noPick = MEMO.replace(' (recommended)', '').replace('\nWhy I pick it: The prototype settled the design.\n', '').replace('I build the memo renderer.', 'go leaves this open.');
+  const accepted = render(project(dir, 'nopick', { files: { 'docs/plans/plan.md': `# Plan\n\nStatus: planning\n\n${brief()}## Open questions\n\n${noPick}` } }));
+  assert.equal(accepted.status, 0, accepted.stderr);
+  const executed = project(dir, 'executed', { files: { 'docs/plans/plan.md': `# Plan\n\nStatus: executed\n\n## Open questions\n\n${old}\n## Close\n\n- Shipped.\n` } });
+  assert.equal(render(executed).status, 0);
+  assert.ok(read(executed, 'docs/plans/artifacts/plan.html').includes('Ship it?'), 'an executed plan keeps its old question');
+  const legacy = project(dir, 'legacy', { files: { 'docs/plans/plan.md': `# Plan\n\n## Open questions\n\n${old}` } });
+  assert.equal(render(legacy).status, 0, 'a plan with no Status: line keeps its old question');
 });
 
 test('plan-page refuses an open plan that leads its page without a brief, and renders older and executed plans without one', () => {

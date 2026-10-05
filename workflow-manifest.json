@@ -75,15 +75,15 @@
       "mode": 493
     },
     "skills/plan-page/SKILL.md": {
-      "sha256": "4db53fe3fb669404e7c89b9ea43f3c5f38dc0ee64ea74495d8ad64ae1fdecfc4",
+      "sha256": "2c97e9685fa9df58a06b42e6a3ae93419df65c23d581b277b0d0553822ae8eda",
       "mode": 420
     },
     "skills/plan-page/references/shape.md": {
-      "sha256": "e9417d326b754a5326a202d91b5bb4ee49a49b88667a4a8c4e6b91f840113be8",
+      "sha256": "ddffc5531b18b90e46385faed0cb4158b7fa6a331a56e10fa5c5c0612a06d4d2",
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
-      "sha256": "4c48f064b6d27736b83bd9e41ce86f483561492a8664f9710a8e0b59a5a81995",
+      "sha256": "ab699601edbe4e153e0be25c29feba81921e0d77c30112698d874d3b558ff90e",
       "mode": 420
     },
     "skills/sync-pstack/agents/openai.yaml": {
@@ -91,7 +91,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "8e2dda07ad1e0fdf956e00907ec2e5d0dc7417d7aba37f00e4201f69b909f9fa",
+      "sha256": "05fed5a6da9d76cbd17b984c67cfbb89bfd79551e5aedf90ad8323a5c1af4f9b",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/cross.mjs": {
@@ -107,7 +107,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/plan-page.mjs": {
-      "sha256": "779d1c5484d365cfe53d937e112d637f1adc1b38d1a9097e26031b3db8595a03",
+      "sha256": "7f6b226b0f21247067605a12969f782e9ffcaa4cb95c53baee7c0adea01276f2",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/status.mjs": {
@@ -119,7 +119,7 @@
       "mode": 420
     },
     "skills/sync-pstack/references/audit-brief.md": {
-      "sha256": "4f45f97ce886a0ed97eca350615a98d1d3ab380977a8c5db8b786041f9771821",
+      "sha256": "6cf50118b1c09b3d3600040a3c4e905bfd5e0f764ba28f3940b0face8aefeb29",
       "mode": 420
     },
     "skills/sync-pstack/references/interview.md": {
@@ -135,7 +135,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "fa249d33a2c7c9901272c943a6514443ab0d76472050d6ba4a34b47ba494f6b3",
+      "sha256": "15d75598aa01c7c9fb7070758283909b833a9ff6b0fcd98a69c4aaf62f239704",
       "mode": 420
     },
     "skills/test-audit/LICENSE": {

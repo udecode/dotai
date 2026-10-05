@@ -14,4 +14,4 @@ Treat the report's overlap lines as candidates, not verdicts: a sentence can rep
 
 Check every typed count and route before calling a skill unused, because a playbook can load a skill nobody types. Never propose editing a skill installed from another repository; judge it keep or uninstall.
 
-Record for each verdict which files were read in full and which were only searched; the plan counts its coverage from those rows. Judge each out-of-repo guide the project's `AGENTS.md` lists as a restatement of the block, like a skill that copies it. A proposed `/correct` run lists the mistakes that reached a commit apart from those an existing check caught, because a catch shows the enforcement already works.
+Record for each verdict which files were read in full and which were only searched; the plan counts its coverage from those rows. Judge each workflow guide the project's `AGENTS.md` names as a restatement of the block, like a skill that copies it. A proposed `/correct` run lists the mistakes that reached a commit apart from those an existing check caught, because a catch shows the enforcement already works.

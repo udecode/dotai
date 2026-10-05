@@ -27,7 +27,30 @@ A subject file never holds a `before` or `after` fence.
   - Any other subject section: a table whose first column is `Delta`. Each row is `added`, `changed` or `removed`, and its next cell keys it to the subject's row in a table with the same columns. New prose or tables go beside it.
 - A one-off plan carries its own `## Public API` pairs and `## Main changes`.
 - `## Defaults`: a table whose columns start with `Decision | Pick | Alternative | Word`, one row per call made for the owner. The word reverses the pick. Leave the section out when no call was made.
-- `## Open questions`: one `### <short header>` per question, unique on the page. Then the question in one line, then its options as `- **<label>** (recommended): <one-line description>`, with the recommended one first and each other label a word the user can type. A question with no clear recommendation marks none. Context a reader rarely needs goes after the options, and the page folds it under More.
+- `## Open questions`: one `### <short header>` per decision, unique on the page, written as a decision memo the owner can answer without reading anything else on the page. The renderer refuses an open plan's question that skips a part:
+  1. The decision in one line that ends in `?`.
+  2. `Why it needs you:` and one or two sentences on why no safe default exists.
+  3. The facts the owner needs to decide, as plain bullets.
+  4. Two or more options, the recommended one first, each as `- **<label>** (recommended): <what happens> Cost: <what it costs or risks>`. The label is a plain phrase the owner recognizes, never a code word to type back.
+  5. `Why I pick it:` and one sentence, when one option is recommended. A question with no clear recommendation marks none and leaves this line out.
+  6. `If you say go:` and what the lead does next, or that go leaves the question open.
+
+  ```md
+  ### Workflow guides
+
+  Where should the two workflow guides live?
+
+  Why it needs you: Another account owns both pages, and the choice changes what teammates read.
+
+  - plate-2 already keeps a repo guide, `docs/development/agent-skills.md`.
+
+  - **Keep them in the repo** (recommended): Both `AGENTS.md` files link to a repo guide. Cost: The old pages stay up until you delete them.
+  - **Rebuild them as new pages**: I publish both guides under this account. Cost: Two more pages to keep in sync by hand.
+
+  Why I pick it: A repo file is reviewed, versioned and readable by every teammate.
+
+  If you say go: I write Ellie's repo guide and repoint both links.
+  ```
 - `## Close`: written at every stop that hands work back after work ran, such as a build, fix or review close. It holds what landed, the proof and its limits, the counts the block's Todo list and close rule requires, reversals and deviations first, open work with owners and, after a decision-trail review, its Attention section. A pstack playbook's Reply line lists what else it holds.
 - Scope, Steps, Evidence, Proof, Claims, Asks, Verification and Notes render collapsed under Details. In a subject iteration, so does any other section the subject file lacks; a one-off plan shows its other sections open.
 
@@ -52,7 +75,7 @@ When the leading plan has a brief, the page shows:
 
 Without a brief, the page shows:
 
-1. Needs you, from the Open questions of every iteration, the leader's first; an older iteration's question names its plan. Each question renders as radio buttons with the recommendation picked. The section says that go takes every recommendation, and shows a Copy answer line only when an answer differs from it or a question has none.
+1. Needs you, from the Open questions of every iteration, the leader's first; an older iteration's question names its plan. Each question renders as a numbered decision card: the question, why it needs you, the facts, each option with what happens and what it costs, the pick marked with its reason, and what go does. The section says the owner answers in their own words and that go takes the pick on every decision that has one. An executed plan's older question renders with the parts it has.
 2. Close, from the leading iteration's or the one-off plan's `## Close`.
 3. The leading plan's lead paragraph.
 4. Public API, then the `page-lead` sections, then Main changes.
