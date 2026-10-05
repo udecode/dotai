@@ -46,8 +46,7 @@ h3, h4, h5 { font-size: 1rem; margin: 16px 0 4px; }
 .pill.unknown { background: var(--code); color: var(--muted); }
 .panel { background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px; min-width: 0; }
 .panel.needs { border: 2px solid var(--amber); display: grid; gap: 14px; }
-.panel.needs > h2 { margin: -16px -18px 0; padding: 10px 18px; background: var(--amber); color: var(--paper); border-radius: 8px 8px 0 0; }
-.panel.needs > h2 .count { color: var(--paper); }
+.panel.needs > h2 { margin: 0; padding-bottom: 8px; border-bottom: 2px solid var(--amber); color: var(--amber); }
 .go-strip { display: grid; gap: 8px; padding: 12px 14px; border-radius: 8px; border: 2px solid var(--green); }
 .go-strip > strong { color: var(--green); font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; }
 .go-strip ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
@@ -69,14 +68,14 @@ h3, h4, h5 { font-size: 1rem; margin: 16px 0 4px; }
 .opts { display: grid; gap: 8px; }
 .opt { border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; min-width: 0; }
 .opt.picked { border: 2px solid var(--green); }
-.opt.picked .opt-head { margin: -10px -12px 4px; padding: 6px 12px; border-radius: 6px 6px 0 0; background: var(--green); color: var(--paper); }
+.opt.picked .opt-head { color: var(--green); }
 .opt-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; font-weight: 600; overflow-wrap: anywhere; }
-.pick { font: 700 0.68rem var(--sans); letter-spacing: 0.05em; text-transform: uppercase; color: var(--green); background: var(--paper); border-radius: 999px; padding: 1px 8px; }
+.pick { font: 700 0.68rem var(--sans); letter-spacing: 0.05em; text-transform: uppercase; color: var(--paper); background: var(--green); border-radius: 999px; padding: 1px 8px; }
 .kv { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 2px 10px; margin: 0; font-size: 0.9rem; }
 .kv dt { color: var(--accent); font-weight: 600; }
 .kv dt.cost { color: var(--amber); }
 .kv dd { margin: 0; min-width: 0; }
-.go { margin: 0; justify-self: start; font-size: 0.93rem; background: var(--green-soft); border: 1px solid var(--green); border-radius: 999px; padding: 4px 12px; }
+.go { margin: 0; justify-self: start; font-size: 0.93rem; border: 1px solid var(--green); border-radius: 999px; padding: 4px 12px; }
 .go strong { color: var(--green); }
 @media (max-width: 520px) { .kv { grid-template-columns: minmax(0, 1fr); } .kv dd + dt { margin-top: 4px; } }
 .from { color: var(--muted); font-weight: 400; font-size: 0.85rem; }
