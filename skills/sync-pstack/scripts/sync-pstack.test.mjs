@@ -909,7 +909,7 @@ test('plan-page --index renders every subject page locally and lists it with its
   assert.ok(result.stdout.trim().endsWith('docs/plans/artifacts/topics/index.html'), result.stdout);
   const html = read(root, 'docs/plans/artifacts/topics/index.html');
   assert.ok(html.includes('href="busy.html"') && existsSync(join(root, 'docs/plans/artifacts/topics/busy.html')), 'a subject links its locally rendered page');
-  assert.ok(html.includes('planning, waiting for Build now'), 'a subject shows its leading status');
+  assert.match(html.replace(/<[^>]+>/gu, ''), /planning waiting for Build now/, 'a subject shows its leading status');
   assert.match(html, /Broken topic[\s\S]*?refused[\s\S]*?state word/, 'a page the renderer refuses shows the refusal instead of a link');
   assert.match(html, /Busy topic[\s\S]*?2 iterations/, 'a subject counts its iterations');
   assert.ok(html.indexOf('Busy topic') < html.indexOf('Quiet topic'), 'a subject that waits on the owner comes before a newer settled one');
@@ -951,11 +951,34 @@ test('plan-page tags the latest panel round and lists every round at the bottom 
   const html = read(root, 'docs/plans/artifacts/plan.html');
   const header = html.slice(html.indexOf('<header>'), html.indexOf('</header>')).replace(/<[^>]+>/gu, '');
   assert.match(header, /Review round 2/);
-  assert.match(header, /codex:gpt-6\.1-sol @xhigh missing/);
-  const history = html.slice(html.lastIndexOf('Review history'));
+  assert.match(header, /gpt-6\.1-sol xhigh missing/, 'a missing seat says so');
+  const history = html.slice(html.lastIndexOf('Review history')).replace(/<[^>]+>/gu, '');
   const order = ['Round 1', 'critical The seat writes files', 'nit Rename the flag', 'Accepted the hand-off edits', 'Round 2', 'warning Fallback hides a missing seat'].map((text) => history.indexOf(text));
   assert.ok(order.every((index, at) => index > (order[at - 1] ?? -1)), JSON.stringify(order));
   assert.ok(!html.includes('Pick seats'));
+});
+
+test("plan-page draws the flow rail from the log's stage phases and the Status, never from words inside a row", () => {
+  const { dir, run } = sandbox();
+  const plan = '# Plan\n\nStatus: waiting for the owner\n\n## Main changes\n\n- Draw the rail.\n' + brief();
+  const log = [
+    'ts\tphase\tdecision\twhy\tevidence\tresult',
+    reviewRow('plan', 'Run architect now and reflect after ship', 'decided'),
+    reviewRow('architect', 'Seat three runners', 'decided'),
+    reviewRow('panel', 'seats opus, codex:gpt-6-astra @high', 'recorded'),
+    reviewRow('build', 'Port the rail', 'fixed'),
+    reviewRow('writing', 'Run deslop and no-comments', 'fixed'),
+    reviewRow('panel', 'seats opus', 'recorded'),
+    reviewRow('panel', 'seats opus', 'recorded'),
+    reviewRow('verify', 'Prove the rail', 'verified'),
+    reviewRow('review', 'Accept the hand-off', 'kept'),
+  ].join('\n');
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan, 'docs/plans/plan.decisions.tsv': `${log}\n` } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const html = read(root, 'docs/plans/artifacts/plan.html');
+  const rail = [...html.matchAll(/<li class="fs (\w+)">(.*?)<\/li>/gu)].map(([, state, body]) => `${state}:${body.replace(/<[^>]+>/gu, ' ').replace(/\s+/gu, ' ').trim()}`);
+  assert.deepEqual(rail, ['done:Plan', 'done:Design architect', 'done:Plan review', 'done:Build', 'done:Writing deslop no-comments', 'done:Code review ×2', 'done:Proof', 'done:Log review', 'now:Waiting', 'left:Ship', 'left:Reflect']);
 });
 
 test('plan-page keeps a subject\'s latest review in its header and history after newer unreviewed iterations', () => {
@@ -1259,8 +1282,8 @@ test('plan-page renders an open question as a decision memo: why it needs you, t
   order.forEach((text) => assert.ok(needs.includes(text), `the memo shows "${text}"`));
   assert.ok(needs.indexOf('The prototype settled the design.') < needs.indexOf('Nothing changes.'), 'the reason sits with the pick, before the other options');
   assert.match(needs, /Build now[\s\S]*?My pick/, 'the recommended option carries the pick');
-  const strip = needs.slice(needs.indexOf('Say go and I will'), needs.indexOf('Decision 1 of 1'));
-  assert.ok(needs.includes('Say go and I will') && strip.includes('Build now'), 'the go strip names each pick above the cards');
+  const strip = needs.slice(0, needs.indexOf('Build the memo now?')).replace(/<[^>]+>/gu, '');
+  assert.match(strip, /go\s*takes 1\. Build now/, 'the go line names each pick above the questions');
   assert.ok(!html.includes('type="radio"') && !html.includes('Copy answer'), 'the owner answers in their own words');
 });
 
