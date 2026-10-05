@@ -30,14 +30,14 @@ const PAGE_HEAD = `<meta charset="utf-8">
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --ground: #111316; --paper: #111316; --ink: #e6e8eb; --muted: #c0c7cf; --faint: #9ea7b2; --rule: #262b31;
-  --c-red: #ff8a80; --c-orange: #ffa45c; --c-amber: #f5c35b; --c-lime: #b5e05a; --c-green: #7fd99a; --c-teal: #5fd4c6; --c-cyan: #67d1ee; --c-blue: #8ab8ff; --c-indigo: #a5a8ff; --c-violet: #c4a6ff; --c-pink: #ff8cc6; --c-grey: #a7b0ba; --badge-ink: #111316;
+  --c-red: #ff6b5e; --c-orange: #ffa45c; --c-amber: #f5c35b; --c-lime: #b5e05a; --c-green: #7fd99a; --c-teal: #5fd4c6; --c-cyan: #67d1ee; --c-blue: #8ab8ff; --c-indigo: #a5a8ff; --c-violet: #c4a6ff; --c-pink: #ff8cc6; --c-grey: #a7b0ba; --badge-ink: #111316;
   --cta: var(--c-pink); --cta-ink: var(--badge-ink); --accent: #8db6e6; --accent-soft: #1f2d3d;
   --amber: #f0b45c; --amber-soft: #33270f; --green: #8fcf9f; --green-soft: #18291d; --red: #f0968c; --red-soft: #3a1c19; --code: #1a1d21;
   --kw: #d7a1e6; --str: #a8d48a; --fn: #8db6e6; --num: #f0a66e; color-scheme: dark;
 } }
 :root[data-theme="dark"] {
   --ground: #111316; --paper: #111316; --ink: #e6e8eb; --muted: #c0c7cf; --faint: #9ea7b2; --rule: #262b31;
-  --c-red: #ff8a80; --c-orange: #ffa45c; --c-amber: #f5c35b; --c-lime: #b5e05a; --c-green: #7fd99a; --c-teal: #5fd4c6; --c-cyan: #67d1ee; --c-blue: #8ab8ff; --c-indigo: #a5a8ff; --c-violet: #c4a6ff; --c-pink: #ff8cc6; --c-grey: #a7b0ba; --badge-ink: #111316;
+  --c-red: #ff6b5e; --c-orange: #ffa45c; --c-amber: #f5c35b; --c-lime: #b5e05a; --c-green: #7fd99a; --c-teal: #5fd4c6; --c-cyan: #67d1ee; --c-blue: #8ab8ff; --c-indigo: #a5a8ff; --c-violet: #c4a6ff; --c-pink: #ff8cc6; --c-grey: #a7b0ba; --badge-ink: #111316;
   --cta: var(--c-pink); --cta-ink: var(--badge-ink); --accent: #8db6e6; --accent-soft: #1f2d3d;
   --amber: #f0b45c; --amber-soft: #33270f; --green: #8fcf9f; --green-soft: #18291d; --red: #f0968c; --red-soft: #3a1c19; --code: #1a1d21;
   --kw: #d7a1e6; --str: #a8d48a; --fn: #8db6e6; --num: #f0a66e; color-scheme: dark;
@@ -165,7 +165,7 @@ details.iteration[open] > summary { margin-bottom: 4px; }
 .flow-rail { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 4px; align-items: center; }
 .flow-rail .arrow { color: var(--faint); font-size: 0.8rem; }
 .fs { display: inline-flex; gap: 5px; align-items: baseline; border: 1.5px solid var(--hue); color: var(--hue); border-radius: 999px; padding: 2px 10px; font: 600 0.76rem var(--sans); white-space: nowrap; }
-.fs.done { color: var(--badge-ink); background: var(--hue); }
+.fs.done, .fs.waiting, .fs.blocked { color: var(--badge-ink); background: var(--hue); }
 .fs.skipped { border-style: dashed; opacity: 0.75; font-weight: 500; }
 .fs.now, .fs.waiting, .fs.blocked { box-shadow: 0 0 0 3px color-mix(in srgb, var(--hue) 25%, transparent); }
 .fs-meta { font: 700 0.7rem var(--mono); opacity: 0.9; }
@@ -958,7 +958,19 @@ const STAGE_PHASES = {
   Proof: ['proof', 'verify'],
   Ship: ['ship', 'delivery'],
   Reflect: ['reflect', 'lesson'],
-  'Log review': ['trail'],
+  Audit: ['trail'],
+};
+const STAGE_HINTS = {
+  Plan: 'The plan file and its brief.',
+  Design: 'architect, prototype, arena, how or why explored the design.',
+  'Plan review': 'interrogate panel rounds on the plan, before the build.',
+  Build: 'Code written; the count is checked Steps.',
+  Writing: 'deslop, no-comments and unslop cleanup passes.',
+  'Code review': 'interrogate panel rounds on the code.',
+  Proof: 'verify or a proof run on the real app.',
+  Audit: 'Another model checks each decision-log claim against the conversation.',
+  Ship: 'The work landed.',
+  Reflect: 'Lessons saved with reflect.',
 };
 const WRITING_PASSES = ['deslop', 'no-comments', 'unslop'];
 
@@ -985,7 +997,7 @@ function flowOf(entry, status) {
     { label: 'Writing', ran: of('Writing').length > 0, tools: passes },
     { label: 'Code review', rounds: panelRounds(false) },
     { label: 'Proof', ran: of('Proof').length > 0 },
-    { label: 'Log review', rounds: handOffPhases.size || (of('Log review').length ? 1 : 0) },
+    { label: 'Audit', rounds: handOffPhases.size || (of('Audit').length ? 1 : 0) },
     { label: 'Ship', ran: landed(status) || of('Ship').length > 0 },
     { label: 'Reflect', ran: of('Reflect').length > 0 },
   ].map((stage) => ({ ...stage, ran: stage.ran ?? stage.rounds > 0 }));
@@ -1001,7 +1013,7 @@ const toolChips = (stage) => (stage.tools ?? []).map((tool) => `<span class="too
 
 function flowRailHtml(stages) {
   return `<ol class="flow-rail">${stages
-    .map((stage) => `<li class="fs ${stage.state}">${escapeHtml(stage.label)}${stageMeta(stage) ? `<span class="fs-meta">${escapeHtml(stageMeta(stage))}</span>` : ''}${toolChips(stage)}</li>`)
+    .map((stage) => `<li class="fs ${stage.state}" title="${escapeHtml(STAGE_HINTS[stage.label] ?? stage.label)}">${escapeHtml(stage.label)}${stageMeta(stage) ? `<span class="fs-meta">${escapeHtml(stageMeta(stage))}</span>` : ''}${toolChips(stage)}</li>`)
     .join('<li class="arrow" aria-hidden="true">→</li>')}</ol>`;
 }
 

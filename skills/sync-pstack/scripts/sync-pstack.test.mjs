@@ -978,8 +978,8 @@ test("plan-page draws the flow rail from the log's stage phases and the Status, 
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
   assert.equal(result.status, 0, result.stderr);
   const html = read(root, 'docs/plans/artifacts/plan.html');
-  const rail = [...html.matchAll(/<li class="fs (\w+)">(.*?)<\/li>/gu)].map(([, state, body]) => `${state}:${body.replace(/<[^>]+>/gu, ' ').replace(/\s+/gu, ' ').trim()}`);
-  assert.deepEqual(rail, ['done:Plan', 'done:Design architect', 'done:Plan review', 'done:Build', 'done:Writing deslop no-comments', 'done:Code review ×2', 'done:Proof', 'done:Log review', 'waiting:Ship', 'left:Reflect']);
+  const rail = [...html.matchAll(/<li class="fs (\w+)"[^>]*>(.*?)<\/li>/gu)].map(([, state, body]) => `${state}:${body.replace(/<[^>]+>/gu, ' ').replace(/\s+/gu, ' ').trim()}`);
+  assert.deepEqual(rail, ['done:Plan', 'done:Design architect', 'done:Plan review', 'done:Build', 'done:Writing deslop no-comments', 'done:Code review ×2', 'done:Proof', 'done:Audit', 'waiting:Ship', 'left:Reflect']);
 });
 
 test('plan-page keeps a subject\'s latest review in its header and history after newer unreviewed iterations', () => {
@@ -1337,7 +1337,7 @@ test('plan-page ends a superseded plan\'s rail at its status word instead of Shi
   const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan, 'docs/plans/plan.decisions.tsv': `${log}\n` } });
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
   assert.equal(result.status, 0, result.stderr);
-  const rail = [...read(root, 'docs/plans/artifacts/plan.html').matchAll(/<li class="fs (\w+)">(.*?)<\/li>/gu)].map(([, state, body]) => `${state}:${body.replace(/<[^>]+>/gu, '')}`);
+  const rail = [...read(root, 'docs/plans/artifacts/plan.html').matchAll(/<li class="fs (\w+)"[^>]*>(.*?)<\/li>/gu)].map(([, state, body]) => `${state}:${body.replace(/<[^>]+>/gu, '')}`);
   assert.deepEqual(rail.slice(3, 6), ['done:Build', 'stopped:Superseded', 'skipped:Writing']);
   assert.ok(rail.includes('skipped:Ship'), 'a superseded plan never shows Ship as done');
 });

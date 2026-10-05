@@ -63,7 +63,7 @@ A subject file never holds a `before` or `after` fence.
 
 ## Page order
 
-Every page opens with a header: the title, the flow rail and the latest review round with its seats. The rail shows the stages Plan, Design, Plan review, Build, Writing, Code review, Proof, Log review, Ship and Reflect. A stage that ran is a filled green badge, a skipped one is dashed grey and the rest are outlined blue. The next stage has a ring: amber while work goes on, orange when the `Status:` waits on the owner and red when it is held. A plan that ended without landing, such as a superseded one, adds its word in grey after its last stage and shows every stage it never ran as skipped. Review stages count their rounds, Build counts its checked steps, and Design and Writing name the tools that ran. Phases outside this table never move the rail, so log each stage's rows under its phase:
+Every page opens with a header: the title, the flow rail and the latest review round with its seats. The rail shows the stages Plan, Design, Plan review, Build, Writing, Code review, Proof, Audit, Ship and Reflect. Hovering a stage shows the pstack step behind it. A stage that ran is a filled green badge, a skipped one is dashed grey and the rest are outlined blue. The next stage is an amber ring while work goes on, a filled orange badge when the `Status:` waits on the owner, and a filled red badge when it is held. A plan that ended without landing, such as a superseded one, adds its word in grey after its last stage and shows every stage it never ran as skipped. Review stages count their rounds, Build counts its checked steps, and Design and Writing name the tools that ran. Phases outside this table never move the rail, so log each stage's rows under its phase:
 
 | Stage | Ran when |
 | --- | --- |
@@ -74,7 +74,7 @@ Every page opens with a header: the title, the flow rail and the latest review r
 | Writing | the log has a `writing` row; the stage names the `deslop`, `no-comments` and `unslop` passes those rows mention |
 | Code review | the log has a `panel` or `interrogate` row after the first `build` row |
 | Proof | the log has a `proof` or `verify` row |
-| Log review | the log has a `trail` row, or a hand-off reviewer's row whose phase starts with `review`; each distinct `review` phase is a round |
+| Audit | the log has a `trail` row, or a hand-off reviewer's row whose phase starts with `review`; each distinct `review` phase is a round. This is the decision-trail review: another model family checks each logged claim against the conversation |
 | Ship | the log has a `ship` or `delivery` row, or `Status:` starts with a word for landed work, such as executed or done |
 | Reflect | the log has a `reflect` or `lesson` row |
 
