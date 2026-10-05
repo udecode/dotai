@@ -1259,6 +1259,8 @@ test('plan-page renders an open question as a decision memo: why it needs you, t
   order.forEach((text) => assert.ok(needs.includes(text), `the memo shows "${text}"`));
   assert.ok(needs.indexOf('The prototype settled the design.') < needs.indexOf('Nothing changes.'), 'the reason sits with the pick, before the other options');
   assert.match(needs, /Build now[\s\S]*?My pick/, 'the recommended option carries the pick');
+  const strip = needs.slice(needs.indexOf('Say go and I will'), needs.indexOf('Decision 1 of 1'));
+  assert.ok(needs.includes('Say go and I will') && strip.includes('Build now'), 'the go strip names each pick above the cards');
   assert.ok(!html.includes('type="radio"') && !html.includes('Copy answer'), 'the owner answers in their own words');
 });
 

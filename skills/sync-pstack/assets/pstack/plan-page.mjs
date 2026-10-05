@@ -45,29 +45,40 @@ h3, h4, h5 { font-size: 1rem; margin: 16px 0 4px; }
 .pill.held, .pill.planning { background: var(--amber-soft); color: var(--amber); }
 .pill.unknown { background: var(--code); color: var(--muted); }
 .panel { background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px; min-width: 0; }
-.panel.needs { border-color: var(--amber); display: grid; gap: 14px; }
-.panel.needs h2 { margin: 0; }
+.panel.needs { border: 2px solid var(--amber); display: grid; gap: 14px; }
+.panel.needs > h2 { margin: -16px -18px 0; padding: 10px 18px; background: var(--amber); color: var(--paper); border-radius: 8px 8px 0 0; }
+.panel.needs > h2 .count { color: var(--paper); }
+.go-strip { display: grid; gap: 8px; padding: 12px 14px; border-radius: 8px; background: var(--green-soft); border: 1px solid var(--green); }
+.go-strip > strong { color: var(--green); font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.go-strip ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.go-chip { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: baseline; background: var(--green); color: var(--paper); border-radius: 999px; padding: 4px 12px; font-weight: 600; font-size: 0.88rem; overflow-wrap: anywhere; }
+.go-chip span { font-weight: 500; }
+.go-chip.open { background: var(--amber); }
 .panel h2 { display: flex; gap: 10px; align-items: baseline; }
 .count { font-size: 0.8rem; color: var(--muted); font-weight: 500; }
 .quiet { color: var(--muted); margin: 0; }
 .chip { font: 600 0.72rem var(--sans); letter-spacing: 0.04em; text-transform: uppercase; color: var(--amber); background: var(--amber-soft); border-radius: 999px; padding: 2px 8px; }
 .how { margin: 0; color: var(--muted); font-size: 0.9rem; }
 .how strong { color: var(--ink); }
-.ask { display: grid; gap: 12px; min-width: 0; }
+.ask { display: grid; gap: 12px; min-width: 0; border-left: 4px solid var(--amber); padding-left: 14px; }
 .ask + .ask { border-top: 1px solid var(--rule); padding-top: 18px; }
 .ask h3 { margin: 0; font-size: 1.05rem; line-height: 1.4; text-wrap: balance; }
-.eyebrow { font: 600 0.72rem var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--amber); }
+.eyebrow { justify-self: start; font: 700 0.72rem var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--paper); background: var(--accent); border-radius: 999px; padding: 2px 10px; }
 .why { margin: 0; color: var(--muted); font-size: 0.92rem; }
 .facts { margin: 0; padding-left: 1.2em; display: grid; gap: 2px; }
 .opts { display: grid; gap: 8px; }
 .opt { border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; min-width: 0; }
-.opt.picked { border-color: var(--green); background: var(--green-soft); }
+.opt.picked { border: 2px solid var(--green); background: var(--green); color: var(--paper); }
+.opt.picked .kv dt { color: var(--paper); }
+.opt.picked code { color: var(--ink); background: var(--paper); }
 .opt-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; font-weight: 600; overflow-wrap: anywhere; }
-.pick { font: 600 0.68rem var(--sans); letter-spacing: 0.05em; text-transform: uppercase; color: var(--green); }
+.pick { font: 700 0.68rem var(--sans); letter-spacing: 0.05em; text-transform: uppercase; color: var(--green); background: var(--paper); border-radius: 999px; padding: 1px 8px; }
 .kv { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 2px 10px; margin: 0; font-size: 0.9rem; }
-.kv dt { color: var(--muted); }
+.kv dt { color: var(--accent); font-weight: 600; }
+.kv dt.cost { color: var(--amber); }
 .kv dd { margin: 0; min-width: 0; }
-.go { margin: 0; font-size: 0.93rem; }
+.go { margin: 0; justify-self: start; font-size: 0.93rem; background: var(--green-soft); border: 1px solid var(--green); border-radius: 999px; padding: 4px 12px; }
+.go strong { color: var(--green); }
 @media (max-width: 520px) { .kv { grid-template-columns: minmax(0, 1fr); } .kv dd + dt { margin-top: 4px; } }
 .from { color: var(--muted); font-weight: 400; font-size: 0.85rem; }
 .topics { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
@@ -842,7 +853,7 @@ function askHtml(ask, index, count) {
     .map((option) => {
       const rows = [
         option.does && `<dt>What happens</dt><dd>${inline(option.does)}</dd>`,
-        option.cost && `<dt>Cost</dt><dd>${inline(option.cost)}</dd>`,
+        option.cost && `<dt class="cost">Cost</dt><dd>${inline(option.cost)}</dd>`,
         option.recommended && ask.reason && `<dt>Why I pick it</dt><dd>${inline(ask.reason)}</dd>`,
       ].filter(Boolean);
       return `<div class="opt${option.recommended ? ' picked' : ''}"><div class="opt-head">${inline(option.label)}${option.recommended ? '<span class="pick">My pick</span>' : ''}</div>${rows.length ? `<dl class="kv">${rows.join('')}</dl>` : ''}</div>`;
@@ -857,7 +868,12 @@ function needsSection(lines, older = []) {
   const asks = groups.map(askOf);
   const picks = asks.some((ask) => ask.options.some((option) => option.recommended));
   const how = `<p class="how">Answer in your own words.${picks ? ' <strong>go</strong> takes my pick on every decision that has one.' : ''}</p>`;
-  return `<section class="panel needs"><h2>Needs you <span class="count">${asks.length} ${asks.length === 1 ? 'decision' : 'decisions'}</span></h2>${how}${blocksHtml(intro)}${asks.map((ask, index) => askHtml(ask, index, asks.length)).join('')}</section>`;
+  const chips = asks.map((ask, index) => {
+    const pick = ask.options.find((option) => option.recommended);
+    return `<li class="go-chip${pick ? '' : ' open'}"><span>${index + 1}. ${inline(ask.header)}</span>${pick ? inline(pick.label) : 'needs your answer'}</li>`;
+  });
+  const strip = `<div class="go-strip"><strong>Say go and I will</strong><ol>${chips.join('')}</ol></div>`;
+  return `<section class="panel needs"><h2>Needs you <span class="count">${asks.length} ${asks.length === 1 ? 'decision' : 'decisions'}</span></h2>${strip}${how}${blocksHtml(intro)}${asks.map((ask, index) => askHtml(ask, index, asks.length)).join('')}</section>`;
 }
 
 function parsePlan(source) {
