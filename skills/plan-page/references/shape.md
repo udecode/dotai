@@ -33,7 +33,7 @@ A subject file never holds a `before` or `after` fence.
   3. The facts the owner needs to decide, as plain bullets.
   4. Two or more options, the recommended one first, each as `- **<label>** (recommended): <what happens> Cost: <what it costs or risks>`. The label is a plain phrase the owner recognizes, never a code word to type back.
   5. `Why I pick it:` and one sentence, when one option is recommended. A question with no clear recommendation marks none and leaves this line out.
-  6. `If you say go:` and what the lead does next, or that go leaves the question open.
+  6. `If you say go:` and what the lead does next, or that go leaves the question open. It names only what go authorizes now; an irreversible or outward step after it, such as a later delete, comes back as its own question.
 
   ```md
   ### Workflow guides

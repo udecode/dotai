@@ -1277,8 +1277,9 @@ test('plan-page refuses an open question that skips a memo part, accepts one wit
   const executed = project(dir, 'executed', { files: { 'docs/plans/plan.md': `# Plan\n\nStatus: executed\n\n## Open questions\n\n${old}\n## Close\n\n- Shipped.\n` } });
   assert.equal(render(executed).status, 0);
   assert.ok(read(executed, 'docs/plans/artifacts/plan.html').includes('Ship it?'), 'an executed plan keeps its old question');
-  const legacy = project(dir, 'legacy', { files: { 'docs/plans/plan.md': `# Plan\n\n## Open questions\n\n${old}` } });
+  const legacy = project(dir, 'legacy', { files: { 'docs/plans/plan.md': `# Plan\n\n## Open questions\n\n${old}\n### Resolve before planning\n\n- Should the doc ship alone, or\n  with an appendix?\n` } });
   assert.equal(render(legacy).status, 0, 'a plan with no Status: line keeps its old question');
+  assert.ok(read(legacy, 'docs/plans/artifacts/plan.html').includes('Should the doc ship alone, or with an appendix?'), 'a question with no options renders its text whole');
 });
 
 test('plan-page refuses an open plan that leads its page without a brief, and renders older and executed plans without one', () => {

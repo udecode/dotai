@@ -790,7 +790,7 @@ function questionGroups(lines, older = []) {
 }
 
 function askOf({ header, lines, from }) {
-  const ask = { header, from, question: [], why: '', facts: [], options: [], reason: '', go: '', rest: [] };
+  const ask = { header, from, lines, question: [], why: '', facts: [], options: [], reason: '', go: '', rest: [] };
   let last = null;
   for (const line of lines) {
     const text = line.trim();
@@ -808,11 +808,12 @@ function askOf({ header, lines, from }) {
       last = { label: option[1].trim(), recommended: Boolean(option[2]) || /\(recommended\)$/i.test(option[3] ?? ''), does, cost };
       ask.options.push(last);
     } else if (last && /^\s+\S/.test(line)) {
-      if (typeof last === 'string') ask[last] += ` ${text}`;
+      if (last === 'fact') ask.facts[ask.facts.length - 1] += ` ${text}`;
+      else if (typeof last === 'string') ask[last] += ` ${text}`;
       else [last.does, last.cost] = splitCost(`${last.does}${last.cost ? ` Cost: ${last.cost}` : ''} ${text}`);
     } else if (/^[-*+]\s/.test(text) && ask.options.length === 0) {
       ask.facts.push(text.replace(/^[-*+]\s+/, ''));
-      last = null;
+      last = 'fact';
     } else if (ask.options.length === 0 && !ask.why && ask.facts.length === 0) {
       ask.question.push(text);
     } else {
@@ -848,6 +849,8 @@ function assertAsks(plan, where) {
 }
 
 function askHtml(ask, index, count) {
+  const eyebrow = `<span class="eyebrow">Decision ${index + 1} of ${count}: ${inline(ask.header)}</span>`;
+  if (ask.options.length === 0) return `<article class="ask">${eyebrow}${blocksHtml(ask.lines)}${ask.from ? `<p class="from">from ${inline(ask.from)}</p>` : ''}</article>`;
   const ordered = [...ask.options.filter((option) => option.recommended), ...ask.options.filter((option) => !option.recommended)];
   const options = ordered
     .map((option) => {
@@ -859,7 +862,7 @@ function askHtml(ask, index, count) {
       return `<div class="opt${option.recommended ? ' picked' : ''}"><div class="opt-head">${inline(option.label)}${option.recommended ? '<span class="pick">My pick</span>' : ''}</div>${rows.length ? `<dl class="kv">${rows.join('')}</dl>` : ''}</div>`;
     })
     .join('');
-  return `<article class="ask"><span class="eyebrow">Decision ${index + 1} of ${count}: ${inline(ask.header)}</span><h3>${inline(ask.question.join(' '))}${ask.from ? ` <span class="from">from ${inline(ask.from)}</span>` : ''}</h3>${ask.why ? `<p class="why">${inline(ask.why)}</p>` : ''}${ask.facts.length ? `<ul class="facts">${ask.facts.map((fact) => `<li>${inline(fact)}</li>`).join('')}</ul>` : ''}${options ? `<div class="opts">${options}</div>` : ''}${blocksHtml(ask.rest)}${ask.go ? `<p class="go"><strong>If you say go:</strong> ${inline(ask.go)}</p>` : ''}</article>`;
+  return `<article class="ask">${eyebrow}<h3>${inline(ask.question.join(' '))}${ask.from ? ` <span class="from">from ${inline(ask.from)}</span>` : ''}</h3>${ask.why ? `<p class="why">${inline(ask.why)}</p>` : ''}${ask.facts.length ? `<ul class="facts">${ask.facts.map((fact) => `<li>${inline(fact)}</li>`).join('')}</ul>` : ''}${options ? `<div class="opts">${options}</div>` : ''}${blocksHtml(ask.rest)}${ask.go ? `<p class="go"><strong>If you say go:</strong> ${inline(ask.go)}</p>` : ''}</article>`;
 }
 
 function needsSection(lines, older = []) {
