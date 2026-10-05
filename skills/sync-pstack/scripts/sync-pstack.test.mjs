@@ -801,11 +801,20 @@ test('plan-open reads a checkbox nested in a numbered step', () => {
   assert.match(result.stderr, /^1 open item\(s\):\nplan\.md:4: 2\. - \[ \] \*\*Ship\.\*\*$/m);
 });
 
+const BRIEF_ANSWERS = [
+  ['What did you find?', 'The page hides its answer.'],
+  ['What will change?', 'It opens with a brief.'],
+  ['What do you need from me?', 'Pick build or hold.'],
+  ['What happens if I say go?', 'The renderer changes.'],
+  ['What could go wrong?', 'Old plans need a brief.'],
+];
+const brief = (answers = BRIEF_ANSWERS) => `## Brief\n\n${answers.map(([question, answer]) => `### ${question}\n\n${answer}\n`).join('\n')}\n`;
+
 const playbook = (fields) => `---\nextends: multi-phase-plan\nwhen: Use it for a plan.\n${fields}---\n\n# Plan\n`;
 
 test("plan-page renders a playbook's page-lead sections right after Public API", () => {
   const { dir, run } = sandbox();
-  const plan = '# Plan\n\nStatus: planning\n\n## Main changes\n\n- Moves the owner.\n\n## What other editors do\n\n- Lexical keeps it in the node.\n\n## Public API\n\n```ts before\nold()\n```\n\n```ts after\nnext()\n```\n';
+  const plan = '# Plan\n\nStatus: planning\n\n## Main changes\n\n- Moves the owner.\n\n## What other editors do\n\n- Lexical keeps it in the node.\n\n## Public API\n\n```ts before\nold()\n```\n\n```ts after\nnext()\n```\n' + brief();
   const root = project(dir, 'app', { files: { '.agents/playbooks/plan.md': playbook('page-lead: What other editors do\n'), 'docs/plans/plan.md': plan } });
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
   assert.equal(result.status, 0, result.stderr);
@@ -834,7 +843,7 @@ test('plan-page checks pairs in a project section only when a playbook pairs it'
 
 test('plan-page refuses a pstack.json that still sets the page lists', () => {
   const { dir, run } = sandbox();
-  const root = project(dir, 'app', { config: { pageLead: ['What other editors do'] }, files: { 'docs/plans/plan.md': '# Plan\n\nStatus: planning\n' } });
+  const root = project(dir, 'app', { config: { pageLead: ['What other editors do'] }, files: { 'docs/plans/plan.md': '# Plan\n\nStatus: planning\n' + brief() } });
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
   assert.equal(result.status, 1);
   assert.match(result.stderr, /still sets pageLead; move each list into the frontmatter of the playbook/);
@@ -866,7 +875,7 @@ test('plan-page renders a topic plan as its subject page with every iteration, n
   const { dir, run } = sandbox();
   const topic = '# Workflow\n\nPage: https://example.test/page\n\n## Main changes\n\n- Pages follow subjects.\n';
   const first = '# First pass\n\nStatus: done\nTopic: workflow\n\n## Main changes\n\n- Moved the renderer.\n';
-  const second = '# Second pass\n\nStatus: planning\nTopic: workflow\n\n## Open questions\n\n- Keep the old pages?\n';
+  const second = '# Second pass\n\nStatus: planning\nTopic: workflow\n\n## Open questions\n\n- Keep the old pages?\n' + brief();
   const other = '# Unrelated\n\nStatus: done\n';
   const root = project(dir, 'app', { files: { 'docs/plans/topics/workflow.md': topic, 'docs/plans/2026-01-01-first.md': first.replace('Status: done', 'Status: awaiting review'), 'docs/plans/2026-02-01-second.md': second, 'docs/plans/2026-01-15-other.md': other } });
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-02-01-second.md'], root);
@@ -886,7 +895,7 @@ test('plan-page --index renders every subject page locally and lists it with its
     'docs/plans/topics/busy.md': '# Busy topic\n\nPage: https://example.test/busy\n\nThe busy lead.\n\n## Main changes\n\n- Moving.\n',
     'docs/plans/2026-03-01-quiet-pass.md': '# Quiet pass\n\nStatus: executed\nTopic: quiet\n\n## Main changes\n\n- Done.\n',
     'docs/plans/2026-01-01-busy-one.md': '# Busy one\n\nStatus: executed\nTopic: busy\n\n## Main changes\n\n- One.\n',
-    'docs/plans/2026-01-02-busy-two.md': '# Busy two\n\nStatus: planning, waiting for Build now\nTopic: busy\n\n## Open questions\n\n### Build\n\nBuild it?\n\n- **go** (recommended): build.\n- **hold**: wait.\n',
+    'docs/plans/2026-01-02-busy-two.md': '# Busy two\n\nStatus: planning, waiting for Build now\nTopic: busy\n\n## Open questions\n\n### Build\n\nBuild it?\n\n- **go** (recommended): build.\n- **hold**: wait.\n' + brief(),
     'docs/plans/topics/broken.md': '# Broken topic\n\nThe broken lead.\n\n## Main changes\n\n- Stuck.\n',
     'docs/plans/2026-01-03-broken-pass.md': '# Broken pass\n\nStatus: someday maybe\nTopic: broken\n\n## Main changes\n\n- Stuck.\n',
     'docs/research/features/busy.md': '# Busy feature\n',
@@ -911,12 +920,12 @@ test('plan-page keeps an older iteration\'s open question in Needs you under a n
   const { dir, run } = sandbox();
   const topic = '# Workflow\n\n## Main changes\n\n- Pages follow subjects.\n';
   const built = '# Built\n\nStatus: executed\nTopic: workflow\n\n## Main changes\n\n- Moved the renderer.\n\n## Open questions\n\n### Lessons\n\nApply the reflect lessons?\n\n- **apply** (recommended): apply them.\n- **skip**: drop them.\n\n## Close\n\n- Landed.\n';
-  const next = '# Next\n\nStatus: planning, waiting for Build now\nTopic: workflow\n\n## Main changes\n\n- Index every subject.\n';
+  const next = '# Next\n\nStatus: planning, waiting for Build now\nTopic: workflow\n\n## Main changes\n\n- Index every subject.\n' + brief();
   const root = project(dir, 'app', { files: { 'docs/plans/topics/workflow.md': topic, 'docs/plans/2026-01-01-built.md': built, 'docs/plans/2026-02-01-next.md': next } });
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-02-01-next.md'], root);
   assert.equal(result.status, 0, result.stderr);
   const html = read(root, 'docs/plans/artifacts/topics/workflow.html');
-  assert.match(html, /Needs you[\s\S]*Apply the reflect lessons\?/, 'the older question stays under the newer plan');
+  assert.match(html, /What do you need from me\?[\s\S]*Apply the reflect lessons\?/, 'the older question stays under the newer plan');
   assert.match(html, /Apply the reflect lessons\?[\s\S]*?from[\s\S]*?Built/, 'the question names the plan it belongs to');
 });
 
@@ -924,7 +933,7 @@ const reviewRow = (phase, decision, result) => `2026-01-01T00:00:00Z\t${phase}\t
 
 test('plan-page tags the latest panel round and lists every round at the bottom by priority', () => {
   const { dir, run } = sandbox();
-  const plan = '# Plan\n\nStatus: planning\n\n## Main changes\n\n- Seat Codex.\n';
+  const plan = '# Plan\n\nStatus: planning\n\n## Main changes\n\n- Seat Codex.\n' + brief();
   const log = [
     'ts\tphase\tdecision\twhy\tevidence\tresult',
     reviewRow('plan', 'Pick seats', 'decided'),
@@ -971,7 +980,7 @@ test('plan-page keeps a subject\'s latest review in its header and history after
 
 test('plan-page keeps a scoped plan on its own page until its subject file exists', () => {
   const { dir, run } = sandbox();
-  const plan = '---\nreview_scopes: [uploads]\n---\n# Upload drafts\n\nStatus: building\n';
+  const plan = '---\nreview_scopes: [uploads]\n---\n# Upload drafts\n\nStatus: building\n\n' + brief();
   const root = project(dir, 'app', { config: { pageTopic: { field: 'review_scopes' } }, files: { 'docs/plans/2026-01-01-drafts.md': plan } });
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-drafts.md'], root);
   assert.equal(result.status, 0, result.stderr);
@@ -990,7 +999,7 @@ test('plan-page takes the subject from the first entry of the configured frontma
 
 test('plan-page ignores a frontmatter topic field and keeps a legacy plan on its own page', () => {
   const { dir, run } = sandbox();
-  const root = project(dir, 'app', { files: { 'docs/plans/2026-01-01-old.md': '---\ntopic: old-proof-plan\nstatus: blocked\n---\n# Old proof\n' } });
+  const root = project(dir, 'app', { files: { 'docs/plans/2026-01-01-old.md': '---\ntopic: old-proof-plan\nstatus: blocked\n---\n# Old proof\n\n' + brief() } });
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-old.md'], root);
   assert.equal(result.status, 0, result.stderr);
   assert.ok(result.stdout.trim().endsWith('docs/plans/artifacts/2026-01-01-old.html'), result.stdout);
@@ -1017,13 +1026,13 @@ test("plan-page refuses a ledger-scope subject page that lacks a section its pla
   writeFileSync(join(root, 'docs/plans/topics/dnd.md'), files['docs/plans/topics/dnd.md'] + '\n## What other editors do\n\n- Lexical keeps drag in the view.\n');
   assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-transfer.md'], root).status, 0);
   writeFileSync(join(root, 'docs/plans/topics/workflow.md'), '# Workflow\n\n## Main changes\n\n- Pages follow subjects.\n');
-  writeFileSync(join(root, 'docs/plans/2026-01-02-pass.md'), '# Pass\n\nStatus: planning\nTopic: workflow\n');
+  writeFileSync(join(root, 'docs/plans/2026-01-02-pass.md'), '# Pass\n\nStatus: planning\nTopic: workflow\n' + brief());
   assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-02-pass.md'], root).status, 0);
 });
 
 test('plan-page names the subject file to create when a topic has none', () => {
   const { dir, run } = sandbox();
-  const root = project(dir, 'app', { files: { 'docs/plans/2026-01-01-pass.md': '# Pass\n\nStatus: planning\nTopic: workflow\n' } });
+  const root = project(dir, 'app', { files: { 'docs/plans/2026-01-01-pass.md': '# Pass\n\nStatus: planning\nTopic: workflow\n' + brief() } });
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-pass.md'], root);
   assert.equal(result.status, 1);
   assert.match(result.stderr, /create docs\/plans\/topics\/workflow\.md/);
@@ -1031,7 +1040,7 @@ test('plan-page names the subject file to create when a topic has none', () => {
 
 const CLOSE = '\n## Close\n\n- Landed the schema landing.\n';
 const DELTA_TOPIC = '# Drag\n\n## Public API\n\n```ts\nold();\n```\n\n## Layer and owner\n\n| Change | Layer |\n| --- | --- |\n| Column landing | Plate |\n| Upload veto | Plate |\n';
-const DELTA_PLAN = '# Landing\n\nStatus: planning\nTopic: drag\n\n## Public API\n\n```ts before\nold();\n```\n\n```ts after\nnext();\n```\n\n## Layer and owner\n\n| Delta | Change | Layer |\n| --- | --- | --- |\n| added | Schema landing | Plite |\n| changed | Upload veto | Plite |\n| removed | Column landing | Plate |\n';
+const DELTA_PLAN = '# Landing\n\nStatus: planning\nTopic: drag\n\n## Public API\n\n```ts before\nold();\n```\n\n```ts after\nnext();\n```\n\n## Layer and owner\n\n| Delta | Change | Layer |\n| --- | --- | --- |\n| added | Schema landing | Plite |\n| changed | Upload veto | Plite |\n| removed | Column landing | Plate |\n' + brief();
 const deltaProject = (dir, topic, plan) =>
   project(dir, 'app', {
     files: { '.agents/playbooks/plan.md': playbook('page-lead: Layer and owner\n'), 'docs/plans/topics/drag.md': topic, 'docs/plans/2026-01-01-landing.md': plan },
@@ -1102,7 +1111,7 @@ test("plan-page shows the leader's Close after Needs you, keeps it on top once e
   writeFileSync(join(root, 'docs/plans/2026-01-01-built.md'), built + '\n## Open questions\n\n### Lessons\n\nApply the reflect lessons?\n\n- **apply** (recommended): apply them.\n- **skip**: drop them.\n');
   const asking = render('docs/plans/2026-01-01-built.md');
   assert.ok(asking.includes('Needs you') && asking.indexOf('Apply the reflect lessons?') < asking.indexOf('Landed the renderer move'), 'an executed leader still asks its open question');
-  writeFileSync(join(root, 'docs/plans/2026-02-01-next.md'), '# Next\n\nStatus: planning\nTopic: workflow\n\n## Open questions\n\n### Scope\n\nTake the next pass?\n\n- **yes** (recommended): take it.\n- **no**: hold.\n');
+  writeFileSync(join(root, 'docs/plans/2026-02-01-next.md'), '# Next\n\nStatus: planning\nTopic: workflow\n\n## Open questions\n\n### Scope\n\nTake the next pass?\n\n- **yes** (recommended): take it.\n- **no**: hold.\n' + brief());
   assert.ok(!render('docs/plans/2026-02-01-next.md').includes('Landed the renderer move'), 'newer open work replaces the old Close');
   const oneOff = '# Fix\n\nStatus: executed\n\nThe fix lead.\n\n## Open questions\n\n### Ship\n\nShip it?\n\n- **ship** (recommended): ship.\n- **hold**: wait.\n\n## Close\n\n- Fixed the caret, 1 done.\n';
   writeFileSync(join(root, 'docs/plans/2026-03-01-fix.md'), oneOff);
@@ -1116,7 +1125,7 @@ test("plan-page keeps an open iteration's delta on top when a finished one rende
   const { dir, run } = sandbox();
   const folded = '# Drag\n\n## Public API\n\n```ts\nnext();\n```\n\n## Layer and owner\n\n| Change | Layer |\n| --- | --- |\n| Schema landing | Plite |\n| Upload veto | Plite |\n';
   const root = deltaProject(dir, folded, DELTA_PLAN.replace('Status: planning', 'Status: done'));
-  const open = '# Rows\n\nStatus: building; slice 1 complete\nTopic: drag\n\n## Layer and owner\n\n| Delta | Change | Layer |\n| --- | --- | --- |\n| added | Row veto | Plate |\n';
+  const open = '# Rows\n\nStatus: building; slice 1 complete\nTopic: drag\n\n## Layer and owner\n\n| Delta | Change | Layer |\n| --- | --- | --- |\n| added | Row veto | Plate |\n' + brief();
   const stale = '# Stale\n\nStatus: superseded by the rows plan\nTopic: drag\n\n## Layer and owner\n\n| Delta | Change | Layer |\n| --- | --- | --- |\n| added | Stale veto | Plate |\n';
   writeFileSync(join(root, 'docs/plans/2026-02-01-rows.md'), open);
   writeFileSync(join(root, 'docs/plans/2026-03-01-stale.md'), stale);
@@ -1177,7 +1186,7 @@ test('plan-page refuses a subject folded while its plan is still open', () => {
 
 test('plan-page skips a line another iteration also changes, and --folded checks the order of the after block', () => {
   const { dir, run } = sandbox();
-  const plan = (status, before, after) => `# Plan\n\nStatus: ${status}\nTopic: drag\n\n## Public API\n\n\`\`\`ts before\n${before}\n\`\`\`\n\n\`\`\`ts after\n${after}\n\`\`\`\n${CLOSE}`;
+  const plan = (status, before, after) => `# Plan\n\nStatus: ${status}\nTopic: drag\n\n## Public API\n\n\`\`\`ts before\n${before}\n\`\`\`\n\n\`\`\`ts after\n${after}\n\`\`\`\n${CLOSE}` + brief();
   const root = deltaProject(dir, DELTA_TOPIC.replace('old();', 'run();\nreplacement();'), plan('building', 'run();\nlegacy();', 'run();'));
   writeFileSync(join(root, 'docs/plans/2025-12-01-replace.md'), plan('executed', 'legacy();', 'replacement();'));
   assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md'], root).status, 0);
@@ -1193,7 +1202,7 @@ test('plan-page skips a line another iteration also changes, and --folded checks
 
 test("plan-page applies each iteration's own refusals whichever iteration renders the page", () => {
   const { dir, run } = sandbox();
-  const older = (body) => `# Older\n\nStatus: building\nTopic: drag\n${body}`;
+  const older = (body) => `# Older\n\nStatus: building\nTopic: drag\n${body}` + brief();
   const render = (plan) => {
     const topic = DELTA_TOPIC.replace('| Upload veto | Plate |\n', '| Upload veto | Plate |\n| Drop veto | Plate |\n');
     const root = deltaProject(mkdtempSync(join(dir, 'case-')), topic, DELTA_PLAN);
@@ -1215,7 +1224,7 @@ test("plan-page applies each iteration's own refusals whichever iteration render
 
 test('plan-page --check refuses an open plan whose Defaults is not the decision table, and writes nothing', () => {
   const { dir, run } = sandbox();
-  const plan = (defaults) => `# Plan\n\nStatus: planning\n\n## Defaults\n\n${defaults}`;
+  const plan = (defaults) => `# Plan\n\nStatus: planning\n\n## Defaults\n\n${defaults}` + brief();
   const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan('- **Local only.** Reverse with "ci lane".\n') } });
   const listed = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md', '--check'], root);
   assert.equal(listed.status, 1);
@@ -1223,6 +1232,73 @@ test('plan-page --check refuses an open plan whose Defaults is not the decision 
   writeFileSync(join(root, 'docs/plans/plan.md'), plan('| Decision | Pick | Alternative | Word |\n| --- | --- | --- | --- |\n| Where it runs | Locally | A nightly runner | ci lane |\n'));
   assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md', '--check'], root).status, 0);
   assert.ok(!existsSync(join(root, 'docs/plans/artifacts/plan.html')));
+});
+
+test('plan-page opens an open plan with its brief, asks its open questions inside it and folds the rest', () => {
+  const { dir, run } = sandbox();
+  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Open questions\n\n### Build\n\nBuild it?\n\n- **build** (recommended): build.\n- **hold**: wait.\n\n## Main changes\n\n- Moves the owner.\n`;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const html = read(root, 'docs/plans/artifacts/plan.html');
+  assert.ok(html.indexOf('What did you find?') < html.indexOf('Build it?'), 'the brief leads the page');
+  assert.ok(html.indexOf('Build it?') < html.indexOf('What happens if I say go?'), 'the open question sits under what the owner must do');
+  assert.match(html, /<details class="fold"><summary>Main changes<\/summary>/);
+});
+
+test('plan-page refuses an open plan that leads its page without a brief, and renders older and executed plans without one', () => {
+  const { dir, run } = sandbox();
+  const render = (root, plan) => run(process.execPath, [join(HELPERS, 'plan-page.mjs'), plan], root);
+  const open = project(dir, 'open', { files: { 'docs/plans/plan.md': '# Plan\n\nStatus: planning\n\n## Main changes\n\n- Moves the owner.\n' } });
+  const refused = render(open, 'docs/plans/plan.md');
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /docs\/plans\/plan\.md leads its page while open, so it needs a ## Brief/);
+  const executed = project(dir, 'executed', { files: { 'docs/plans/plan.md': '# Plan\n\nStatus: executed\n\n## Main changes\n\n- Moved the owner.\n' } });
+  assert.equal(render(executed, 'docs/plans/plan.md').status, 0);
+  const reopened = project(dir, 'reopened', { files: { 'docs/plans/plan.md': '# Plan\n\nStatus: reopened after the fold\n\n## Main changes\n\n- Moves the owner again.\n' } });
+  assert.equal(render(reopened, 'docs/plans/plan.md').status, 1, 'a reopened plan owes its brief again');
+  const topic = '# Workflow\n\n## Main changes\n\n- Pages follow subjects.\n';
+  const older = '# Older\n\nStatus: planning\nTopic: workflow\n\n## Main changes\n\n- An older open pass.\n';
+  const newer = `# Newer\n\nStatus: planning\nTopic: workflow\n\n${brief()}## Main changes\n\n- The newer pass.\n`;
+  const subject = project(dir, 'subject', { files: { 'docs/plans/topics/workflow.md': topic, 'docs/plans/2026-01-01-older.md': older, 'docs/plans/2026-02-01-newer.md': newer } });
+  const result = render(subject, 'docs/plans/2026-01-01-older.md');
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('plan-page refuses a brief that skips or reorders a question, leaves one empty or runs long', () => {
+  const { dir, run } = sandbox();
+  const cases = [
+    [BRIEF_ANSWERS.slice(0, 4), /asks .* but it needs a ## Brief/],
+    [[BRIEF_ANSWERS[1], BRIEF_ANSWERS[0], ...BRIEF_ANSWERS.slice(2)], /asks .* but it needs a ## Brief/],
+    [BRIEF_ANSWERS.map(([question, answer], index) => [question, index === 3 ? '' : answer]), /leaves "What happens if I say go\?" unanswered/],
+    [BRIEF_ANSWERS.map(([question, answer], index) => [question, index === 0 ? 'word '.repeat(41) : answer]), /answers "What did you find\?" in 41 words; keep each answer to 40/],
+  ];
+  for (const [index, [answers, message]] of cases.entries()) {
+    const root = project(dir, `case-${index}`, { files: { 'docs/plans/plan.md': `# Plan\n\nStatus: planning\n\n${brief(answers)}` } });
+    const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md', '--check'], root);
+    assert.equal(result.status, 1, `case ${index} renders`);
+    assert.match(result.stderr, message);
+  }
+});
+
+test("plan-page shows only the leading plan's own review round on a brief page", () => {
+  const { dir, run } = sandbox();
+  const topic = '# Workflow\n\n## Main changes\n\n- Pages follow subjects.\n';
+  const older = '# Older\n\nStatus: executed\nTopic: workflow\n\n## Main changes\n\n- An older pass.\n';
+  const log = 'ts\tphase\tdecision\twhy\tevidence\tresult\n2026-01-01T00:00:00Z\tpanel\tseats opus\tround 1\tcommit abc\trecorded: answered\n';
+  const newer = `# Newer\n\nStatus: planning\nTopic: workflow\n\n${brief()}`;
+  const root = project(dir, 'app', {
+    files: {
+      'docs/plans/topics/workflow.md': topic,
+      'docs/plans/2026-01-01-older.md': older,
+      'docs/plans/2026-01-01-older.decisions.tsv': log,
+      'docs/plans/2026-02-01-newer.md': newer,
+    },
+  });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-02-01-newer.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const html = read(root, 'docs/plans/artifacts/topics/workflow.html');
+  assert.ok(!html.slice(html.indexOf('<header>'), html.indexOf('</header>')).includes('Review round'), 'the header names no other plan\'s round');
 });
 
 test('plan-page leads with the same-day iteration whose log moved last, whichever plan renders it', () => {
@@ -1251,7 +1327,7 @@ test('plan-page leads with the same-day iteration whose log moved last, whicheve
 test('plan-page draws one page for a subject whichever iteration renders it', () => {
   const { dir, run } = sandbox();
   const root = deltaProject(dir, DELTA_TOPIC, DELTA_PLAN);
-  writeFileSync(join(root, 'docs/plans/2026-02-01-rows.md'), '# Rows\n\nStatus: planning\nTopic: drag\n\n## Main changes\n\n- Rows move.\n');
+  writeFileSync(join(root, 'docs/plans/2026-02-01-rows.md'), '# Rows\n\nStatus: planning\nTopic: drag\n\n## Main changes\n\n- Rows move.\n' + brief());
   const render = (path) => {
     const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), path], root);
     assert.equal(result.status, 0, result.stderr);
@@ -1280,7 +1356,7 @@ test("plan-page reads a subject iteration's state from the first word of its Sta
 test('plan-page leads with the dated open iteration over an undated issue plan', () => {
   const { dir, run } = sandbox();
   const root = deltaProject(dir, DELTA_TOPIC, DELTA_PLAN);
-  writeFileSync(join(root, 'docs/plans/4731-old-issue.md'), '# Old issue\n\nStatus: planning\nTopic: drag\n\n## Main changes\n\n- Old work.\n');
+  writeFileSync(join(root, 'docs/plans/4731-old-issue.md'), '# Old issue\n\nStatus: planning\nTopic: drag\n\n## Main changes\n\n- Old work.\n' + brief());
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/4731-old-issue.md'], root);
   assert.equal(result.status, 0, result.stderr);
   assert.match(read(root, 'docs/plans/artifacts/topics/drag.html'), /<span>Plan <strong>Landing<\/strong>/);
@@ -1363,7 +1439,7 @@ test('decisions-check refuses a panel row in the plans directory until its plan 
   assert.equal(orphan.status, 1, 'a panel row with no plan beside it');
   assert.match(orphan.stderr, /needs its plan docs\/plans\/2026-01-01-verdict\.md/);
   assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'docs/plans/2026-01-01-verdict.decisions.tsv', 'plan', 'pick the scope', 'why', 'evidence', 'recorded'], root).status, 0, 'other phases need no plan');
-  writeFileSync(join(root, 'docs/plans/2026-01-01-verdict.md'), '# Verdict\n\nStatus: planning\n');
+  writeFileSync(join(root, 'docs/plans/2026-01-01-verdict.md'), '# Verdict\n\nStatus: planning\n' + brief());
   assert.equal(append('docs/plans/2026-01-01-verdict.decisions.tsv').status, 0, 'the plan exists');
   assert.equal(append('log.decisions.tsv').status, 0, 'a log outside the plans directory');
 });

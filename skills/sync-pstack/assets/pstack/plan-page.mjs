@@ -132,10 +132,18 @@ details.iteration[open] > summary { margin-bottom: 6px; }
 .hljs-number, .hljs-literal { color: var(--num); }
 .hljs-attr, .hljs-property, .hljs-params { color: var(--ink); }
 .hljs-comment { color: var(--muted); font-style: italic; }
+.brief { display: grid; gap: 16px; }
+.qa { display: grid; gap: 4px; min-width: 0; }
+.qa > h2 { font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.qa > p:last-of-type { margin-bottom: 0; }
+details.fold { border-top: 1px solid var(--rule); padding-top: 10px; }
+details.fold > summary { cursor: pointer; color: var(--muted); font-weight: 600; }
+details.fold[open] > summary { margin-bottom: 12px; }
 </style>`;
 
 // The owner reads the top of the page and rarely opens the details.
 const ROLES = [
+  [/^brief$/i, 'brief'],
   [/^open questions$/i, 'needs'],
   [/^public api$/i, 'api'],
   [/^main changes$/i, 'main'],
@@ -411,6 +419,36 @@ function assertDefaults(plan, where) {
   if (!section?.lines.some((line) => line.trim())) return;
   if (!tablesOf(section.lines).some((table) => DEFAULTS_HEAD.every((cell, index) => headCell(table.head[index] ?? '') === cell))) {
     throw new Error(`## Defaults in ${where} needs a table whose columns start with Decision, Pick, Alternative and Word, one row per call made for the owner`);
+  }
+}
+
+const BRIEF = ['What did you find?', 'What will change?', 'What do you need from me?', 'What happens if I say go?', 'What could go wrong?'];
+const BRIEF_WORDS = 40;
+
+function briefOf(plan) {
+  const section = sectionNamed(plan, 'Brief');
+  if (!section) return null;
+  const answers = [];
+  for (const line of section.lines) {
+    const heading = line.match(/^###\s+(.*)$/);
+    if (heading) answers.push({ question: heading[1].trim(), lines: [] });
+    else answers.at(-1)?.lines.push(line);
+  }
+  return answers;
+}
+
+function assertBrief(plan, where) {
+  const shape = `a ## Brief with these ### questions in order, each answered in at most ${BRIEF_WORDS} words: ${BRIEF.join(' ')}`;
+  const answers = briefOf(plan);
+  if (!answers) throw new Error(`${where} leads its page while open, so it needs ${shape}`);
+  const asked = answers.map((answer) => answer.question);
+  if (asked.length !== BRIEF.length || asked.some((question, index) => sameText(question) !== sameText(BRIEF[index]))) {
+    throw new Error(`## Brief in ${where} asks ${asked.join(' ') || 'nothing'}, but it needs ${shape}`);
+  }
+  for (const { question, lines } of answers) {
+    const words = lines.join(' ').split(/\s+/).filter(Boolean).length;
+    if (words === 0) throw new Error(`## Brief in ${where} leaves "${question}" unanswered`);
+    if (words > BRIEF_WORDS) throw new Error(`## Brief in ${where} answers "${question}" in ${words} words; keep each answer to ${BRIEF_WORDS}`);
   }
 }
 
@@ -891,12 +929,14 @@ function page(planPath, { folded = false } = {}) {
     const role = roleOf(section, lead);
     return ['api', 'lead', 'main'].includes(role) || (role === 'idea' && Boolean(sectionNamed(doc, section.title)));
   };
+  const owesBrief = (entry) => Boolean(briefOf(entry.plan)) || (entry.path === leader.path && Boolean(stateOf(entry.plan.meta.status ?? '')));
   // Open iterations meet their own rules whichever plan is passed; executed ones stay as written.
   for (const entry of doc === plan ? [{ path: planPath, plan }] : iterations.filter(isOpen)) {
     const where = relative(root, entry.path);
     pageSections(playbooks, entry.plan.meta.playbook, where);
     assertPairs(entry.plan.sections, pairs, where);
     if (!finished(entry.plan.meta.status ?? '')) assertDefaults(entry.plan, where);
+    if (!finished(entry.plan.meta.status ?? '') && owesBrief(entry)) assertBrief(entry.plan, where);
     if (doc !== plan && isOpen(entry)) assertDelta(entry.plan, doc, { name: where, where: subjectWhere });
   }
   if (folded && doc === plan) throw new Error(`${repoPath} has no subject file to fold into`);
@@ -1007,15 +1047,14 @@ function page(planPath, { folded = false } = {}) {
             .join('')}</ul>`
       )
       .join('');
-  const reviewHistory = reviewed.length
-    ? `<section class="plan"><h2>Review history</h2>${
-        doc === plan
-          ? roundsHtml(reviewed[0].rounds, 'h3')
-          : reviewed
-              .map(({ entry, rounds }) => `<h3>${inline(entry.plan.title || basename(entry.path, '.md'))}</h3>${roundsHtml(rounds, 'h4')}`)
-              .join('')
-      }</section>`
+  const reviewRoundsHtml = reviewed.length
+    ? doc === plan
+      ? roundsHtml(reviewed[0].rounds, 'h3')
+      : reviewed
+          .map(({ entry, rounds }) => `<h3>${inline(entry.plan.title || basename(entry.path, '.md'))}</h3>${roundsHtml(rounds, 'h4')}`)
+          .join('')
     : '';
+  const reviewHistory = reviewed.length ? `<section class="plan"><h2>Review history</h2>${reviewRoundsHtml}</section>` : '';
   const updated = new Date(
     Math.max(...[planPath, ...iterations.map((entry) => entry.path), subjectPath].filter(Boolean).map((path) => statSync(path).mtimeMs))
   )
@@ -1025,10 +1064,53 @@ function page(planPath, { folded = false } = {}) {
   const shownStatus = pageEntry?.plan.meta.status ?? status;
   const title = escapeHtml(doc.title || basename(planPath, '.md'));
   const where = subjectPath ? relative(root, subjectPath) : repoPath;
+  const brief = briefOf(leader.plan);
+  const briefMain = () => {
+    const round = reviewed.find(({ entry }) => entry.path === leader.path)?.rounds.findLast((entry) => entry.kind === 'panel');
+    const roundTag = round ? `<span>Review round <strong>${round.round}</strong>${round.seats ? ` <code>${escapeHtml(round.seats)}</code>` : ''}</span>` : '';
+    const asking = needs || olderNeeds.length ? needsHtml(needs?.lines ?? [], olderNeeds) : '';
+    const asks = brief.findIndex((answer) => sameText(answer.question) === sameText(BRIEF[2]));
+    const answers = brief
+      .map((answer, index) =>
+        index === asks && asking
+          ? `<div class="qa panel needs"><h2>${inline(answer.question)}</h2>${blocksHtml(answer.lines)}${asking}</div>`
+          : `<div class="qa"><h2>${inline(answer.question)}</h2>${blocksHtml(answer.lines)}</div>`
+      )
+      .join('');
+    const fold = (label, body) => (body.trim() ? `<details class="fold"><summary>${label}</summary>${body}</details>` : '');
+    const count = (label, n) => `${label} <span class="count">${n}</span>`;
+    const leadTitles = delta ? ordered('lead') : byRole('lead').map((section) => section.title);
+    const apiChanged = !delta || byRole('api', focus).length > 0;
+    const picked = own ? byRole('picked', own) : [];
+    const state = [
+      doc.lead.some((line) => line.trim()) ? `<section class="plan">${blocksHtml(doc.lead)}</section>` : '',
+      ...byRole('idea').map((section) => (delta ? deltaHtml(section.title) : sectionHtml(section))),
+    ].join('');
+    return `<main>
+  <header>
+    <h1>${title}</h1>
+    <div class="meta"><span class="pill ${statusTone(shownStatus)}">${escapeHtml(shownStatus)}</span>${delta ? `<span>Plan <strong>${inline(focus.title || basename(focusEntry.path, '.md'))}</strong></span>` : ''}${roundTag}<span>Updated ${updated} UTC</span></div>
+  </header>
+  <section class="panel brief">${answers}</section>${asks < 0 && asking ? `<section class="panel needs"><h2>Needs you</h2>${asking}</section>` : ''}
+  ${apiChanged ? changeHtml('api') : ''}
+  <div>
+  ${fold('Close', close ? blocksHtml(close.lines) : '')}
+  ${apiChanged ? '' : fold('Public API', byRole('api').map((section) => blocksHtml(section.lines)).join(''))}
+  ${fold('Plan', delta && focus.lead.some((line) => line.trim()) ? blocksHtml(focus.lead) : '')}
+  ${fold(escapeHtml(leadTitles.join(', ')), changeHtml('lead'))}
+  ${fold('Main changes', changeHtml('main'))}
+  ${fold(count('Picked for you', tablesOf(picked.flatMap((section) => section.lines)).reduce((sum, table) => sum + table.rows.length, 0)), picked.map((section) => blocksHtml(section.lines)).join(''))}
+  ${fold(doc === plan ? 'More' : `${title} today`, state)}
+  ${fold(count(delta ? 'Iterations' : 'History', iterations.length), iterations.map(iterationHtml).join(''))}
+  ${fold(escapeHtml(details.map((section) => section.title).join(', ')), details.map((section) => sectionHtml(section)).join(''))}
+  ${fold('Review history', reviewRoundsHtml)}
+  </div>
+</main>`;
+  };
 
   const html = `<title>${title}</title>
 ${PAGE_HEAD}
-<main>
+${brief ? briefMain() : `<main>
   <header>
     <h1>${title}</h1>
     <div class="meta"><span class="pill ${statusTone(shownStatus)}">${escapeHtml(shownStatus)}</span><code>${escapeHtml(where)}</code>${delta ? `<span>Plan <strong>${inline(focus.title || basename(focusEntry.path, '.md'))}</strong> <code>${escapeHtml(relative(root, focusEntry.path))}</code></span>` : ''}${hub ? `<span>History <code>${escapeHtml(hub)}</code></span>` : ''}${reviewTag}<span>Updated ${updated} UTC</span></div>
@@ -1056,7 +1138,7 @@ ${PAGE_HEAD}
       : ''
   }
   ${reviewHistory}
-</main>
+</main>`}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <script>
 window.hljs?.highlightAll();

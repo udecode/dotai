@@ -20,6 +20,7 @@ A subject file never holds a `before` or `after` fence.
 
 - Optional frontmatter, then `# Title`, then `Status:`, `Topic:` and, when a project playbook writes the plan, `Playbook:` lines.
 - `Status:` starts with a state word from `.agents/pstack/status.mjs`, such as `planning`, `building`, `blocked`, `reopened` or `executed`.
+- `## Brief`: five `###` questions in this order, each answered in at most 40 words: What did you find? What will change? What do you need from me? What happens if I say go? What could go wrong? The owner reads only this, so each answer names the decision, the number or the next action, and the go answer says what "go" picks. An open plan that leads its page needs one.
 - A plan that continues a subject carries only its delta, under the subject's section titles:
   - `## Public API`: one ```` ```ts before ```` and ```` ```ts after ```` pair per call it changes. A deleted call has an empty after fence, and a new call an empty before fence.
   - `## Main changes`: its own changes.
@@ -41,6 +42,15 @@ A subject file never holds a `before` or `after` fence.
 - The leading iteration's Close shows open right after Needs you. Once no iteration is open, the newest iteration leads, so its Close stays on top until a newer iteration opens.
 
 ## Page order
+
+When the leading plan has a brief, the page shows:
+
+1. The header: the leading plan's state, its title and its own latest review round.
+2. The brief. Needs you renders under "What do you need from me?".
+3. Public API, when the leading plan changes it.
+4. Everything else, each folded to one line: Close, an unchanged Public API, the plan's lead paragraph, the `page-lead` sections, Main changes, Picked for you, the subject's current state, iterations or history, details and review history.
+
+Without a brief, the page shows:
 
 1. Needs you, from the Open questions of every iteration, the leader's first; an older iteration's question names its plan. Each question renders as radio buttons with the recommendation picked. The section says that go takes every recommendation, and shows a Copy answer line only when an answer differs from it or a question has none.
 2. Close, from the leading iteration's or the one-off plan's `## Close`.
@@ -66,6 +76,8 @@ A subject file never holds a `before` or `after` fence.
 - A subject whose hub exists lacks a required section in both its file and its open plan. The leading plan's playbook sets the required sections, or every playbook does when that plan names none.
 - An open iteration's subject already shows one of its added or changed rows, or no longer has a row it removes, in any section with a Delta table. It also refuses when the subject shows a pair's after fence line for line, indentation and punctuation included, and does not show its before fence. The check skips a pair that deletes a call or changes nothing, a pair whose changed lines another iteration's fences all hold, and any row another iteration also marks. It exempts a plan whose `Status:` starts with `reopened`, and the plan a `--folded` render folds.
 - An open iteration's Defaults has no Decision, Pick, Alternative and Word table.
+- An open plan that leads its page, with a state word in its `Status:`, has no `## Brief`.
+- An open iteration's brief skips, adds or reorders a question, leaves an answer empty, or answers in more than 40 words.
 - `--folded` names a plan with no `## Close` or no subject file, or the subject file lacks the plan's Delta rows or after lines, still shows its before lines, or does not show an after fence as one block in order, skipping any row or line another iteration also changes.
 
 `--check` runs every refusal and writes nothing.
