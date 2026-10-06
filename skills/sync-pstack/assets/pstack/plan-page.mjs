@@ -184,10 +184,12 @@ details.iteration[open] > summary { margin-bottom: 4px; }
 .tool { font: 500 0.68rem var(--mono); border: 1px solid currentColor; border-radius: 4px; padding: 0 4px; opacity: 0.9; }
 .demo-steps { display: grid; gap: 1.25rem; padding-left: 1.4rem; }
 .demo-steps > li > p { margin: 0 0 0.5rem; }
-.shots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; align-items: start; }
-@media (max-width: 640px) { .shots { grid-template-columns: 1fr; } }
+.shots { display: grid; gap: 1rem; }
 .shot { margin: 0; }
-.shot img { display: block; width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 8px; }
+.shot img { display: block; width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 8px; cursor: zoom-in; }
+.lightbox { padding: 0; border: 0; max-width: 96vw; max-height: 96vh; overflow: auto; background: transparent; }
+.lightbox::backdrop { background: rgb(0 0 0 / 0.8); }
+.lightbox img { display: block; max-width: none; cursor: zoom-out; }
 .shot figcaption { font-size: 0.8rem; opacity: 0.75; margin-top: 0.25rem; }
 .shot.missing { border: 1px dashed var(--rule); border-radius: 8px; padding: 0.5rem 0.75rem; }
 </style>`;
@@ -735,6 +737,21 @@ function inlineShotHtml(label, path, base) {
   return `<figure class="shot"><img src="data:${type};base64,${readFileSync(file).toString('base64')}" alt="${escapeHtml(caption || path)}">${caption ? `<figcaption>${escapeHtml(caption)}</figcaption>` : ''}</figure>`;
 }
 
+const LIGHTBOX = `<dialog class="lightbox"><img alt=""></dialog>
+<script>
+(() => {
+  const viewer = document.querySelector('.lightbox');
+  document.addEventListener('click', (event) => {
+    const shot = event.target.closest('.shot img');
+    if (shot) {
+      viewer.querySelector('img').src = shot.src;
+      viewer.querySelector('img').alt = shot.alt;
+      viewer.showModal();
+    } else if (event.target.closest('.lightbox')) viewer.close();
+  });
+})();
+</script>`;
+
 function demoHtml(section, base) {
   const { intro, steps } = demoSteps(section.lines);
   const items = steps
@@ -744,7 +761,8 @@ function demoHtml(section, base) {
       return `<li><p>${inline(text)}</p>${shots.length ? `<div class="shots">${shots.join('')}</div>` : ''}</li>`;
     })
     .join('');
-  return `<section class="demo card"><h2>Demo</h2>${blocksHtml(intro)}<ol class="demo-steps">${items}</ol></section>`;
+  const viewer = items.includes('<img ') ? LIGHTBOX : '';
+  return `<section class="demo card"><h2>Demo</h2>${blocksHtml(intro)}<ol class="demo-steps">${items}</ol></section>${viewer}`;
 }
 
 function blocksHtml(lines) {

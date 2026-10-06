@@ -927,6 +927,16 @@ test('plan-page shows the Demo steps in order right after the brief, inlines eac
   assert.equal([...html.matchAll(/<img src="data:image\/png;base64,/g)].length, 2);
   assert.match(html, /<figcaption>Before<\/figcaption>/);
   assert.match(html, /shots\/gone\.png/);
+  assert.equal([...html.matchAll(/<dialog class="lightbox"/g)].length, 1, 'a frame opens full size in one shared viewer');
+});
+
+test('plan-page adds the full-size viewer only to a page that shows frames', () => {
+  const { dir, run } = sandbox();
+  const plan = `# Plan\n\nStatus: building\n\n${brief()}\n## Demo\n\n1. Open the page. It loads.\n`;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(read(root, 'docs/plans/artifacts/plan.html'), /class="lightbox"/);
 });
 
 test('plan-page refuses a Demo with no numbered step', () => {
