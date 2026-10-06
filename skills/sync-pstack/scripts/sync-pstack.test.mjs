@@ -1875,3 +1875,244 @@ test('freeze writes a commit no ref points to without touching the checkout inde
   assert.equal(freeze('missing.md').status, 1);
   assert.equal(spawnSync(process.execPath, [join(HELPERS, 'freeze.mjs')], { cwd: repo }).status, 2);
 });
+
+test('decisions-check append --from writes every queued row or none', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app');
+  const queue = (rows) => {
+    writeFileSync(join(root, 'queued.tsv'), rows.map((row) => row.join('\t')).join('\n'));
+    return run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', '--from', 'queued.tsv'], root);
+  };
+  const seats = ['panel', 'seats opus, codex:gpt-6.1-sol @xhigh', 'round 1', 'frozen abc1234', 'recorded'];
+  const finding = ['panel', 'critical The seat writes files', 'seat probe', 'reran the probe', 'applied: read-only flag'];
+
+  const refused = queue([seats, ['panel', 'superseded the earlier finding', 'why', 'evidence', 'superseded']]);
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /new row 2/);
+  assert.equal(existsSync(join(root, 'log.decisions.tsv')), false, 'a refused batch writes no row');
+
+  const ok = queue([seats, finding]);
+  assert.equal(ok.status, 0, ok.stderr);
+  const lines = read(root, 'log.decisions.tsv').trim().split('\n');
+  assert.deepEqual(lines.slice(1).map((line) => line.split('\t')[2]), [seats[1], finding[1]]);
+});
+
+
+test('decisions-check refuses a new row whose evidence cites a run-directory path that does not exist', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', {
+    files: {
+      'docs/plans/artifacts/run/test-a1.log': '$ (.) node --test\nexit=0\n',
+      'docs/plans/artifacts/run/proof result-a1.log': 'exit=0\n',
+    },
+  });
+  const append = (evidence, phase = 'build') => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', phase, 'fix the parser', 'why', evidence, 'verified'], root);
+
+  const missing = append('scope: parser fixtures; docs/plans/artifacts/run/test-a2.log');
+  assert.equal(missing.status, 1);
+  assert.match(missing.stderr, /cites docs\/plans\/artifacts\/run\/test-a2\.log, which does not exist/);
+  for (const [evidence, why] of [
+    ['scope: parser; `docs/plans/artifacts/run/test-a1.log:2:5`.', 'a line and column suffix'],
+    ['scope: parser; [log](docs/plans/artifacts/run/test-a1.log#L2)', 'a link with a line anchor'],
+    ['scope: parser; `docs/plans/artifacts/run/proof result-a1.log`', 'a code span holding a space'],
+    [`scope: parser; ${join(root, 'docs/plans/artifacts/run/test-a1.log')}`, 'an absolute path'],
+    ['scope: every seat; docs/plans/artifacts/run/seat-*.md, docs/plans/artifacts/run/a1..a8/answer.md and run-[12].log', 'a glob, a range and a bracket'],
+    ['scope: parser; docs/plans/artifacts/run/test-a9.log (missing) is what the trail cites', 'a path marked missing'],
+    ['scope: parser; `docs/plans/artifacts/run/test-a9.log:12` (missing) is what the trail cites', 'a path with a line marked missing'],
+    ['scope: parser; `./docs/plans/artifacts/run/test-a1.log`', 'a path that starts with ./'],
+  ]) {
+    const accepted = append(evidence);
+    assert.equal(accepted.status, 0, `${why}: ${accepted.stderr}`);
+  }
+  assert.equal(append('scope: the trail; row 4 cites docs/plans/artifacts/run/test-a9.log, which ls cannot find', 'review-trail').status, 0, 'a hand-off reviewer row reports a missing file');
+});
+
+test('decisions-check and plan-open judge rows and boxes since PSTACK_BASE, and refuse a base that names no commit', () => {
+  const { dir, run } = sandbox();
+  const header = 'ts\tphase\tdecision\twhy\tevidence\tresult';
+  const root = project(dir, 'app', { files: { 'log.decisions.tsv': `${header}\n`, 'plan.md': '# Plan\n\nStatus: building\n' } });
+  run('git', ['add', '.'], root);
+  run('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'intake'], root);
+  const base = run('git', ['rev-parse', 'HEAD'], root).stdout.trim();
+  writeFileSync(join(root, 'log.decisions.tsv'), `${header}\n2026-09-02T00:00:00Z\tbuild\tfix\twhy\tscope: x; docs/plans/artifacts/run/gone-a1.log\tverified\n`);
+  writeFileSync(join(root, 'plan.md'), '# Plan\n\nStatus: building\n\n- [x] tests: `docs/plans/artifacts/run/gone-a1.log`\n');
+  run('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qam', 'owner sweep'], root);
+  const check = (script, file, env) => spawnSync(process.execPath, [join(HELPERS, script), file], { cwd: root, encoding: 'utf8', env: { ...process.env, ...env } });
+
+  assert.equal(check('decisions-check.mjs', 'log.decisions.tsv', {}).status, 0, 'against HEAD the swept row looks committed');
+  assert.match(check('decisions-check.mjs', 'log.decisions.tsv', { PSTACK_BASE: base }).stderr, /gone-a1\.log, which does not exist/);
+  assert.match(check('plan-open.mjs', 'plan.md', { PSTACK_BASE: base }).stderr, /gone-a1\.log, which does not exist/);
+  assert.equal(check('plan-open.mjs', 'plan.md', { PSTACK_BASE: '0'.repeat(40) }).status, 1, 'an unresolvable base fails closed');
+});
+
+test('plan-open refuses a newly closed box whose cited proof is missing or records no exit status', () => {
+  const { dir, run } = sandbox();
+  const legacy = '# Plan\n\nStatus: building\n\n- [x] old step: `docs/plans/artifacts/run/gone-a1.log`\n';
+  const root = project(dir, 'app', {
+    files: {
+      'plan.md': legacy,
+      'docs/plans/artifacts/run/pass-a1.log': '$ (.) node --test\nok\nexit=0\n',
+      'docs/plans/artifacts/run/bare-a1.log': 'ok 1 - parser\n',
+    },
+  });
+  run('git', ['add', 'plan.md'], root);
+  run('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'plan'], root);
+  const check = (lines) => {
+    writeFileSync(join(root, 'plan.md'), `${legacy}${lines}`);
+    return run(process.execPath, [join(HELPERS, 'plan-open.mjs'), 'plan.md'], root);
+  };
+
+  assert.equal(check('- [x] tests pass: `docs/plans/artifacts/run/pass-a1.log`\n').status, 0, 'an existing log that records its exit, and a committed box citing a gone log');
+  assert.match(check('- [x] typecheck: `docs/plans/artifacts/run/typecheck-a1.log`\n').stderr, /typecheck-a1\.log, which does not exist/);
+  assert.match(check('- [x] lint: `docs/plans/artifacts/run/bare-a1.log`\n').stderr, /bare-a1\.log, which records no exit status/);
+  assert.match(check('- [x] tests: `node --test`\n  Log: `docs/plans/artifacts/run/missing-a1.log`\n').stderr, /plan\.md:6: .*missing-a1\.log, which does not exist/, 'a citation on an indented line under the box');
+  assert.match(check('- [x] parent: `docs/plans/artifacts/run/missing-a1.log`\n  - [x] child: `docs/plans/artifacts/run/pass-a1.log`\n').stderr, /plan\.md:6: .*missing-a1\.log, which does not exist/, 'a parent box before a nested closed box');
+  assert.match(check('- [x] dotted: `./docs/plans/artifacts/run/missing-a1.log`\n').stderr, /missing-a1\.log, which does not exist/, 'a citation that starts with ./');
+});
+
+test('plan-open accepts a log with a line that reads exactly exit=<code> and refuses every other exit form', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', { files: { 'plan.md': '# Plan\n\nStatus: building\n' } });
+  run('git', ['add', 'plan.md'], root);
+  run('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'plan'], root);
+  const verdict = (log) => {
+    writeFileSync(join(root, 'docs/plans/artifacts/run/x-a1.log'), log);
+    writeFileSync(join(root, 'plan.md'), '# Plan\n\nStatus: building\n\n- [x] step: `docs/plans/artifacts/run/x-a1.log`\n');
+    return run(process.execPath, [join(HELPERS, 'plan-open.mjs'), 'plan.md'], root).status;
+  };
+  mkdirSync(join(root, 'docs/plans/artifacts/run'), { recursive: true });
+
+  for (const [log, why] of [
+    ['$ (.) missing-command\nexit=ENOENT\n', 'a spawn error'],
+    ['$ (wt) sync-pstack.mjs apply\n  write AGENTS.md\nexit=0\nleaked notes: 0\n', 'an exit line mid-file'],
+    [`$ (.) node test.mjs\n${'x'.repeat(5000)}\nexit=0\n${'x'.repeat(70_000)}\n`, 'an exit line past the first 64 KB chunk'],
+  ]) assert.equal(verdict(log), 0, why);
+  for (const [log, why] of [
+    ['$ (.) node check.mjs && echo exit=0\npartial output\n', 'exit=0 inside the command line'],
+    ['$ (.) node test.mjs\nok 1 - handles exit=0\nprocess crashed\n', 'a test title'],
+    ['$ (.) node check.mjs\nexpected exit=0\n', 'an exit named at the end of a sentence'],
+    ['$ (.) node check.mjs\nchild exited with code 0\n', 'an exited-with sentence'],
+    ['$ node check.mjs\n# exit 1\n', 'a commented exit'],
+    ['Ran 1 test across 1 file.\nexit=1 seconds=67\n', 'an exit line with trailing fields'],
+    ['> www typecheck\nExit status 1\n', "pnpm's exit status line"],
+  ]) assert.equal(verdict(log), 1, why);
+});
+
+test('plan-open still makes a closed box under Open work name its owner and its stop', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', { files: { 'plan.md': '# Plan\n\nStatus: building\n' } });
+  run('git', ['add', 'plan.md'], root);
+  run('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'plan'], root);
+  writeFileSync(join(root, 'plan.md'), '# Plan\n\nStatus: building\n\n## Open work\n\n- [x] followed up in `tooling/scripts/proof-worktree.mjs`\n');
+
+  assert.match(run(process.execPath, [join(HELPERS, 'plan-open.mjs'), 'plan.md'], root).stderr, /plan\.md:7: .*name its owner:/);
+});
+
+test('proof writes each run to the next attempt log with its command and exit status, under pipefail', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-proof-'));
+  const prove = (...command) => spawnSync(process.execPath, [join(HELPERS, 'proof.mjs'), '--dir', join(dir, 'run'), '--name', 'lint', '--', ...command], { cwd: dir, encoding: 'utf8' });
+
+  const failing = prove('echo found 2 problems; false | cat');
+  assert.equal(failing.status, 1, 'pipefail keeps the failure of a piped command');
+  assert.match(failing.stdout, /log: .*lint-a1\.log exit=1/);
+  const passing = prove(process.execPath, '-e', 'console.log("clean")');
+  assert.equal(passing.status, 0, passing.stderr);
+  assert.equal(read(dir, 'run/lint-a1.log'), `$ (${realpathSync(dir)}) echo found 2 problems; false | cat\nfound 2 problems\nexit=1\n`);
+  assert.match(read(dir, 'run/lint-a2.log'), /^\$ \(.*\) .*-e 'console\.log\("clean"\)'\nclean\nexit=0\n$/);
+  assert.match(prove("echo 'héllo—x'").stdout, /^héllo—x\n/u, 'a command line with multibyte text stays out of the output');
+});
+
+test('mutate counts a mutation caught only when its named assertion fails, in a worktree it makes and removes', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-mutate-'));
+  const repo = join(dir, 'repo');
+  const outside = join(dir, 'outside');
+  spawnSync('git', ['init', '-q', repo]);
+  mkdirSync(outside);
+  const source = 'export const add = (a, b) => a + b;\nexport const zero = 0;\nexport const one = 1;\n';
+  writeFileSync(join(outside, 'add.mjs'), source);
+  writeFileSync(join(repo, 'add.mjs'), source);
+  writeFileSync(
+    join(repo, 'add.test.mjs'),
+    "import assert from 'node:assert/strict';\nimport { test } from 'node:test';\nimport { add, zero } from './add.mjs';\ntest('add sums its arguments', () => assert.equal(add(1, 2), 3, 'add returned the wrong sum'));\ntest('zero starts at zero', () => assert.equal(zero, 0, 'zero moved'));\n",
+  );
+  symlinkSync(outside, join(repo, 'ext'));
+  spawnSync('git', ['-C', repo, 'add', '-A']);
+  commit(repo, 'base');
+  const sha = spawnSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
+  const mutate = (mutation) => {
+    writeFileSync(join(dir, 'spec.json'), JSON.stringify({ commit: sha, test: [process.execPath, '--test', 'add.test.mjs'], mutations: [mutation] }));
+    const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== 'NODE_TEST_CONTEXT'));
+    return spawnSync(process.execPath, [join(HELPERS, 'mutate.mjs'), '--dir', join(dir, 'run'), join(dir, 'spec.json')], { cwd: repo, encoding: 'utf8', env });
+  };
+  const subtract = { name: 'subtract', file: 'add.mjs', from: 'a + b', to: 'a - b', expect: 'add returned the wrong sum' };
+
+  const caught = mutate(subtract);
+  assert.equal(caught.status, 0, caught.stdout + caught.stderr);
+  assert.match(caught.stdout, /subtract: caught \(exit=1\)/);
+  assert.equal(spawnSync('git', ['-C', repo, 'worktree', 'list'], { encoding: 'utf8' }).stdout.trim().split('\n').length, 1, 'the worktree it made is gone');
+  assert.equal(read(repo, 'add.mjs'), source, 'the checkout it ran from is untouched');
+
+  assert.match(mutate({ ...subtract, name: 'unused', from: 'zero = 0', to: 'zero = 0 + 0' }).stdout, /unused: survived/);
+  assert.match(mutate({ ...subtract, name: 'syntax', to: 'a +' }).stdout, /syntax: failed without the expected text/, 'a crash is not the named failure');
+  assert.match(mutate({ ...subtract, name: 'title', from: 'zero = 0', to: 'zero = 2', expect: 'add sums its arguments' }).stdout, /title: not run, its expected text also appears in the passing control run/, 'a passing test title is not a failure');
+  assert.match(mutate({ ...subtract, name: 'twice', from: 'export const', to: 'const' }).stdout, /anchor matches 3 times/);
+  const escaped = mutate({ ...subtract, name: 'escape', file: 'ext/add.mjs' });
+  assert.match(escaped.stdout, /escape: not run, ext\/add\.mjs is outside the worktree/, 'a mutation through a link out of the worktree is refused');
+  assert.equal(read(outside, 'add.mjs'), source);
+
+  writeFileSync(join(dir, 'spec.json'), JSON.stringify({ commit: '0'.repeat(40), test: [process.execPath, '--test', 'add.test.mjs'], mutations: [subtract] }));
+  const failed = spawnSync(process.execPath, [join(HELPERS, 'mutate.mjs'), '--dir', join(dir, 'run'), join(dir, 'spec.json')], { cwd: repo, encoding: 'utf8' });
+  assert.match(failed.stderr, /could not make a worktree/, 'a commit the repository lacks');
+});
+
+test('reply copies the final assistant text of a finished subagent and never overwrites', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-reply-'));
+  const record = (id, content, extra = {}) => JSON.stringify({ type: 'assistant', ...extra, message: { id, role: 'assistant', stop_reason: null, ...extra.message, content } });
+  const answer = '## Findings\n\n| a | b |\n|---|---|\n| 1 | 2 |';
+  const start = [
+    JSON.stringify({ type: 'user', message: { role: 'user', content: 'review the plan' } }),
+    record('m1', [{ type: 'text', text: 'Reading the plan.' }]),
+    record('m1', [{ type: 'tool_use', id: 't1', name: 'Read', input: {} }], { message: { stop_reason: 'tool_use' } }),
+    JSON.stringify({ type: 'user', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: 'plan text' }] } }),
+  ];
+  writeFileSync(join(dir, 'done.output'), [...start, record('m2', [{ type: 'thinking', thinking: '' }]), record('m2', [{ type: 'text', text: answer }], { message: { stop_reason: 'end_turn' } })].join('\n'));
+  writeFileSync(join(dir, 'interim.output'), [...start, record('m2', [{ type: 'text', text: 'Now checking the log.' }])].join('\n'));
+  writeFileSync(join(dir, 'limit.output'), [...start, record('m2', [{ type: 'text', text: "You've hit your weekly limit" }], { isApiErrorMessage: true, message: { model: '<synthetic>', stop_reason: 'stop_sequence' } })].join('\n'));
+  const reply = (source, dest) => spawnSync(process.execPath, [join(HELPERS, 'reply.mjs'), join(dir, source), join(dir, dest)], { encoding: 'utf8' });
+
+  const saved = reply('done.output', 'seat/answer.md');
+  assert.equal(saved.status, 0, saved.stderr);
+  assert.equal(read(dir, 'seat/answer.md'), answer);
+  assert.equal(reply('done.output', 'seat/answer.md').status, 1, 'a saved reply is never overwritten');
+  assert.match(reply('interim.output', 'interim.md').stderr, /has not finished/, 'text that does not end the turn');
+  assert.match(reply('limit.output', 'limit.md').stderr, /API error/, 'an error the runtime wrote for the agent');
+  assert.equal(existsSync(join(dir, 'interim.md')) || existsSync(join(dir, 'limit.md')), false);
+});
+
+test('reread prints each changed sentence whole against its last snapshot', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-reread-'));
+  const rules = 'Intro line.\n\n- **Delivery.** The user owns commits. Run the last check before handing back, and never push the protected branch without the owner asking for it in this request.\n- Keep plans in the repository.\n\nA repair edits the one owner, fixes every artifact that\nstill teaches the rejected shape, and regenerates\nand proves mirrors. Ask Dr. Smith before a release.\n';
+  writeFileSync(join(dir, 'AGENTS.md'), rules);
+  const reread = (...args) => spawnSync(process.execPath, [join(HELPERS, 'reread.mjs'), ...args], { cwd: dir, encoding: 'utf8' });
+  const edit = (from, to) => writeFileSync(join(dir, 'AGENTS.md'), rules.replace(from, to));
+
+  assert.match(reread('--dir', 'snap', 'AGENTS.md').stdout, /AGENTS\.md: first snapshot; read it in full/);
+  assert.match(reread('--dir', 'snap', 'AGENTS.md').stdout, /AGENTS\.md: unchanged since /);
+  edit('without the owner asking for it in this request', 'unless the owner asks');
+  const changed = reread('--dir', 'snap', 'AGENTS.md').stdout;
+  assert.match(changed, /1 sentence\(s\) removed and 1 added/);
+  assert.ok(changed.includes('+ Run the last check before handing back, and never push the protected branch unless the owner asks.'), changed);
+  assert.doesNotMatch(changed, /owns commits|Keep plans/);
+  edit('and proves mirrors', 'but never proves mirrors');
+  assert.ok(reread('--dir', 'snap', 'AGENTS.md').stdout.includes('+ A repair edits the one owner, fixes every artifact that still teaches the rejected shape, and regenerates but never proves mirrors.'), 'a hard-wrapped sentence prints whole');
+  edit('Dr. Smith', 'Dr. Jones');
+  assert.ok(reread('--dir', 'snap', 'AGENTS.md').stdout.includes('+ Ask Dr. Jones before a release.'), 'an abbreviation stays inside its sentence');
+
+  const hook = (source) => spawnSync(process.execPath, [join(HELPERS, 'reread.mjs'), '--hook', 'AGENTS.md', 'missing.md'], { cwd: dir, encoding: 'utf8', input: JSON.stringify({ session_id: `s-${source}`, source }) });
+  assert.doesNotMatch(hook('startup').stdout, /AGENTS\.md|missing/, 'a fresh start only seeds the snapshots');
+  assert.match(hook('compact').stdout, /AGENTS\.md: first snapshot; read it in full/, 'a compacted session with no snapshot rereads');
+  edit('Keep plans in the repository.', 'Keep plans in the repository. Never stash.');
+  const after = hook('startup').stdout;
+  assert.ok(after.includes('+ Never stash.'), after);
+  assert.match(after, /--dir docs\/plans\/artifacts\/reread\/s-startup/);
+});

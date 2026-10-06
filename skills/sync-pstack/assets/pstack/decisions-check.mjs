@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 // Checks the rows a show-me-your-work decision log gained since HEAD, so a
 // committed row always says plainly whether its work is fixed, partial or still
-// open. Rows already committed are left as history. Installed by sync-pstack.
+// open. Rows already committed are left as history. PSTACK_BASE=<commit> checks
+// against that commit instead, so an owner's commit mid-run does not exempt the
+// run's rows; a value that names no commit fails. Installed by sync-pstack.
 // Usage: node .agents/pstack/decisions-check.mjs <log.decisions.tsv> [...]
 //        node .agents/pstack/decisions-check.mjs --all
 //        node .agents/pstack/decisions-check.mjs append <log> <phase> <decision> <why> <evidence> <result>
 //        (stamps the row, checks it, and writes it only when it passes)
+//        node .agents/pstack/decisions-check.mjs append <log> --from <rows.tsv>
+//        (each line holds the five cells; writes every row only when all pass)
 
-import { spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
-import { SEATS, SEVERITIES } from './status.mjs';
+import { dirname, join, resolve } from 'node:path';
+import { committedLines, runPaths, SEATS, SEVERITIES } from './status.mjs';
 
 const HEADER = 'ts\tphase\tdecision\twhy\tevidence\tresult';
 const STATUSES = [
@@ -53,9 +56,13 @@ function missingPlan(path, line, where) {
   return existsSync(plan) ? [] : [`${where}: a panel row needs its plan ${plan} beside the log, so the page shows the round; write the plan first`];
 }
 
-function committedRows(path) {
-  const committed = spawnSync('git', ['show', `HEAD:./${relative(process.cwd(), path)}`], { encoding: 'utf8' });
-  return new Set(committed.status === 0 ? committed.stdout.split('\n') : []);
+const markedMissing = (evidence, path) =>
+  new RegExp(`${path.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')}(?::\\d+)*(?:#L\\d+)?\`?\\s*\\(missing\\)`, 'u').test(evidence);
+
+function missingPaths(evidence, where) {
+  return runPaths(evidence, plansDir())
+    .filter((path) => !existsSync(path) && !markedMissing(evidence, path))
+    .map((path) => `${where}: evidence cites ${path}, which does not exist; write it first or cite the path it was saved to`);
 }
 
 function rowProblems(line, where, opened) {
@@ -74,10 +81,10 @@ function rowProblems(line, where, opened) {
   // A claim of success names what the proof covered (widths, persona,
   // fixture, allowed or denied path), which is where overclaims hide.
   if (status && PROVEN.includes(status) && !/\bscope:/iu.test(rest[3])) {
-    found.push(`${where}: a ${status} result needs "scope:" in its evidence naming what the proof covered`);
+    found.push(`${where}: a ${status} result needs "scope:" in its evidence naming what the proof covered, or a partial result that states the gap`);
   }
   if (rest[0] === 'panel' && !SEATS.test(rest[1])) {
-    if (!SEVERITIES.includes(rest[1].split(/\s/u)[0])) found.push(`${where}: a panel row's decision starts with "seats" or a severity: critical, warning or nit`);
+    if (!SEVERITIES.includes(rest[1].split(/\s/u)[0])) found.push(`${where}: a panel row's decision starts with "seats" or a severity: critical, warning or nit; any other phase, such as build or trail, takes a row that is neither`);
     else if (!opened) found.push(`${where}: a panel finding needs a "seats" row before it`);
     if (!/^(applied|dismissed|deferred|open)\b\W+\w/u.test(rest[4])) found.push(`${where}: a panel finding's result starts with "applied", "dismissed", "deferred" or "open" and gives the reason`);
     else if (/^deferred\b/u.test(rest[4])) {
@@ -87,13 +94,14 @@ function rowProblems(line, where, opened) {
       found.push(`${where}: an open panel finding names its patch: and owner:`);
     }
   }
-  return found;
+  const reviewerRow = rest[0].startsWith('review');
+  return reviewerRow ? found : [...found, ...missingPaths(rest[3], where)];
 }
 
 function problems(path) {
   const lines = readFileSync(path, 'utf8').split('\n');
   if (lines[0] !== HEADER) return [`${path}:1: header must be "${HEADER.replaceAll('\t', ' ')}"`];
-  const committed = committedRows(path);
+  const committed = committedLines(path);
   let opened = false;
   return lines.flatMap((line, index) => {
     if (index === 0 || line === '') return [];
@@ -104,28 +112,51 @@ function problems(path) {
   });
 }
 
-function append(path, cells) {
-  if (cells.length !== 5) return [`append takes 5 cells after the log path, got ${cells.length}`];
-  const broken = cells.findIndex((cell) => /[\t\n]/u.test(cell));
-  if (broken !== -1) return [`${CELLS[broken]} contains a tab or newline`];
-  const row = [new Date().toISOString().replace(/\.\d{3}Z$/u, 'Z'), ...cells].join('\t');
+function append(path, batch) {
+  const stamp = new Date().toISOString().replace(/\.\d{3}Z$/u, 'Z');
   const text = existsSync(path) ? readFileSync(path, 'utf8') : null;
-  const found = [...rowProblems(row, `${path} (new row)`, (text ?? '').split('\n').some(opens)), ...missingPlan(path, row, `${path} (new row)`)];
+  let opened = (text ?? '').split('\n').some(opens);
+  const rows = [];
+  const found = [];
+  for (const [index, cells] of batch.entries()) {
+    const where = batch.length > 1 ? `${path} (new row ${index + 1})` : `${path} (new row)`;
+    if (cells.length !== 5) {
+      found.push(`${where}: append takes 5 cells, got ${cells.length}`);
+      continue;
+    }
+    const broken = cells.findIndex((cell) => /[\t\n]/u.test(cell));
+    if (broken !== -1) {
+      found.push(`${where}: ${CELLS[broken]} contains a tab or newline`);
+      continue;
+    }
+    const row = [stamp, ...cells].join('\t');
+    found.push(...rowProblems(row, where, opened), ...missingPlan(path, row, where));
+    opened ||= opens(row);
+    rows.push(row);
+  }
   if (found.length > 0) return found;
+  const added = rows.map((row) => `${row}\n`).join('');
   if (text !== null) {
-    appendFileSync(path, `${text === '' || text.endsWith('\n') ? '' : '\n'}${row}\n`);
-  } else writeFileSync(path, `${HEADER}\n${row}\n`);
+    appendFileSync(path, `${text === '' || text.endsWith('\n') ? '' : '\n'}${added}`);
+  } else writeFileSync(path, `${HEADER}\n${added}`);
   return [];
 }
 
 const args = process.argv.slice(2);
 if (args[0] === 'append') {
-  const found = append(args[1] ?? '', args.slice(2));
+  const batch =
+    args[2] === '--from'
+      ? readFileSync(args[3] ?? '', 'utf8')
+          .split(/\r?\n/u)
+          .filter((line) => line.trim())
+          .map((line) => line.split('\t'))
+      : [args.slice(2)];
+  const found = batch.length === 0 ? [`${args[3]} holds no rows`] : append(args[1] ?? '', batch);
   if (found.length > 0) {
-    console.error(`Row not written:\n${found.join('\n')}`);
+    console.error(`${batch.length > 1 ? 'No row written' : 'Row not written'}:\n${found.join('\n')}`);
     process.exit(1);
   }
-  console.info(`Appended a row to ${args[1]}.`);
+  console.info(batch.length > 1 ? `Appended ${batch.length} rows to ${args[1]}.` : `Appended a row to ${args[1]}.`);
   process.exit(0);
 }
 const paths =

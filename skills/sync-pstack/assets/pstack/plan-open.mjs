@@ -2,11 +2,13 @@
 // Installed by the sync-pstack skill.
 // Usage: node .agents/pstack/plan-open.mjs <plan.md> [...]
 //        node .agents/pstack/plan-open.mjs --done   (every plan whose Status starts with a landed word, such as done or executed)
+// Lines already committed at HEAD skip the closed-box, citation, owner and stop
+// checks. PSTACK_BASE=<commit> checks against that commit instead, so an owner's
+// commit mid-run does not exempt the run's lines; a value that names no commit fails.
 
-import { spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
-import { landed } from './status.mjs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { committedLines, landed, recordsExit, runPaths } from './status.mjs';
 
 const OPEN_BOX = /^\s*(?:(?:[-*+]|\d+\.)\s+)+\[ \]/u;
 const CLOSED_BOX = /^\s*(?:(?:[-*+]|\d+\.)\s+)+\[[xX]\]/u;
@@ -24,15 +26,25 @@ function plansDir() {
   return (existsSync(config) && JSON.parse(readFileSync(config, 'utf8')).plans) || 'docs/plans';
 }
 
-function committedLines(path) {
-  const committed = spawnSync('git', ['show', `HEAD:./${relative(process.cwd(), path)}`], { encoding: 'utf8' });
-  return new Set(committed.status === 0 ? committed.stdout.split('\n') : []);
+function unprovenCitations(text) {
+  return runPaths(text, plansDir()).flatMap((cited) => {
+    if (!existsSync(cited)) return [`cites ${cited}, which does not exist`];
+    if (cited.endsWith('.log') && statSync(cited).isFile() && !recordsExit(cited)) {
+      return [`cites ${cited}, which records no exit status; rerun it through proof.mjs`];
+    }
+    return [];
+  });
 }
 
 function openLines(path) {
   const text = readFileSync(path, 'utf8');
   const committed = committedLines(path);
   const found = [];
+  let closedBox = null;
+  const checkClosedBox = () => {
+    if (closedBox) found.push(...unprovenCitations(closedBox.text).map((problem) => `${closedBox.where} (${problem})`));
+    closedBox = null;
+  };
   let fenced = false;
   let commented = false;
   let findings = false;
@@ -40,6 +52,7 @@ function openLines(path) {
   let gate = null;
   for (const [index, raw] of text.split('\n').entries()) {
     if (/^\s*(?:```|~~~)/u.test(raw)) {
+      checkClosedBox();
       fenced = !fenced;
       continue;
     }
@@ -57,6 +70,8 @@ function openLines(path) {
       commented = true;
       line = line.slice(0, start);
     }
+    if (closedBox && line.trim() && raw.search(/\S/u) > closedBox.indent) closedBox.text += ` ${line.trim()}`;
+    else checkClosedBox();
     const heading = line.match(/^(#{1,6})\s/u);
     if (heading) {
       // A heading nested under a findings heading, such as a question under
@@ -88,7 +103,12 @@ function openLines(path) {
     if (committed.has(raw)) continue;
     if (CLOSED_BOX.test(line) && !ARTIFACT.test(line)) found.push(`${where} (name the artifact that closed it, or skip: <reason>)`);
     else if (findings && ITEM.test(line) && !(/\bowner:/iu.test(line) && /\bstop:/iu.test(line))) found.push(`${where} (name its owner:, where it is tracked, and its stop:)`);
+    if (CLOSED_BOX.test(line)) {
+      checkClosedBox();
+      closedBox = { indent: raw.search(/\S/u), text: line, where: `${path}:${index + 1}: ${raw.trim()}` };
+    }
   }
+  checkClosedBox();
   return found;
 }
 
