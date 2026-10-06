@@ -792,6 +792,9 @@ test("verify fails when AGENTS.md is longer than Codex loads, and passes once th
   const root = setupFixture(dir, home);
   writeFileSync(join(root, 'AGENTS.md'), `${readFileSync(join(root, 'AGENTS.md'), 'utf8')}\n## Project rules\n\n${'- A project rule Codex must read.\n'.repeat(1200)}`);
   mkdirSync(join(home, '.codex'), { recursive: true });
+  const noConfig = cli('verify', root);
+  assert.equal(noConfig.status, 1);
+  assert.match(noConfig.stdout + noConfig.stderr, /Codex loads only the first 32768; set project_doc_max_bytes = 131072 at the top of .*config\.toml/);
   writeFileSync(join(home, '.codex/config.toml'), 'model = "gpt-6.1-sol"\n\n[profiles.deep]\nproject_doc_max_bytes = 262144\n');
   const short = cli('verify', root);
   assert.equal(short.status, 1);

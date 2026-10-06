@@ -597,9 +597,9 @@ function userPins() {
 
 const CODEX_DEFAULT_DOC_BYTES = 32768;
 function codexDocLimit() {
+  if (!existsSync(join(homedir(), '.codex'))) return null;
   const path = join(homedir(), '.codex/config.toml');
-  if (!existsSync(path)) return null;
-  const rootTable = readFileSync(path, 'utf8').split(/^\[/mu)[0];
+  const rootTable = existsSync(path) ? readFileSync(path, 'utf8').split(/^\[/mu)[0] : '';
   const value = rootTable.match(/^project_doc_max_bytes\s*=\s*(\d+)/mu)?.[1];
   return { path, limit: value ? Number(value) : CODEX_DEFAULT_DOC_BYTES };
 }
