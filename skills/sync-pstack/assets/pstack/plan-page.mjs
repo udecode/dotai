@@ -12,7 +12,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { basename, dirname, join, relative, resolve } from 'node:path';
+import { basename, dirname, extname, join, relative, resolve } from 'node:path';
 import { SEATS, SEVERITIES, STATES, landed, reopened, stateOf } from './status.mjs';
 
 const PAGE_HEAD = `<meta charset="utf-8">
@@ -182,10 +182,19 @@ details.iteration[open] > summary { margin-bottom: 4px; }
 .fs.now, .fs.waiting, .fs.blocked { box-shadow: 0 0 0 3px color-mix(in srgb, var(--hue) 25%, transparent); }
 .fs-meta { font: 700 0.7rem var(--mono); opacity: 0.9; }
 .tool { font: 500 0.68rem var(--mono); border: 1px solid currentColor; border-radius: 4px; padding: 0 4px; opacity: 0.9; }
+.demo-steps { display: grid; gap: 1.25rem; padding-left: 1.4rem; }
+.demo-steps > li > p { margin: 0 0 0.5rem; }
+.shots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; align-items: start; }
+@media (max-width: 640px) { .shots { grid-template-columns: 1fr; } }
+.shot { margin: 0; }
+.shot img { display: block; width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 8px; }
+.shot figcaption { font-size: 0.8rem; opacity: 0.75; margin-top: 0.25rem; }
+.shot.missing { border: 1px dashed var(--rule); border-radius: 8px; padding: 0.5rem 0.75rem; }
 </style>`;
 
 const ROLES = [
   [/^brief$/i, 'brief'],
+  [/^demo$/i, 'demo'],
   [/^open questions$/i, 'needs'],
   [/^public api$/i, 'api'],
   [/^main changes$/i, 'main'],
@@ -691,6 +700,51 @@ function listHtml(items, start) {
     html: ordered ? `<ol>${html}</ol>` : `<ul>${html}</ul>`,
     next: index,
   };
+}
+
+const SHOT = /!\[([^\]]*)\]\(([^)\s]+)\)/g;
+const SHOT_TYPES = { '.gif': 'image/gif', '.jpeg': 'image/jpeg', '.jpg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
+const DEMO_STEP = /^\d+[.)]\s+(.*)$/;
+
+function demoSteps(lines) {
+  const intro = [];
+  const steps = [];
+  for (const line of lines) {
+    const step = line.match(DEMO_STEP);
+    if (step) steps.push(step[1]);
+    else if (steps.length && line.trim()) steps[steps.length - 1] += ` ${line.trim()}`;
+    else if (!steps.length) intro.push(line);
+  }
+  return { intro, steps };
+}
+
+function assertDemo(plan, where) {
+  const section = sectionNamed(plan, 'Demo');
+  if (section && demoSteps(section.lines).steps.length === 0) {
+    throw new Error(`## Demo in ${where} needs numbered steps in the order the owner tries them: where to go, what to do and what they see, with ![before](path) and ![after](path) frames when the UI changed`);
+  }
+}
+
+function inlineShotHtml(label, path, base) {
+  const file = resolve(base, path);
+  const caption = label ? label[0].toUpperCase() + label.slice(1) : '';
+  const type = SHOT_TYPES[extname(file).toLowerCase()];
+  if (!type || !existsSync(file)) {
+    return `<figure class="shot missing"><figcaption>${escapeHtml(caption ? `${caption}: ` : '')}<code>${escapeHtml(path)}</code> ${type ? 'is not on this machine' : 'is not an image'}</figcaption></figure>`;
+  }
+  return `<figure class="shot"><img src="data:${type};base64,${readFileSync(file).toString('base64')}" alt="${escapeHtml(caption || path)}">${caption ? `<figcaption>${escapeHtml(caption)}</figcaption>` : ''}</figure>`;
+}
+
+function demoHtml(section, base) {
+  const { intro, steps } = demoSteps(section.lines);
+  const items = steps
+    .map((step) => {
+      const shots = [...step.matchAll(SHOT)].map(([, label, path]) => inlineShotHtml(label, path, base));
+      const text = step.replace(SHOT, '').replace(/\s+/g, ' ').trim();
+      return `<li><p>${inline(text)}</p>${shots.length ? `<div class="shots">${shots.join('')}</div>` : ''}</li>`;
+    })
+    .join('');
+  return `<section class="demo card"><h2>Demo</h2>${blocksHtml(intro)}<ol class="demo-steps">${items}</ol></section>`;
 }
 
 function blocksHtml(lines) {
@@ -1248,6 +1302,7 @@ function page(planPath, { folded = false } = {}) {
     assertPairs(entry.plan.sections, pairs, where);
     if (!finished(entry.plan.meta.status ?? '')) assertDefaults(entry.plan, where);
     if (!finished(entry.plan.meta.status ?? '') && owesBrief(entry)) assertBrief(entry.plan, where);
+    assertDemo(entry.plan, where);
     if (stateOf(entry.plan.meta.status ?? '') && !finished(entry.plan.meta.status ?? '')) {
       assertAsks(entry.plan, where);
       assertPlain(entry.plan, where);
@@ -1392,6 +1447,7 @@ function page(planPath, { folded = false } = {}) {
     <div class="meta">${delta ? `<span>Plan <strong>${inline(focus.title || basename(focusEntry.path, '.md'))}</strong></span>` : ''}${roundTag}<span>Updated ${updated} UTC</span></div>
   </header>
   <section class="brief card">${answers}</section>
+  ${byRole('demo', source).map((section) => demoHtml(section, dirname(leader.path))).join('')}
   ${asking}
   ${byRole('picked', source).map((section) => sectionHtml({ ...section, title: 'Picked for you' })).join('')}
   ${changes}
@@ -1408,6 +1464,7 @@ ${brief ? briefMain() : `<main>
     ${statusLine}
     <div class="meta"><code>${escapeHtml(where)}</code>${hub ? `<span>History <code>${escapeHtml(hub)}</code></span>` : ''}${reviewTag}<span>Updated ${updated} UTC</span></div>
   </header>
+  ${(own ? byRole('demo', own) : []).map((section) => demoHtml(section, dirname(planPath))).join('')}
   ${needs || olderNeeds.length ? needsSection(needs?.lines ?? [], olderNeeds) : ''}${close ? sectionHtml(close, 'panel') : ''}
   ${changeHtml('api')}
   ${changeHtml('lead')}

@@ -908,6 +908,36 @@ test('plan-page refuses a pstack.json that still sets the page lists', () => {
   assert.match(result.stderr, /still sets pageLead; move each list into the frontmatter of the playbook/);
 });
 
+test('plan-page shows the Demo steps in order right after the brief, inlines each screenshot and names a missing one', () => {
+  const { dir, run } = sandbox();
+  const demo = '## Demo\n\n1. Open **Settings → Migration**. The view says Not pulled yet.\n   ![before](shots/before.png) ![after](shots/after.png)\n2. Click Start onboarding. Its two steps appear.\n   ![after](shots/gone.png)\n';
+  const plan = `# Plan\n\nStatus: building\n\n${brief()}\n${demo}\n## Open questions\n\n## Steps\n\n- [ ] Ship.\n`;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  mkdirSync(join(root, 'docs/plans/shots'), { recursive: true });
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAwS2OUAAAAABJRU5ErkJggg==', 'base64');
+  writeFileSync(join(root, 'docs/plans/shots/before.png'), png);
+  writeFileSync(join(root, 'docs/plans/shots/after.png'), png);
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const html = read(root, 'docs/plans/artifacts/plan.html');
+  const demoAt = html.indexOf('class="demo');
+  assert.ok(demoAt > html.indexOf('class="brief'), 'Demo follows the brief');
+  assert.ok(demoAt < html.indexOf('class="source"'), 'Demo sits on the page, not in the plan files note');
+  assert.ok(html.indexOf('The view says Not pulled yet') < html.indexOf('Its two steps appear'), 'steps keep their order');
+  assert.equal([...html.matchAll(/<img src="data:image\/png;base64,/g)].length, 2);
+  assert.match(html, /<figcaption>Before<\/figcaption>/);
+  assert.match(html, /shots\/gone\.png/);
+});
+
+test('plan-page refuses a Demo with no numbered step', () => {
+  const { dir, run } = sandbox();
+  const plan = `# Plan\n\nStatus: building\n\n${brief()}\n## Demo\n\nOpen the page and look around.\n`;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /## Demo in docs\/plans\/plan\.md needs numbered steps/);
+});
+
 test('plan-page diffs a before and after pair line by line', () => {
   const { dir, run } = sandbox();
   const plan = '# Plan\n\nStatus: done\n\n## Public API\n\n```ts before\nsetup()\nold()\n```\n\n```ts after\nsetup()\nnext()\n```\n';
