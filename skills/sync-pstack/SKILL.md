@@ -104,7 +104,7 @@ Skills drift from pstack when they copy law that pstack or the block already own
 
 ## Reviews
 
-The reviews list in each project's `.agents/pstack.json` is the only place that names the work running a panel, `architect` or an arena without asking. Everything else waits for the user's "panel", "arena" or "full".
+The reviews list in each project's `.agents/pstack.json` names the work that runs a panel, `architect` or an arena without asking beside every pstack step that already calls for one. The user's "panel", "arena" or "full" runs one anywhere else.
 
 1. Read the tool's skill in full, then list every pstack playbook step and skill at the project's pin that calls the tool by default, such as Feature's design step for `architect`. Give each call site a row in the plan's Defaults, naming what happens to it and the word that reverses that, before the build.
 2. Turn the user's sentence into one row per project it covers: a kebab-case `id` and a one-sentence `rule` that names the work, the tool and the stage, such as `{ "id": "api-design", "rule": "A best-api design gets architect before its target is picked." }`. Rewrite a row that already covers that work instead of adding a second, and delete a row the user retires.

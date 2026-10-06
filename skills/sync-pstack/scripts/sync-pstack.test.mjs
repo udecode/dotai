@@ -218,7 +218,7 @@ test('the reviews list renders each row under the Panel rule, and an empty one s
   assert.equal(cli('apply', listed).status, 0);
   assert.equal(cli('apply', empty).status, 0);
   assert.match(read(listed, 'AGENTS.md'), /\n {2}- `pr`: Before opening a PR, the diff gets a panel\./);
-  assert.match(read(empty, 'AGENTS.md'), /reviews list is empty, so every panel waits for the user's word/);
+  assert.match(read(empty, 'AGENTS.md'), /reviews list is empty, so panels run only where a pstack step calls for them or on the user's word/);
 });
 
 test('verify flags a playbook that runs a panel tool without citing a reviews row, a citation of a missing row, and a retired review field', () => {
@@ -1841,4 +1841,37 @@ test('sync writes only a clean checkout on the project branch', () => {
   const offBranch = cli('sync', '--tag', 'v0.9.53', root);
   assert.equal(offBranch.status, 1);
   assert.match(offBranch.stdout, /the checkout is on topic, not next/);
+});
+
+test('freeze writes a commit no ref points to without touching the checkout index', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-freeze-'));
+  const repo = join(dir, 'repo');
+  spawnSync('git', ['init', '-q', repo]);
+  writeFileSync(join(repo, 'plan.md'), 'reviewed\n');
+  writeFileSync(join(repo, 'other.md'), 'base\n');
+  spawnSync('git', ['-C', repo, 'add', '-A']);
+  commit(repo, 'base');
+  writeFileSync(join(repo, 'plan.md'), 'round one\n');
+  writeFileSync(join(repo, 'other.md'), 'another session\n');
+  const runDir = join(dir, 'run');
+  const freeze = (...args) => spawnSync(process.execPath, [join(HELPERS, 'freeze.mjs'), '--dir', runDir, ...args], { cwd: repo, encoding: 'utf8' });
+
+  const first = freeze('plan.md');
+  assert.equal(first.status, 0, first.stderr);
+  const sha = first.stdout.trim();
+  const show = (rev, path) => spawnSync('git', ['-C', repo, 'show', `${rev}:${path}`], { encoding: 'utf8' }).stdout;
+  assert.equal(show(sha, 'plan.md'), 'round one\n');
+  assert.equal(show(sha, 'other.md'), 'base\n');
+  assert.equal(spawnSync('git', ['-C', repo, 'diff', '--cached', '--quiet']).status, 0);
+  assert.equal(spawnSync('git', ['-C', repo, 'for-each-ref', '--contains', sha], { encoding: 'utf8' }).stdout, '');
+  assert.ok(existsSync(join(runDir, 'freeze-index')));
+
+  writeFileSync(join(repo, 'plan.md'), 'round two\n');
+  const second = freeze('--parent', sha, 'plan.md');
+  assert.equal(second.status, 0, second.stderr);
+  const parent = spawnSync('git', ['-C', repo, 'rev-parse', `${second.stdout.trim()}^`], { encoding: 'utf8' }).stdout.trim();
+  assert.equal(parent, sha);
+
+  assert.equal(freeze('missing.md').status, 1);
+  assert.equal(spawnSync(process.execPath, [join(HELPERS, 'freeze.mjs')], { cwd: repo }).status, 2);
 });

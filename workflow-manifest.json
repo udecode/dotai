@@ -83,7 +83,7 @@
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
-      "sha256": "501b9df4a1825426ab649de28ef4b3d6d0dbdb3771e70d2098c5fce6e3884039",
+      "sha256": "2c52924ed002713d76d82e3e92e0c6e015d7434a1b80714cc8525831448f85e5",
       "mode": 420
     },
     "skills/sync-pstack/agents/openai.yaml": {
@@ -91,7 +91,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "36ee052d1f24339a350064bb5e5865a437b6020447d3716c5a24930bcc3efade",
+      "sha256": "f760b39c2273b386db12750c46a6e49fc4e9f476827d19e62726d49e2481dfd3",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/cross.mjs": {
@@ -100,6 +100,10 @@
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
       "sha256": "762fe49c174123e3bd98eb351679268cb22915303f4c0b40d36352042d356e69",
+      "mode": 420
+    },
+    "skills/sync-pstack/assets/pstack/freeze.mjs": {
+      "sha256": "465aa4d884b4f593c4056586e6b7642c8b92483a103e5ba0a44024fb418eb5da",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/plan-open.mjs": {
@@ -123,7 +127,7 @@
       "mode": 420
     },
     "skills/sync-pstack/references/interview.md": {
-      "sha256": "8782220d4b66f88ab27d223424df9c62ff4a73da29719e24a23db027ac6b3ffb",
+      "sha256": "9d3ec6f3f46f42fc7756bb9dded687cd92ce017c29bf31e8e1494f62c1f55ba9",
       "mode": 420
     },
     "skills/sync-pstack/scripts/audit.mjs": {
@@ -131,11 +135,11 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.mjs": {
-      "sha256": "b93fea3b1682f0567c22e2be33f2d96611ebf291d1d5d4ba2dff2eb0f6b3b152",
+      "sha256": "f08a80109441946a87028b61f8b4efdcebe57883e8af880e4166e402ee61be07",
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "d725a5c51ae5e3a84a1a0af093531f1e7bdc56b1f6a5867ddf9ffa207a156816",
+      "sha256": "8afb7909eb411d1359d6973e73b5c781ff7782e3c560d2302cdf1d67b2a61652",
       "mode": 420
     },
     "skills/test-audit/LICENSE": {
@@ -155,7 +159,7 @@
       "mode": 493
     },
     "skills/walkthrough/SKILL.md": {
-      "sha256": "f8011fa576cf3603a58ce4311b951d3f04aa537e854875c5babec5a7d4af6a10",
+      "sha256": "62653ef36a5f58b62fe1dc1fe51e93a9435a0ea8f7e75a5921d4a3cfc5e4992e",
       "mode": 420
     },
     "skills/walkthrough/agents/openai.yaml": {

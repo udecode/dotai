@@ -49,7 +49,7 @@ For question 8, show each candidate's typed count (`typed.counts`, counted as [A
 The owner settled these for every project. Report them as applied.
 
 - The lead writes the code; subagents research, review and fan out read-only.
-- Messages to another person need explicit authorization, and a "can we X?" question gets a proposal, not the action. Spending a shared resource, or widening an access grant, needs a go-ahead per target.
+- A message to a customer or to anyone outside the team needs explicit authorization, and a "can we X?" question gets a proposal, not the action. Team messages and shared quota proceed without asking; widening an access grant needs a go-ahead per target.
 - Claude Code runs every pstack role on Opus except Codex panel seats; Codex roles inherit the session model.
 - No per-delegate worktrees.
 - Panels seat Opus, `codex:gpt-6-astra @high` and `codex:gpt-6.1-sol @xhigh`, read-only through `cross.mjs`, and a critical finding is the blocking ceiling.
