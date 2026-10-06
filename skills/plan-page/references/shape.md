@@ -39,6 +39,8 @@ A subject file never holds a `before` or `after` fence.
   7. `Attention:` and one word, when an option is recommended: `safe` when the pick is easy to undo and you are sure, `look` when it is costly, hard to undo or you are unsure, and `answer` when it cannot be taken back, such as a delete or a message to customers. Attention rates the recommended option, not the question, so a delete question whose pick keeps the data is `look` or `safe`.
   8. `If you say go:` only when no option is recommended; it says that go leaves the question open. A question with no pick always counts as `answer`.
 
+  A memo that asks whether to ship names, in its facts, any deferred finding that contradicts a premise the owner stated. When more than one does, a fact gives their count and the decision log lists them. Every patch made after the review cap gets its own ship memo, even after the owner answered an earlier one.
+
   ```md
   ### Workflow guides
 
@@ -55,7 +57,7 @@ A subject file never holds a `before` or `after` fence.
 
   Attention: safe
   ```
-- `## Close`: written at every stop that hands work back after work ran, such as a build, fix or review close. It holds what landed, the proof and its limits, the counts the block's Todo list and close rule requires, reversals and deviations first, open work with owners and stops and, after a decision-trail review, its Attention section. A pstack playbook's Reply line lists what else it holds.
+- `## Close`: written at every stop that hands work back after work ran, such as a build, fix or review close. It holds what landed, the proof and its limits, the counts the block's Todo list and close rule requires, reversals and deviations first, open work with owners and stops and, after a decision-trail review, its Attention section. Build the proof part from each decision-log row's own `scope:`, never from one sentence that covers every fix. A pstack playbook's Reply line lists what else it holds.
 - On a page without a brief, Scope, Steps, Evidence, Proof, Claims, Asks, Verification, Notes and Panel gate render under Details, and a one-off plan shows its other sections. A page with a brief leaves them in the plan file.
 
 ## Lifecycle
