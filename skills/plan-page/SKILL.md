@@ -16,7 +16,7 @@ Read [references/shape.md](references/shape.md) before writing a plan or a subje
 | Mode | Use it to |
 | --- | --- |
 | [Render](#render) | publish a page at every stop the block's Plan pages rule lists |
-| Refresh | render the named plan's page again, or the open plan of the subject the session works on when none is named, with Render steps 5, 7 and 8, while its work is still active |
+| Refresh | render the named plan's page again with Render steps 5, 7 and 8 while the plan is not done; with no plan named, use the open plan of the subject the session works on, and ask when there is none |
 | [Check](#check) | audit a plan and its subject before handing the page back |
 | [Repair](#repair) | fix a page whose shape is wrong |
 | [Change](#change) | change the page shape, the renderer, or a playbook's page sections |
