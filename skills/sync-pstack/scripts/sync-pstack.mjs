@@ -595,6 +595,15 @@ function userPins() {
   return { claude, codex };
 }
 
+const CODEX_DEFAULT_DOC_BYTES = 32768;
+function codexDocLimit() {
+  const path = join(homedir(), '.codex/config.toml');
+  if (!existsSync(path)) return null;
+  const rootTable = readFileSync(path, 'utf8').split(/^\[/mu)[0];
+  const value = rootTable.match(/^project_doc_max_bytes\s*=\s*(\d+)/mu)?.[1];
+  return { path, limit: value ? Number(value) : CODEX_DEFAULT_DOC_BYTES };
+}
+
 function* codexSessions(dir) {
   if (!existsSync(dir)) return;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -948,6 +957,11 @@ export function verify(root) {
     for (const name of unmarkedRules(readFileSync(TEMPLATE, 'utf8'))) problems.push(`block rule "${name}" has no overrides note or adds marker`);
     problems.push(...reviewProblems(root, config));
   }
+  const codex = codexDocLimit();
+  const agentsBytes = existsSync(join(root, 'AGENTS.md')) ? statSync(join(root, 'AGENTS.md')).size : 0;
+  if (codex && agentsBytes > codex.limit) {
+    problems.push(`AGENTS.md is ${agentsBytes} bytes, but Codex loads only the first ${codex.limit}; set project_doc_max_bytes = ${Math.max(131072, 2 ** Math.ceil(Math.log2(agentsBytes)))} at the top of ${codex.path}`);
+  }
 
   const plugin = pluginSkills();
   const lock = existsSync(join(root, 'skills-lock.json')) ? (readJson(join(root, 'skills-lock.json')).skills ?? {}) : {};
@@ -1110,6 +1124,7 @@ function userPin(tag, { write }) {
     ...(declared ? [`  claude plugin marketplace add ${REPO}#${tag} && claude plugin update ${PLUGIN}`] : []),
     `  codex plugin marketplace remove ${MARKETPLACE} && codex plugin marketplace add ${REPO} --ref ${tag} && codex plugin add ${PLUGIN}`,
     'Codex asks to trust the pstack session hook again in /hooks when its file changed.',
+    'Codex loads only the first 32 KiB of AGENTS.md unless ~/.codex/config.toml sets project_doc_max_bytes = 131072 above its first [table].',
   );
   return lines;
 }

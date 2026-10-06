@@ -787,6 +787,20 @@ test('verify passes a setup that keeps typed commands as entry points', () => {
   assert.equal(result.status, 0, result.stdout + result.stderr);
 });
 
+test("verify fails when AGENTS.md is longer than Codex loads, and passes once the Codex config raises the limit", () => {
+  const { dir, home, cli } = sandbox();
+  const root = setupFixture(dir, home);
+  writeFileSync(join(root, 'AGENTS.md'), `${readFileSync(join(root, 'AGENTS.md'), 'utf8')}\n## Project rules\n\n${'- A project rule Codex must read.\n'.repeat(1200)}`);
+  mkdirSync(join(home, '.codex'), { recursive: true });
+  writeFileSync(join(home, '.codex/config.toml'), 'model = "gpt-6.1-sol"\n\n[profiles.deep]\nproject_doc_max_bytes = 262144\n');
+  const short = cli('verify', root);
+  assert.equal(short.status, 1);
+  assert.match(short.stdout + short.stderr, /AGENTS\.md is \d+ bytes, but Codex loads only the first 32768; set project_doc_max_bytes = 131072 at the top of .*config\.toml/);
+  writeFileSync(join(home, '.codex/config.toml'), 'model = "gpt-6.1-sol"\nproject_doc_max_bytes = 131072\n');
+  const raised = cli('verify', root);
+  assert.equal(raised.status, 0, raised.stdout + raised.stderr);
+});
+
 test('plan-open reports an open box outside code and ignores one inside a fence', () => {
   const { dir, run } = sandbox();
   const root = project(dir, 'app', { files: { 'plan.md': '# Plan\n\n- [x] done: `bun test ./a.test.ts`\n- [ ] ship it\n\n```md\n- [ ] example\n```\n' } });
