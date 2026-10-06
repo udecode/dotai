@@ -41,6 +41,7 @@ Run `node .agents/pstack/plan-page.mjs <plan> --check`. It runs every refusal an
 - Every subject section the plan changes carries a Delta table keyed to the subject's rows. Otherwise the page marks the section unchanged.
 - Main changes lists only non-public changes that alter how the code works.
 - Each box closed since the last render matches its approved `Proof:` clause, on the exact bytes and in the place the proof ran. A change to the shared source counts as live in a project only after that project syncs from its pushed commit.
+- Every universal quantifier, such as all, each or every, on a plan line changed since the last commit matches the log row or check that enumerated that set.
 - `Status:` is one short line: the state word, then what the plan waits on. Open items go in their own section, each with its owner, where it is tracked and its stop.
 - When more than one subject waits on the owner, every answer word a brief, a question or a reply offers names its subject, such as "go model", so a bare "go" cannot land on the wrong page.
 

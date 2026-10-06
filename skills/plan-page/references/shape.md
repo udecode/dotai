@@ -27,7 +27,7 @@ A subject file never holds a `before` or `after` fence.
   - `## Main changes`: its own changes.
   - Any other subject section: a table whose first column is `Delta`. Each row is `added`, `changed` or `removed`, and its next cell keys it to the subject's row in a table with the same columns. New prose or tables go beside it.
 - A one-off plan carries its own `## Public API` pairs and `## Main changes`.
-- `## Defaults`: a table whose columns start with `Decision | Pick | Alternative | Word`, one row per call made for the owner, in plain words. The word reverses the pick. Leave the section out when no call was made.
+- `## Defaults`: a table whose columns start with `Decision | Pick | Alternative | Word`, one row per call made for the owner, in plain words. The word reverses the pick. A row that covers a set gives a reason true of each member, and when the owner's own words name an option, the pick or the alternative is that option in those words. Leave the section out when no call was made.
 - `## Open questions`: one `### <short header>` per decision, unique on the page, written as a decision memo the owner answers in seconds without reading anything else on the page. Write it for the owner, not for another agent. Use plain everyday words and one thought per sentence, and name what the owner sees happen. Leave out file paths, commands, commit hashes and internal tool names; that evidence goes in the decision log. Every part runs at most 15 words, an option's label at most 3, and a memo holds at most 2 facts. The renderer refuses an open plan's question that skips a part or runs past a budget:
   1. The decision in one line that ends in `?`.
   2. `Why it needs you:` and one sentence on why no safe default exists.
