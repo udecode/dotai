@@ -1092,6 +1092,53 @@ test("plan-page draws the flow rail from the log's stage phases and the Status, 
   ]);
 });
 
+test('plan-page --rail prints the rail the page draws', () => {
+  const { dir, run } = sandbox();
+  const plan = '# Plan\n\nStatus: building\nPage: https://claude.ai/artifact/x\nPlaybook: audit\n\n## Main changes\n\n- Draw the rail.\n\n## Steps\n\n1. - [x] One.\n2. - [ ] Two.\n' + brief();
+  const log = ['ts\tphase\tdecision\twhy\tevidence\tresult', reviewRow('architect', 'Seat runners', 'decided'), reviewRow('panel', 'seats opus', 'recorded'), reviewRow('build', 'Port', 'fixed')].join('\n');
+  const files = { '.agents/playbooks/audit.md': '---\nextends: autonomous-run\nwhen: Use it to audit.\n---\n', 'docs/plans/plan.md': plan, 'docs/plans/plan.decisions.tsv': `${log}\n` };
+  const root = project(dir, 'app', { files });
+  assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root).status, 0);
+  const html = read(root, 'docs/plans/artifacts/plan.html');
+  const drawn = [...html.matchAll(/<li class="fs (\w+)"[^>]*>(.*?)<\/li>/gu)].map(([, state, body]) => `${state}:${body.replace(/<span class="fs-meta">.*?<\/span>|<span class="tool">.*?<\/span>/gu, '').replace(/<[^>]+>/gu, '').trim()}`);
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md', '--rail'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const rail = JSON.parse(result.stdout);
+  assert.deepEqual(rail.stages.map(({ state, label }) => `${state}:${label}`), drawn);
+  assert.deepEqual([rail.valid, rail.page, rail.steps], [true, 'https://claude.ai/artifact/x', { checked: 1, total: 2 }]);
+});
+
+test('plan-page --rail still prints the rail of a plan the page refuses, with the reason', () => {
+  const { dir, run } = sandbox();
+  const plan = '# Plan\n\nStatus: building\n\n## Main changes\n\n- Draft.\n\n## Defaults\n\nNo table yet.\n' + brief();
+  const log = ['ts\tphase\tdecision\twhy\tevidence\tresult', reviewRow('build', 'Port', 'fixed')].join('\n');
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan, 'docs/plans/plan.decisions.tsv': `${log}\n` } });
+  assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md', '--check'], root).status, 1);
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md', '--rail'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const rail = JSON.parse(result.stdout);
+  assert.equal(rail.valid, false);
+  assert.match(rail.reason, /## Defaults/);
+  assert.equal(rail.stages.find(({ label }) => label === 'Build').state, 'done');
+});
+
+test('plan-page --rail names the plan its subject page leads with', () => {
+  const { dir, run } = sandbox();
+  const older = '# First pass\n\nStatus: executed\nTopic: workflow\n\n## Main changes\n\n- Seats.\n';
+  const newer = '# Second pass\n\nStatus: building\nTopic: workflow\n\n## Main changes\n\n- More seats.\n' + brief();
+  const root = project(dir, 'app', {
+    files: {
+      'docs/plans/topics/workflow.md': '# Workflow\nPage: https://claude.ai/artifact/topic\n\n## Main changes\n\n- Seats.\n',
+      'docs/plans/2026-01-01-first.md': older,
+      'docs/plans/2026-02-01-second.md': newer,
+    },
+  });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-first.md', '--rail'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const rail = JSON.parse(result.stdout);
+  assert.deepEqual([rail.requestedPlan, rail.leadingPlan, rail.page], ['docs/plans/2026-01-01-first.md', 'docs/plans/2026-02-01-second.md', 'https://claude.ai/artifact/topic']);
+});
+
 test('plan-page keeps a subject\'s latest review in its header and history after newer unreviewed iterations', () => {
   const { dir, run } = sandbox();
   const plan = '# Seat Codex\n\nStatus: executed\nTopic: workflow\n\n## Main changes\n\n- Seats.\n';

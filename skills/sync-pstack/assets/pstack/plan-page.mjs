@@ -1268,27 +1268,64 @@ function reviewRounds(rows) {
 
 const finished = (status) => stateOf(status) === 'done';
 
-function page(planPath, { folded = false } = {}) {
+const isOpen = (entry) => !finished(entry.plan.meta.status ?? '');
+
+function leadOf(planPath) {
   const plan = parsePlan(readFileSync(planPath, 'utf-8'));
   const root = execFileSync('git', ['rev-parse', '--show-toplevel'], {
     cwd: dirname(planPath),
     encoding: 'utf-8',
   }).trim();
   const repoPath = relative(root, planPath);
-  const status = plan.meta.status ?? 'unknown';
   const { playbooks, topic } = pageConfig(root);
   const plansDir = dirname(planPath);
-  let subject = subjectOf(plan, topic);
-  const missing = subject && !existsSync(join(plansDir, 'topics', `${subject}.md`));
-  if (missing) {
-    const hint = `create ${relative(root, join(plansDir, 'topics', `${subject}.md`))} with a # title and its ## Main changes; the first publish adds its Page: line`;
-    if (plan.fields.topic) throw new Error(`${repoPath} belongs to topic ${subject}; ${hint}`);
-    console.error(`${repoPath} renders its own page until its subject has a file: ${hint}`);
-    subject = null;
-  }
-  const subjectPath = subject && join(plansDir, 'topics', `${subject}.md`);
+  const named = subjectOf(plan, topic);
+  const namedPath = named && join(plansDir, 'topics', `${named}.md`);
+  const missingSubject = namedPath && !existsSync(namedPath) ? { subject: named, hint: `create ${relative(root, namedPath)} with a # title and its ## Main changes; the first publish adds its Page: line` } : null;
+  const subject = missingSubject ? null : named;
+  const subjectPath = subject && namedPath;
   const doc = subjectPath ? parsePlan(readFileSync(subjectPath, 'utf-8')) : plan;
   const iterations = subject ? iterationsOf(plansDir, subject, topic) : [];
+  const newestOpenIteration = doc === plan ? null : (iterations.find(isOpen) ?? null);
+  const leader = doc === plan ? { path: planPath, plan } : (newestOpenIteration ?? iterations[0]);
+  return { plan, root, repoPath, playbooks, topic, plansDir, subject, subjectPath, doc, iterations, newestOpenIteration, leader, missingSubject };
+}
+
+function rail(planPath) {
+  const { root, repoPath, playbooks, doc, leader } = leadOf(planPath);
+  const status = leader.plan.meta.status ?? 'unknown';
+  let reason = null;
+  try {
+    page(planPath);
+  } catch (error) {
+    reason = error.message;
+  }
+  const steps = stepChecks(leader.plan);
+  return {
+    requestedPlan: repoPath,
+    leadingPlan: relative(root, leader.path),
+    page: doc.fields.page ?? null,
+    status,
+    valid: !reason,
+    ...(reason ? { reason } : {}),
+    steps: { checked: steps.filter(Boolean).length, total: steps.length },
+    stages: flowOf(leader, status, playbooks).map(({ label, state, meta, tools, rounds }) => ({
+      label,
+      state,
+      ...(meta ? { meta } : {}),
+      ...(tools?.length ? { tools } : {}),
+      ...(rounds > 1 ? { rounds } : {}),
+    })),
+  };
+}
+
+function page(planPath, { folded = false } = {}) {
+  const { plan, root, repoPath, playbooks, topic, plansDir, subject, subjectPath, doc, iterations, newestOpenIteration, leader, missingSubject } = leadOf(planPath);
+  if (missingSubject) {
+    if (plan.fields.topic) throw new Error(`${repoPath} belongs to topic ${missingSubject.subject}; ${missingSubject.hint}`);
+    console.error(`${repoPath} renders its own page until its subject has a file: ${missingSubject.hint}`);
+  }
+  const status = plan.meta.status ?? 'unknown';
   const subjectWhere = subjectPath && relative(root, subjectPath);
   for (const entry of iterations) {
     if (!stateOf(entry.plan.meta.status ?? '')) {
@@ -1297,13 +1334,8 @@ function page(planPath, { folded = false } = {}) {
       );
     }
   }
-  const isOpen = (entry) => !finished(entry.plan.meta.status ?? '');
-  // The newest open iteration leads its subject page whichever plan is rendered, so sessions publishing one URL agree.
-  const focusEntry = doc === plan ? null : (iterations.find(isOpen) ?? null);
-  const pageEntry = doc === plan ? null : (focusEntry ?? iterations[0]);
-  const focus = focusEntry?.plan;
-  const delta = Boolean(focusEntry);
-  const leader = pageEntry ?? { path: planPath, plan };
+  const focus = newestOpenIteration?.plan;
+  const delta = Boolean(newestOpenIteration);
   const leaderPlaybook = leader.plan.meta.playbook;
   // An executed plan stays as written, so a playbook renamed since then falls back to every playbook's sections.
   const known = !leaderPlaybook || !finished(leader.plan.meta.status ?? '') || playbooks.some((entry) => entry.name === leaderPlaybook);
@@ -1364,7 +1396,7 @@ function page(planPath, { folded = false } = {}) {
   const [close] = byRole('close', leader.plan);
   const iterationHtml = ({ path, plan: iteration }) => {
     const iterationStatus = iteration.meta.status ?? 'unknown';
-    const open = !finished(iterationStatus) && path !== focusEntry?.path;
+    const open = !finished(iterationStatus) && path !== newestOpenIteration?.path;
     const shown = iteration.sections.filter(
       (section) =>
         hasContent(section) &&
@@ -1373,7 +1405,7 @@ function page(planPath, { folded = false } = {}) {
     );
     const head = `${statusHtml(iterationStatus)} <strong>${inline(iteration.title || basename(path, '.md'))}</strong> <code>${escapeHtml(relative(root, path))}</code>`;
     const body =
-      path === focusEntry?.path
+      path === newestOpenIteration?.path
         ? ''
         : shown.map((section) => `<h3>${inline(section.title)}</h3>${blocksHtml(section.lines)}`).join('');
     return body
@@ -1398,9 +1430,9 @@ function page(planPath, { folded = false } = {}) {
     .map((entry) => ({ entry, rounds: reviewRounds(reviewRows(entry.path)) }))
     .filter(({ rounds }) => rounds.length);
   const paneled = reviewed.filter(({ rounds }) => rounds.some((entry) => entry.kind === 'panel'));
-  const tagged = paneled.find(({ entry }) => entry.path === (pageEntry ?? { path: planPath }).path) ?? paneled[0];
+  const tagged = paneled.find(({ entry }) => entry.path === leader.path) ?? paneled[0];
   const latest = tagged?.rounds.findLast((entry) => entry.kind === 'panel');
-  const taggedTitle = doc !== plan && tagged && tagged.entry.path !== pageEntry?.path ? ` for ${inline(tagged.entry.plan.title || basename(tagged.entry.path, '.md'))}` : '';
+  const taggedTitle = doc !== plan && tagged && tagged.entry.path !== leader.path ? ` for ${inline(tagged.entry.plan.title || basename(tagged.entry.path, '.md'))}` : '';
   const reviewTag = latest
     ? roundTagHtml(latest.round, latest.seats, taggedTitle)
     : '';
@@ -1427,7 +1459,7 @@ function page(planPath, { folded = false } = {}) {
     .toISOString()
     .slice(0, 16)
     .replace('T', ' ');
-  const shownStatus = pageEntry?.plan.meta.status ?? status;
+  const shownStatus = leader.plan.meta.status ?? status;
   const sentence = shownStatus.trim();
   const statusLine = sentence ? `<p class="status-line">${inline(sentence[0].toUpperCase() + sentence.slice(1))}</p>` : '';
   const title = escapeHtml(doc.title || basename(planPath, '.md'));
@@ -1460,9 +1492,9 @@ function page(planPath, { folded = false } = {}) {
     return `<main>
   <header>
     <h1>${title}</h1>
-    ${flowHtml(pageEntry ?? { path: planPath, plan }, shownStatus, playbooks)}
+    ${flowHtml(leader, shownStatus, playbooks)}
     ${statusLine}
-    <div class="meta">${delta ? `<span>Plan <strong>${inline(focus.title || basename(focusEntry.path, '.md'))}</strong></span>` : ''}${roundTag}<span>Updated ${updated} UTC</span></div>
+    <div class="meta">${delta ? `<span>Plan <strong>${inline(focus.title || basename(newestOpenIteration.path, '.md'))}</strong></span>` : ''}${roundTag}<span>Updated ${updated} UTC</span></div>
   </header>
   <section class="brief card">${answers}</section>
   ${byRole('demo', source).map((section) => demoHtml(section, dirname(leader.path))).join('')}
@@ -1478,7 +1510,7 @@ ${PAGE_HEAD}
 ${brief ? briefMain() : `<main>
   <header>
     <h1>${title}</h1>
-    ${flowHtml(pageEntry ?? { path: planPath, plan }, shownStatus, playbooks)}
+    ${flowHtml(leader, shownStatus, playbooks)}
     ${statusLine}
     <div class="meta"><code>${escapeHtml(where)}</code>${hub ? `<span>History <code>${escapeHtml(hub)}</code></span>` : ''}${reviewTag}<span>Updated ${updated} UTC</span></div>
   </header>
@@ -1638,9 +1670,18 @@ if (args.includes('--index')) {
 }
 const target = args.find((arg) => !arg.startsWith('--'));
 const planPath = target && resolve(target);
-if (!planPath || !existsSync(planPath) || args.some((arg) => arg.startsWith('--') && !['--folded', '--check'].includes(arg))) {
-  console.error('Usage: node .agents/pstack/plan-page.mjs <plan.md> [--folded] [--check] | --index');
+if (!planPath || !existsSync(planPath) || args.some((arg) => arg.startsWith('--') && !['--folded', '--check', '--rail'].includes(arg))) {
+  console.error('Usage: node .agents/pstack/plan-page.mjs <plan.md> [--folded] [--check] | <plan.md> --rail | --index');
   process.exit(2);
+}
+if (args.includes('--rail')) {
+  try {
+    console.info(JSON.stringify(rail(planPath)));
+  } catch (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
+  process.exit(0);
 }
 let rendered;
 try {

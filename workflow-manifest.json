@@ -15,6 +15,17 @@
       "provenance": null
     },
     {
+      "name": "pstack-pulse",
+      "distribution": "bundled",
+      "description": "Show every Claude Code and Codex session on the iPhone lock screen through ActivitySmith, with each plan page's pipeline, and buzz when a session needs you, ships or fails.",
+      "category": "Monitoring",
+      "dependencies": [],
+      "capabilities": [
+        "macOS with launchd and the Keychain, Node.js 22+ and sqlite3; an ActivitySmith account and key; Tailscale Funnel for the session list"
+      ],
+      "provenance": null
+    },
+    {
       "name": "sync-pstack",
       "distribution": "bundled",
       "description": "Set up the pstack plugin in a project through an interview, and keep every pstack project on one pinned tag and one shared AGENTS.md overrides block. Use to set up or install pstack in a repo, sync, bump or update pstack everywhere, list which projects use pstack or have drifted, compare setups, audit a project's skills for drift from pstack (which to cut, fold or keep), change which work runs a panel, architect or an arena without asking (\\\"from now on X runs architect\\\"), or move a workflow lesson, including a plan page shape change, into every project. Not for choosing pstack's per-role models, which setup-pstack owns.",
@@ -63,11 +74,11 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "e54d3597b840f59b762be9130a35285e3af6e928f5ad260634d62dcb36c82d1d",
+      "sha256": "7f3b68553670414c1df01761cbaafedb6ab764852771d91966e4edda37781634",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
-      "sha256": "44daa87608f85e1480bbd7a6a2fe21391b51fca7a7bc69d0a4b9c7a2e5e332b7",
+      "sha256": "ef2f182cbfc4f7d81789addb03cdce5e8429efa730ed2c6cbc16a12002019b0d",
       "mode": 420
     },
     "scripts/validate-skills": {
@@ -80,6 +91,42 @@
     },
     "skills/plan-page/references/shape.md": {
       "sha256": "a10454e7e132a96e624decec449f200048ada98a421b014d8e146360d8c9f27c",
+      "mode": 420
+    },
+    "skills/pstack-pulse/SKILL.md": {
+      "sha256": "52e09a93d03f1ca121016768437e31f48dd5e7413abd4c88355fcb9f86c04306",
+      "mode": 420
+    },
+    "skills/pstack-pulse/scripts/hook.mjs": {
+      "sha256": "66ffd735de4191a3c959c81e1caa5a93daab40ccfbbc3a625f11669733c93c14",
+      "mode": 420
+    },
+    "skills/pstack-pulse/scripts/lib/event.mjs": {
+      "sha256": "e5edc781995d4a83aa845636ff659168d1e847de5ee9ee38141ec6df419895d8",
+      "mode": 420
+    },
+    "skills/pstack-pulse/scripts/lib/install.mjs": {
+      "sha256": "2ba3bb2db17db9f6433c4e4aa46e2f5e7c8c9c24ae73cb23711376c172497255",
+      "mode": 420
+    },
+    "skills/pstack-pulse/scripts/lib/io.mjs": {
+      "sha256": "408b997178286e7df2d35da7f87b8e80e3bbd87d37298d554ade7fb5fc245ec6",
+      "mode": 420
+    },
+    "skills/pstack-pulse/scripts/lib/model.mjs": {
+      "sha256": "8ba11fd7de783c7a417ac3c935eb7f5637ee9c9206df454f5c6c72d6d71baadd",
+      "mode": 420
+    },
+    "skills/pstack-pulse/scripts/lib/phone.mjs": {
+      "sha256": "f861d0d2b1dec5d017811fddbe38aed06ff5829da58f9dc07d6782312c7141d8",
+      "mode": 420
+    },
+    "skills/pstack-pulse/scripts/pulse.mjs": {
+      "sha256": "eefa45a60ddc8b677017990f71c6a909f62498f872842ac7257258b142d1146d",
+      "mode": 420
+    },
+    "skills/pstack-pulse/scripts/pulse.test.mjs": {
+      "sha256": "c47aa336cf18e6adbd57b5a9a27536c30a94433f3e2911c2a46f09fd06c5ae5d",
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
@@ -115,7 +162,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/plan-page.mjs": {
-      "sha256": "cc457080d20d4aa8107ad31d2ceb0d9c2e4e8c9f300b0d6c65f27083413ef863",
+      "sha256": "185f8f680387b19887ace85215ee5329b4befb7a2cfb9c9924a07af272f14aaa",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/proof.mjs": {
@@ -155,7 +202,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "a96c424d19b39ee23d9fe92526e47310050c118e6852b3885a764851e300c48f",
+      "sha256": "5e67ccea82554e962e651a140d7408509fc408d829352243509f7e682b1807f1",
       "mode": 420
     },
     "skills/test-audit/LICENSE": {

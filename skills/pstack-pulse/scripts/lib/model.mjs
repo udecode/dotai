@@ -1,0 +1,326 @@
+import { createHash } from 'node:crypto';
+import { join, resolve } from 'node:path';
+import { QUESTION_TOOLS } from './event.mjs';
+
+export const SESSION_SLOTS = 4;
+const HOUR = 3_600_000;
+const LOST_SHOWN_MS = HOUR;
+const STALE_MS = 24 * HOUR;
+const PUSH_GIVE_UP_MS = 24 * HOUR;
+const SHIP_KEPT_MS = 24 * HOUR;
+const ENDED_KEPT_MS = 7 * 24 * HOUR;
+const RANK = { 'needs-you': 0, failed: 1, working: 2, idle: 3 };
+const STATE_COLOR = { 'needs-you': 'orange', failed: 'red', working: 'blue', idle: 'gray' };
+const STATE_LABEL = { 'needs-you': 'Needs you', failed: 'Failed', working: 'Working', idle: 'Idle' };
+
+const ms = (iso) => Date.parse(iso);
+const iso = (time) => new Date(time).toISOString();
+export const keyOf = (session) => `pulse-${createHash('sha1').update(`${session.runtime}:${session.id}`).digest('hex').slice(0, 12)}`;
+export const hashOf = (value) => createHash('sha1').update(JSON.stringify(value)).digest('hex');
+
+function planPathOf(signal, cwd) {
+  const path = resolve(cwd ?? '/', signal);
+  if (path.endsWith('.decisions.tsv')) return path.replace(/\.decisions\.tsv$/u, '.md');
+  const page = path.match(/^(.*)\/artifacts\/([^/]+)\.html$/u);
+  return page ? join(page[1], `${page[2]}.md`) : null;
+}
+
+function newSession(observation) {
+  return {
+    id: observation.session,
+    runtime: observation.runtime,
+    audience: observation.runtime === 'claude' ? 'owner' : 'unknown',
+    life: 'live',
+    endedAt: null,
+    state: 'working',
+    since: observation.at,
+    active: true,
+    lastHookAt: observation.at,
+    lastAliveAt: observation.at,
+    cwd: null,
+    transcript: null,
+    title: null,
+    pid: null,
+    bridge: null,
+    entrypoint: null,
+    plan: null,
+    turn: 0,
+    needs: {},
+    findings: [],
+    failure: null,
+    check: null,
+    published: null,
+    pushes: [],
+    ships: [],
+    cursor: null,
+  };
+}
+
+const openNeed = (session, id, need) => {
+  session.needs[id] ??= { id, ...need };
+};
+const closeNeeds = (session, match) => {
+  for (const [id, need] of Object.entries(session.needs)) if (match(need)) delete session.needs[id];
+};
+export const firstNeed = (session) => Object.values(session.needs).sort((a, b) => a.openedAt.localeCompare(b.openedAt))[0] ?? null;
+
+function applyHook(session, event, key) {
+  session.lastHookAt = event.at;
+  session.cwd = event.cwd ?? session.cwd;
+  session.transcript = event.transcript ?? session.transcript;
+  session.pid = event.pid ?? session.pid;
+  session.bridge = event.bridge ?? session.bridge;
+  if (event.title) session.title = event.title;
+  for (const signal of event.plans ?? []) session.plan = planPathOf(signal, event.cwd) ?? session.plan;
+  if (event.push && !session.pushes.some((push) => push.sha === event.push.sha && push.branch === event.push.branch)) session.pushes.push({ ...event.push, at: event.at, attempts: 0, nextAt: event.at });
+  if (event.check?.ok) {
+    session.check = null;
+    if (session.failure?.kind === 'check') session.failure = null;
+  } else if (event.check) session.check ??= { episode: event.at };
+  if (event.published && session.plan) session.published = session.turn;
+  switch (event.event) {
+    case 'SessionStart':
+      session.life = 'live';
+      session.endedAt = null;
+      if (session.failure?.showUntil) session.failure = null;
+      break;
+    case 'UserPromptSubmit':
+      session.life = 'live';
+      session.endedAt = null;
+      session.active = true;
+      if ([null, 'user', 'sdk'].includes(event.source)) {
+        session.turn += 1;
+        session.failure = null;
+        closeNeeds(session, (need) => need.kind !== 'codex-question');
+      }
+      break;
+    case 'PreToolUse':
+      session.active = true;
+      if (QUESTION_TOOLS.includes(event.tool)) {
+        const first = event.questions?.[0] ?? { question: event.tool === 'ExitPlanMode' ? 'Approve the plan?' : 'A question waits for you', options: [] };
+        openNeed(session, event.toolUseId ?? `${event.tool}:${event.at}`, { kind: 'question', openedAt: event.at, question: first.question, options: first.options ?? [] });
+      }
+      break;
+    case 'PermissionRequest':
+      openNeed(session, `permission:${event.at}`, { kind: 'permission', tool: event.tool, openedAt: event.at, question: `Allow ${event.tool ?? 'a tool'}?`, options: [] });
+      break;
+    case 'PostToolUse':
+    case 'PostToolUseFailure':
+    case 'PermissionDenied':
+      session.active = true;
+      closeNeeds(session, (need) => (need.kind === 'permission' && need.tool === event.tool) || need.id === event.toolUseId || (need.kind === 'question' && !event.toolUseId && QUESTION_TOOLS.includes(event.tool)));
+      break;
+    case 'Stop':
+      session.active = event.background > 0;
+      if (session.active) break;
+      closeNeeds(session, (need) => need.kind === 'permission');
+      if (session.published === session.turn) openNeed(session, `handback:${session.turn}`, { kind: 'handback', openedAt: event.at, question: event.lastMessage ?? 'Plan page handed back', options: [] });
+      if (session.check) session.failure = { kind: 'check', id: `${key}:check:${session.check.episode}`, summary: 'A required check is still failing' };
+      break;
+    case 'StopFailure':
+      session.active = false;
+      session.failure = { kind: 'stop', id: `${key}:stop:${event.at}`, summary: 'The turn stopped on an API error' };
+      break;
+    case 'SessionEnd':
+      session.life = 'ended';
+      session.endedAt = event.at;
+      session.needs = {};
+      break;
+    default:
+      break;
+  }
+}
+
+function applyRegistry(session, entry) {
+  session.lastAliveAt = entry.at;
+  session.title = entry.name ?? session.title;
+  session.bridge = entry.bridge ?? session.bridge;
+  session.entrypoint = entry.entrypoint ?? session.entrypoint;
+  session.pid = entry.pid ?? session.pid;
+}
+
+function applyGone(session, gone, key) {
+  if (session.life === 'ended' || session.failure?.showUntil) return;
+  if (!session.active) {
+    session.life = 'ended';
+    session.endedAt = gone.at;
+    return;
+  }
+  session.active = false;
+  session.failure = { kind: 'lost', id: `${key}:lost:${session.pid}`, summary: 'The session stopped while it was working', showUntil: iso(ms(gone.at) + LOST_SHOWN_MS) };
+}
+
+function applyRollout(session, rollout) {
+  if (rollout.cursor !== session.cursor) session.lastAliveAt = rollout.at;
+  session.cursor = rollout.cursor;
+  for (const signal of rollout.signals) {
+    if (signal.type === 'plan') session.plan = planPathOf(signal.path, session.cwd) ?? session.plan;
+    else if (signal.type === 'ask') openNeed(session, signal.callId ?? `ask:${signal.at}`, { kind: 'codex-question', openedAt: signal.at, question: signal.question, options: signal.options });
+    else if (signal.type === 'reply') delete session.needs[signal.callId];
+  }
+}
+
+function applyPush(session, result) {
+  const index = session.pushes.findIndex((push) => push.sha === result.sha && push.branch === result.branch);
+  if (index < 0) return;
+  const push = session.pushes[index];
+  if (result.outcome === 'confirmed') {
+    session.pushes.splice(index, 1);
+    const id = `ship:${result.repoId}:${push.branch}:${push.sha}`;
+    if (!session.ships.some((ship) => ship.id === id)) session.ships.push({ id, at: result.at, summary: `${result.repoName} ${push.branch} ${push.sha.slice(0, 9)}` });
+  } else if (ms(result.at) - ms(push.at) > PUSH_GIVE_UP_MS) session.pushes.splice(index, 1);
+  else {
+    push.attempts += 1;
+    push.nextAt = iso(ms(result.at) + Math.min(2000 * 2 ** push.attempts, 300_000));
+  }
+}
+
+function applyClock(session, at) {
+  const now = ms(at);
+  session.ships = session.ships.filter((ship) => now - ms(ship.at) < SHIP_KEPT_MS);
+  if (session.life !== 'live') return;
+  const quiet = now - Math.max(ms(session.lastHookAt), ms(session.lastAliveAt)) > STALE_MS;
+  const livenessProbed = session.runtime === 'claude';
+  if ((session.failure?.showUntil && now > ms(session.failure.showUntil)) || (quiet && !(livenessProbed && Object.keys(session.needs).length))) {
+    session.life = 'ended';
+    session.endedAt = at;
+  }
+}
+
+function derive(session, at) {
+  const next = Object.keys(session.needs).length ? 'needs-you' : session.failure || session.findings.length ? 'failed' : session.active ? 'working' : 'idle';
+  if (next === session.state) return;
+  session.state = next;
+  session.since = at;
+}
+
+export function reduce(sessions, observation) {
+  if (observation.kind === 'clock') {
+    for (const [key, session] of Object.entries(sessions)) {
+      applyClock(session, observation.at);
+      derive(session, observation.at);
+      const gone = session.endedAt ?? (session.audience === 'hidden' ? session.lastHookAt : null);
+      if (gone && ms(observation.at) - ms(gone) > ENDED_KEPT_MS) delete sessions[key];
+    }
+    return;
+  }
+  const key = `${observation.runtime}:${observation.session}`;
+  if (!sessions[key] && observation.kind !== 'hook') return;
+  const session = (sessions[key] ??= newSession(observation));
+  if (observation.kind === 'hook') applyHook(session, observation, key);
+  else if (observation.kind === 'registry') applyRegistry(session, observation);
+  else if (observation.kind === 'gone') applyGone(session, observation, key);
+  else if (observation.kind === 'thread') {
+    session.audience = ['vscode', 'cli'].includes(observation.source) ? 'owner' : 'hidden';
+    session.title = observation.title ?? session.title;
+  } else if (observation.kind === 'rollout') applyRollout(session, observation);
+  else if (observation.kind === 'findings') session.findings = observation.findings;
+  else if (observation.kind === 'push') applyPush(session, observation);
+  derive(session, observation.at);
+}
+
+export function stepOf(rail) {
+  const live = rail.stages.findIndex(({ state }) => ['now', 'waiting', 'blocked', 'stopped'].includes(state));
+  if (live >= 0) return live + 1;
+  return rail.stages.findLastIndex(({ state }) => state !== 'left') + 1 || 1;
+}
+
+function cardOf(view) {
+  const { state } = view.session;
+  const need = firstNeed(view.session);
+  const rail = view.rail?.stages?.length ? view.rail : null;
+  const stage = rail ? rail.stages[stepOf(rail) - 1] : null;
+  const steps = rail?.steps?.total ? ` ${rail.steps.checked}/${rail.steps.total}` : '';
+  const subtitle = [view.repo, stage ? `${stage.label}${steps}` : 'No plan', view.account].filter(Boolean).join(' · ').slice(0, 120);
+  const title = view.title.slice(0, 80);
+  const color = STATE_COLOR[state] ?? 'blue';
+  const planPage = rail?.page ? { title: 'Plan page', type: 'open_url', url: rail.page } : null;
+  const answer = view.webUrl ? { title: 'Answer', type: 'open_url', url: view.webUrl } : null;
+  if (state === 'needs-you' && need) {
+    const [action, secondary] = [answer, planPage].filter(Boolean);
+    return {
+      type: 'alert',
+      body: {
+        content_state: { title: `${title} needs you`, message: String(need.question).slice(0, 150), type: 'alert', color, badge: { title: stage?.label ?? 'Needs you', color: 'purple' } },
+        ...(action ? { action } : {}),
+        ...(secondary ? { secondary_action: secondary } : {}),
+      },
+    };
+  }
+  const [action, secondary] = [planPage, answer].filter(Boolean);
+  return {
+    type: 'segmented_progress',
+    body: {
+      content_state: { title, subtitle, type: 'segmented_progress', number_of_steps: rail ? rail.stages.length : 1, current_step: rail ? stepOf(rail) : 1, color, badge: { title: STATE_LABEL[state] ?? 'Working', color } },
+      ...(action ? { action } : {}),
+      ...(secondary ? { secondary_action: secondary } : {}),
+    },
+  };
+}
+
+function fleetOf(views, { shippedToday, account, listUrl }) {
+  const count = (state) => views.filter(({ session }) => session.state === state).length;
+  const repos = Object.entries(Object.groupBy(views, ({ repo }) => repo ?? 'other')).map(([repo, list]) => `${repo} ${list.length}`);
+  return {
+    type: 'stats',
+    body: {
+      content_state: {
+        title: 'pstack fleet',
+        subtitle: [account, ...repos].filter(Boolean).join(' · ').slice(0, 80),
+        type: 'stats',
+        metrics: [
+          { label: 'Working', value: String(count('working')), color: 'blue' },
+          { label: 'Needs you', value: String(count('needs-you')), color: 'orange' },
+          { label: 'Failed', value: String(count('failed')), color: 'red' },
+          { label: 'Shipped today', value: String(shippedToday), color: 'green' },
+        ],
+      },
+      ...(listUrl ? { action: { title: 'All sessions', type: 'open_url', url: listUrl } } : {}),
+    },
+  };
+}
+
+function keepShownUntilOutranked(ranked, shown, slots) {
+  const chosen = ranked.filter(({ session }) => shown.has(keyOf(session))).slice(0, slots);
+  for (const view of ranked) {
+    if (chosen.includes(view)) continue;
+    if (chosen.length < slots) {
+      chosen.push(view);
+      continue;
+    }
+    const weakest = chosen.toSorted((a, b) => RANK[b.session.state] - RANK[a.session.state])[0];
+    if (weakest && RANK[view.session.state] < RANK[weakest.session.state]) chosen.splice(chosen.indexOf(weakest), 1, view);
+  }
+  return chosen;
+}
+
+export function planBoard(views, phone, context) {
+  const live = views.filter(({ session }) => session.life === 'live' && RANK[session.state] !== undefined);
+  const ranked = live.toSorted((a, b) => RANK[a.session.state] - RANK[b.session.state] || (a.session.state === 'needs-you' ? firstNeed(a.session).openedAt.localeCompare(firstNeed(b.session).openedAt) : b.session.lastHookAt.localeCompare(a.session.lastHookAt)));
+  const capacity = phone.capacity && context.now < phone.capacity.until ? phone.capacity.slots : SESSION_SLOTS + 1;
+  const chosen = keepShownUntilOutranked(ranked, new Set(Object.keys(phone.streams)), Math.max(Math.min(SESSION_SLOTS, capacity - 1), 0));
+  return {
+    cards: [['pulse-fleet', fleetOf(live, context)], ...chosen.map((view) => [keyOf(view.session), cardOf(view)])],
+    badge: live.filter(({ session }) => session.state === 'needs-you').length,
+  };
+}
+
+export function incidentsOf(views) {
+  const incidents = new Map();
+  const add = (incident) => {
+    if (!incidents.has(incident.id)) incidents.set(incident.id, incident);
+  };
+  for (const view of views) {
+    const { session, title } = view;
+    const key = `${session.runtime}:${session.id}`;
+    const answerUrl = view.appUrl ?? view.webUrl;
+    const link = view.rail?.page ?? answerUrl;
+    if (session.life === 'live') for (const need of Object.values(session.needs)) add({ id: `need:${key}:${need.id}:${need.openedAt}`, kind: 'needs-you', at: need.openedAt, title: `${title} needs you`, message: String(need.question), link, answerUrl });
+    if (session.failure) add({ id: `fail:${session.failure.id}`, kind: 'failed', at: session.since, title: `${title} failed`, message: session.failure.summary, link, answerUrl });
+    for (const finding of session.findings) add({ id: `finding:${finding.id}`, kind: 'failed', at: finding.at, title: `${title} failed`, message: finding.summary, link, answerUrl });
+    for (const ship of session.ships) add({ id: ship.id, kind: 'shipped', at: ship.at, title: `${title} shipped`, message: ship.summary, link, answerUrl });
+  }
+  return incidents;
+}
+
+export const shippedToday = (sessions, now) => new Set(Object.values(sessions).flatMap((session) => session.ships.filter((ship) => ship.at.slice(0, 10) === iso(now).slice(0, 10)).map((ship) => ship.id))).size;
