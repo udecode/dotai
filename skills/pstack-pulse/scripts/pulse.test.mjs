@@ -109,20 +109,20 @@ test('a crowded project lists the session that needs you first, with its questio
   assert.equal(card.action.url, 'https://claude.ai/code/s9');
 });
 
-test('a project card lists only its active sessions and counts the idle ones, and an all-idle project lists its idle sessions', () => {
+test('a project card lists its active sessions, then the three that went idle last, and counts the other idle ones', () => {
   const sessions = {};
   reduce(sessions, hook('busy', 'UserPromptSubmit', 0, { cwd: '/w/ellie' }));
-  for (const id of ['nap1', 'nap2']) {
-    reduce(sessions, hook(id, 'UserPromptSubmit', 1, { cwd: '/w/ellie' }));
-    reduce(sessions, hook(id, 'Stop', 2, { cwd: '/w/ellie' }));
+  for (let index = 1; index <= 5; index += 1) {
+    reduce(sessions, hook(`nap${index}`, 'UserPromptSubmit', 0, { cwd: '/w/ellie' }));
+    reduce(sessions, hook(`nap${index}`, 'Stop', index, { cwd: '/w/ellie' }));
   }
   const mixed = projectCard(sessions).content_state;
-  assert.deepEqual(mixed.metrics.map(({ value }) => value), ['busy']);
+  assert.deepEqual(mixed.metrics.map(({ value }) => value), ['busy', 'nap5', 'nap4', 'nap3']);
   assert.equal(mixed.subtitle, '1 working · +2 idle');
-  reduce(sessions, hook('busy', 'Stop', 3, { cwd: '/w/ellie' }));
+  reduce(sessions, hook('busy', 'Stop', 9, { cwd: '/w/ellie' }));
   const resting = projectCard(sessions).content_state;
-  assert.deepEqual(resting.metrics.map(({ value }) => value), ['busy', 'nap1', 'nap2']);
-  assert.equal(resting.subtitle, 'all idle');
+  assert.deepEqual(resting.metrics.map(({ value }) => value), ['busy', 'nap5', 'nap4']);
+  assert.equal(resting.subtitle, '+3 idle');
 });
 
 test('a project card counts only its own ships today', () => {
