@@ -13,7 +13,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { basename, dirname, extname, join, relative, resolve } from 'node:path';
-import { SEATS, SEVERITIES, STATES, landed, reopened, stateOf } from './status.mjs';
+import { SEATS, SEVERITIES, STATES, isFence, landed, readFence, reopened, splitRow, stateOf, TABLE_RULE, tablesOf } from './status.mjs';
 
 const PAGE_HEAD = `<meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -342,27 +342,6 @@ function fencesOf(lines) {
   return fences;
 }
 
-function tablesOf(lines) {
-  const tables = [];
-  for (let index = 0; index < lines.length; ) {
-    if (isFence(lines[index])) {
-      index = readFence(lines, index).next;
-      continue;
-    }
-    if (!/^\s*\|/.test(lines[index]) || !TABLE_RULE.test(lines[index + 1] ?? '')) {
-      index += 1;
-      continue;
-    }
-    const head = splitRow(lines[index]);
-    const rows = [];
-    for (index += 2; index < lines.length && /^\s*\|/.test(lines[index]); index += 1) {
-      rows.push(splitRow(lines[index]));
-    }
-    tables.push({ head, rows });
-  }
-  return tables;
-}
-
 function rowsByKey(lines, head) {
   const rows = new Map();
   for (const table of tablesOf(lines).filter((entry) => sameRow(entry.head, head))) {
@@ -543,29 +522,6 @@ function inline(text) {
     );
 }
 
-function parseFence(line) {
-  const match = line.match(/^\s*(```|~~~)(.*)$/);
-  if (!match || (match[1] === '```' && match[2].includes('`'))) return null;
-  const words = match[2].trim().split(/\s+/).filter(Boolean);
-  const tag = ['before', 'after'].includes(words.at(-1)) ? words.pop() : undefined;
-  return { marker: match[1], lang: words[0] ?? '', tag };
-}
-const isFence = (line) => parseFence(line) !== null;
-
-function readFence(lines, start) {
-  const { marker, lang, tag } = parseFence(lines[start]);
-  const body = [];
-  let index = start + 1;
-  for (
-    ;
-    index < lines.length && !lines[index].trim().startsWith(marker);
-    index += 1
-  ) {
-    body.push(lines[index]);
-  }
-  return { lang, tag, body: body.join('\n'), next: index + 1 };
-}
-
 function readFencePair(lines, start) {
   const first = readFence(lines, start);
   let index = first.next;
@@ -634,17 +590,6 @@ function diffHtml(before, after) {
 }
 
 const LIST_ITEM = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
-const TABLE_RULE = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
-
-function splitRow(row) {
-  return row
-    .trim()
-    .replace(/^\|/, '')
-    .replace(/\|$/, '')
-    .split(/(?<!\\)\|/)
-    .map((cell) => cell.trim().replaceAll('\\|', '|'));
-}
-
 const tds = (row) => row.map((cell) => `<td>${inline(cell)}</td>`).join('');
 
 function assertDeltaRow([cell, ...row], prior, context) {
@@ -1028,7 +973,7 @@ function seatsHtml(seats) {
 const roundTagHtml = (round, seats, suffix = '') => `<span class="round-tag"><span class="badge hue-indigo">Review round ${round}</span>${suffix}${seats ? seatsHtml(seats) : ''}</span>`;
 
 const SEVERITY_HUES = { critical: 'red', warning: 'amber', nit: 'blue' };
-const RESULT_HUES = { applied: 'green', fixed: 'green', verified: 'green', proven: 'green', kept: 'green', dismissed: 'grey', skipped: 'grey', superseded: 'grey', recorded: 'teal', decided: 'teal', corrected: 'teal', reverted: 'pink', deferred: 'amber', partial: 'amber', inconclusive: 'amber', open: 'red', gap: 'red', blocked: 'red' };
+const RESULT_HUES = { accepted: 'green', applied: 'green', fixed: 'green', verified: 'green', proven: 'green', kept: 'green', dismissed: 'grey', skipped: 'grey', superseded: 'grey', recorded: 'teal', decided: 'teal', corrected: 'teal', reverted: 'pink', deferred: 'amber', partial: 'amber', inconclusive: 'amber', open: 'red', gap: 'red', blocked: 'red' };
 
 function findingHtml(decision, result) {
   const severity = decision.match(/^(\w+)/)?.[1];

@@ -1778,7 +1778,7 @@ test('decisions-check takes a panel finding only with a severity, after a seats 
 test('decisions-check takes an open panel finding only with its patch and owner', () => {
   const { dir, run } = sandbox();
   const root = project(dir, 'app');
-  const append = (decision, result) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', 'panel', decision, 'why', 'evidence', result], root);
+  const append = (decision, result) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', 'panel', decision, 'why', 'the seat\'s probe; proof: none', result], root);
   assert.equal(append('seats opus', 'recorded').status, 0);
   assert.equal(append('critical The guard drops real typing', 'open: the fix adds code past the cap').status, 1, 'an open finding with no patch or owner');
   assert.equal(append('critical The guard drops real typing', 'open: past the cap, patch: fix.patch').status, 1, 'an open finding with no owner');
@@ -2253,4 +2253,65 @@ test('reread prints each changed sentence whole against its last snapshot', () =
   const after = hook('startup').stdout;
   assert.ok(after.includes('+ Never stash.'), after);
   assert.match(after, /--dir docs\/plans\/artifacts\/reread\/s-startup/);
+});
+
+test('decisions-check append asks a marking row to name the file it grades, and reads a label only in its own grammar', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', { files: { 'docs/plans/artifacts/run/typecheck-a1.log': '$ (.) tsc\nexit=1\n' } });
+  const append = (evidence, result = 'partial: the type check still fails', phase = 'build') =>
+    run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', phase, 'typecheck plitejs', 'why', evidence, result], root);
+  const log = 'docs/plans/artifacts/run/typecheck-a1.log';
+
+  assert.match(append(`ran ${log}`).stderr, /an unlabeled partial row: name the file whose verdict it states/, 'a partial row with a citation but no label');
+  assert.match(append(`capacity-proof: ${log}`).stderr, /an unlabeled partial row/, 'a word ending in proof: is no label');
+  assert.match(append('runtime proof: real click').stderr, /an unlabeled partial row/, 'proof: before a word that is no path is no label');
+  assert.match(append('proof: docs/plans/artifacts/run/gone-a1.log (missing)').stderr, /proof: docs\/plans\/artifacts\/run\/gone-a1\.log names no file/);
+  assert.equal(append(`\`proof: ${log}\``).status, 0, 'a label inside a code span');
+  assert.equal(append('tracks bug 12; proof: none', 'open: bug 12 waits on upstream').status, 0, 'proof: none for a row that grades no file');
+  assert.equal(append('no label', 'partial: the reviewer could not run it', 'review').status, 0, 'a reviewer row needs no label');
+  assert.equal(append('no label', 'superseded: rerun in a2').status, 0, 'a superseded row needs no label');
+  writeFileSync(join(root, 'old.decisions.tsv'), `ts\tphase\tdecision\twhy\tevidence\tresult\n2026-10-06T10:00:00Z\tbuild\told row\twhy\tno label\tpartial: written before labels\n`);
+  assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'old.decisions.tsv'], root).status, 0, 'the whole-log check asks no row for a label');
+});
+
+test('decisions-check append takes an accepted row only for a not-passed file and a word the plan Defaults offers', () => {
+  const { dir, run } = sandbox();
+  const defaults = (words) => `# Plan\n\nStatus: building\n\n## Defaults\n\n| Decision | Pick | Alternative | Word |\n| --- | --- | --- | --- |\n| The type check | Ship with its known failure | Hold the build | ${words} |\n`;
+  const root = project(dir, 'app', { files: { 'plan.md': defaults('`hold`, or **ship it**'), 'docs/plans/artifacts/run/typecheck-a1.log': '$ (.) tsc\nexit=1\n' } });
+  const log = 'docs/plans/artifacts/run/typecheck-a1.log';
+  const append = (evidence, result) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'plan.decisions.tsv', 'build', 'typecheck plitejs', 'why', evidence, result], root);
+
+  assert.match(append(`proof: ${log}; word: hold`, 'accepted: the owner ships it').stderr, /nothing to accept/, 'a file with no not-passed row');
+  assert.equal(append(`proof: ${log}`, 'partial: the type check fails on one fixture').status, 0);
+  assert.match(append(`proof: ${log}; word: later`, 'accepted: the owner ships it').stderr, /word: later is not an option of a Word cell/);
+  assert.match(append(`proof: ${log}`, 'accepted: the owner ships it').stderr, /names the accepting Defaults word/);
+  assert.equal(append(`proof: ${log}; word: Ship it.`, 'accepted: the owner ships it').status, 0, 'a bold option after a comma and "or", compared without case or punctuation');
+  writeFileSync(join(root, 'plan.md'), `${defaults('hold')}\n\`\`\`\`md\n| Decision | Pick | Alternative | Word |\n| --- | --- | --- | --- |\n| x | y | z | fenced |\n\`\`\`\`\n`);
+  assert.match(append(`proof: ${log}; word: fenced`, 'accepted: the owner ships it').stderr, /word: fenced is not an option/, 'a table inside a four-backtick fence');
+  writeFileSync(join(root, 'plan.md'), `<!--\n\`\`\`js\n-->\n${defaults('HOLD OR SHIP')}`);
+  assert.equal(append(`proof: ${log}; word: ship`, 'accepted: the owner ships it').status, 0, 'a fence inside a comment opens nothing, and an upper-case OR splits options');
+});
+
+test('plan-open refuses a newly closed box that cites a not-passed proof until a pass or an accepted row with a live Defaults word', () => {
+  const { dir, run } = sandbox();
+  const plan = (words, box) => `# Plan\n\nStatus: building\n\n## Defaults\n\n| Decision | Pick | Alternative | Word |\n| --- | --- | --- | --- |\n| The type check | Ship with its known failure | Hold the build | ${words} |\n\n## Steps\n\n${box}\n`;
+  const root = project(dir, 'app', { files: { 'plan.md': plan('ship it', '- [ ] type check: `./docs/plans/artifacts/run/typecheck-a1.log`'), 'docs/plans/artifacts/run/typecheck-a1.log': '$ (.) tsc\nexit=1\n' } });
+  run('git', ['add', '-A'], root);
+  run('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'plan'], root);
+  const log = 'docs/plans/artifacts/run/typecheck-a1.log';
+  const append = (evidence, result) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'plan.decisions.tsv', 'build', 'typecheck plitejs', 'why', evidence, result], root);
+  const check = (words) => {
+    writeFileSync(join(root, 'plan.md'), plan(words, '- [x] type check: `./docs/plans/artifacts/run/typecheck-a1.log`'));
+    return run(process.execPath, [join(HELPERS, 'plan-open.mjs'), 'plan.md'], root);
+  };
+
+  assert.equal(append(`proof: ${join(root, log)}`, 'partial: the type check fails on one fixture').status, 0, 'an absolute label spelling');
+  const refused = check('ship it');
+  assert.equal(refused.status, 1, 'a box citing a file whose latest labeled verdict is partial');
+  assert.match(refused.stderr, /typecheck-a1\.log, whose latest labeled verdict is not passed/);
+  assert.equal(append(`proof: ${log}; word: ship it`, 'accepted: the owner ships the known failure').status, 0);
+  assert.equal(check('ship it').status, 0, 'the accepted row with a word the Defaults still offer');
+  assert.match(check('hold').stderr, /latest labeled verdict is not passed/, 'the owner reversed the Defaults row');
+  assert.equal(append(`proof: ${log}; scope: the full type check, read 2026-10-07`, 'verified: the type check passes').status, 0);
+  assert.equal(check('hold').status, 0, 'a later labeled pass');
 });

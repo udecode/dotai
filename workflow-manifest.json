@@ -162,7 +162,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "5064ef2d20260a80d7aa32d40ff46ffaf7673bd4534802690fe322d60afac74a",
+      "sha256": "df5469542d029b828af2dcc4f38c21e8a5524d50bfa055700c5ec454bebe5bd5",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/cross.mjs": {
@@ -170,7 +170,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
-      "sha256": "ab1c767a574debae31676034d6e98a4d57cc1c6adea66f71dbabebcf605e4dfe",
+      "sha256": "81e5fdc4cc6cea2696a18b24261d3db476f671bd9d2a0882662c275cdc0f488a",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/freeze.mjs": {
@@ -182,11 +182,11 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/plan-open.mjs": {
-      "sha256": "cc561815f9b4d442ac9c00663b7183056745726d77622726bfbf8af3b4e2d919",
+      "sha256": "d49a7e2a9592a21b6328ed8ee4eb5e793736cc902d783209136611030411d7d0",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/plan-page.mjs": {
-      "sha256": "185f8f680387b19887ace85215ee5329b4befb7a2cfb9c9924a07af272f14aaa",
+      "sha256": "41795aebc6e8c2d01fca6966dcc24f5d3cfa56041b822bfae1ac392063bd0f4a",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/proof.mjs": {
@@ -202,7 +202,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/status.mjs": {
-      "sha256": "0f4215e5ecb1814cd7ccfa6a067064ec08c4b6cf78ea4cb70dee4abc24c0f4a8",
+      "sha256": "6a90a44fbe813229d2aa760bd1d30cd75852c2d161671bd1d84f814813935f47",
       "mode": 420
     },
     "skills/sync-pstack/references/adapt.md": {
@@ -226,7 +226,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "3421987dcfcc3f93c57821abeb32282ee7f3243ef5fa15b6f0b78c7e0ce04a55",
+      "sha256": "bce491e704bee385afcc6c485ba7c4df97615a1077924956d969fa499d5dd0fb",
       "mode": 420
     },
     "skills/test-audit/LICENSE": {

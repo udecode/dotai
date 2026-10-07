@@ -3,8 +3,8 @@
 // cited proof is a path under <plans>/artifacts/.
 
 import { spawnSync } from 'node:child_process';
-import { closeSync, existsSync, openSync, readSync } from 'node:fs';
-import { relative } from 'node:path';
+import { closeSync, existsSync, openSync, readSync, realpathSync } from 'node:fs';
+import { relative, resolve } from 'node:path';
 
 const LANDED = ['done', 'complete', 'completed', 'shipped', 'executed', 'implemented', 'fixed', 'released', 'merged', 'verified', 'landed'];
 
@@ -91,4 +91,177 @@ export function committedLines(path) {
   }
   const shown = spawnSync('git', ['show', `${base ?? 'HEAD'}:./${relative(process.cwd(), path)}`], { encoding: 'utf8' });
   return new Set(shown.status === 0 ? shown.stdout.split('\n') : []);
+}
+
+export const STATUSES = [
+  'accepted',
+  'applied',
+  'blocked',
+  'corrected',
+  'decided',
+  'deferred',
+  'dismissed',
+  'fixed',
+  'gap',
+  'inconclusive',
+  'kept',
+  'open',
+  'partial',
+  'proven',
+  'recorded',
+  'reverted',
+  'skipped',
+  'superseded',
+  'verified',
+];
+export const PROVEN = ['fixed', 'proven', 'verified'];
+
+export const statusOf = (result) => result.replace(/^'/u, '').match(/^[a-z]+/iu)?.[0]?.toLowerCase();
+
+export function parseFence(line) {
+  const match = line.match(/^\s*(```|~~~)(.*)$/);
+  if (!match || (match[1] === '```' && match[2].includes('`'))) return null;
+  const words = match[2].trim().split(/\s+/).filter(Boolean);
+  const tag = ['before', 'after'].includes(words.at(-1)) ? words.pop() : undefined;
+  return { marker: match[1], lang: words[0] ?? '', tag };
+}
+export const isFence = (line) => parseFence(line) !== null;
+
+export function readFence(lines, start) {
+  const { marker, lang, tag } = parseFence(lines[start]);
+  const body = [];
+  let index = start + 1;
+  for (
+    ;
+    index < lines.length && !lines[index].trim().startsWith(marker);
+    index += 1
+  ) {
+    body.push(lines[index]);
+  }
+  return { lang, tag, body: body.join('\n'), next: index + 1 };
+}
+
+export const TABLE_RULE = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
+
+export function splitRow(row) {
+  return row
+    .trim()
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split(/(?<!\\)\|/)
+    .map((cell) => cell.trim().replaceAll('\\|', '|'));
+}
+
+export const NOT_PASSED = ['partial', 'open', 'gap', 'blocked', 'inconclusive'];
+
+const realOf = (path) => (existsSync(path) ? realpathSync(path) : path);
+export const proofKey = (path) => relative(realOf(process.cwd()), realOf(resolve(path)));
+
+export function proofLabels(evidence, plans) {
+  const root = `${plans}/artifacts/`;
+  return [...evidence.matchAll(/(?:^|[\s;`])proof:\s+([^\s;,`]+)/gu)].flatMap(([, value]) => {
+    if (value === 'none') return [{ none: true }];
+    if (!value.includes(root)) return [];
+    const path = tidy(value);
+    return [{ path, key: proofKey(path), exists: existsSync(path) }];
+  });
+}
+
+export const acceptedWord = (evidence) => evidence.match(/(?:^|[\s;`])word:\s*([^;]+?)\s*(?:;|$)/u)?.[1];
+
+const plainWord = (text) =>
+  text
+    .replace(/[`"“”'‘’*_]/gu, '')
+    .trim()
+    .replace(/[.:,;!?]+$/u, '')
+    .toLowerCase();
+
+function blankFencesAndComments(lines) {
+  let fence = null;
+  let commented = false;
+  return lines.map((line) => {
+    if (fence) {
+      const close = line.match(/^\s*(`{3,}|~{3,})\s*$/u);
+      if (close && close[1][0] === fence[0] && close[1].length >= fence.length) fence = null;
+      return '';
+    }
+    let kept = line;
+    if (commented) {
+      const end = kept.indexOf('-->');
+      if (end === -1) return '';
+      commented = false;
+      kept = kept.slice(end + 3);
+    }
+    const open = kept.match(/^\s*(`{3,}|~{3,})/u);
+    if (open) {
+      fence = open[1];
+      return '';
+    }
+    kept = kept.replace(/<!--.*?-->/gu, '');
+    const start = kept.indexOf('<!--');
+    if (start !== -1) {
+      commented = true;
+      kept = kept.slice(0, start);
+    }
+    return kept;
+  });
+}
+
+export function defaultsWords(planText) {
+  const lines = blankFencesAndComments(planText.split('\n'));
+  const start = lines.findIndex((line) => /^##\s+Defaults\s*$/u.test(line));
+  if (start === -1) return new Set();
+  const end = lines.findIndex((line, index) => index > start && /^##\s/u.test(line));
+  const words = new Set();
+  for (const { head, rows } of tablesOf(lines.slice(start + 1, end === -1 ? undefined : end))) {
+    const names = head.map((cell) => plainWord(cell));
+    if (names.slice(0, 4).join('|') !== 'decision|pick|alternative|word') continue;
+    const column = names.indexOf('word');
+    for (const row of rows) {
+      for (const option of (row[column] ?? '').split(/,|\bor\b/iu)) {
+        const word = plainWord(option);
+        if (word) words.add(word);
+      }
+    }
+  }
+  return words;
+}
+
+export const isAcceptingWord = (word, words) => Boolean(word) && words.has(plainWord(word));
+
+export function proofStates(rows, plans) {
+  const states = new Map();
+  for (const [, phase = '', , , evidence = '', result = ''] of rows) {
+    if (phase.startsWith('review')) continue;
+    const status = statusOf(result);
+    for (const label of proofLabels(evidence, plans)) {
+      if (label.none) continue;
+      const state = states.get(label.key) ?? { passed: true, word: null };
+      if (NOT_PASSED.includes(status)) states.set(label.key, { passed: false, word: null });
+      else if (status === 'accepted') states.set(label.key, { ...state, word: acceptedWord(evidence) ?? null });
+      else if (PROVEN.includes(status)) states.set(label.key, { passed: true, word: null });
+    }
+  }
+  return states;
+}
+
+export function tablesOf(lines) {
+  const tables = [];
+  for (let index = 0; index < lines.length; ) {
+    if (isFence(lines[index])) {
+      index = readFence(lines, index).next;
+      continue;
+    }
+    if (!/^\s*\|/.test(lines[index]) || !TABLE_RULE.test(lines[index + 1] ?? '')) {
+      index += 1;
+      continue;
+    }
+    const head = splitRow(lines[index]);
+    const rows = [];
+    for (index += 2; index < lines.length && /^\s*\|/.test(lines[index]); index += 1) {
+      rows.push(splitRow(lines[index]));
+    }
+    tables.push({ head, rows });
+  }
+  return tables;
 }

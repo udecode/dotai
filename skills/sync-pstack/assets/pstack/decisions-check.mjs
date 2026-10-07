@@ -10,35 +10,19 @@
 //        (stamps the row, checks it, and writes it only when it passes)
 //        node .agents/pstack/decisions-check.mjs append <log> --from <rows.tsv>
 //        (each line holds the five cells; writes every row only when all pass)
+//        Both append forms, unlike the <log> and --all checks, refuse a partial, open, gap,
+//        blocked or inconclusive row without proof: <existing file under <plans>/artifacts/>
+//        or proof: none, and an accepted row unless its proof: names files an earlier row
+//        left not passed and its word: is a Word option in the plan's Defaults. Review-phase
+//        rows are exempt.
 //        node .agents/pstack/decisions-check.mjs rounds <log>
 //        (exits 1 when the log is at the cap of panel rounds before a build)
 
 import { appendFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { committedLines, runPaths, SEATS, SEVERITIES } from './status.mjs';
+import { acceptedWord, committedLines, defaultsWords, isAcceptingWord, NOT_PASSED, proofLabels, proofStates, PROVEN, runPaths, SEATS, SEVERITIES, STATUSES, statusOf } from './status.mjs';
 
 const HEADER = 'ts\tphase\tdecision\twhy\tevidence\tresult';
-const STATUSES = [
-  'applied',
-  'blocked',
-  'corrected',
-  'decided',
-  'deferred',
-  'dismissed',
-  'fixed',
-  'gap',
-  'inconclusive',
-  'kept',
-  'open',
-  'partial',
-  'proven',
-  'recorded',
-  'reverted',
-  'skipped',
-  'superseded',
-  'verified',
-];
-const PROVEN = ['fixed', 'proven', 'verified'];
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/u;
 const CELLS = ['phase', 'decision', 'why', 'evidence', 'result'];
 
@@ -83,7 +67,7 @@ function rowProblems(line, where, opened) {
   for (const [cell, value] of rest.entries()) {
     if (!value.trim()) found.push(`${where}: empty ${CELLS[cell]}`);
   }
-  const status = rest[4].replace(/^'/u, '').match(/^[a-z]+/iu)?.[0]?.toLowerCase();
+  const status = statusOf(rest[4]);
   if (rest[4].trim() && (!status || !STATUSES.includes(status))) {
     found.push(`${where}: result must start with one of: ${STATUSES.join(', ')}`);
   }
@@ -105,6 +89,33 @@ function rowProblems(line, where, opened) {
   }
   const reviewerRow = rest[0].startsWith('review');
   return reviewerRow ? found : [...found, ...missingPaths(rest[3], where)];
+}
+
+function appendOnlyLabelProblems(log, row, earlier, where) {
+  const [, phase, , , evidence, result] = row.split('\t');
+  if (phase.startsWith('review')) return [];
+  const status = statusOf(result);
+  if (!NOT_PASSED.includes(status) && status !== 'accepted') return [];
+  const labels = proofLabels(evidence, plansDir());
+  const found = labels
+    .filter((label) => label.path && !label.exists)
+    .map((label) => `${where}: proof: ${label.path} names no file`);
+  if (NOT_PASSED.includes(status)) {
+    if (labels.length === 0) found.push(`${where}: an unlabeled ${status} row: name the file whose verdict it states as "proof: <path under ${plansDir()}/artifacts/>" in its evidence, or write "proof: none" when it grades no file, such as a row that tracks a bug or a finding`);
+    return found;
+  }
+  const states = proofStates(earlier.map((line) => line.split('\t')), plansDir());
+  const files = labels.filter((label) => label.path);
+  if (files.length === 0) found.push(`${where}: an accepted row names the not-passed file it accepts as "proof: <path>"`);
+  for (const label of files.filter((file) => file.exists && states.get(file.key)?.passed !== false)) {
+    found.push(`${where}: ${label.path} has no labeled partial, open, gap, blocked or inconclusive row before this one, so there is nothing to accept`);
+  }
+  const plan = log.replace(/\.decisions\.tsv$/u, '.md');
+  const word = acceptedWord(evidence);
+  if (!word) found.push(`${where}: an accepted row names the accepting Defaults word as "word: <word>"`);
+  else if (!existsSync(plan)) found.push(`${where}: an accepted row needs its plan ${plan}, whose Defaults offers the word`);
+  else if (!isAcceptingWord(word, defaultsWords(readFileSync(plan, 'utf8')))) found.push(`${where}: word: ${word} is not an option of a Word cell in ${plan}'s Defaults`);
+  return found;
 }
 
 function problems(path) {
@@ -143,7 +154,7 @@ function append(path, batch) {
       continue;
     }
     const row = [stamp, ...cells].join('\t');
-    found.push(...rowProblems(row, where, opened), ...missingPlan(path, row, where));
+    found.push(...rowProblems(row, where, opened), ...missingPlan(path, row, where), ...appendOnlyLabelProblems(path, row, [...existing.slice(1).filter(Boolean), ...rows], where));
     if (opens(row) && opened && !written) {
       found.push(`${where}: a later round's seats row needs a writing row after the previous seats row: log the round's writing passes under phase writing, or log a writing row that says why none ran`);
     }
