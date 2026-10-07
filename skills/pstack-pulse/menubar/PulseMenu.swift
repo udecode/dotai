@@ -19,6 +19,14 @@ struct Board: Decodable { let fleet: Fleet?; let cards: [Card] }
 
 let home = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".pstack-pulse")
 let openable: Set<String> = ["https", "claude", "chatgpt"]
+// A headless claude -p has no session tools, so this opens a new desktop Code session with the request typed in.
+let connectAllPrompt = "Turn on Remote Control for every non-archived Claude Code session: list them with list_sessions (limit 100) and call set_remote_control with enabled true on each one whose remoteControlActive is false. Reply with how many you turned on and which ones refused."
+
+func connectAllURL() -> URL? {
+  var parts = URLComponents(string: "claude://code/new")
+  parts?.queryItems = [URLQueryItem(name: "q", value: connectAllPrompt), URLQueryItem(name: "folder", value: home.path)]
+  return parts?.url
+}
 
 func boardURL() -> URL? {
   guard let data = try? Data(contentsOf: home.appendingPathComponent("config.json")),
@@ -161,7 +169,10 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
   func menuNeedsUpdate(_ menu: NSMenu) {
     menu.removeAllItems()
-    defer { menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")) }
+    defer {
+      menu.addItem(row(styled("Connect all sessions to Remote Control…"), opens: connectAllURL().map { Action(title: "Connect all sessions", url: $0.absoluteString) }))
+      menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+    }
     guard let board else {
       menu.addItem(row(lines([[styled("pstack-pulse daemon not reachable", size: 13, weight: .semibold)], [styled("Run pulse.mjs doctor", size: 11, color: .secondaryLabelColor)]]), opens: nil))
       return
