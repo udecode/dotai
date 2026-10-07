@@ -13,14 +13,13 @@ A daemon on this Mac turns hook events from every Claude Code and Codex session 
 
 - Claude sessions buzz for:
   - a question or plan approval, at once;
-  - a permission prompt Claude is about to show you, through its `PermissionRequest` hook, so a call a rule allows stays silent; the result of that tool, a denial or the end of the turn closes it;
+  - a permission prompt left unanswered for about six seconds. Claude reports it through its `permission_prompt` notification, which desktop sessions send from Claude Code 2.1.233 on; in a terminal, typing restarts the six seconds. A call that a rule allows, or that another hook allows within six seconds, stays silent. The push shows Claude's own notification text, which may not name the tool. Your next prompt or the end of the turn clears the card. No hook says when a prompt is answered, so the card stays on needs you for the rest of the turn after you answer. While one prompt or question waits, a second prompt does not buzz. After you deny a prompt, Claude stops and waits, so the card stays on needs you until your next prompt;
   - a plan page handed back at the end of a turn;
   - a push the remote branch has;
   - a required check still failing when the turn stops;
   - an API error;
-  - a session that died while working;
-  - an open critical review finding in its plan's decision log.
-- Codex sessions from the app or the CLI buzz for questions, permission prompts and open critical review findings, and show their plan. Codex pushes, failed checks and lost processes are not observed, because Codex hooks carry no git result or tool failure.
+  - a session that died while working.
+- Codex sessions from the app or the CLI buzz for questions and permission prompts, and show their plan. Codex pushes, failed checks and lost processes are not observed, because Codex hooks carry no git result or tool failure.
 - A required check counts only when the Bash command is the check itself, optionally with flags, such as `bun check --bail`. Any other form, such as `bun check | tail`, a chain or a second line, records nothing, because its exit status is not the check's. A configured check that is itself a chain never counts.
 - Panel seats, smoke runs, headless `claude -p` runs, subagents and Codex exec and review threads never show. A session started with `PSTACK_PULSE_OFF=1` in its environment never shows either.
 - A plan page hand-back counts only when the turn published a page from the plans folder's artifacts while the session is bound to a plan.

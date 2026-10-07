@@ -62,6 +62,8 @@ export function eventOf(runtime, input, env, at = new Date().toISOString()) {
     check: check && isCheckRun(command, check) ? { ok: event === 'PostToolUse' } : null,
     published: event === 'PostToolUse' && tool === 'Artifact' && [undefined, 'publish'].includes(toolInput.action) && PLAN_PAGE.test(toolInput.file_path ?? ''),
     lastMessage: event === 'Stop' ? clip(input.last_assistant_message, 150) : null,
+    notification: event === 'Notification' ? clip(input.notification_type, 40) : null,
+    message: event === 'Notification' ? clip(input.message, 120) : null,
     background: Array.isArray(input.background_tasks) ? input.background_tasks.length : 0,
     pid: Number(env.CLAUDE_PID) || null,
     bridge: env.CLAUDE_CODE_BRIDGE_SESSION_ID ?? null,

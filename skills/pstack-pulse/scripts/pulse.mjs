@@ -18,7 +18,7 @@ const PLIST = join(homedir(), 'Library/LaunchAgents', `${LABEL}.plist`);
 const LOG = join(homedir(), 'Library/Logs/pstack-pulse.log');
 const SETTINGS = { claude: join(homedir(), '.claude/settings.json'), codex: join(homedir(), '.codex/hooks.json') };
 const EVENTS = {
-  claude: [['SessionStart'], ['UserPromptSubmit'], ['PreToolUse', 'AskUserQuestion|ExitPlanMode'], ['PostToolUse'], ['PostToolUseFailure'], ['PermissionRequest'], ['PermissionDenied'], ['Stop'], ['StopFailure'], ['SessionEnd']],
+  claude: [['SessionStart'], ['UserPromptSubmit'], ['PreToolUse', 'AskUserQuestion|ExitPlanMode'], ['PostToolUse'], ['PostToolUseFailure'], ['Notification', 'permission_prompt'], ['PermissionDenied'], ['Stop'], ['StopFailure'], ['SessionEnd']],
   codex: [['SessionStart'], ['UserPromptSubmit'], ['PermissionRequest'], ['PostToolUse'], ['Stop'], ['SessionEnd']],
 };
 const LOCK = `/tmp/pstack-pulse-${createHash('sha1').update(HOME).digest('hex').slice(0, 12)}.sock`;
@@ -157,7 +157,9 @@ function install() {
   writeFileAtomic(PLIST, plistOf({ label: LABEL, node: process.execPath, script: join(SCRIPTS, 'pulse.mjs'), log: LOG, path: process.env.PATH }));
   const uid = process.getuid();
   launchctl('bootout', `gui/${uid}/${LABEL}`);
+  for (let wait = 0; wait < 40 && launchctl('print', `gui/${uid}/${LABEL}`).status === 0; wait += 1) spawnSync('sleep', ['0.25']);
   const boot = launchctl('bootstrap', `gui/${uid}`, PLIST);
+  if (boot.status !== 0) process.exitCode = 1;
   console.log('hooks: ~/.claude/settings.json and ~/.codex/hooks.json (first backups beside them)');
   console.log(`daemon: ${boot.status === 0 ? 'started' : `launchctl failed: ${boot.stderr.trim()}`} (${LOG})`);
   console.log(`session list: ${config.listUrl ?? 'no tailnet name found'}`);

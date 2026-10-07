@@ -46,7 +46,6 @@ function newSession(observation) {
     plan: null,
     turn: 0,
     needs: {},
-    findings: [],
     failure: null,
     check: null,
     published: null,
@@ -59,6 +58,9 @@ function newSession(observation) {
 const openNeed = (session, id, need) => {
   session.needs[id] ??= { id, ...need };
 };
+const openPermission = (session, tool, at, question) => openNeed(session, `permission:${at}`, { kind: 'permission', tool, openedAt: at, question, options: [] });
+const askingOwner = (session) => Object.values(session.needs).some((need) => need.kind === 'question' || need.kind === 'permission');
+const settlesPermission = (session, need, event) => need.kind === 'permission' && session.runtime === 'codex' && need.tool === event.tool;
 const closeNeeds = (session, match) => {
   for (const [id, need] of Object.entries(session.needs)) if (match(need)) delete session.needs[id];
 };
@@ -102,23 +104,27 @@ function applyHook(session, event, key) {
       }
       break;
     case 'PermissionRequest':
-      openNeed(session, `permission:${event.at}`, { kind: 'permission', tool: event.tool, openedAt: event.at, question: `Allow ${event.tool ?? 'a tool'}?`, options: [] });
+      if (session.runtime === 'codex') openPermission(session, event.tool, event.at, `Allow ${event.tool ?? 'a tool'}?`);
+      break;
+    case 'Notification':
+      if (event.notification === 'permission_prompt' && !askingOwner(session)) openPermission(session, null, event.at, event.message ?? 'Claude needs your permission');
       break;
     case 'PostToolUse':
     case 'PostToolUseFailure':
     case 'PermissionDenied':
       session.active = true;
-      closeNeeds(session, (need) => (need.kind === 'permission' && need.tool === event.tool) || need.id === event.toolUseId || (need.kind === 'question' && !event.toolUseId && QUESTION_TOOLS.includes(event.tool)));
+      closeNeeds(session, (need) => settlesPermission(session, need, event) || need.id === event.toolUseId || (need.kind === 'question' && !event.toolUseId && QUESTION_TOOLS.includes(event.tool)));
       break;
     case 'Stop':
       session.active = event.background > 0;
-      if (session.active) break;
       closeNeeds(session, (need) => need.kind === 'permission');
+      if (session.active) break;
       if (session.published === session.turn) openNeed(session, `handback:${session.turn}`, { kind: 'handback', openedAt: event.at, question: event.lastMessage ?? 'Plan page handed back', options: [] });
       if (session.check) session.failure = { kind: 'check', id: `${key}:check:${session.check.episode}`, summary: 'A required check is still failing' };
       break;
     case 'StopFailure':
       session.active = false;
+      closeNeeds(session, (need) => need.kind === 'permission');
       session.failure = { kind: 'stop', id: `${key}:stop:${event.at}`, summary: 'The turn stopped on an API error' };
       break;
     case 'SessionEnd':
@@ -188,7 +194,7 @@ function applyClock(session, at) {
 }
 
 function derive(session, at) {
-  const next = Object.keys(session.needs).length ? 'needs-you' : session.failure || session.findings.length ? 'failed' : session.active ? 'working' : 'idle';
+  const next = Object.keys(session.needs).length ? 'needs-you' : session.failure ? 'failed' : session.active ? 'working' : 'idle';
   if (next === session.state) return;
   session.state = next;
   session.since = at;
@@ -214,7 +220,6 @@ export function reduce(sessions, observation) {
     session.audience = ['vscode', 'cli'].includes(observation.source) ? 'owner' : 'hidden';
     session.title = observation.title ?? session.title;
   } else if (observation.kind === 'rollout') applyRollout(session, observation);
-  else if (observation.kind === 'findings') session.findings = observation.findings;
   else if (observation.kind === 'push') applyPush(session, observation);
   derive(session, observation.at);
 }
@@ -317,7 +322,6 @@ export function incidentsOf(views) {
     const link = view.rail?.page ?? answerUrl;
     if (session.life === 'live') for (const need of Object.values(session.needs)) add({ id: `need:${key}:${need.id}:${need.openedAt}`, kind: 'needs-you', at: need.openedAt, title: `${title} needs you`, message: String(need.question), link, answerUrl });
     if (session.failure) add({ id: `fail:${session.failure.id}`, kind: 'failed', at: session.since, title: `${title} failed`, message: session.failure.summary, link, answerUrl });
-    for (const finding of session.findings) add({ id: `finding:${finding.id}`, kind: 'failed', at: finding.at, title: `${title} failed`, message: finding.summary, link, answerUrl });
     for (const ship of session.ships) add({ id: ship.id, kind: 'shipped', at: ship.at, title: `${title} shipped`, message: ship.summary, link, answerUrl });
   }
   return incidents;

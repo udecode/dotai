@@ -40,6 +40,11 @@ export function loadState() {
     renameSync(path, join(HOME, `state.corrupt-${Date.now()}.json`));
     return { v: 2, sessions: {}, phone: emptyPhone(), applied: [] };
   }
+  for (const session of Object.values(state.sessions ?? {})) {
+    delete session.pending;
+    delete session.findings;
+    delete session.requestedTool;
+  }
   return state;
 }
 export const saveState = (state) => writeFileAtomic(join(HOME, 'state.json'), JSON.stringify(state));
@@ -65,6 +70,8 @@ const FIELDS = {
   check: orNull((value) => typeof value.ok === 'boolean'),
   published: (value) => typeof value === 'boolean',
   lastMessage: orNull(isText),
+  notification: orNull(isText),
+  message: orNull(isText),
   background: Number.isInteger,
   pid: orNull(Number.isInteger),
   bridge: orNull(isText),
@@ -245,12 +252,10 @@ export function probe(sessions, now, problems) {
         const pid = entry?.pid ?? session.pid;
         if (pid && alive(pid) === false) observations.push({ kind: 'gone', ...base });
         else if (entry) observations.push({ kind: 'registry', ...base, ...entry, pid });
-        observations.push({ kind: 'findings', ...base, findings: readFindings(session.plan) });
       } else if (session.life === 'live') {
         const thread = threads[session.id];
         if (thread) observations.push({ kind: 'thread', ...base, ...thread });
         if (session.audience === 'owner' && session.transcript && existsSync(session.transcript)) observations.push({ kind: 'rollout', ...base, ...readRollout(session.transcript, session.cursor) });
-        observations.push({ kind: 'findings', ...base, findings: readFindings(session.plan) });
       }
       for (const push of session.pushes.filter((each) => Date.parse(each.nextAt) <= now)) observations.push({ kind: 'push', ...base, sha: push.sha, branch: push.branch, ...confirmPush(push) });
     } catch (error) {
@@ -283,20 +288,6 @@ export function railOf(planPath) {
   } catch {}
   railCache[planPath] = { stamp, rail, at: Date.now() };
   return rail;
-}
-
-export function readFindings(planPath) {
-  const log = planPath?.replace(/\.md$/u, '.decisions.tsv');
-  if (!log || !existsSync(log)) return [];
-  const byKey = new Map();
-  for (const [ts, phase, decision, , , result] of readFileSync(log, 'utf8').split('\n').slice(1).map((line) => line.split('\t'))) {
-    if (phase !== 'panel' || !/^critical\b/u.test(decision ?? '')) continue;
-    const previous = byKey.get(decision);
-    const open = /^open\b/u.test(result ?? '');
-    const generation = open && previous && !previous.open ? previous.generation + 1 : (previous?.generation ?? 0);
-    byKey.set(decision, { open, generation, at: previous?.open && open ? previous.at : ts });
-  }
-  return [...byKey].filter(([, finding]) => finding.open).map(([decision, finding]) => ({ id: `${planPath}:${decision}:${finding.generation}`, at: finding.at, summary: decision.slice(0, 150) }));
 }
 
 export function apiKey() {

@@ -52,32 +52,90 @@ test('the board holds the fleet card and four sessions, and ends a card before i
   assert.equal(phone.streams[key].type, 'alert');
 });
 
+const claudeHook = (session, event, seconds, input = {}) => ({ kind: 'hook', ...eventOf('claude', { session_id: session, hook_event_name: event, cwd: '/repo', ...input }, {}, at(seconds)) });
+const prompted = (session, seconds) => claudeHook(session, 'Notification', seconds, { notification_type: 'permission_prompt', message: 'Claude needs your permission to use Bash' });
+const needsOf = (session) => Object.values(session.needs).map((need) => need.question);
+
 test('a question buzzes once, and not again after a restart', async () => {
   const sessions = {};
   reduce(sessions, hook('a', 'SessionStart', 0));
+  reduce(sessions, hook('a', 'PermissionRequest', 1, { tool: 'Read' }));
   reduce(sessions, ask('a', 2));
+  reduce(sessions, hook('a', 'PermissionRequest', 2, { tool: 'AskUserQuestion' }));
   const phone = emptyPhone();
   const client = fakeClient();
   await send(sessions, phone, client, 3);
-  await send(sessions, phone, client, 5);
+  reduce(sessions, prompted('a', 8));
+  await send(sessions, phone, client, 9);
   const restarted = JSON.parse(JSON.stringify({ sessions, phone }));
   await send(restarted.sessions, restarted.phone, client, 9);
   assert.deepEqual(pushes(client), ['push a needs you']);
 });
 
-test('a permission prompt needs you until its own tool runs or you send a prompt, and a call nobody asked about never does', () => {
+test('a permission prompt needs you once Claude shows it unanswered, until the turn ends or you send a prompt, and a call a hook allows never does', () => {
   const sessions = {};
   reduce(sessions, hook('asked', 'UserPromptSubmit', 0));
   reduce(sessions, hook('asked', 'PermissionRequest', 1, { tool: 'Bash' }));
-  reduce(sessions, hook('asked', 'PostToolUse', 2, { tool: 'Read', toolUseId: 'tu-read' }));
+  reduce(sessions, prompted('asked', 7));
+  assert.deepEqual(needsOf(sessions['claude:asked']), ['Claude needs your permission to use Bash']);
+  reduce(sessions, hook('asked', 'PostToolUse', 9, { tool: 'Bash', toolUseId: 'tu-bash' }));
   assert.equal(sessions['claude:asked'].state, 'needs-you');
-  reduce(sessions, hook('asked', 'PostToolUse', 5, { tool: 'Bash', toolUseId: 'tu-bash' }));
+  reduce(sessions, hook('asked', 'Stop', 10, { background: 1 }));
+  reduce(sessions, hook('allowed', 'UserPromptSubmit', 0));
+  reduce(sessions, hook('allowed', 'PermissionRequest', 1, { tool: 'mcp__claude-in-chrome__navigate' }));
+  assert.notEqual(sessions['claude:allowed'].state, 'needs-you');
+  reduce(sessions, hook('allowed', 'PostToolUse', 5, { tool: 'mcp__claude-in-chrome__navigate', toolUseId: 'tu-nav' }));
   reduce(sessions, hook('remote', 'UserPromptSubmit', 0));
-  reduce(sessions, hook('remote', 'PermissionRequest', 1, { tool: 'Edit' }));
-  reduce(sessions, hook('remote', 'UserPromptSubmit', 3, { source: 'sdk' }));
+  reduce(sessions, prompted('remote', 7));
+  reduce(sessions, hook('remote', 'UserPromptSubmit', 9, { source: 'sdk' }));
   reduce(sessions, hook('auto', 'UserPromptSubmit', 0));
   reduce(sessions, hook('auto', 'PostToolUse', 1, { tool: 'Bash', toolUseId: 'tu-bash' }));
+  reduce(sessions, hook('codex', 'PermissionRequest', 1, { runtime: 'codex', tool: 'Bash' }));
+  assert.equal(sessions['codex:codex'].state, 'needs-you');
+  reduce(sessions, hook('codex', 'PostToolUse', 3, { runtime: 'codex', tool: 'Bash', toolUseId: 'tu-codex', inputKey: 'a1b2c3d4e5f60718' }));
   assert.deepEqual([...incidentsOf(viewsOf(sessions)).keys()], []);
+});
+
+test('a permission prompt still buzzes when another call finishes before the next tick', async () => {
+  const sessions = {};
+  reduce(sessions, claudeHook('t', 'UserPromptSubmit', 0));
+  reduce(sessions, prompted('t', 7));
+  reduce(sessions, claudeHook('t', 'PostToolUse', 7.1, { tool_name: 'Read', tool_input: { file_path: '/repo/a.ts' }, tool_use_id: 'tu-read' }));
+  const client = fakeClient();
+  await send(sessions, emptyPhone(), client, 8);
+  assert.deepEqual(pushes(client), ['push t needs you']);
+});
+
+test('a question answered before its prompt notice leaves the next permission prompt buzzing', () => {
+  const sessions = {};
+  const question = { tool_name: 'AskUserQuestion', tool_input: { questions: [{ question: 'Ship?', options: [{ label: 'Ship' }, { label: 'Hold' }] }] } };
+  reduce(sessions, claudeHook('q', 'UserPromptSubmit', 0));
+  reduce(sessions, claudeHook('q', 'PreToolUse', 1, { ...question, tool_use_id: 'tu-q' }));
+  reduce(sessions, claudeHook('q', 'PermissionRequest', 1, question));
+  reduce(sessions, claudeHook('q', 'PostToolUse', 3, { tool_name: 'AskUserQuestion', tool_input: { ...question.tool_input, answers: { 'Ship?': 'Ship' } }, tool_use_id: 'tu-q' }));
+  reduce(sessions, claudeHook('q', 'PermissionRequest', 20, { tool_name: 'Bash', tool_input: { command: 'make deploy' } }));
+  reduce(sessions, prompted('q', 26));
+  assert.equal(sessions['claude:q'].state, 'needs-you');
+});
+
+test('a permission need saved by an older daemon still closes, on its tool result for Codex and at the turn end for Claude', () => {
+  const sessions = {};
+  const saved = { id: 'permission:old', kind: 'permission', tool: 'Bash', openedAt: at(1), question: 'Allow Bash?', options: [] };
+  reduce(sessions, claudeHook('l', 'UserPromptSubmit', 0));
+  reduce(sessions, hook('c', 'UserPromptSubmit', 0, { runtime: 'codex' }));
+  sessions['claude:l'].needs[saved.id] = { ...saved };
+  sessions['codex:c'].needs[saved.id] = { ...saved };
+  reduce(sessions, claudeHook('l', 'Stop', 3));
+  reduce(sessions, { kind: 'hook', ...eventOf('codex', { session_id: 'c', hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_input: { command: 'make' }, tool_use_id: 'tu-c', cwd: '/repo' }, {}, at(3)) });
+  assert.deepEqual([needsOf(sessions['claude:l']), needsOf(sessions['codex:c'])], [[], []]);
+});
+
+test('a turn that stops on an API error drops its permission prompt', () => {
+  const sessions = {};
+  reduce(sessions, claudeHook('e', 'UserPromptSubmit', 0));
+  reduce(sessions, prompted('e', 7));
+  reduce(sessions, claudeHook('e', 'StopFailure', 9));
+  assert.deepEqual(needsOf(sessions['claude:e']), []);
 });
 
 test('a refused push is retried until accepted, and a backlog sends one push per tick', async () => {
