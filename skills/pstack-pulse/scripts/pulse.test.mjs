@@ -426,3 +426,13 @@ test('a turn that ends with only artifact page sockets open goes idle, and one w
   reduce(sessions, claudeHook('building', 'Stop', 3, { background_tasks: [watch, armed] }));
   assert.equal(sessions['claude:building'].state, 'working');
 });
+
+test('a turn that hands back a plan page pushes once that the session replied, without marking it as needing you', () => {
+  const sessions = {};
+  reduce(sessions, hook('pager', 'UserPromptSubmit', 0, { cwd: '/w/ellie', plans: ['/w/ellie/docs/plans/x.decisions.tsv'] }));
+  reduce(sessions, hook('pager', 'PostToolUse', 1, { cwd: '/w/ellie', tool: 'Artifact', published: true }));
+  reduce(sessions, hook('pager', 'Stop', 2, { cwd: '/w/ellie', lastMessage: 'Shipped the lean cards.\nDetails follow.' }));
+  assert.equal(sessions['claude:pager'].state, 'idle');
+  const incidents = [...incidentsOf(viewsOf(sessions)).values()];
+  assert.deepEqual(incidents.map(({ kind, title, message }) => ({ kind, title, message })), [{ kind: 'replied', title: 'pager replied', message: 'Shipped the lean cards.' }]);
+});

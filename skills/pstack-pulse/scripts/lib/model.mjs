@@ -53,6 +53,7 @@ function newSession(observation) {
     published: null,
     pushes: [],
     ships: [],
+    replies: [],
     cursor: null,
   };
 }
@@ -121,7 +122,10 @@ function applyHook(session, event, key) {
       session.active = event.background > 0;
       closeNeeds(session, (need) => need.kind === 'permission');
       if (session.active) break;
-      if (session.published === session.turn) openNeed(session, `handback:${session.turn}`, { kind: 'handback', openedAt: event.at, question: event.lastMessage ?? 'Plan page handed back', options: [] });
+      if (session.published === session.turn && !session.replies?.some(({ turn }) => turn === session.turn)) {
+        const summary = event.lastMessage?.split('\n').find((line) => line.trim())?.trim() ?? 'Plan page handed back';
+        (session.replies ??= []).push({ id: `reply:${key}:${session.turn}`, turn: session.turn, at: event.at, summary });
+      }
       if (session.check) session.failure = { kind: 'check', id: `${key}:check:${session.check.episode}`, summary: 'A required check is still failing' };
       break;
     case 'StopFailure':
@@ -186,6 +190,7 @@ function applyPush(session, result) {
 function applyClock(session, at) {
   const now = ms(at);
   session.ships = session.ships.filter((ship) => now - ms(ship.at) < SHIP_KEPT_MS);
+  session.replies = (session.replies ?? []).filter((reply) => now - ms(reply.at) < SHIP_KEPT_MS);
   if (session.life !== 'live') return;
   const quiet = now - Math.max(ms(session.lastHookAt), ms(session.lastAliveAt)) > STALE_MS;
   const livenessProbed = session.runtime === 'claude';
@@ -385,6 +390,7 @@ export function incidentsOf(views) {
     if (session.life === 'live') for (const need of Object.values(session.needs)) add({ id: `need:${key}:${need.id}:${need.openedAt}`, kind: 'needs-you', at: need.openedAt, title: `${title} needs you`, message: String(need.question), link, answerUrl });
     if (session.failure) add({ id: `fail:${session.failure.id}`, kind: 'failed', at: session.since, title: `${title} failed`, message: session.failure.summary, link, answerUrl });
     for (const ship of session.ships) add({ id: ship.id, kind: 'shipped', at: ship.at, title: `${title} shipped`, message: ship.summary, link, answerUrl });
+    for (const reply of session.replies) add({ id: reply.id, kind: 'replied', at: reply.at, title: `${title} replied`, message: reply.summary, link, answerUrl });
   }
   return incidents;
 }

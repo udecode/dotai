@@ -14,7 +14,6 @@ A daemon on this Mac turns hook events from every Claude Code and Codex session 
 - Claude sessions buzz for:
   - a question or plan approval, at once;
   - a permission prompt left unanswered for about six seconds. Claude reports it through its `permission_prompt` notification, which desktop sessions send from Claude Code 2.1.233 on; in a terminal, typing restarts the six seconds. A call that a rule allows, or that another hook allows within six seconds, stays silent. The push shows Claude's own notification text, which may not name the tool. Your next prompt or the end of the turn clears the card. No hook says when a prompt is answered, so the card stays on needs you for the rest of the turn after you answer. While one prompt or question waits, a second prompt does not buzz. After you deny a prompt, Claude stops and waits, so the card stays on needs you until your next prompt;
-  - a plan page handed back at the end of a turn;
   - a push the remote branch has;
   - a required check still failing when the turn stops;
   - an API error;
@@ -23,7 +22,7 @@ A daemon on this Mac turns hook events from every Claude Code and Codex session 
 - A required check counts only when the Bash command is the check itself, optionally with flags, such as `bun check --bail`. Any other form, such as `bun check | tail`, a chain or a second line, records nothing, because its exit status is not the check's. A configured check that is itself a chain never counts.
 - A session is working while a turn runs. It stays working after the turn while a background shell, subagent or monitor it started still runs, because that work wakes it with a new turn. An open artifact page watch does not count, because it never wakes the session. A dev server left running in the background keeps the session working until the server stops.
 - Panel seats, smoke runs, headless `claude -p` runs, subagents and Codex exec and review threads never show. A session started with `PSTACK_PULSE_OFF=1` in its environment never shows either.
-- A plan page hand-back counts only when the turn published a page from the plans folder's artifacts while the session is bound to a plan.
+- A turn that hands back a plan page buzzes once as "<session> replied", with the first line of its last message. It does not count as needing you, so the card and the badge stay as they are. A hand-back counts only when the turn published a page from the plans folder's artifacts while the session is bound to a plan.
 - A buzz goes out at least once while its event still needs you. A refused push is retried until ActivitySmith accepts it; a question you answer first is never sent. If the daemon crashes, or the network drops, after ActivitySmith accepts a push but before the daemon saves that, the push goes out again, because the push API has no idempotency key.
 
 ## Install

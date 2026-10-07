@@ -5,7 +5,7 @@ const LIMITS = { push: { minute: 60, tick: 1 }, live: { minute: 300, tick: 8 }, 
 const CAPACITY_RETRY_MS = 10 * 60_000;
 const PAUSED_RETRY_MS = 60_000;
 const ACK_KEPT_MS = 7 * 24 * 3_600_000;
-const KIND_ORDER = { 'needs-you': 0, failed: 1, shipped: 2 };
+const KIND_ORDER = { 'needs-you': 0, failed: 1, shipped: 2, replied: 3 };
 
 export const emptyPhone = () => ({ streams: {}, rejected: {}, badge: null, acks: {}, budget: { push: [], live: [], badge: [] }, pausedUntil: { push: 0, live: 0, badge: 0 }, capacity: null });
 
