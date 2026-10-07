@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; img-src data:; style-src 'unsafe-inline'">
+<style>
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; font: 13px/1.35 -apple-system, system-ui, sans-serif; user-select: none; }
+  #pet { position: absolute; right: 19px; bottom: 14px; width: 112px; height: 121px; background-repeat: no-repeat; background-size: 896px 1092px; cursor: grab; }
+  #badge { position: absolute; right: 14px; bottom: 112px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #ff8a00; color: #fff; font-weight: 600; text-align: center; line-height: 20px; box-sizing: border-box; display: none; }
+  #tray { position: absolute; left: 8px; right: 8px; top: 8px; bottom: 150px; display: none; flex-direction: column; background: rgba(24, 24, 27, 0.94); color: #eee; border-radius: 12px; padding: 10px 12px; box-sizing: border-box; overflow: auto; }
+  #tray.open { display: flex; }
+  #tray h1 { font-size: 13px; margin: 0 0 6px; color: #aaa; font-weight: 500; }
+  .need { padding: 6px 0; border-top: 1px solid #333; }
+  .need b { display: block; }
+  .need small { color: #999; }
+  .need p { margin: 3px 0; color: #ffb35c; }
+  .need button, #quit { background: #333; color: #eee; border: 0; border-radius: 6px; padding: 3px 8px; margin-right: 6px; cursor: pointer; font: inherit; }
+  #empty { color: #999; padding: 6px 0; }
+  #quit { margin-top: auto; align-self: flex-end; }
+</style>
+</head>
+<body>
+<div id="tray"><h1 id="summary"></h1><div id="needs"></div><button id="quit">Quit pet</button></div>
+<div id="pet"></div>
+<div id="badge"></div>
+<script src="pet.js"></script>
+</body>
+</html>

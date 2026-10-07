@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, realpathSync, unlinkSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { editSettings, hookCommand, plistOf, withHook, withoutHook } from './lib/install.mjs';
 import { HOME } from './lib/event.mjs';
 import { accounts, apiKey, claudeRegistry, loadConfig, loadState, probe, railOf, readInbox, repoOf, saveConfig, saveState, writeFileAtomic } from './lib/io.mjs';
-import { firstNeed, incidentsOf, keyOf, planBoard, reduce, shippedToday } from './lib/model.mjs';
+import { firstNeed, incidentsOf, keyOf, petOf, planBoard, reduce, shippedToday } from './lib/model.mjs';
 import { createClient, deliver, teardown } from './lib/phone.mjs';
 
 const SCRIPTS = dirname(realpathSync(fileURLToPath(import.meta.url)));
@@ -89,6 +89,11 @@ function listHtml() {
 function serveList(config) {
   if (!config.listPort || !config.secret) return;
   createServer((request, response) => {
+    if (request.method === 'GET' && request.url?.split('?')[0] === `/${config.secret}/state.json`) {
+      response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      response.end(JSON.stringify(petOf(latestViews, Date.now())));
+      return;
+    }
     if (request.method === 'GET' && request.url?.split('?')[0].replace(/\/$/u, '') === `/${config.secret}`) {
       response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
       response.end(listHtml());
@@ -211,10 +216,16 @@ function doctor() {
   process.exitCode = checks.every(([, ok]) => ok) ? 0 : 1;
 }
 
-const commands = { run, install, uninstall, status, doctor };
+function pet() {
+  const child = spawn('npx', ['--yes', 'electron@44', join(SCRIPTS, '..', 'desktop')], { detached: true, stdio: 'ignore' });
+  child.unref();
+  console.log('pet: starting the floating pet');
+}
+
+const commands = { run, install, uninstall, status, doctor, pet };
 const command = commands[process.argv[2]];
 if (!command) {
-  console.error('usage: pulse.mjs install | uninstall | status | doctor | run');
+  console.error('usage: pulse.mjs install | uninstall | status | doctor | run | pet');
   process.exit(2);
 }
 await command();

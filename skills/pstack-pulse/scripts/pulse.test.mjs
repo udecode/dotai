@@ -6,7 +6,7 @@ import test from 'node:test';
 import { eventOf } from './lib/event.mjs';
 import { hookCommand, withHook, withoutHook } from './lib/install.mjs';
 import { readRollout } from './lib/io.mjs';
-import { incidentsOf, keyOf, planBoard, reduce, SESSION_SLOTS, stepOf } from './lib/model.mjs';
+import { incidentsOf, keyOf, petOf, planBoard, reduce, SESSION_SLOTS, stepOf } from './lib/model.mjs';
 import { createClient, deliver, emptyPhone } from './lib/phone.mjs';
 
 const T0 = Date.parse('2026-10-06T10:00:00.000Z');
@@ -262,4 +262,19 @@ test('a required check buzzes once at a quiet stop while it still fails, and cle
 test('a finished rail shows its last reached stage, counting skipped ones', () => {
   const rail = { stages: ['done', 'done', 'skipped', 'done', 'done', 'done', 'done', 'done', 'skipped', 'done'].map((state, index) => ({ label: `S${index + 1}`, state })) };
   assert.equal(stepOf(rail), 10);
+});
+
+test('the pet waits with a badge while a session needs you, jumps on a fresh ship, runs while work goes on and idles after', () => {
+  const sessions = {};
+  reduce(sessions, hook('busy', 'UserPromptSubmit', 0));
+  reduce(sessions, ask('asking', 1));
+  const waiting = petOf(viewsOf(sessions), T0 + 2000);
+  assert.deepEqual([waiting.mood, waiting.badge, waiting.needs.map((need) => need.question)], ['waiting', 1, ['Ship asking?']]);
+  reduce(sessions, hook('asking', 'PostToolUse', 3, { tool: 'AskUserQuestion', toolUseId: 'tu-asking-1' }));
+  sessions['claude:busy'].ships.push({ id: 'ship-1', at: at(4), summary: 'repo next abc' });
+  assert.equal(petOf(viewsOf(sessions), T0 + 6000).mood, 'jumping');
+  assert.equal(petOf(viewsOf(sessions), T0 + 60_000).mood, 'running');
+  reduce(sessions, hook('busy', 'Stop', 61));
+  reduce(sessions, hook('asking', 'Stop', 61));
+  assert.equal(petOf(viewsOf(sessions), T0 + 62_000).mood, 'idle');
 });

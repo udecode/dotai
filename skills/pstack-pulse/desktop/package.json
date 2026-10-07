@@ -1,0 +1,6 @@
+{
+  "name": "pstack-pet",
+  "private": true,
+  "type": "module",
+  "main": "main.mjs"
+}

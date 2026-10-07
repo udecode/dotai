@@ -328,3 +328,16 @@ export function incidentsOf(views) {
 }
 
 export const shippedToday = (sessions, now) => new Set(Object.values(sessions).flatMap((session) => session.ships.filter((ship) => ship.at.slice(0, 10) === iso(now).slice(0, 10)).map((ship) => ship.id))).size;
+
+const CELEBRATE_MS = 10_000;
+
+export function petOf(views, now) {
+  const live = views.filter(({ session }) => session.life === 'live');
+  const count = (state) => live.filter(({ session }) => session.state === state).length;
+  const needs = live
+    .filter(({ session }) => session.state === 'needs-you')
+    .map((view) => ({ title: view.title, repo: view.repo, runtime: view.session.runtime, question: firstNeed(view.session)?.question ?? null, url: view.appUrl ?? view.webUrl, page: view.rail?.page ?? null }));
+  const shipped = live.some(({ session }) => session.ships.some((ship) => now - ms(ship.at) < CELEBRATE_MS));
+  const mood = needs.length ? 'waiting' : count('failed') ? 'failed' : shipped ? 'jumping' : count('working') ? 'running' : 'idle';
+  return { mood, badge: needs.length, needs, counts: { working: count('working'), needsYou: needs.length, failed: count('failed') } };
+}

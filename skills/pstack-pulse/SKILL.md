@@ -45,6 +45,10 @@ A daemon on this Mac turns hook events from every Claude Code and Codex session 
 - Only one daemon runs at a time: it holds a socket under /tmp named for its state folder, and a second daemon that finds the socket answering exits.
 - `uninstall` stops the daemon, deletes its LaunchAgent and removes only its own hook entries. It ends its cards and clears the badge, says what is still on the phone if that fails, prints the line that stops the Funnel, and keeps the state folder.
 
+## Pet
+
+`node <skill>/scripts/pulse.mjs pet` opens a floating pet in the corner of the screen, above every window and on every Space, using the Codex desktop pet's sprite format and animations. It runs while any session works, waits with an orange badge counting the sessions that need you, plays its failed animation while one has failed, and jumps for ten seconds after a push ships. Click it for a tray that lists what needs you, with buttons that open the session or its plan page; drag it anywhere, and it keeps that spot. The first start fetches Electron through `npx` and the Codex sprite from OpenAI's pet CDN into `~/.pstack-pulse/pets/`. The pet reads the daemon's `state.json` on the session list port every two seconds. `--snapshot` saves `pet-snapshot.png` and `pet-snapshot-tray.png` in `~/.pstack-pulse/` and quits, which checks the render without screen recording access.
+
 ## Tests
 
 `node --test <skill>/scripts/pulse.test.mjs`

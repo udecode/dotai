@@ -94,7 +94,27 @@
       "mode": 420
     },
     "skills/pstack-pulse/SKILL.md": {
-      "sha256": "0172e5a0a23ac2cf1acf9e271dedc2047e33e03e5161a8d0fe74d7c809ca4e91",
+      "sha256": "279f776df071e77f01bb0c9c79551cf983e525dde5d1047b0379f313a0a24b79",
+      "mode": 420
+    },
+    "skills/pstack-pulse/desktop/index.html": {
+      "sha256": "13076a8fcad265705a6ce8d49383a1b557e3bab6f35b654390248608c32507d0",
+      "mode": 420
+    },
+    "skills/pstack-pulse/desktop/main.mjs": {
+      "sha256": "891ac34851da758ee453c25b369cd6c8efcaac34b40cb704ce0d5b012ffb55a2",
+      "mode": 420
+    },
+    "skills/pstack-pulse/desktop/package.json": {
+      "sha256": "584a3c49d8931016d598b0375c3ecae7d59d875db6039584e896ad21a74c5cc8",
+      "mode": 420
+    },
+    "skills/pstack-pulse/desktop/pet.js": {
+      "sha256": "febfef1ec5ae26e5396e4bb80fde687d5880ca354cf94f89f7527fbe2d14d432",
+      "mode": 420
+    },
+    "skills/pstack-pulse/desktop/preload.cjs": {
+      "sha256": "0213cbe73d57801c3a4268aebd1c7aae155ee694844790c4983e479957650b35",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/hook.mjs": {
@@ -114,7 +134,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/model.mjs": {
-      "sha256": "b6d4c0c2ef5e9f53721cb2eef8398e4edfd2e980c86c2c0e561065fb9bdf6b17",
+      "sha256": "d4a910e389c1870e6a59f7f495f8811b78a6ad91c4007123afcb379520daf399",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/phone.mjs": {
@@ -122,11 +142,11 @@
       "mode": 420
     },
     "skills/pstack-pulse/scripts/pulse.mjs": {
-      "sha256": "e944ac0f9bd2ceeb64e520e75e807c779886d8dca40174cd48857f672626d574",
+      "sha256": "16bbcf700a94d57fde0a4afb8e481c42b42e3966827c27334334b525c1403763",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/pulse.test.mjs": {
-      "sha256": "d62bb93b0fe62873532e6818b2307626ab920c14121e15650d00e77f8a6afce4",
+      "sha256": "97e99b94f6c14233ac6023288da92d63ea74be73d0d954b022f34ad204fbb8d2",
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
