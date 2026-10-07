@@ -94,7 +94,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/SKILL.md": {
-      "sha256": "74c475a3f01c13038a3634f5a552c775ceffac855e1cbd0810a568204001f470",
+      "sha256": "170aefdc9788b6b491ac4da060c95a7dc5b0820d5240428a7cbcc94bcc0549e6",
       "mode": 420
     },
     "skills/pstack-pulse/desktop/index.html": {
@@ -138,7 +138,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/model.mjs": {
-      "sha256": "76f41725dae1f751b2bca260455920ca044a5956d507148bb78a9c07d0e74af0",
+      "sha256": "aeb54750c77c7b370f00c1b39dd385f02bb18e0f8fba9438acb5d3e373b1f8e5",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/phone.mjs": {
@@ -150,11 +150,11 @@
       "mode": 420
     },
     "skills/pstack-pulse/scripts/pulse.test.mjs": {
-      "sha256": "4312a2b2694d7ac507e52e787939dde0dcdeac174c1f5f3a72760fa39feb21e4",
+      "sha256": "0ea74e51e397ef4faf0517c1ac6fda806a96994f2e5e6ba6bc145d0cce6f6133",
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
-      "sha256": "5a92f0eeb3c86c984e37fcfcfc815f4a63ec856f8f5870a04e4fe71ae4524bc9",
+      "sha256": "65c108c974e0b3421ac0d53ddeaf1b461d8d5010d5b6bc4ec3db2708af5a7aa0",
       "mode": 420
     },
     "skills/sync-pstack/agents/openai.yaml": {
@@ -162,7 +162,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "cbc0689b83568933b8121e1f766e409cd3a981ca13273c5251ecfed00c1ab70e",
+      "sha256": "afc026da03afb941af88a2d2c9b7fc758cfb6a2d4683f0b10b96b048c0ae1fee",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/cross.mjs": {
@@ -170,7 +170,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
-      "sha256": "8e0c8061727759373260bdf28bdcc701b20cca064f939b89d88d8c9721733ecb",
+      "sha256": "7e6250fb941a9db616e9324893df6755f4da1a4a5f70b325eb9e277e91d1e2fb",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/freeze.mjs": {
@@ -226,7 +226,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "127bee6ed89dbb9b083272678515524a9ccedbee86bf5b062dad6fd0de3b2169",
+      "sha256": "ee87f71f61eeb2d697cdf3130f4501912eef978f7b89ca550362732325923a20",
       "mode": 420
     },
     "skills/test-audit/LICENSE": {

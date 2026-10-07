@@ -76,22 +76,65 @@ test('a project card keeps its stream as sessions join, and a hook that changes 
   assert.ok(!quiet.calls.includes(`put ${key}`));
 });
 
-test('cards an older daemon left, per session and for the fleet, end before any project card starts', async () => {
+test('cards an older daemon left, the fleet and an alert, end before any new card starts', async () => {
   const sessions = {};
   reduce(sessions, hook('old1', 'UserPromptSubmit', 0, { cwd: '/w/ellie' }));
   reduce(sessions, hook('old2', 'UserPromptSubmit', 0, { cwd: '/w/plate' }));
-  const [old1, old2] = [keyOf(sessions['claude:old1']), keyOf(sessions['claude:old2'])];
+  const old1 = keyOf(sessions['claude:old1']);
   const phone = emptyPhone();
-  const legacy = { type: 'segmented_progress', hash: 'old', body: { content_state: { title: 'old', type: 'segmented_progress' } } };
-  Object.assign(phone.streams, { 'pulse-fleet': { type: 'stats', hash: 'old', body: { content_state: { title: 'pstack fleet', type: 'stats' } } }, [old1]: legacy, [old2]: legacy });
-  const failing = fakeClient({ [`end ${old1}`]: { ok: false, kind: 'transient', status: 500 } });
+  Object.assign(phone.streams, { 'pulse-fleet': { type: 'stats', hash: 'old', body: { content_state: { title: 'pstack fleet', type: 'stats' } } }, [old1]: { type: 'alert', hash: 'old', body: { content_state: { title: 'old1 needs you', type: 'alert' } } } });
+  const failing = fakeClient({ 'end pulse-fleet': { ok: false, kind: 'transient', status: 500 } });
   await send(sessions, phone, failing, 1);
-  assert.ok(!failing.calls.some((call) => call.startsWith('put pulse-p-')));
+  assert.ok(!failing.calls.some((call) => call.startsWith('put')));
   const retry = fakeClient();
   await send(sessions, phone, retry, 16);
-  const firstStart = retry.calls.findIndex((call) => call.startsWith('put pulse-p-'));
-  assert.ok(firstStart > retry.calls.indexOf(`end ${old1}`));
-  assert.deepEqual(Object.keys(phone.streams).sort(), [projectKeyOf(projectFrom('/w/ellie')), projectKeyOf(projectFrom('/w/plate'))].sort());
+  assert.ok(retry.calls.findIndex((call) => call.startsWith('put')) > retry.calls.indexOf('end pulse-fleet'));
+  assert.ok(!phone.streams['pulse-fleet']);
+  assert.equal(phone.streams[old1].type, 'segmented_progress');
+});
+
+test('session cards fill the slots the project cards leave, those that need you first, then working ones, and idle ones get none', () => {
+  const sessions = {};
+  reduce(sessions, hook('a1', 'UserPromptSubmit', 1, { cwd: '/w/a' }));
+  reduce(sessions, hook('a1', 'Stop', 2, { cwd: '/w/a' }));
+  reduce(sessions, { ...ask('b2', 4), cwd: '/w/b' });
+  reduce(sessions, hook('b3', 'UserPromptSubmit', 5, { cwd: '/w/b' }));
+  const cards = planBoard(viewsOf(sessions), emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
+  const key = (id) => keyOf(sessions[`claude:${id}`]);
+  assert.deepEqual(cards.map(([cardKey]) => cardKey), [projectKeyOf(projectFrom('/w/b')), projectKeyOf(projectFrom('/w/a')), key('b2'), key('b3')]);
+  const asking = cards[2][1];
+  assert.equal(asking.type, 'segmented_progress');
+  assert.equal(asking.body.content_state.subtitle, 'Ship b2?');
+});
+
+test('a question turns a shown session card orange in place, without ending it', async () => {
+  const sessions = {};
+  reduce(sessions, hook('worker', 'UserPromptSubmit', 0, { cwd: '/w/a' }));
+  const phone = emptyPhone();
+  await send(sessions, phone, fakeClient(), 1);
+  reduce(sessions, { ...ask('worker', 2), cwd: '/w/a' });
+  const client = fakeClient();
+  await send(sessions, phone, client, 3);
+  const key = keyOf(sessions['claude:worker']);
+  assert.deepEqual(client.calls.filter((call) => call.endsWith(key)), [`put ${key}`]);
+  assert.equal(phone.streams[key].body.content_state.color, 'orange');
+});
+
+test('a session that just went idle keeps its card for fifteen minutes before a working session takes it', async () => {
+  const sessions = {};
+  for (let index = 0; index < 5; index += 1) reduce(sessions, hook(`s${index}`, 'UserPromptSubmit', index, { cwd: '/w/a' }));
+  const key = (id) => keyOf(sessions[`claude:${id}`]);
+  const phone = emptyPhone();
+  await send(sessions, phone, fakeClient(), 10);
+  assert.ok(!phone.streams[key('s0')]);
+  reduce(sessions, hook('s4', 'Stop', 20, { cwd: '/w/a' }));
+  const early = fakeClient();
+  await send(sessions, phone, early, 80);
+  assert.ok(!early.calls.some((call) => call.startsWith('end')));
+  const late = fakeClient();
+  await send(sessions, phone, late, 20 + 16 * 60);
+  assert.deepEqual(late.calls.filter((call) => call.startsWith('end')), [`end ${key('s4')}`]);
+  assert.ok(phone.streams[key('s0')]);
 });
 
 const projectCard = (sessions, urls, context = {}) => planBoard(viewsOf(sessions, urls), emptyPhone(), { now: T0 + 60_000, shippedToday: 0, ...context }).cards[0][1].body;
@@ -297,7 +340,7 @@ test('a card the API refuses holds back neither the badge nor the pushes, and th
   await send(sessions, phone, client, 4);
   assert.deepEqual(client.calls.filter((call) => !call.startsWith('put') && !call.startsWith('end')), ['badge 2', 'push alpha needs you']);
   assert.ok(!client.calls.includes(`put ${projectKeyOf(projectFrom('/w/b'))}`));
-  assert.equal(planBoard(viewsOf(sessions), phone, { now: T0 + 3_600_000, shippedToday: 0 }).cards.length, 2);
+  assert.equal(planBoard(viewsOf(sessions), phone, { now: T0 + 3_600_000, shippedToday: 0 }).cards.length, 4);
 });
 
 test('the daemon picks up a key stored after it started', async () => {

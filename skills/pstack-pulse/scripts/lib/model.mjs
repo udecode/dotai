@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { QUESTION_TOOLS } from './event.mjs';
 
-const PROJECT_SLOTS = 5;
+const SLOTS = 5;
+const IDLE_GRACE_MS = 15 * 60_000;
 const METRIC_LIMIT = 8;
 const IDLE_ROWS = 3;
 const HOUR = 3_600_000;
@@ -240,29 +241,18 @@ export function stepOf(rail) {
   return rail.stages.findLastIndex(({ state }) => state !== 'left') + 1 || 1;
 }
 
-function sessionRowOf(view) {
+function sessionCardOf(view) {
   const { state } = view.session;
-  const need = firstNeed(view.session);
+  const need = state === 'needs-you' ? firstNeed(view.session) : null;
   const rail = view.rail?.stages?.length ? view.rail : null;
   const stage = rail ? rail.stages[stepOf(rail) - 1] : null;
   const steps = rail?.steps?.total ? ` ${rail.steps.checked}/${rail.steps.total}` : '';
-  const subtitle = [view.project.name, stage ? `${stage.label}${steps}` : 'No plan', view.account].filter(Boolean).join(' · ').slice(0, 120);
-  const title = view.title.slice(0, 80);
+  const subtitle = (need ? String(need.question) : [view.project.name, stage ? `${stage.label}${steps}` : 'No plan', view.account].filter(Boolean).join(' · ')).slice(0, 120);
+  const title = clip(labelOf(view.title), 80);
   const color = STATE_COLOR[state] ?? 'blue';
   const planPage = rail?.page ? { title: 'Plan page', type: 'open_url', url: rail.page } : null;
   const answer = view.webUrl ? { title: 'Answer', type: 'open_url', url: view.webUrl } : null;
-  if (state === 'needs-you' && need) {
-    const [action, secondary] = [answer, planPage].filter(Boolean);
-    return {
-      type: 'alert',
-      body: {
-        content_state: { title: `${title} needs you`, message: String(need.question).slice(0, 150), type: 'alert', color, badge: { title: stage?.label ?? 'Needs you', color: 'purple' } },
-        ...(action ? { action } : {}),
-        ...(secondary ? { secondary_action: secondary } : {}),
-      },
-    };
-  }
-  const [action, secondary] = [planPage, answer].filter(Boolean);
+  const [action, secondary] = (need ? [answer, planPage] : [planPage, answer]).filter(Boolean);
   return {
     type: 'segmented_progress',
     body: {
@@ -376,15 +366,22 @@ function rankedLive(views) {
 
 export function menuBoardOf(views, context) {
   const { live, ranked } = rankedLive(views);
-  return { fleet: fleetOf(live, context).body, cards: ranked.map((view) => ({ key: keyOf(view.session), state: view.session.state, ...sessionRowOf(view).body })) };
+  return { fleet: fleetOf(live, context).body, cards: ranked.map((view) => ({ key: keyOf(view.session), state: view.session.state, ...sessionCardOf(view).body })) };
 }
+
+const sessionRankOf = ({ session }, now) => (session.state === 'idle' && now - ms(session.since) < IDLE_GRACE_MS ? RANK.working : RANK[session.state]);
 
 export function planBoard(views, phone, context) {
   const { live, ranked } = rankedLive(views);
-  const capacity = phone.capacity && context.now < phone.capacity.until ? phone.capacity.slots : PROJECT_SLOTS;
-  const chosen = keepShownUntilOutranked(projectsOf(ranked), new Set(Object.keys(phone.streams)), Math.min(PROJECT_SLOTS, capacity));
+  const shown = new Set(Object.keys(phone.streams));
+  const slots = phone.capacity && context.now < phone.capacity.until ? Math.min(SLOTS, phone.capacity.slots) : SLOTS;
+  const projects = keepShownUntilOutranked(projectsOf(ranked), shown, slots);
+  const candidates = ranked
+    .filter((view) => view.session.state !== 'idle' || shown.has(keyOf(view.session)))
+    .map((view) => ({ key: keyOf(view.session), rank: sessionRankOf(view, context.now), view }));
+  const sessions = keepShownUntilOutranked(candidates, shown, slots - projects.length);
   return {
-    cards: chosen.map((group) => [group.key, projectCardOf(group, context)]),
+    cards: [...projects.map((group) => [group.key, projectCardOf(group, context)]), ...sessions.map(({ key, view }) => [key, sessionCardOf(view)])],
     badge: live.filter(({ session }) => session.state === 'needs-you').length,
   };
 }
