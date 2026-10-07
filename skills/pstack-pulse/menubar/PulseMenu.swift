@@ -13,7 +13,7 @@ struct Face: Decodable {
   let currentStep: Int?
   let metrics: [Metric]?
 }
-struct Card: Decodable { let key: String; let state: String; let contentState: Face; let action: Action?; let secondaryAction: Action? }
+struct Card: Decodable { let key: String; let state: String; let contentState: Face; let open: String?; let page: String? }
 struct Fleet: Decodable { let contentState: Face; let action: Action? }
 struct Board: Decodable { let fleet: Fleet?; let cards: [Card] }
 
@@ -181,9 +181,9 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate {
     menu.addItem(.separator())
     if board.cards.isEmpty { menu.addItem(row(styled("No live sessions", color: .secondaryLabelColor), opens: nil)) }
     for card in board.cards {
-      menu.addItem(row(cardText(card.contentState), opens: card.action))
-      if let second = card.secondaryAction {
-        let extra = row(styled("↳ \(second.title)", size: 11, color: .linkColor), opens: second)
+      menu.addItem(row(cardText(card.contentState), opens: card.open.map { Action(title: "Open session", url: $0) }))
+      if let page = card.page {
+        let extra = row(styled("↳ Plan page", size: 11, color: .linkColor), opens: Action(title: "Plan page", url: page))
         extra.indentationLevel = 1
         menu.addItem(extra)
       }

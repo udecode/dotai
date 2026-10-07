@@ -45,6 +45,7 @@ function newSession(observation) {
     title: null,
     pid: null,
     bridge: null,
+    host: null,
     entrypoint: null,
     plan: null,
     turn: 0,
@@ -148,6 +149,7 @@ function applyRegistry(session, entry) {
   session.lastAliveAt = entry.at;
   session.title = entry.name ?? session.title;
   session.bridge = entry.bridge ?? session.bridge;
+  session.host = entry.host ?? session.host;
   session.entrypoint = entry.entrypoint ?? session.entrypoint;
   session.pid = entry.pid ?? session.pid;
 }
@@ -360,7 +362,14 @@ function rankedLive(views) {
 
 export function menuBoardOf(views, context) {
   const { live, ranked } = rankedLive(views);
-  return { fleet: fleetOf(live, context).body, cards: ranked.map((view) => ({ key: keyOf(view.session), state: view.session.state, ...sessionCardOf(view).body })) };
+  const rowOf = (view) => ({
+    key: keyOf(view.session),
+    state: view.session.state,
+    ...sessionCardOf(view).body,
+    open: view.session.host ? `claude://claude.ai/epitaxy/${view.session.host}` : view.webUrl,
+    page: openPlanPage(view),
+  });
+  return { fleet: fleetOf(live, context).body, cards: ranked.map(rowOf) };
 }
 
 const sessionRankOf = ({ session }, now) => (session.state === 'idle' && now - ms(session.since) < IDLE_GRACE_MS ? RANK.working : RANK[session.state]);

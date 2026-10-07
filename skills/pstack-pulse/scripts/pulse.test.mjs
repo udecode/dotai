@@ -506,3 +506,16 @@ test('a turn that hands back a plan page pushes once that the session replied, w
   const incidents = [...incidentsOf(viewsOf(sessions)).values()];
   assert.deepEqual(incidents.map(({ kind, title, message }) => ({ kind, title, message })), [{ kind: 'replied', title: 'pager replied', message: 'Shipped the lean cards.' }]);
 });
+
+test('the menubar opens a session in the desktop app by its host id, with its open plan page on a second row', () => {
+  const sessions = {};
+  reduce(sessions, hook('desk', 'UserPromptSubmit', 0, { cwd: '/w/a' }));
+  reduce(sessions, { kind: 'registry', runtime: 'claude', session: 'desk', at: at(1), host: 'local_abc', status: 'busy', name: null, bridge: 'session_x', entrypoint: 'claude-desktop', pid: 1 });
+  reduce(sessions, hook('cli', 'UserPromptSubmit', 2, { cwd: '/w/a' }));
+  const open = { page: 'https://claude.ai/artifact/p', stages: [{ label: 'Build', state: 'now' }], steps: { checked: 0, total: 0 } };
+  const menu = menuBoardOf(viewsOf(sessions, { cli: 'https://claude.ai/code/session_y' }, { desk: open }), { now: T0 + 60_000, shippedToday: 0 });
+  const row = (id) => menu.cards.find(({ key }) => key === keyOf(sessions[`claude:${id}`]));
+  assert.equal(row('desk').open, 'claude://claude.ai/epitaxy/local_abc');
+  assert.equal(row('desk').page, 'https://claude.ai/artifact/p');
+  assert.equal(row('cli').open, 'https://claude.ai/code/session_y');
+});

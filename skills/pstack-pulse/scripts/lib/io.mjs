@@ -114,7 +114,7 @@ export function claudeRegistry() {
     const entry = readJson(join(CLAUDE_SESSIONS, name), null);
     if (typeof entry?.sessionId !== 'string') continue;
     const text = (value) => (typeof value === 'string' ? value : null);
-    byId[entry.sessionId] = { status: ['busy', 'idle', 'waiting'].includes(entry.status) ? entry.status : 'unknown', name: text(entry.name), bridge: text(entry.bridgeSessionId), entrypoint: text(entry.entrypoint), pid: Number.isInteger(entry.pid) ? entry.pid : null };
+    byId[entry.sessionId] = { status: ['busy', 'idle', 'waiting'].includes(entry.status) ? entry.status : 'unknown', name: text(entry.name), bridge: text(entry.bridgeSessionId), host: text(entry.hostSessionId), entrypoint: text(entry.entrypoint), pid: Number.isInteger(entry.pid) ? entry.pid : null };
   }
   return byId;
 }
