@@ -214,6 +214,37 @@ export function readRollout(path, cursor) {
 }
 
 const repoCache = {};
+const OTHER = { id: 'other', name: 'other' };
+const RECHECK_MS = 60_000;
+const projectCache = {};
+
+function originProject(url) {
+  const [host, ...path] = url
+    .replace(/^[a-z][a-z0-9+.-]*:\/\//iu, '')
+    .replace(/^[^@/]+@/u, '')
+    .replace(/^([^/:]+):(?!\d+\/)/u, '$1/')
+    .replace(/\.git\/?$/u, '')
+    .replace(/\/+$/u, '')
+    .split('/');
+  return { id: [host.toLowerCase(), ...path].join('/'), name: path.at(-1) || host };
+}
+
+function commonDirProject(common) {
+  const real = realpathSync(common);
+  return { id: real, name: real.endsWith('/.git') ? basename(dirname(real)) : basename(real).replace(/\.git$/u, '') };
+}
+
+export function projectOf(cwd) {
+  if (!cwd) return OTHER;
+  const cached = projectCache[cwd];
+  if (cached && (cached.final || Date.now() - cached.at < RECHECK_MS)) return cached.project;
+  const origin = quiet('git', ['-C', cwd, 'config', '--get', 'remote.origin.url'])?.trim();
+  const common = origin ? null : quiet('git', ['-C', cwd, 'rev-parse', '--path-format=absolute', '--git-common-dir'])?.trim();
+  const project = origin ? originProject(origin) : common ? commonDirProject(common) : OTHER;
+  projectCache[cwd] = { project, at: Date.now(), final: Boolean(origin) };
+  return project;
+}
+
 export function repoOf(cwd) {
   if (!cwd) return null;
   if (!(cwd in repoCache)) repoCache[cwd] = quiet('git', ['-C', cwd, 'rev-parse', '--show-toplevel'])?.trim() ?? null;

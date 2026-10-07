@@ -8,8 +8,8 @@ import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { editSettings, hookCommand, plistOf, withHook, withoutHook } from './lib/install.mjs';
 import { HOME } from './lib/event.mjs';
-import { accounts, apiKey, claudeRegistry, loadConfig, loadState, probe, railOf, readInbox, repoOf, saveConfig, saveState, writeFileAtomic } from './lib/io.mjs';
-import { firstNeed, incidentsOf, keyOf, menuBoardOf, petOf, planBoard, reduce, shippedToday } from './lib/model.mjs';
+import { accounts, apiKey, claudeRegistry, loadConfig, loadState, probe, projectOf, railOf, readInbox, saveConfig, saveState, writeFileAtomic } from './lib/io.mjs';
+import { firstNeed, incidentsOf, menuBoardOf, petOf, planBoard, reduce, shippedToday } from './lib/model.mjs';
 import { createClient, deliver, teardown } from './lib/phone.mjs';
 
 const SCRIPTS = dirname(realpathSync(fileURLToPath(import.meta.url)));
@@ -37,11 +37,10 @@ function viewsOf(sessions) {
   return Object.values(sessions)
     .filter((session) => session.audience === 'owner')
     .map((session) => {
-      const root = repoOf(session.cwd);
       const view = {
         session,
         title: session.title ?? basename(session.cwd ?? 'session'),
-        repo: root ? basename(root) : null,
+        project: projectOf(session.cwd),
         account: session.runtime === 'codex' ? null : session.entrypoint === 'cli' ? accountCache.value.cli : accountCache.value.desktop,
         webUrl: session.runtime === 'claude' && session.bridge ? `https://claude.ai/code/${session.bridge}` : null,
         appUrl: session.runtime === 'codex' ? 'chatgpt://' : null,
@@ -79,13 +78,13 @@ function listHtml() {
     .filter(({ session }) => session.life === 'live')
     .toSorted((a, b) => b.session.lastHookAt.localeCompare(a.session.lastHookAt))
     .map((view) => {
-      const { session, title, repo, rail, account } = view;
+      const { session, title, project, rail, account } = view;
       const { state } = session;
       const answerUrl = view.appUrl ?? view.webUrl;
       const stages = rail?.stages?.map(({ label, state }) => `<span class="${escapeHtml(state)}">${escapeHtml(label)}</span>`).join(' ') ?? '<span class="left">No plan</span>';
       const links = [rail?.page && `<a href="${escapeHtml(rail.page)}">Plan page</a>`, answerUrl && `<a href="${escapeHtml(answerUrl)}">Answer</a>`].filter(Boolean).join(' · ');
       const need = state === 'needs-you' ? `<p class="need">${escapeHtml(firstNeed(session).question)}</p>` : '';
-      return `<li><h2>${escapeHtml(title)} <small>${escapeHtml(state)}</small></h2><p class="meta">${escapeHtml([repo, session.runtime, account].filter(Boolean).join(' · '))} · last seen ${escapeHtml(session.lastHookAt.slice(11, 16))}</p><p class="rail">${stages}</p>${need}<p>${links}</p></li>`;
+      return `<li><h2>${escapeHtml(title)} <small>${escapeHtml(state)}</small></h2><p class="meta">${escapeHtml([project.name, session.runtime, account].filter(Boolean).join(' · '))} · last seen ${escapeHtml(session.lastHookAt.slice(11, 16))}</p><p class="rail">${stages}</p>${need}<p>${links}</p></li>`;
     })
     .join('');
   return `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><meta http-equiv="refresh" content="15"><title>pstack sessions</title><style>body{font:15px/1.4 system-ui;margin:0 16px;background:#111;color:#eee}li{list-style:none;border-bottom:1px solid #333;padding:10px 0}ul{padding:0}h2{font-size:16px;margin:0}small{color:#f90;font-weight:400}.meta{color:#999;margin:2px 0}.rail span{font-size:12px;margin-right:4px}.done{color:#5c5}.now{color:#fc3}.waiting{color:#f90}.blocked{color:#f55}.skipped,.left{color:#666}.need{color:#f90}a{color:#8bf}</style><h1>pstack sessions</h1><ul>${rows || '<li>No live sessions.</li>'}</ul>`;
@@ -220,7 +219,7 @@ function status() {
   const state = loadState();
   console.log(`daemon: ${launchctl('print', `gui/${process.getuid()}/${LABEL}`).status === 0 ? 'running' : 'stopped'}`);
   for (const session of Object.values(state.sessions).filter((entry) => entry.life === 'live')) {
-    console.log(`${session.state.padEnd(9)} ${session.runtime.padEnd(6)} ${session.audience.padEnd(7)} ${keyOf(session)} ${session.title ?? session.cwd}`);
+    console.log(`${session.state.padEnd(9)} ${session.runtime.padEnd(6)} ${session.audience.padEnd(7)} ${projectOf(session.cwd).name.padEnd(12)} ${session.title ?? session.cwd}`);
   }
   console.log(`cards: ${Object.keys(state.phone.streams).join(', ') || 'none'} · badge ${state.phone.badge ?? 0}`);
 }

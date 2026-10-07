@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { QUESTION_TOOLS } from './event.mjs';
 
-export const SESSION_SLOTS = 4;
+export const PROJECT_SLOTS = 4;
+const METRIC_LIMIT = 8;
 const HOUR = 3_600_000;
 const LOST_SHOWN_MS = HOUR;
 const STALE_MS = 24 * HOUR;
@@ -16,6 +17,7 @@ const STATE_LABEL = { 'needs-you': 'Needs you', failed: 'Failed', working: 'Work
 const ms = (iso) => Date.parse(iso);
 const iso = (time) => new Date(time).toISOString();
 export const keyOf = (session) => `pulse-${createHash('sha1').update(`${session.runtime}:${session.id}`).digest('hex').slice(0, 12)}`;
+export const projectKeyOf = (project) => `pulse-p-${createHash('sha1').update(project.id).digest('hex').slice(0, 12)}`;
 export const hashOf = (value) => createHash('sha1').update(JSON.stringify(value)).digest('hex');
 
 function planPathOf(signal, cwd) {
@@ -230,13 +232,13 @@ export function stepOf(rail) {
   return rail.stages.findLastIndex(({ state }) => state !== 'left') + 1 || 1;
 }
 
-function cardOf(view) {
+function sessionRowOf(view) {
   const { state } = view.session;
   const need = firstNeed(view.session);
   const rail = view.rail?.stages?.length ? view.rail : null;
   const stage = rail ? rail.stages[stepOf(rail) - 1] : null;
   const steps = rail?.steps?.total ? ` ${rail.steps.checked}/${rail.steps.total}` : '';
-  const subtitle = [view.repo, stage ? `${stage.label}${steps}` : 'No plan', view.account].filter(Boolean).join(' · ').slice(0, 120);
+  const subtitle = [view.project.name, stage ? `${stage.label}${steps}` : 'No plan', view.account].filter(Boolean).join(' · ').slice(0, 120);
   const title = view.title.slice(0, 80);
   const color = STATE_COLOR[state] ?? 'blue';
   const planPage = rail?.page ? { title: 'Plan page', type: 'open_url', url: rail.page } : null;
@@ -265,13 +267,13 @@ function cardOf(view) {
 
 function fleetOf(views, { shippedToday, account, listUrl }) {
   const count = (state) => views.filter(({ session }) => session.state === state).length;
-  const repos = Object.entries(Object.groupBy(views, ({ repo }) => repo ?? 'other')).map(([repo, list]) => `${repo} ${list.length}`);
+  const projects = Object.values(Object.groupBy(views, ({ project }) => project.id)).map((list) => `${list[0].project.name} ${list.length}`);
   return {
     type: 'stats',
     body: {
       content_state: {
         title: 'pstack fleet',
-        subtitle: [account, ...repos].filter(Boolean).join(' · ').slice(0, 80),
+        subtitle: [account, ...projects].filter(Boolean).join(' · ').slice(0, 80),
         type: 'stats',
         metrics: [
           { label: 'Working', value: String(count('working')), color: 'blue' },
@@ -285,16 +287,56 @@ function fleetOf(views, { shippedToday, account, listUrl }) {
   };
 }
 
-function keepShownUntilOutranked(ranked, shown, slots) {
-  const chosen = ranked.filter(({ session }) => shown.has(keyOf(session))).slice(0, slots);
+const clip = (text, size) => (text.length > size ? `${text.slice(0, size - 1)}…` : text);
+const labelOf = (title) => title.replace(/^\p{Extended_Pictographic}\uFE0F?\s*/u, '').replace(/\s*\(\d+\/\d+[^)]*\)\s*$/u, '');
+
+function valueOf(view) {
+  const { state } = view.session;
+  const rail = view.rail?.stages?.length ? view.rail : null;
+  if (state === 'needs-you' || state === 'failed' || !rail) return STATE_LABEL[state];
+  const step = stepOf(rail);
+  return `${rail.stages[step - 1].label} ${step}/${rail.stages.length}`;
+}
+
+const byUrgencyThenName = (a, b) =>
+  RANK[a.session.state] - RANK[b.session.state] ||
+  (a.session.state === 'needs-you' ? firstNeed(a.session).openedAt.localeCompare(firstNeed(b.session).openedAt) : 0) ||
+  labelOf(a.title).localeCompare(labelOf(b.title)) ||
+  keyOf(a.session).localeCompare(keyOf(b.session));
+
+function projectCardOf({ project, sessions }, { listUrl }) {
+  const ordered = sessions.toSorted(byUrgencyThenName);
+  const shown = ordered.length > METRIC_LIMIT ? ordered.slice(0, METRIC_LIMIT - 1) : ordered;
+  const metrics = shown.map((view) => ({ label: clip(labelOf(view.title), 20), value: valueOf(view), color: STATE_COLOR[view.session.state] }));
+  if (shown.length < ordered.length) metrics.push({ label: 'more', value: `+${ordered.length - shown.length}`, color: 'gray' });
+  const asking = ordered.find(({ session }) => session.state === 'needs-you');
+  const counts = Object.groupBy(sessions, ({ session }) => session.state);
+  const subtitle = asking
+    ? `${clip(labelOf(asking.title), 30)}: ${firstNeed(asking.session).question}`
+    : Object.keys(RANK).filter((state) => counts[state]).map((state) => `${counts[state].length} ${STATE_LABEL[state].toLowerCase()}`).join(' · ');
+  const action = asking?.webUrl ? { title: 'Answer', type: 'open_url', url: asking.webUrl } : listUrl ? { title: 'All sessions', type: 'open_url', url: listUrl } : null;
+  return { type: 'stats', body: { content_state: { title: project.name, subtitle: clip(subtitle, 110), type: 'stats', metrics }, ...(action ? { action } : {}) } };
+}
+
+function projectsOf(ranked) {
+  const groups = new Map();
   for (const view of ranked) {
-    if (chosen.includes(view)) continue;
+    if (!groups.has(view.project.id)) groups.set(view.project.id, { key: projectKeyOf(view.project), rank: RANK[view.session.state], project: view.project, sessions: [] });
+    groups.get(view.project.id).sessions.push(view);
+  }
+  return [...groups.values()];
+}
+
+function keepShownUntilOutranked(ranked, shown, slots) {
+  const chosen = ranked.filter(({ key }) => shown.has(key)).slice(0, slots);
+  for (const unit of ranked) {
+    if (chosen.includes(unit)) continue;
     if (chosen.length < slots) {
-      chosen.push(view);
+      chosen.push(unit);
       continue;
     }
-    const weakest = chosen.toSorted((a, b) => RANK[b.session.state] - RANK[a.session.state])[0];
-    if (weakest && RANK[view.session.state] < RANK[weakest.session.state]) chosen.splice(chosen.indexOf(weakest), 1, view);
+    const weakest = chosen.toSorted((a, b) => b.rank - a.rank)[0];
+    if (weakest && unit.rank < weakest.rank) chosen.splice(chosen.indexOf(weakest), 1, unit);
   }
   return chosen;
 }
@@ -307,15 +349,15 @@ function rankedLive(views) {
 
 export function menuBoardOf(views, context) {
   const { live, ranked } = rankedLive(views);
-  return { fleet: fleetOf(live, context).body, cards: ranked.map((view) => ({ key: keyOf(view.session), state: view.session.state, ...cardOf(view).body })) };
+  return { fleet: fleetOf(live, context).body, cards: ranked.map((view) => ({ key: keyOf(view.session), state: view.session.state, ...sessionRowOf(view).body })) };
 }
 
 export function planBoard(views, phone, context) {
   const { live, ranked } = rankedLive(views);
-  const capacity = phone.capacity && context.now < phone.capacity.until ? phone.capacity.slots : SESSION_SLOTS + 1;
-  const chosen = keepShownUntilOutranked(ranked, new Set(Object.keys(phone.streams)), Math.max(Math.min(SESSION_SLOTS, capacity - 1), 0));
+  const capacity = phone.capacity && context.now < phone.capacity.until ? phone.capacity.slots : PROJECT_SLOTS + 1;
+  const chosen = keepShownUntilOutranked(projectsOf(ranked), new Set(Object.keys(phone.streams)), Math.max(Math.min(PROJECT_SLOTS, capacity - 1), 0));
   return {
-    cards: [['pulse-fleet', fleetOf(live, context)], ...chosen.map((view) => [keyOf(view.session), cardOf(view)])],
+    cards: [['pulse-fleet', fleetOf(live, context)], ...chosen.map((group) => [group.key, projectCardOf(group, context)])],
     badge: live.filter(({ session }) => session.state === 'needs-you').length,
   };
 }
@@ -346,7 +388,7 @@ export function petOf(views, now) {
   const count = (state) => live.filter(({ session }) => session.state === state).length;
   const needs = live
     .filter(({ session }) => session.state === 'needs-you')
-    .map((view) => ({ title: view.title, repo: view.repo, runtime: view.session.runtime, question: firstNeed(view.session)?.question ?? null, url: view.appUrl ?? view.webUrl, page: view.rail?.page ?? null }));
+    .map((view) => ({ title: view.title, repo: view.project.name, runtime: view.session.runtime, question: firstNeed(view.session)?.question ?? null, url: view.appUrl ?? view.webUrl, page: view.rail?.page ?? null }));
   const shipped = live.some(({ session }) => session.ships.some((ship) => now - ms(ship.at) < CELEBRATE_MS));
   const mood = needs.length ? 'waiting' : count('failed') ? 'failed' : shipped ? 'jumping' : count('working') ? 'running' : 'idle';
   return { mood, badge: needs.length, needs, counts: { working: count('working'), needsYou: needs.length, failed: count('failed') } };
