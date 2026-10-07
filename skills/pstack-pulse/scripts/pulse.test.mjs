@@ -109,32 +109,30 @@ test('a crowded project lists the session that needs you first, with its questio
   assert.equal(card.action.url, 'https://claude.ai/code/s9');
 });
 
-test('a project card lists its active sessions, then the three that went idle last, and counts the other idle ones', () => {
+test('a project card lists its active sessions, then up to three idle sessions on an unfinished plan, and counts the other idle ones', () => {
   const sessions = {};
   reduce(sessions, hook('busy', 'UserPromptSubmit', 0, { cwd: '/w/ellie' }));
-  for (let index = 1; index <= 5; index += 1) {
-    reduce(sessions, hook(`nap${index}`, 'UserPromptSubmit', 0, { cwd: '/w/ellie' }));
-    reduce(sessions, hook(`nap${index}`, 'Stop', index, { cwd: '/w/ellie' }));
-  }
-  const mixed = projectCard(sessions).content_state;
-  assert.deepEqual(mixed.metrics.map(({ value }) => value), ['busy', 'nap5', 'nap4', 'nap3']);
-  assert.equal(mixed.subtitle, '1 working · +2 idle');
-  reduce(sessions, hook('busy', 'Stop', 9, { cwd: '/w/ellie' }));
-  const resting = projectCard(sessions).content_state;
-  assert.deepEqual(resting.metrics.map(({ value }) => value), ['busy', 'nap5', 'nap4']);
-  assert.equal(resting.subtitle, '+3 idle');
-});
-
-test('idle sessions on an open plan come before more recently idle ones without one', () => {
-  const sessions = {};
-  for (const [id, seconds] of [['planned', 1], ['chat1', 2], ['chat2', 3], ['chat3', 4], ['finished', 5]]) {
+  for (const [id, seconds] of [['planned1', 1], ['planned2', 2], ['planned3', 3], ['planned4', 4], ['chat', 5], ['finished', 6]]) {
     reduce(sessions, hook(id, 'UserPromptSubmit', 0, { cwd: '/w/ellie' }));
     reduce(sessions, hook(id, 'Stop', seconds, { cwd: '/w/ellie' }));
   }
   const rail = (state) => ({ page: null, stages: [{ label: 'Plan', state: 'done' }, { label: 'Build', state }], steps: { checked: 0, total: 0 } });
-  const views = viewsOf(sessions, {}, { planned: rail('waiting'), finished: rail('done') });
-  const [[, card]] = planBoard(views, emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
-  assert.deepEqual(card.body.content_state.metrics.map(({ value }) => value), ['planned', 'finished', 'chat3']);
+  const rails = { planned1: rail('waiting'), planned2: rail('waiting'), planned3: rail('waiting'), planned4: rail('waiting'), finished: rail('done') };
+  const [[, card]] = planBoard(viewsOf(sessions, {}, rails), emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
+  assert.deepEqual(card.body.content_state.metrics.map(({ value }) => value), ['busy', 'planned4', 'planned3', 'planned2']);
+  assert.equal(card.body.content_state.subtitle, '1 working · +3 idle');
+});
+
+test('a project whose idle sessions have no unfinished plan shows one idle count', () => {
+  const sessions = {};
+  for (const id of ['chat1', 'chat2', 'finished']) {
+    reduce(sessions, hook(id, 'UserPromptSubmit', 0, { cwd: '/w/ellie' }));
+    reduce(sessions, hook(id, 'Stop', 1, { cwd: '/w/ellie' }));
+  }
+  const done = { page: null, stages: [{ label: 'Ship', state: 'done' }], steps: { checked: 0, total: 0 } };
+  const [[, card]] = planBoard(viewsOf(sessions, {}, { finished: done }), emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
+  assert.deepEqual(card.body.content_state.metrics, [{ label: 'idle', value: '3', color: 'gray' }]);
+  assert.equal(card.body.content_state.subtitle, 'all idle');
 });
 
 test('a project card counts only its own ships today', () => {

@@ -4,7 +4,7 @@ import { QUESTION_TOOLS } from './event.mjs';
 
 const PROJECT_SLOTS = 5;
 const METRIC_LIMIT = 8;
-const RECENT_IDLE = 3;
+const IDLE_ROWS = 3;
 const HOUR = 3_600_000;
 const LOST_SHOWN_MS = HOUR;
 const STALE_MS = 24 * HOUR;
@@ -317,23 +317,27 @@ const byUrgencyThenName = (a, b) =>
 function projectCardOf({ project, sessions }, { listUrl, now }) {
   const ordered = sessions.toSorted(byUrgencyThenName);
   const active = ordered.filter(({ session }) => session.state !== 'idle');
-  const idle = ordered
-    .filter(({ session }) => session.state === 'idle')
-    .toSorted((a, b) => onOpenPlan(b) - onOpenPlan(a) || b.session.since.localeCompare(a.session.since) || keyOf(a.session).localeCompare(keyOf(b.session)));
+  const idleCount = ordered.length - active.length;
+  const planned = ordered
+    .filter((view) => view.session.state === 'idle' && onOpenPlan(view))
+    .toSorted((a, b) => b.session.since.localeCompare(a.session.since) || keyOf(a.session).localeCompare(keyOf(b.session)));
   const activeShown = active.length > METRIC_LIMIT ? active.slice(0, METRIC_LIMIT - 1) : active;
-  const idleShown = activeShown.length < active.length ? [] : idle.slice(0, Math.min(RECENT_IDLE, METRIC_LIMIT - activeShown.length));
-  const metrics = [...activeShown, ...idleShown].map((view) => ({ label: valueOf(view), value: clip(labelOf(view.title), 20), color: STATE_COLOR[view.session.state] }));
+  const idleShown = activeShown.length < active.length ? [] : planned.slice(0, Math.min(IDLE_ROWS, METRIC_LIMIT - activeShown.length));
+  const rows = [...activeShown, ...idleShown];
+  const metrics = rows.length
+    ? rows.map((view) => ({ label: valueOf(view), value: clip(labelOf(view.title), 20), color: STATE_COLOR[view.session.state] }))
+    : [{ label: 'idle', value: String(idleCount), color: 'gray' }];
   if (activeShown.length < active.length) metrics.push({ label: 'more', value: `+${active.length - activeShown.length}`, color: 'gray' });
   const asking = ordered.find(({ session }) => session.state === 'needs-you');
   const counts = Object.groupBy(active, ({ session }) => session.state);
   const ships = shipsOn(sessions.map(({ session }) => session), now);
-  const hiddenIdle = idle.length - idleShown.length;
+  const hiddenIdle = idleCount - idleShown.length;
   const subtitle = asking
     ? `${clip(labelOf(asking.title), 30)}: ${firstNeed(asking.session).question}`
     : [
         ...['failed', 'working'].filter((state) => counts[state]).map((state) => `${counts[state].length} ${STATE_LABEL[state].toLowerCase()}`),
         ships && `${ships} shipped today`,
-        hiddenIdle ? `+${hiddenIdle} idle` : !active.length && 'all idle',
+        rows.length ? hiddenIdle && `+${hiddenIdle} idle` : 'all idle',
       ]
         .filter(Boolean)
         .join(' · ');
