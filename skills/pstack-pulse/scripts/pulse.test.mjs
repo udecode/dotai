@@ -103,7 +103,7 @@ test('a crowded project lists the session that needs you first, with its questio
   const card = projectCard(sessions, { s9: 'https://claude.ai/code/s9' });
   const { metrics, subtitle } = card.content_state;
   assert.equal(metrics.length, 8);
-  assert.deepEqual(metrics[0], { label: 's9', value: 'Needs you', color: 'orange' });
+  assert.deepEqual(metrics[0], { label: 'Needs you', value: 's9', color: 'orange' });
   assert.deepEqual(metrics[7], { label: 'more', value: '+3', color: 'gray' });
   assert.equal(subtitle, 's9: Ship s9?');
   assert.equal(card.action.url, 'https://claude.ai/code/s9');
@@ -117,11 +117,11 @@ test('a project card lists only its active sessions and counts the idle ones, an
     reduce(sessions, hook(id, 'Stop', 2, { cwd: '/w/ellie' }));
   }
   const mixed = projectCard(sessions).content_state;
-  assert.deepEqual(mixed.metrics.map(({ label }) => label), ['busy']);
+  assert.deepEqual(mixed.metrics.map(({ value }) => value), ['busy']);
   assert.equal(mixed.subtitle, '1 working · +2 idle');
   reduce(sessions, hook('busy', 'Stop', 3, { cwd: '/w/ellie' }));
   const resting = projectCard(sessions).content_state;
-  assert.deepEqual(resting.metrics.map(({ label }) => label), ['busy', 'nap1', 'nap2']);
+  assert.deepEqual(resting.metrics.map(({ value }) => value), ['busy', 'nap1', 'nap2']);
   assert.equal(resting.subtitle, 'all idle');
 });
 
@@ -409,7 +409,7 @@ test('the menubar keeps the fleet line and lists every live session ranked, and 
   for (const row of menu.cards) {
     const view = views.find(({ session }) => keyOf(session) === row.key);
     const metrics = phoneCards.get(projectKeyOf(view.project)).body.content_state.metrics;
-    assert.ok(metrics.some(({ label, color }) => label === view.title && color === row.content_state.color), view.title);
+    assert.ok(metrics.some(({ value, color }) => value === view.title && color === row.content_state.color), view.title);
   }
   assert.equal(menu.fleet.content_state.title, 'pstack fleet');
 });

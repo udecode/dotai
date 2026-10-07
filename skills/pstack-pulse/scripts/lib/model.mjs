@@ -314,7 +314,7 @@ function projectCardOf({ project, sessions }, { listUrl, now }) {
   const active = ordered.filter(({ session }) => session.state !== 'idle');
   const listed = active.length ? active : ordered;
   const shown = listed.length > METRIC_LIMIT ? listed.slice(0, METRIC_LIMIT - 1) : listed;
-  const metrics = shown.map((view) => ({ label: clip(labelOf(view.title), 20), value: valueOf(view), color: STATE_COLOR[view.session.state] }));
+  const metrics = shown.map((view) => ({ label: valueOf(view), value: clip(labelOf(view.title), 20), color: STATE_COLOR[view.session.state] }));
   if (shown.length < listed.length) metrics.push({ label: 'more', value: `+${listed.length - shown.length}`, color: 'gray' });
   const asking = ordered.find(({ session }) => session.state === 'needs-you');
   const counts = Object.groupBy(active, ({ session }) => session.state);
