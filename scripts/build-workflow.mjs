@@ -14,12 +14,13 @@ const groups = {
   'Review': ['test-audit'],
   'Communication': ['walkthrough', 'video-transcripts', 'plan-page'],
   'Maintenance': ['sync-pstack'],
-  'Monitoring': ['pstack-pulse'],
+  'Monitoring': ['pstack-pulse', 'rca'],
 };
 const explicitDependencies = {};
 const requirements = {
   'plan-page': ['Node.js 22+ and Git; the renderer that sync-pstack installs in .agents/pstack; the Artifact tool to publish'],
   'pstack-pulse': ['macOS with launchd and the Keychain, Node.js 22+ and sqlite3; an ActivitySmith account and key; Tailscale Funnel for the session list'],
+  rca: ['A Code session in the Claude desktop app, which alone has its session tools'],
   'sync-pstack': ['Node.js 22+ and Git; the Claude Code and Codex CLIs for plugin pins and smoke tests'],
   'video-transcripts': ['ffmpeg, curl, jq and authorized Gemini credentials'],
   walkthrough: ['Real final-state captures, Node.js and the configured annotation tool'],

@@ -26,6 +26,17 @@
       "provenance": null
     },
     {
+      "name": "rca",
+      "distribution": "bundled",
+      "description": "Turn Remote Control on for every non-archived Claude Code session in the Claude desktop app.",
+      "category": "Monitoring",
+      "dependencies": [],
+      "capabilities": [
+        "A Code session in the Claude desktop app, which alone has its session tools"
+      ],
+      "provenance": null
+    },
+    {
       "name": "sync-pstack",
       "distribution": "bundled",
       "description": "Set up the pstack plugin in a project through an interview, and keep every pstack project on one pinned tag and one shared AGENTS.md overrides block. Use to set up or install pstack in a repo, sync, bump or update pstack everywhere, list which projects use pstack or have drifted, compare setups, audit a project's skills for drift from pstack (which to cut, fold or keep), change which work runs a panel, architect or an arena without asking (\\\"from now on X runs architect\\\"), or move a workflow lesson, including a plan page shape change, into every project. Not for choosing pstack's per-role models, which setup-pstack owns.",
@@ -74,11 +85,11 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "1e904233e1a621a2da52366d95c1860383c7b81d3470698e03f93e4d004d9874",
+      "sha256": "af494596c21801ce3e4d891cf05a17840b7d16fbcbabb95df42fdd9be780c33d",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
-      "sha256": "ef2f182cbfc4f7d81789addb03cdce5e8429efa730ed2c6cbc16a12002019b0d",
+      "sha256": "6e9bcdb88868eeb26fa5526ced18a6920d353047f3f8fed4de5b8f7291ef1e6e",
       "mode": 420
     },
     "scripts/validate-skills": {
@@ -151,6 +162,10 @@
     },
     "skills/pstack-pulse/scripts/pulse.test.mjs": {
       "sha256": "c7eaa1f21c1e3c99eb07b0c3c49db23878aa9ad9a57b8be83587cf39e28342d1",
+      "mode": 420
+    },
+    "skills/rca/SKILL.md": {
+      "sha256": "71dada708712ab0c3bc93264f27586b318fb583e31aca29a3aedc165227df650",
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
