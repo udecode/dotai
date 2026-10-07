@@ -233,6 +233,18 @@ export function reduce(sessions, observation) {
 }
 
 const LIVE_STAGES = ['now', 'waiting', 'blocked', 'stopped'];
+// The pstack Session title rule leads each title with its stage or state emoji and ends it with (n/total).
+const TITLE_STAGES = { '📝': 'Plan', '📐': 'Design', '👥': 'Plan review', '🚧': 'Build', '✍': 'Writing', '🔎': 'Code review', '🧪': 'Verify', '🕵': 'Audit', '🚀': 'Ship', '🧠': 'Reflect', '🟠': 'Waiting', '🔴': 'Blocked', '💤': 'Paused' };
+
+function titleStageOf(title) {
+  const label = TITLE_STAGES[/^(\p{Extended_Pictographic})\uFE0F?\s/u.exec(title ?? '')?.[1]];
+  if (!label) return null;
+  const count = /\((\d+)\/(\d+)[^)]*\)\s*$/u.exec(title);
+  return count ? { label, step: Number(count[1]), total: Number(count[2]) } : { label, step: 1, total: 1 };
+}
+
+const stageText = (stage) => (stage.total > 1 ? `${stage.label} ${stage.step}/${stage.total}` : stage.label);
+const openPlanPage = (view) => (view.rail?.page && view.rail.stages.some(({ state }) => LIVE_STAGES.includes(state)) ? view.rail.page : null);
 
 export function stepOf(rail) {
   const live = rail.stages.findIndex(({ state }) => LIVE_STAGES.includes(state));
@@ -243,19 +255,18 @@ export function stepOf(rail) {
 function sessionCardOf(view) {
   const { state } = view.session;
   const need = state === 'needs-you' ? firstNeed(view.session) : null;
-  const rail = view.rail?.stages?.length ? view.rail : null;
-  const stage = rail ? rail.stages[stepOf(rail) - 1] : null;
-  const steps = rail?.steps?.total ? ` ${rail.steps.checked}/${rail.steps.total}` : '';
-  const subtitle = (need ? String(need.question) : [view.project.name, stage ? `${stage.label}${steps}` : 'No plan'].join(' · ')).slice(0, 120);
+  const stage = titleStageOf(view.title);
+  const subtitle = (need ? String(need.question) : [view.project.name, stage ? stageText(stage) : STATE_LABEL[state]].join(' · ')).slice(0, 120);
   const title = clip(labelOf(view.title), 80);
   const color = STATE_COLOR[state] ?? 'blue';
-  const planPage = rail?.page ? { title: 'Plan page', type: 'open_url', url: rail.page } : null;
+  const page = openPlanPage(view);
+  const planPage = page ? { title: 'Plan page', type: 'open_url', url: page } : null;
   const answer = view.webUrl ? { title: 'Answer', type: 'open_url', url: view.webUrl } : null;
   const [action, secondary] = (need ? [answer, planPage] : [planPage, answer]).filter(Boolean);
   return {
     type: 'segmented_progress',
     body: {
-      content_state: { title, subtitle, type: 'segmented_progress', number_of_steps: rail ? rail.stages.length : 1, current_step: rail ? stepOf(rail) : 1, color, badge: { title: STATE_LABEL[state] ?? 'Working', color } },
+      content_state: { title, subtitle, type: 'segmented_progress', number_of_steps: stage?.total ?? 1, current_step: stage?.step ?? 1, color, badge: { title: STATE_LABEL[state] ?? 'Working', color } },
       ...(action ? { action } : {}),
       ...(secondary ? { secondary_action: secondary } : {}),
     },
@@ -289,10 +300,8 @@ const labelOf = (title) => title.replace(/^\p{Extended_Pictographic}\uFE0F?\s*/u
 
 function valueOf(view) {
   const { state } = view.session;
-  const rail = view.rail?.stages?.length ? view.rail : null;
-  if (state === 'needs-you' || state === 'failed' || !rail) return STATE_LABEL[state];
-  const step = stepOf(rail);
-  return `${rail.stages[step - 1].label} ${step}/${rail.stages.length}`;
+  const stage = titleStageOf(view.title);
+  return state === 'needs-you' || state === 'failed' || !stage ? STATE_LABEL[state] : stageText(stage);
 }
 
 const byUrgencyThenName = (a, b) =>
@@ -357,7 +366,8 @@ export function menuBoardOf(views, context) {
 const sessionRankOf = ({ session }, now) => (session.state === 'idle' && now - ms(session.since) < IDLE_GRACE_MS ? RANK.working : RANK[session.state]);
 
 export function planBoard(views, phone, context) {
-  const { live, ranked } = rankedLive(views);
+  const { live } = rankedLive(views);
+  const { ranked } = rankedLive(views.filter((view) => titleStageOf(view.title)));
   const shown = new Set(Object.keys(phone.streams));
   const slots = phone.capacity && context.now < phone.capacity.until ? Math.min(SLOTS, phone.capacity.slots) : SLOTS;
   const projects = keepShownUntilOutranked(projectsOf(ranked), shown, slots);
@@ -377,7 +387,8 @@ export function incidentsOf(views) {
     if (!incidents.has(incident.id)) incidents.set(incident.id, incident);
   };
   for (const view of views) {
-    const { session, title } = view;
+    const { session } = view;
+    const title = labelOf(view.title);
     const key = `${session.runtime}:${session.id}`;
     const answerUrl = view.appUrl ?? view.webUrl;
     const link = view.rail?.page ?? answerUrl;

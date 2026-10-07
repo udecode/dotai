@@ -15,7 +15,7 @@ const at = (seconds) => new Date(T0 + seconds * 1000).toISOString();
 const hook = (session, event, seconds, extra = {}) => ({ kind: 'hook', v: 2, runtime: 'claude', session, event, at: at(seconds), cwd: '/repo', plans: [], source: null, ...extra });
 const ask = (session, seconds, toolUseId = `tu-${session}-${seconds}`) => hook(session, 'PreToolUse', seconds, { tool: 'AskUserQuestion', toolUseId, questions: [{ question: `Ship ${session}?`, options: ['Ship', 'Hold'] }] });
 const projectFrom = (cwd) => (cwd ? { id: cwd, name: basename(cwd) } : { id: 'other', name: 'other' });
-const viewsOf = (sessions, urls = {}, rails = {}) => Object.values(sessions).map((session) => ({ session, title: session.id, project: projectFrom(session.cwd), rail: rails[session.id] ?? null, webUrl: urls[session.id] ?? null, appUrl: null, account: 'owner@example.com' }));
+const viewsOf = (sessions, urls = {}, rails = {}, titles = {}) => Object.values(sessions).map((session) => ({ session, title: titles[session.id] ?? `🚧 ${session.id}`, project: projectFrom(session.cwd), rail: rails[session.id] ?? null, webUrl: urls[session.id] ?? null, appUrl: null, account: 'owner@example.com' }));
 const VALID_KEY = /^[A-Za-z0-9_-]{1,255}$/u;
 
 function fakeClient(script = {}) {
@@ -105,7 +105,30 @@ test('session cards fill the slots the project cards leave, those that need you 
   const asking = cards[2][1];
   assert.equal(asking.type, 'segmented_progress');
   assert.equal(asking.body.content_state.subtitle, 'Ship b2?');
-  assert.equal(cards[3][1].body.content_state.subtitle, 'b · No plan');
+  assert.equal(cards[3][1].body.content_state.subtitle, 'b · Build');
+});
+
+test('only sessions whose title shows a pstack stage reach the phone', () => {
+  const sessions = {};
+  reduce(sessions, hook('poteto', 'UserPromptSubmit', 0, { cwd: '/w/a' }));
+  reduce(sessions, hook('chat', 'UserPromptSubmit', 1, { cwd: '/w/a' }));
+  reduce(sessions, hook('loose', 'UserPromptSubmit', 2, { cwd: null }));
+  const views = viewsOf(sessions, {}, {}, { chat: 'quick question', loose: 'Find Balloon Popper' });
+  const cards = planBoard(views, emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
+  assert.deepEqual(cards.map(([key]) => key), [projectKeyOf(projectFrom('/w/a')), keyOf(sessions['claude:poteto'])]);
+  assert.deepEqual(cards[0][1].body.content_state.metrics.map(({ value }) => value), ['poteto']);
+});
+
+test('a card reads the stage from the session title, and links the plan page only while the plan is open', () => {
+  const sessions = {};
+  reduce(sessions, hook('scrub', 'UserPromptSubmit', 0, { cwd: '/w/a' }));
+  const rail = (state) => ({ page: 'https://claude.ai/artifact/scrub', stages: [{ label: 'Plan', state: 'done' }, { label: 'Reflect', state }], steps: { checked: 12, total: 12 } });
+  const board = (state) => planBoard(viewsOf(sessions, {}, { scrub: rail(state) }, { scrub: '📝 scrub (1/3)' }), emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
+  const [[, project], [, session]] = board('done');
+  assert.equal(project.body.content_state.metrics[0].label, 'Plan 1/3');
+  assert.deepEqual([session.body.content_state.current_step, session.body.content_state.number_of_steps], [1, 3]);
+  assert.equal(session.body.action, undefined);
+  assert.equal(board('waiting')[1][1].body.action.url, 'https://claude.ai/artifact/scrub');
 });
 
 test('a question turns a shown session card orange in place, without ending it', async () => {
@@ -456,7 +479,7 @@ test('the menubar keeps the fleet line and lists every live session ranked, and 
   for (const row of menu.cards) {
     const view = views.find(({ session }) => keyOf(session) === row.key);
     const metrics = phoneCards.get(projectKeyOf(view.project)).body.content_state.metrics;
-    assert.ok(metrics.some(({ value, color }) => value === view.title && color === row.content_state.color), view.title);
+    assert.ok(metrics.some(({ value, color }) => value === view.session.id && color === row.content_state.color), view.title);
   }
   assert.equal(menu.fleet.content_state.title, 'pstack fleet');
 });
