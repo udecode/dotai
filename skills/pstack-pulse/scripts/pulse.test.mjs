@@ -7,7 +7,7 @@ import test from 'node:test';
 import { eventOf } from './lib/event.mjs';
 import { hookCommand, withHook, withoutHook } from './lib/install.mjs';
 import { projectOf, readRollout } from './lib/io.mjs';
-import { incidentsOf, keyOf, menuBoardOf, petOf, planBoard, PROJECT_SLOTS, projectKeyOf, reduce, stepOf } from './lib/model.mjs';
+import { incidentsOf, keyOf, menuBoardOf, petOf, planBoard, projectKeyOf, reduce, stepOf } from './lib/model.mjs';
 import { createClient, deliver, emptyPhone } from './lib/phone.mjs';
 
 const T0 = Date.parse('2026-10-06T10:00:00.000Z');
@@ -40,23 +40,24 @@ const send = (sessions, phone, client, seconds) => {
 };
 const pushes = (client) => client.calls.filter((call) => call.startsWith('push'));
 
-test('the board holds the fleet and four project cards, and a fifth project takes a slot only when it is strictly more urgent', async () => {
+test('the board holds five project cards and no fleet card, and a sixth project takes a slot only when it is strictly more urgent', async () => {
   const sessions = {};
-  ['/w/fifth', '/w/ellie', '/w/plate.js', '/w/dotai', '/w/pstack'].forEach((cwd, index) => reduce(sessions, hook(`s${index}`, 'UserPromptSubmit', index, { cwd })));
-  reduce(sessions, hook('s5', 'UserPromptSubmit', 5, { cwd: '/w/ellie' }));
+  ['/w/sixth', '/w/ellie', '/w/plate.js', '/w/dotai', '/w/pstack', '/w/smith'].forEach((cwd, index) => reduce(sessions, hook(`s${index}`, 'UserPromptSubmit', index, { cwd })));
+  reduce(sessions, hook('s6', 'UserPromptSubmit', 6, { cwd: '/w/ellie' }));
   const phone = emptyPhone();
   await send(sessions, phone, fakeClient(), 10);
-  assert.equal(Object.keys(phone.streams).length, 1 + PROJECT_SLOTS);
-  const fifth = projectKeyOf(projectFrom('/w/fifth'));
-  reduce(sessions, hook('s0', 'PostToolUse', 20, { cwd: '/w/fifth', tool: 'Bash' }));
+  assert.equal(Object.keys(phone.streams).length, 5);
+  assert.ok(!phone.streams['pulse-fleet']);
+  const sixth = projectKeyOf(projectFrom('/w/sixth'));
+  reduce(sessions, hook('s0', 'PostToolUse', 20, { cwd: '/w/sixth', tool: 'Bash' }));
   const equal = fakeClient();
   await send(sessions, phone, equal, 21);
-  assert.ok(!equal.calls.some((call) => call.startsWith('end') || call === `put ${fifth}`));
-  reduce(sessions, { ...ask('s0', 30), cwd: '/w/fifth' });
+  assert.ok(!equal.calls.some((call) => call.startsWith('end') || call === `put ${sixth}`));
+  reduce(sessions, { ...ask('s0', 30), cwd: '/w/sixth' });
   const urgent = fakeClient();
   await send(sessions, phone, urgent, 31);
   assert.equal(urgent.calls.filter((call) => call.startsWith('end')).length, 1);
-  assert.ok(phone.streams[fifth]);
+  assert.ok(phone.streams[sixth]);
 });
 
 test('a project card keeps its stream as sessions join, and a hook that changes nothing on the card sends nothing', async () => {
@@ -75,7 +76,7 @@ test('a project card keeps its stream as sessions join, and a hook that changes 
   assert.ok(!quiet.calls.includes(`put ${key}`));
 });
 
-test('cards an older daemon left per session end before any project card starts', async () => {
+test('cards an older daemon left, per session and for the fleet, end before any project card starts', async () => {
   const sessions = {};
   reduce(sessions, hook('old1', 'UserPromptSubmit', 0, { cwd: '/w/ellie' }));
   reduce(sessions, hook('old2', 'UserPromptSubmit', 0, { cwd: '/w/plate' }));
@@ -90,10 +91,10 @@ test('cards an older daemon left per session end before any project card starts'
   await send(sessions, phone, retry, 16);
   const firstStart = retry.calls.findIndex((call) => call.startsWith('put pulse-p-'));
   assert.ok(firstStart > retry.calls.indexOf(`end ${old1}`));
-  assert.deepEqual(Object.keys(phone.streams).sort(), ['pulse-fleet', projectKeyOf(projectFrom('/w/ellie')), projectKeyOf(projectFrom('/w/plate'))].sort());
+  assert.deepEqual(Object.keys(phone.streams).sort(), [projectKeyOf(projectFrom('/w/ellie')), projectKeyOf(projectFrom('/w/plate'))].sort());
 });
 
-const projectCard = (sessions, urls, context = {}) => planBoard(viewsOf(sessions, urls), emptyPhone(), { now: T0 + 60_000, shippedToday: 0, ...context }).cards[1][1].body;
+const projectCard = (sessions, urls, context = {}) => planBoard(viewsOf(sessions, urls), emptyPhone(), { now: T0 + 60_000, shippedToday: 0, ...context }).cards[0][1].body;
 
 test('a crowded project lists the session that needs you first, with its question and Answer button, and folds the rest into a more value', () => {
   const sessions = {};
@@ -106,6 +107,32 @@ test('a crowded project lists the session that needs you first, with its questio
   assert.deepEqual(metrics[7], { label: 'more', value: '+3', color: 'gray' });
   assert.equal(subtitle, 's9: Ship s9?');
   assert.equal(card.action.url, 'https://claude.ai/code/s9');
+});
+
+test('a project card lists only its active sessions and counts the idle ones, and an all-idle project lists its idle sessions', () => {
+  const sessions = {};
+  reduce(sessions, hook('busy', 'UserPromptSubmit', 0, { cwd: '/w/ellie' }));
+  for (const id of ['nap1', 'nap2']) {
+    reduce(sessions, hook(id, 'UserPromptSubmit', 1, { cwd: '/w/ellie' }));
+    reduce(sessions, hook(id, 'Stop', 2, { cwd: '/w/ellie' }));
+  }
+  const mixed = projectCard(sessions).content_state;
+  assert.deepEqual(mixed.metrics.map(({ label }) => label), ['busy']);
+  assert.equal(mixed.subtitle, '1 working · +2 idle');
+  reduce(sessions, hook('busy', 'Stop', 3, { cwd: '/w/ellie' }));
+  const resting = projectCard(sessions).content_state;
+  assert.deepEqual(resting.metrics.map(({ label }) => label), ['busy', 'nap1', 'nap2']);
+  assert.equal(resting.subtitle, 'all idle');
+});
+
+test('a project card counts only its own ships today', () => {
+  const sessions = {};
+  reduce(sessions, hook('shipper', 'UserPromptSubmit', 0, { cwd: '/w/ellie', push: { sha: 'abc1234567', branch: 'next' } }));
+  reduce(sessions, { kind: 'push', runtime: 'claude', session: 'shipper', at: at(1), sha: 'abc1234567', branch: 'next', outcome: 'confirmed', repoId: 'ellie', repoName: 'ellie' });
+  reduce(sessions, hook('other', 'UserPromptSubmit', 2, { cwd: '/w/plate' }));
+  const cards = new Map(planBoard(viewsOf(sessions), emptyPhone(), { now: T0 + 60_000, shippedToday: 1 }).cards);
+  assert.equal(cards.get(projectKeyOf(projectFrom('/w/ellie'))).body.content_state.subtitle, '1 working · 1 shipped today');
+  assert.equal(cards.get(projectKeyOf(projectFrom('/w/plate'))).body.content_state.subtitle, '1 working');
 });
 
 test('eight sessions fill eight metrics, and a ninth folds two into a more value', () => {
@@ -256,11 +283,11 @@ test('a card the API refuses holds back neither the badge nor the pushes, and th
   reduce(sessions, { ...ask('alpha', 2), cwd: '/w/a' });
   reduce(sessions, hook('beta', 'SessionStart', 3, { cwd: '/w/b' }));
   reduce(sessions, { ...ask('beta', 3), cwd: '/w/b' });
-  const client = fakeClient({ 'put pulse-fleet': { ok: false, kind: 'capacity' } });
+  const client = fakeClient({ [`put ${projectKeyOf(projectFrom('/w/a'))}`]: { ok: false, kind: 'capacity' } });
   await send(sessions, phone, client, 4);
   assert.deepEqual(client.calls.filter((call) => !call.startsWith('put') && !call.startsWith('end')), ['badge 2', 'push alpha needs you']);
   assert.ok(!client.calls.includes(`put ${projectKeyOf(projectFrom('/w/b'))}`));
-  assert.equal(planBoard(viewsOf(sessions), phone, { now: T0 + 3_600_000, shippedToday: 0 }).cards.length, 3);
+  assert.equal(planBoard(viewsOf(sessions), phone, { now: T0 + 3_600_000, shippedToday: 0 }).cards.length, 2);
 });
 
 test('the daemon picks up a key stored after it started', async () => {
@@ -370,7 +397,7 @@ test('the pet waits with a badge while a session needs you, jumps on a fresh shi
   assert.equal(petOf(viewsOf(sessions), T0 + 62_000).mood, 'idle');
 });
 
-test('the menubar lists every live session ranked, and each one is a metric on its project phone card', () => {
+test('the menubar keeps the fleet line and lists every live session ranked, and each one is a metric on its project phone card', () => {
   const sessions = {};
   ['/w/a', '/w/a', '/w/a', '/w/b', '/w/b', null].forEach((cwd, index) => reduce(sessions, hook(`s${index}`, 'UserPromptSubmit', index, { cwd })));
   reduce(sessions, { ...ask('s4', 10), cwd: '/w/b' });
@@ -384,7 +411,7 @@ test('the menubar lists every live session ranked, and each one is a metric on i
     const metrics = phoneCards.get(projectKeyOf(view.project)).body.content_state.metrics;
     assert.ok(metrics.some(({ label, color }) => label === view.title && color === row.content_state.color), view.title);
   }
-  assert.deepEqual(menu.fleet.content_state, phoneCards.get('pulse-fleet').body.content_state);
+  assert.equal(menu.fleet.content_state.title, 'pstack fleet');
 });
 
 test('a turn that ends with only artifact page sockets open goes idle, and one with a WebSocket monitor the model armed keeps working', () => {

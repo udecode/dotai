@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { QUESTION_TOOLS } from './event.mjs';
 
-export const PROJECT_SLOTS = 4;
+const PROJECT_SLOTS = 5;
 const METRIC_LIMIT = 8;
 const HOUR = 3_600_000;
 const LOST_SHOWN_MS = HOUR;
@@ -304,16 +304,26 @@ const byUrgencyThenName = (a, b) =>
   labelOf(a.title).localeCompare(labelOf(b.title)) ||
   keyOf(a.session).localeCompare(keyOf(b.session));
 
-function projectCardOf({ project, sessions }, { listUrl }) {
+function projectCardOf({ project, sessions }, { listUrl, now }) {
   const ordered = sessions.toSorted(byUrgencyThenName);
-  const shown = ordered.length > METRIC_LIMIT ? ordered.slice(0, METRIC_LIMIT - 1) : ordered;
+  const active = ordered.filter(({ session }) => session.state !== 'idle');
+  const listed = active.length ? active : ordered;
+  const shown = listed.length > METRIC_LIMIT ? listed.slice(0, METRIC_LIMIT - 1) : listed;
   const metrics = shown.map((view) => ({ label: clip(labelOf(view.title), 20), value: valueOf(view), color: STATE_COLOR[view.session.state] }));
-  if (shown.length < ordered.length) metrics.push({ label: 'more', value: `+${ordered.length - shown.length}`, color: 'gray' });
+  if (shown.length < listed.length) metrics.push({ label: 'more', value: `+${listed.length - shown.length}`, color: 'gray' });
   const asking = ordered.find(({ session }) => session.state === 'needs-you');
-  const counts = Object.groupBy(sessions, ({ session }) => session.state);
+  const counts = Object.groupBy(active, ({ session }) => session.state);
+  const ships = shipsOn(sessions.map(({ session }) => session), now);
+  const idle = ordered.length - active.length;
   const subtitle = asking
     ? `${clip(labelOf(asking.title), 30)}: ${firstNeed(asking.session).question}`
-    : Object.keys(RANK).filter((state) => counts[state]).map((state) => `${counts[state].length} ${STATE_LABEL[state].toLowerCase()}`).join(' · ');
+    : [
+        ...['failed', 'working'].filter((state) => counts[state]).map((state) => `${counts[state].length} ${STATE_LABEL[state].toLowerCase()}`),
+        ships && `${ships} shipped today`,
+        idle && (active.length ? `+${idle} idle` : 'all idle'),
+      ]
+        .filter(Boolean)
+        .join(' · ');
   const action = asking?.webUrl ? { title: 'Answer', type: 'open_url', url: asking.webUrl } : listUrl ? { title: 'All sessions', type: 'open_url', url: listUrl } : null;
   return { type: 'stats', body: { content_state: { title: project.name, subtitle: clip(subtitle, 110), type: 'stats', metrics }, ...(action ? { action } : {}) } };
 }
@@ -354,10 +364,10 @@ export function menuBoardOf(views, context) {
 
 export function planBoard(views, phone, context) {
   const { live, ranked } = rankedLive(views);
-  const capacity = phone.capacity && context.now < phone.capacity.until ? phone.capacity.slots : PROJECT_SLOTS + 1;
-  const chosen = keepShownUntilOutranked(projectsOf(ranked), new Set(Object.keys(phone.streams)), Math.max(Math.min(PROJECT_SLOTS, capacity - 1), 0));
+  const capacity = phone.capacity && context.now < phone.capacity.until ? phone.capacity.slots : PROJECT_SLOTS;
+  const chosen = keepShownUntilOutranked(projectsOf(ranked), new Set(Object.keys(phone.streams)), Math.min(PROJECT_SLOTS, capacity));
   return {
-    cards: [['pulse-fleet', fleetOf(live, context)], ...chosen.map((group) => [group.key, projectCardOf(group, context)])],
+    cards: chosen.map((group) => [group.key, projectCardOf(group, context)]),
     badge: live.filter(({ session }) => session.state === 'needs-you').length,
   };
 }
@@ -379,7 +389,8 @@ export function incidentsOf(views) {
   return incidents;
 }
 
-export const shippedToday = (sessions, now) => new Set(Object.values(sessions).flatMap((session) => session.ships.filter((ship) => ship.at.slice(0, 10) === iso(now).slice(0, 10)).map((ship) => ship.id))).size;
+const shipsOn = (sessions, now) => new Set(sessions.flatMap((session) => session.ships.filter((ship) => ship.at.slice(0, 10) === iso(now).slice(0, 10)).map((ship) => ship.id))).size;
+export const shippedToday = (sessions, now) => shipsOn(Object.values(sessions), now);
 
 const CELEBRATE_MS = 10_000;
 
