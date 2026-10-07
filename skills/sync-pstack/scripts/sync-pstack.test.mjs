@@ -1813,7 +1813,7 @@ test("decisions-check takes a later round's seats row only after a writing row",
 test('decisions-check refuses a fourth panel round until a built: or another round: row', () => {
   const { dir, run } = sandbox();
   const root = project(dir, 'app');
-  const append = (phase, decision) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', phase, decision, 'why', 'evidence', 'recorded'], root);
+  const append = (phase, decision, result = 'recorded') => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', phase, decision, 'why', 'evidence', result], root);
   const rounds = (count) => {
     for (let round = 1; round <= count; round += 1) {
       assert.equal(append('panel', 'seats opus').status, 0, `round ${round}`);
@@ -1827,8 +1827,10 @@ test('decisions-check refuses a fourth panel round until a built: or another rou
   const roundsCheck = run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'rounds', 'log.decisions.tsv'], root);
   assert.equal(roundsCheck.status, 1, 'rounds exits 1 at the cap before any seat launches');
   assert.equal(append('build', 'Build has not started').status, 0);
+  assert.equal(append('build', 'built: parser.mjs', 'skipped: the build has not run').status, 0);
   assert.equal(append('owner', 'Owner asked: "how long will this take?"').status, 0);
-  assert.equal(append('panel', 'seats opus').status, 1, 'a build row with no built: and an owner row with no another round: restart nothing');
+  assert.equal(append('panel', 'seats opus').status, 1, 'a build row with no built:, a skipped built: row and an owner row with no another round: restart nothing');
+  assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'rounds', 'missing.decisions.tsv'], root).status, 2, 'rounds fails closed on a missing log');
   assert.equal(append('build', 'built: decisions-check.mjs and its test').status, 0);
   assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'rounds', 'log.decisions.tsv'], root).status, 0, 'rounds exits 0 after a restart');
   rounds(3);

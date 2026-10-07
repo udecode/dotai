@@ -48,8 +48,9 @@ const opens = (line) => {
 };
 const MAX_ROUNDS = 3;
 const restartsRoundCount = (line) => {
-  const [, phase, decision = ''] = line.split('\t');
-  return (phase === 'build' && decision.startsWith('built:')) || (phase === 'owner' && decision.startsWith('another round:'));
+  const [, phase, decision = '', , , result = ''] = line.split('\t');
+  if (phase === 'build') return /^built:\s*\S/u.test(decision) && /^(applied|fixed|partial|proven|recorded|verified)\b/u.test(result);
+  return phase === 'owner' && /^another round:\s*\S/u.test(decision);
 };
 const roundsSince = (lines) => lines.slice(lines.findLastIndex(restartsRoundCount) + 1).filter(opens).length;
 
@@ -147,7 +148,7 @@ function append(path, batch) {
       found.push(`${where}: a later round's seats row needs a writing row after the previous seats row: log the round's writing passes under phase writing, or log a writing row that says why none ran`);
     }
     if (opens(row) && rounds >= MAX_ROUNDS) {
-      found.push(`${where}: this would be panel round ${rounds + 1} since the last restart, past the cap of ${MAX_ROUNDS}. Stop reviewing: settle each open finding as applied, dismissed with its reason, deferred with its owner when it is not critical, or open with its patch: and owner:, then build. A build row whose decision starts with "built:" and names the code files it changed, or an owner row whose decision starts with "another round:" and quotes the owner, starts the count again`);
+      found.push(`${where}: this would be panel round ${rounds + 1} since the last restart, past the cap of ${MAX_ROUNDS}. Stop reviewing: settle each open finding as applied, dismissed with its reason, deferred with its owner when it is not critical, or open with its patch: and owner:, then build. A build row whose decision starts with "built:" and names the files a plan's build changed, with a result that starts applied, fixed, partial, proven, recorded or verified, or an owner row whose decision starts with "another round:" and quotes the owner, starts the count again`);
     }
     if (restartsRoundCount(row)) rounds = 0;
     if (opens(row)) {
@@ -167,7 +168,11 @@ function append(path, batch) {
 
 const args = process.argv.slice(2);
 if (args[0] === 'rounds') {
-  const lines = existsSync(args[1] ?? '') ? readFileSync(args[1], 'utf8').split('\n') : [];
+  if (!args[1] || !existsSync(args[1])) {
+    console.error(args[1] ? `no log at ${args[1]}` : 'Usage: node .agents/pstack/decisions-check.mjs rounds <log.decisions.tsv>');
+    process.exit(2);
+  }
+  const lines = readFileSync(args[1], 'utf8').split('\n');
   const rounds = roundsSince(lines);
   console.info(`${rounds} panel round(s) since the last restart; the cap is ${MAX_ROUNDS}`);
   process.exit(rounds >= MAX_ROUNDS ? 1 : 0);
