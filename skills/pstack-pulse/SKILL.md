@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # pstack pulse
 
-A daemon on this Mac turns hook events from every Claude Code and Codex session into ActivitySmith Live Activities. It shows one fleet card and up to four session cards, each with its plan page's pipeline. It pushes a notification when a session needs you, ships or fails, and sets the app badge to the number of sessions that need you. You answer in the vendor's own app. A Claude card or push opens its Remote Control session. A Codex push opens the ChatGPT app, and a Codex card opens its plan page, because ActivitySmith's Live Activity buttons take only web and Shortcuts links, while its pushes also take app links. `<skill>` below is this skill's base directory, and every command is `node <skill>/scripts/pulse.mjs <command>`.
+A daemon on this Mac turns hook events from every Claude Code and Codex session into ActivitySmith Live Activities. It shows one fleet card and up to four session cards, each with its plan page's pipeline. It pushes a notification when a session needs you, ships or fails, and sets the app badge to the number of sessions that need you. You answer in the vendor's own app. Tapping a push opens the session's plan page when it has one, else the session. A push's Answer button opens a Claude session's Remote Control link, or the ChatGPT app for Codex. A Claude card's Answer button opens the session too. A Codex card has only its plan page button, because ActivitySmith's Live Activity buttons take only web and Shortcuts links; its pushes also take app links. `<skill>` below is this skill's base directory, and every command is `node <skill>/scripts/pulse.mjs <command>`.
 
 ## What it reports
 
