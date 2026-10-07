@@ -43,7 +43,7 @@ function viewsOf(sessions) {
         title: session.title ?? basename(session.cwd ?? 'session'),
         repo: root ? basename(root) : null,
         account: session.runtime === 'codex' ? null : session.entrypoint === 'cli' ? accountCache.value.cli : accountCache.value.desktop,
-        webUrl: session.runtime === 'codex' ? null : session.bridge ? `https://claude.ai/code/${session.bridge}` : 'https://claude.ai/code',
+        webUrl: session.runtime === 'claude' && session.bridge ? `https://claude.ai/code/${session.bridge}` : null,
         appUrl: session.runtime === 'codex' ? 'chatgpt://' : null,
         rail: session.life === 'live' ? railOf(session.plan) : null,
       };
