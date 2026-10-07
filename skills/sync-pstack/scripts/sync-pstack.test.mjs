@@ -55,8 +55,9 @@ function sandbox({ upstream = PSTACK } = {}) {
   const home = join(dir, 'home');
   mkdirSync(home);
   const env = { ...process.env, HOME: home, SYNC_PSTACK_UPSTREAM: upstream };
+  delete env.PSTACK_BASE;
   const run = (command, args, cwd) => spawnSync(command, args, { cwd, encoding: 'utf8', env });
-  return { dir, home, run, cli: (...args) => run(process.execPath, [SCRIPT, ...args]) };
+  return { dir, env, home, run, cli: (...args) => run(process.execPath, [SCRIPT, ...args]) };
 }
 
 // A git checkout holding a copy of this skill, standing in for the dotai checkout.
@@ -1982,6 +1983,7 @@ test('decisions-check refuses a new row whose evidence cites a run-directory pat
   const missing = append('scope: parser fixtures; docs/plans/artifacts/run/test-a2.log');
   assert.equal(missing.status, 1);
   assert.match(missing.stderr, /cites docs\/plans\/artifacts\/run\/test-a2\.log, which does not exist/);
+  assert.match(append('scope: parser; `/bin/cat docs/plans/artifacts/run/test-a3.log`').stderr, /test-a3\.log, which does not exist/, 'a command before the cited path');
   for (const [evidence, why] of [
     ['scope: parser; `docs/plans/artifacts/run/test-a1.log:2:5`.', 'a line and column suffix'],
     ['scope: parser; [log](docs/plans/artifacts/run/test-a1.log#L2)', 'a link with a line anchor'],
@@ -1999,7 +2001,7 @@ test('decisions-check refuses a new row whose evidence cites a run-directory pat
 });
 
 test('decisions-check and plan-open judge rows and boxes since PSTACK_BASE, and refuse a base that names no commit', () => {
-  const { dir, run } = sandbox();
+  const { dir, env: clean, run } = sandbox();
   const header = 'ts\tphase\tdecision\twhy\tevidence\tresult';
   const root = project(dir, 'app', { files: { 'log.decisions.tsv': `${header}\n`, 'plan.md': '# Plan\n\nStatus: building\n' } });
   run('git', ['add', '.'], root);
@@ -2008,12 +2010,13 @@ test('decisions-check and plan-open judge rows and boxes since PSTACK_BASE, and 
   writeFileSync(join(root, 'log.decisions.tsv'), `${header}\n2026-09-02T00:00:00Z\tbuild\tfix\twhy\tscope: x; docs/plans/artifacts/run/gone-a1.log\tverified\n`);
   writeFileSync(join(root, 'plan.md'), '# Plan\n\nStatus: building\n\n- [x] tests: `docs/plans/artifacts/run/gone-a1.log`\n');
   run('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qam', 'owner sweep'], root);
-  const check = (script, file, env) => spawnSync(process.execPath, [join(HELPERS, script), file], { cwd: root, encoding: 'utf8', env: { ...process.env, ...env } });
+  const check = (script, file, env) => spawnSync(process.execPath, [join(HELPERS, script), file], { cwd: root, encoding: 'utf8', env: { ...clean, ...env } });
 
   assert.equal(check('decisions-check.mjs', 'log.decisions.tsv', {}).status, 0, 'against HEAD the swept row looks committed');
   assert.match(check('decisions-check.mjs', 'log.decisions.tsv', { PSTACK_BASE: base }).stderr, /gone-a1\.log, which does not exist/);
   assert.match(check('plan-open.mjs', 'plan.md', { PSTACK_BASE: base }).stderr, /gone-a1\.log, which does not exist/);
   assert.equal(check('plan-open.mjs', 'plan.md', { PSTACK_BASE: '0'.repeat(40) }).status, 1, 'an unresolvable base fails closed');
+  assert.equal(check('decisions-check.mjs', 'log.decisions.tsv', { PSTACK_BASE: '' }).status, 1, 'an empty base fails closed');
 });
 
 test('plan-open refuses a newly closed box whose cited proof is missing or records no exit status', () => {
@@ -2186,6 +2189,12 @@ test('reply copies the final assistant text of a finished subagent and never ove
   assert.equal(reply('done.output', 'seat/answer.md').status, 1, 'a saved reply is never overwritten');
   assert.match(reply('interim.output', 'interim.md').stderr, /has not finished/, 'text that does not end the turn');
   assert.match(reply('limit.output', 'limit.md').stderr, /API error/, 'an error the runtime wrote for the agent');
+  const notified = (source, dest) => spawnSync(process.execPath, [join(HELPERS, 'reply.mjs'), '--notified', join(dir, source), join(dir, dest)], { encoding: 'utf8' });
+  assert.equal(notified('interim.output', 'notified.md').status, 0, 'a reply the completion notice vouches for, whose stop reason was never written');
+  assert.equal(read(dir, 'notified.md'), 'Now checking the log.');
+  assert.match(notified('limit.output', 'limit-2.md').stderr, /API error/, 'the notice never vouches for an API error');
+  writeFileSync(join(dir, 'calling.output'), [...start, record('m2', [{ type: 'text', text: 'Checking.' }]), record('m2', [{ type: 'tool_use', id: 't2', name: 'Read', input: {} }])].join('\n'));
+  assert.match(notified('calling.output', 'calling.md').stderr, /has not finished/, 'the notice never vouches for a message that calls a tool');
   assert.equal(existsSync(join(dir, 'interim.md')) || existsSync(join(dir, 'limit.md')), false);
 });
 

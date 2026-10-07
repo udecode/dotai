@@ -51,7 +51,7 @@ const firstExisting = (candidates) => candidates.find((candidate) => existsSync(
 function citation(token, root) {
   const at = token.indexOf(root);
   if (at === -1) return null;
-  const lead = token.slice(Math.max(0, token.slice(0, at).search(/\S+$/u)), at);
+  const lead = token.slice(Math.max(0, token.slice(0, at).search(/\S*$/u)), at);
   if (viaAnotherTree(lead)) return null;
   const path = token.slice(lead.startsWith('/') ? at - lead.length : at);
   const found = firstExisting([tidy(path.trim()), tidy(path.split(/\s/u)[0])]);
@@ -86,9 +86,9 @@ export function recordsExit(path) {
 
 export function committedLines(path) {
   const base = process.env.PSTACK_BASE;
-  if (base && spawnSync('git', ['rev-parse', '--verify', '--quiet', `${base}^{commit}`]).status !== 0) {
+  if (base !== undefined && spawnSync('git', ['rev-parse', '--verify', '--quiet', `${base}^{commit}`]).status !== 0) {
     throw new Error(`PSTACK_BASE ${base} names no commit`);
   }
-  const shown = spawnSync('git', ['show', `${base || 'HEAD'}:./${relative(process.cwd(), path)}`], { encoding: 'utf8' });
+  const shown = spawnSync('git', ['show', `${base ?? 'HEAD'}:./${relative(process.cwd(), path)}`], { encoding: 'utf8' });
   return new Set(shown.status === 0 ? shown.stdout.split('\n') : []);
 }
