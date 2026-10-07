@@ -2122,7 +2122,7 @@ test('mutate links each workspace node_modules into its worktree', () => {
   assert.equal(existsSync(join(repo, 'pkg/node_modules/.vite/written')), false, 'a test cache stays in the worktree');
 });
 
-test('mutate counts a mutation caught only when its named assertion fails, in a worktree it makes and removes', () => {
+test('mutate counts a mutation caught only when its named assertion fails, in an export it makes and removes, leaving no worktree', () => {
   const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-mutate-'));
   const repo = join(dir, 'repo');
   const outside = join(dir, 'outside');
@@ -2157,12 +2157,12 @@ test('mutate counts a mutation caught only when its named assertion fails, in a 
   assert.match(mutate({ ...subtract, name: 'title', from: 'zero = 0', to: 'zero = 2', expect: 'add sums its arguments' }).stdout, /title: not run, its expected text also appears in the passing control run/, 'a passing test title is not a failure');
   assert.match(mutate({ ...subtract, name: 'twice', from: 'export const', to: 'const' }).stdout, /anchor matches 3 times/);
   const escaped = mutate({ ...subtract, name: 'escape', file: 'ext/add.mjs' });
-  assert.match(escaped.stdout, /escape: not run, ext\/add\.mjs is outside the worktree/, 'a mutation through a link out of the worktree is refused');
+  assert.match(escaped.stdout, /escape: not run, ext\/add\.mjs is outside the export/, 'a mutation through a link out of the export is refused');
   assert.equal(read(outside, 'add.mjs'), source);
 
   writeFileSync(join(dir, 'spec.json'), JSON.stringify({ commit: '0'.repeat(40), test: [process.execPath, '--test', 'add.test.mjs'], mutations: [subtract] }));
   const failed = spawnSync(process.execPath, [join(HELPERS, 'mutate.mjs'), '--dir', join(dir, 'run'), join(dir, 'spec.json')], { cwd: repo, encoding: 'utf8' });
-  assert.match(failed.stderr, /could not make a worktree/, 'a commit the repository lacks');
+  assert.match(failed.stderr, /could not export 0{40}/, 'a commit the repository lacks');
 });
 
 test('reply copies the final assistant text of a finished subagent and never overwrites', () => {

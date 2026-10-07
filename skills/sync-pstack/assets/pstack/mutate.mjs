@@ -8,13 +8,13 @@
 //                         "test": ["<optional per-mutation command>"] }] }
 // Shows that each test fails when its fix is reverted. Run it from the
 // repository that holds the commit, one run per run directory at a time: it
-// makes a fresh worktree at the commit under <run-dir>/mutate/ with git worktree
-// add, and removes it after the mutations run, unless the run is killed. It
-// links each entry of the repository's root and package node_modules into the
-// worktree, except .cache, .vite and .vite-temp, so a test resolves the
+// exports the commit under <run-dir>/mutate/ with git archive, a plain directory
+// rather than a worktree, and removes it after the mutations run, unless the run
+// is killed. It links each entry of the repository's root and package
+// node_modules into the export, except .cache, .vite and .vite-temp, so a test resolves the
 // checkout's installed packages without writing those caches in the checkout,
 // and a workspace sibling through those links resolves to the checkout's copy,
-// not the commit's. A mutated file whose real path lies outside the worktree is
+// not the commit's. A mutated file whose real path lies outside the export is
 // refused. Each distinct test command first runs on the unmutated files and
 // must pass. A mutation runs only when its file is valid UTF-8, its anchor
 // matches exactly once and the control run's output does not hold its expected
@@ -24,10 +24,10 @@
 // run's output is searched, and a match proves the text appeared, not which
 // assertion printed it, so read the mutant's log. Every test run is logged
 // through proof.mjs and stops after the spec's timeout in seconds, 900 by
-// default. Exits 0 only when every mutation is caught and the worktree is gone.
+// default. Exits 0 only when every mutation is caught and the export is gone.
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 import { prove } from './proof.mjs';
 
@@ -67,7 +67,7 @@ function check(dir, spec, tree) {
     }
     const path = resolve(tree, mutation.file ?? '');
     if (!existsSync(path) || !realpathSync(path).startsWith(realpathSync(tree) + sep)) {
-      lines.push(`${mutation.name}: not run, ${mutation.file} is outside the worktree`);
+      lines.push(`${mutation.name}: not run, ${mutation.file} is outside the export`);
       ok = false;
       continue;
     }
@@ -96,9 +96,10 @@ function check(dir, spec, tree) {
 
 const UNLINKED = new Set(['.cache', '.vite', '.vite-temp']);
 
-function linkModules(root, tree) {
-  const listed = spawnSync('git', ['ls-files', '--', 'package.json', '*/package.json'], { cwd: tree, encoding: 'utf8' }).stdout;
-  for (const folder of new Set(['.', ...listed.split('\n').filter(Boolean).map(dirname)])) {
+function linkModules(root, tree, commit) {
+  const listed = spawnSync('git', ['ls-tree', '-r', '--name-only', commit], { cwd: root, encoding: 'utf8', maxBuffer: 1 << 28 }).stdout;
+  const packages = listed.split('\n').filter((name) => name === 'package.json' || name.endsWith('/package.json'));
+  for (const folder of new Set(['.', ...packages.map(dirname)])) {
     const modules = join(root, folder, 'node_modules');
     const target = join(tree, folder, 'node_modules');
     if (!existsSync(modules) || !existsSync(join(tree, folder)) || existsSync(target)) continue;
@@ -123,19 +124,23 @@ if (!spec.commit || !(spec.mutations?.length > 0)) {
 let attempt = 1;
 while (existsSync(join(dir, 'mutate', `tree-a${attempt}`))) attempt++;
 const tree = resolve(dir, 'mutate', `tree-a${attempt}`);
-const removeTree = () => !existsSync(tree) || spawnSync('git', ['worktree', 'remove', '--force', tree]).status === 0;
-const made = prove({ dir, name: 'mutate/tree', command: ['git', 'worktree', 'add', '--detach', tree, spec.commit] });
+const removeTree = () => {
+  rmSync(tree, { recursive: true, force: true });
+  return !existsSync(tree);
+};
+mkdirSync(tree, { recursive: true });
+const made = prove({ dir, name: 'mutate/tree', command: ['bash', '-o', 'pipefail', '-c', 'git archive "$1" | tar -x -C "$2"', 'export', spec.commit, tree] });
 if (made.exit !== 0) {
-  console.error(`could not make a worktree at ${spec.commit}; log ${made.path}${removeTree() ? '' : `; remove ${tree} by hand`}`);
+  console.error(`could not export ${spec.commit}; log ${made.path}${removeTree() ? '' : `; remove ${tree} by hand`}`);
   process.exit(1);
 }
 let result;
 let removed = false;
 try {
-  linkModules(spawnSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).stdout.trim(), tree);
+  linkModules(spawnSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).stdout.trim(), tree, spec.commit);
   result = check(dir, spec, tree);
 } finally {
   removed = removeTree();
 }
-console.log([...result.lines, ...(removed ? [] : [`could not remove ${tree}; remove it with git worktree remove --force`])].join('\n'));
+console.log([...result.lines, ...(removed ? [] : [`could not remove ${tree}; remove that directory by hand`])].join('\n'));
 process.exit(result.ok && removed ? 0 : 1);
