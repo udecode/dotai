@@ -15,7 +15,7 @@ const at = (seconds) => new Date(T0 + seconds * 1000).toISOString();
 const hook = (session, event, seconds, extra = {}) => ({ kind: 'hook', v: 2, runtime: 'claude', session, event, at: at(seconds), cwd: '/repo', plans: [], source: null, ...extra });
 const ask = (session, seconds, toolUseId = `tu-${session}-${seconds}`) => hook(session, 'PreToolUse', seconds, { tool: 'AskUserQuestion', toolUseId, questions: [{ question: `Ship ${session}?`, options: ['Ship', 'Hold'] }] });
 const projectFrom = (cwd) => (cwd ? { id: cwd, name: basename(cwd) } : { id: 'other', name: 'other' });
-const viewsOf = (sessions, urls = {}) => Object.values(sessions).map((session) => ({ session, title: session.id, project: projectFrom(session.cwd), rail: null, webUrl: urls[session.id] ?? null, appUrl: null }));
+const viewsOf = (sessions, urls = {}, rails = {}) => Object.values(sessions).map((session) => ({ session, title: session.id, project: projectFrom(session.cwd), rail: rails[session.id] ?? null, webUrl: urls[session.id] ?? null, appUrl: null }));
 const VALID_KEY = /^[A-Za-z0-9_-]{1,255}$/u;
 
 function fakeClient(script = {}) {
@@ -123,6 +123,18 @@ test('a project card lists its active sessions, then the three that went idle la
   const resting = projectCard(sessions).content_state;
   assert.deepEqual(resting.metrics.map(({ value }) => value), ['busy', 'nap5', 'nap4']);
   assert.equal(resting.subtitle, '+3 idle');
+});
+
+test('idle sessions on an open plan come before more recently idle ones without one', () => {
+  const sessions = {};
+  for (const [id, seconds] of [['planned', 1], ['chat1', 2], ['chat2', 3], ['chat3', 4], ['finished', 5]]) {
+    reduce(sessions, hook(id, 'UserPromptSubmit', 0, { cwd: '/w/ellie' }));
+    reduce(sessions, hook(id, 'Stop', seconds, { cwd: '/w/ellie' }));
+  }
+  const rail = (state) => ({ page: null, stages: [{ label: 'Plan', state: 'done' }, { label: 'Build', state }], steps: { checked: 0, total: 0 } });
+  const views = viewsOf(sessions, {}, { planned: rail('waiting'), finished: rail('done') });
+  const [[, card]] = planBoard(views, emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
+  assert.deepEqual(card.body.content_state.metrics.map(({ value }) => value), ['planned', 'finished', 'chat3']);
 });
 
 test('a project card counts only its own ships today', () => {

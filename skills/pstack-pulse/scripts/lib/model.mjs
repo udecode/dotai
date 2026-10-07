@@ -232,8 +232,10 @@ export function reduce(sessions, observation) {
   derive(session, observation.at);
 }
 
+const LIVE_STAGES = ['now', 'waiting', 'blocked', 'stopped'];
+
 export function stepOf(rail) {
-  const live = rail.stages.findIndex(({ state }) => ['now', 'waiting', 'blocked', 'stopped'].includes(state));
+  const live = rail.stages.findIndex(({ state }) => LIVE_STAGES.includes(state));
   if (live >= 0) return live + 1;
   return rail.stages.findLastIndex(({ state }) => state !== 'left') + 1 || 1;
 }
@@ -304,6 +306,8 @@ function valueOf(view) {
   return `${rail.stages[step - 1].label} ${step}/${rail.stages.length}`;
 }
 
+const onOpenPlan = (view) => Boolean(view.rail?.stages?.some(({ state }) => LIVE_STAGES.includes(state)));
+
 const byUrgencyThenName = (a, b) =>
   RANK[a.session.state] - RANK[b.session.state] ||
   (a.session.state === 'needs-you' ? firstNeed(a.session).openedAt.localeCompare(firstNeed(b.session).openedAt) : 0) ||
@@ -313,7 +317,9 @@ const byUrgencyThenName = (a, b) =>
 function projectCardOf({ project, sessions }, { listUrl, now }) {
   const ordered = sessions.toSorted(byUrgencyThenName);
   const active = ordered.filter(({ session }) => session.state !== 'idle');
-  const idle = ordered.filter(({ session }) => session.state === 'idle').toSorted((a, b) => b.session.since.localeCompare(a.session.since) || keyOf(a.session).localeCompare(keyOf(b.session)));
+  const idle = ordered
+    .filter(({ session }) => session.state === 'idle')
+    .toSorted((a, b) => onOpenPlan(b) - onOpenPlan(a) || b.session.since.localeCompare(a.session.since) || keyOf(a.session).localeCompare(keyOf(b.session)));
   const activeShown = active.length > METRIC_LIMIT ? active.slice(0, METRIC_LIMIT - 1) : active;
   const idleShown = activeShown.length < active.length ? [] : idle.slice(0, Math.min(RECENT_IDLE, METRIC_LIMIT - activeShown.length));
   const metrics = [...activeShown, ...idleShown].map((view) => ({ label: valueOf(view), value: clip(labelOf(view.title), 20), color: STATE_COLOR[view.session.state] }));
