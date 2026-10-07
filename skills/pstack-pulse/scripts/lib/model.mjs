@@ -5,7 +5,6 @@ import { QUESTION_TOOLS } from './event.mjs';
 const SLOTS = 5;
 const IDLE_GRACE_MS = 15 * 60_000;
 const METRIC_LIMIT = 8;
-const IDLE_ROWS = 3;
 const HOUR = 3_600_000;
 const LOST_SHOWN_MS = HOUR;
 const STALE_MS = 24 * HOUR;
@@ -247,7 +246,7 @@ function sessionCardOf(view) {
   const rail = view.rail?.stages?.length ? view.rail : null;
   const stage = rail ? rail.stages[stepOf(rail) - 1] : null;
   const steps = rail?.steps?.total ? ` ${rail.steps.checked}/${rail.steps.total}` : '';
-  const subtitle = (need ? String(need.question) : [view.project.name, stage ? `${stage.label}${steps}` : 'No plan', view.account].filter(Boolean).join(' · ')).slice(0, 120);
+  const subtitle = (need ? String(need.question) : [view.project.name, stage ? `${stage.label}${steps}` : 'No plan'].join(' · ')).slice(0, 120);
   const title = clip(labelOf(view.title), 80);
   const color = STATE_COLOR[state] ?? 'blue';
   const planPage = rail?.page ? { title: 'Plan page', type: 'open_url', url: rail.page } : null;
@@ -296,41 +295,27 @@ function valueOf(view) {
   return `${rail.stages[step - 1].label} ${step}/${rail.stages.length}`;
 }
 
-const onOpenPlan = (view) => Boolean(view.rail?.stages?.some(({ state }) => LIVE_STAGES.includes(state)));
-
 const byUrgencyThenName = (a, b) =>
   RANK[a.session.state] - RANK[b.session.state] ||
   (a.session.state === 'needs-you' ? firstNeed(a.session).openedAt.localeCompare(firstNeed(b.session).openedAt) : 0) ||
   labelOf(a.title).localeCompare(labelOf(b.title)) ||
   keyOf(a.session).localeCompare(keyOf(b.session));
 
-function projectCardOf({ project, sessions }, { listUrl, now }) {
+function projectCardOf({ project, sessions }, { listUrl }) {
   const ordered = sessions.toSorted(byUrgencyThenName);
   const active = ordered.filter(({ session }) => session.state !== 'idle');
-  const idleCount = ordered.length - active.length;
-  const planned = ordered
-    .filter((view) => view.session.state === 'idle' && onOpenPlan(view))
-    .toSorted((a, b) => b.session.since.localeCompare(a.session.since) || keyOf(a.session).localeCompare(keyOf(b.session)));
-  const activeShown = active.length > METRIC_LIMIT ? active.slice(0, METRIC_LIMIT - 1) : active;
-  const idleShown = activeShown.length < active.length ? [] : planned.slice(0, Math.min(IDLE_ROWS, METRIC_LIMIT - activeShown.length));
-  const rows = [...activeShown, ...idleShown];
-  const metrics = rows.length
-    ? rows.map((view) => ({ label: valueOf(view), value: clip(labelOf(view.title), 20), color: STATE_COLOR[view.session.state] }))
-    : [{ label: 'idle', value: String(idleCount), color: 'gray' }];
-  if (activeShown.length < active.length) metrics.push({ label: 'more', value: `+${active.length - activeShown.length}`, color: 'gray' });
+  const shown = active.length > METRIC_LIMIT ? active.slice(0, METRIC_LIMIT - 1) : active;
+  const metrics = shown.length
+    ? shown.map((view) => ({ label: valueOf(view), value: clip(labelOf(view.title), 20), color: STATE_COLOR[view.session.state] }))
+    : [{ label: 'idle', value: String(ordered.length), color: 'gray' }];
+  if (shown.length < active.length) metrics.push({ label: 'more', value: `+${active.length - shown.length}`, color: 'gray' });
   const asking = ordered.find(({ session }) => session.state === 'needs-you');
   const counts = Object.groupBy(active, ({ session }) => session.state);
-  const ships = shipsOn(sessions.map(({ session }) => session), now);
-  const hiddenIdle = idleCount - idleShown.length;
   const subtitle = asking
     ? `${clip(labelOf(asking.title), 30)}: ${firstNeed(asking.session).question}`
-    : [
-        ...['failed', 'working'].filter((state) => counts[state]).map((state) => `${counts[state].length} ${STATE_LABEL[state].toLowerCase()}`),
-        ships && `${ships} shipped today`,
-        rows.length ? hiddenIdle && `+${hiddenIdle} idle` : 'all idle',
-      ]
-        .filter(Boolean)
-        .join(' · ');
+    : active.length
+      ? ['failed', 'working'].filter((state) => counts[state]).map((state) => `${counts[state].length} ${STATE_LABEL[state].toLowerCase()}`).join(' · ')
+      : 'all idle';
   const action = asking?.webUrl ? { title: 'Answer', type: 'open_url', url: asking.webUrl } : listUrl ? { title: 'All sessions', type: 'open_url', url: listUrl } : null;
   return { type: 'stats', body: { content_state: { title: project.name, subtitle: clip(subtitle, 110), type: 'stats', metrics }, ...(action ? { action } : {}) } };
 }
@@ -404,8 +389,7 @@ export function incidentsOf(views) {
   return incidents;
 }
 
-const shipsOn = (sessions, now) => new Set(sessions.flatMap((session) => session.ships.filter((ship) => ship.at.slice(0, 10) === iso(now).slice(0, 10)).map((ship) => ship.id))).size;
-export const shippedToday = (sessions, now) => shipsOn(Object.values(sessions), now);
+export const shippedToday = (sessions, now) => new Set(Object.values(sessions).flatMap((session) => session.ships.filter((ship) => ship.at.slice(0, 10) === iso(now).slice(0, 10)).map((ship) => ship.id))).size;
 
 const CELEBRATE_MS = 10_000;
 

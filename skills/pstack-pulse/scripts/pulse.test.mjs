@@ -15,7 +15,7 @@ const at = (seconds) => new Date(T0 + seconds * 1000).toISOString();
 const hook = (session, event, seconds, extra = {}) => ({ kind: 'hook', v: 2, runtime: 'claude', session, event, at: at(seconds), cwd: '/repo', plans: [], source: null, ...extra });
 const ask = (session, seconds, toolUseId = `tu-${session}-${seconds}`) => hook(session, 'PreToolUse', seconds, { tool: 'AskUserQuestion', toolUseId, questions: [{ question: `Ship ${session}?`, options: ['Ship', 'Hold'] }] });
 const projectFrom = (cwd) => (cwd ? { id: cwd, name: basename(cwd) } : { id: 'other', name: 'other' });
-const viewsOf = (sessions, urls = {}, rails = {}) => Object.values(sessions).map((session) => ({ session, title: session.id, project: projectFrom(session.cwd), rail: rails[session.id] ?? null, webUrl: urls[session.id] ?? null, appUrl: null }));
+const viewsOf = (sessions, urls = {}, rails = {}) => Object.values(sessions).map((session) => ({ session, title: session.id, project: projectFrom(session.cwd), rail: rails[session.id] ?? null, webUrl: urls[session.id] ?? null, appUrl: null, account: 'owner@example.com' }));
 const VALID_KEY = /^[A-Za-z0-9_-]{1,255}$/u;
 
 function fakeClient(script = {}) {
@@ -105,6 +105,7 @@ test('session cards fill the slots the project cards leave, those that need you 
   const asking = cards[2][1];
   assert.equal(asking.type, 'segmented_progress');
   assert.equal(asking.body.content_state.subtitle, 'Ship b2?');
+  assert.equal(cards[3][1].body.content_state.subtitle, 'b · No plan');
 });
 
 test('a question turns a shown session card orange in place, without ending it', async () => {
@@ -152,21 +153,24 @@ test('a crowded project lists the session that needs you first, with its questio
   assert.equal(card.action.url, 'https://claude.ai/code/s9');
 });
 
-test('a project card lists its active sessions, then up to three idle sessions on an unfinished plan, and counts the other idle ones', () => {
+test('a project card lists only its working sessions and those that need you, with no idle or ship counts', () => {
   const sessions = {};
   reduce(sessions, hook('busy', 'UserPromptSubmit', 0, { cwd: '/w/ellie' }));
-  for (const [id, seconds] of [['planned1', 1], ['planned2', 2], ['planned3', 3], ['planned4', 4], ['chat', 5], ['finished', 6]]) {
-    reduce(sessions, hook(id, 'UserPromptSubmit', 0, { cwd: '/w/ellie' }));
-    reduce(sessions, hook(id, 'Stop', seconds, { cwd: '/w/ellie' }));
+  reduce(sessions, hook('shipper', 'UserPromptSubmit', 0, { cwd: '/w/ellie', push: { sha: 'abc1234567', branch: 'next' } }));
+  reduce(sessions, { kind: 'push', runtime: 'claude', session: 'shipper', at: at(1), sha: 'abc1234567', branch: 'next', outcome: 'confirmed', repoId: 'ellie', repoName: 'ellie' });
+  for (const id of ['shipper', 'planned', 'chat']) {
+    reduce(sessions, hook(id, 'UserPromptSubmit', 1, { cwd: '/w/ellie' }));
+    reduce(sessions, hook(id, 'Stop', 2, { cwd: '/w/ellie' }));
   }
-  const rail = (state) => ({ page: null, stages: [{ label: 'Plan', state: 'done' }, { label: 'Build', state }], steps: { checked: 0, total: 0 } });
-  const rails = { planned1: rail('waiting'), planned2: rail('waiting'), planned3: rail('waiting'), planned4: rail('waiting'), finished: rail('done') };
-  const [[, card]] = planBoard(viewsOf(sessions, {}, rails), emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
-  assert.deepEqual(card.body.content_state.metrics.map(({ value }) => value), ['busy', 'planned4', 'planned3', 'planned2']);
-  assert.equal(card.body.content_state.subtitle, '1 working · +3 idle');
+  const open = { page: null, stages: [{ label: 'Plan', state: 'done' }, { label: 'Build', state: 'waiting' }], steps: { checked: 0, total: 0 } };
+  const card = () => planBoard(viewsOf(sessions, {}, { planned: open }), emptyPhone(), { now: T0 + 60_000, shippedToday: 1 }).cards[0][1].body.content_state;
+  assert.deepEqual(card().metrics.map(({ value }) => value), ['busy']);
+  assert.equal(card().subtitle, '1 working');
+  reduce(sessions, { ...ask('asker', 3), cwd: '/w/ellie' });
+  assert.deepEqual(card().metrics.map(({ value }) => value), ['asker', 'busy']);
 });
 
-test('a project whose idle sessions have no unfinished plan shows one idle count', () => {
+test('a project with no working session shows one idle count', () => {
   const sessions = {};
   for (const id of ['chat1', 'chat2', 'finished']) {
     reduce(sessions, hook(id, 'UserPromptSubmit', 0, { cwd: '/w/ellie' }));
@@ -176,16 +180,6 @@ test('a project whose idle sessions have no unfinished plan shows one idle count
   const [[, card]] = planBoard(viewsOf(sessions, {}, { finished: done }), emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
   assert.deepEqual(card.body.content_state.metrics, [{ label: 'idle', value: '3', color: 'gray' }]);
   assert.equal(card.body.content_state.subtitle, 'all idle');
-});
-
-test('a project card counts only its own ships today', () => {
-  const sessions = {};
-  reduce(sessions, hook('shipper', 'UserPromptSubmit', 0, { cwd: '/w/ellie', push: { sha: 'abc1234567', branch: 'next' } }));
-  reduce(sessions, { kind: 'push', runtime: 'claude', session: 'shipper', at: at(1), sha: 'abc1234567', branch: 'next', outcome: 'confirmed', repoId: 'ellie', repoName: 'ellie' });
-  reduce(sessions, hook('other', 'UserPromptSubmit', 2, { cwd: '/w/plate' }));
-  const cards = new Map(planBoard(viewsOf(sessions), emptyPhone(), { now: T0 + 60_000, shippedToday: 1 }).cards);
-  assert.equal(cards.get(projectKeyOf(projectFrom('/w/ellie'))).body.content_state.subtitle, '1 working · 1 shipped today');
-  assert.equal(cards.get(projectKeyOf(projectFrom('/w/plate'))).body.content_state.subtitle, '1 working');
 });
 
 test('eight sessions fill eight metrics, and a ninth folds two into a more value', () => {
