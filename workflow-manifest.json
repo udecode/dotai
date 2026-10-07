@@ -17,7 +17,7 @@
     {
       "name": "pstack-pulse",
       "distribution": "bundled",
-      "description": "Show every Claude Code and Codex session on the iPhone lock screen through ActivitySmith, with each plan page's pipeline, and buzz when a session needs you, ships or fails.",
+      "description": "Show every Claude Code and Codex session on the iPhone lock screen through ActivitySmith and in the Mac menubar, with each plan page's pipeline, and buzz when a session needs you, ships or fails.",
       "category": "Monitoring",
       "dependencies": [],
       "capabilities": [
@@ -74,7 +74,7 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "7f3b68553670414c1df01761cbaafedb6ab764852771d91966e4edda37781634",
+      "sha256": "1e904233e1a621a2da52366d95c1860383c7b81d3470698e03f93e4d004d9874",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
@@ -94,7 +94,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/SKILL.md": {
-      "sha256": "279f776df071e77f01bb0c9c79551cf983e525dde5d1047b0379f313a0a24b79",
+      "sha256": "fd6d37ecf374e379f7f47a1fe64815be01886b2296dfbc9f24cc02ed889f812d",
       "mode": 420
     },
     "skills/pstack-pulse/desktop/index.html": {
@@ -117,6 +117,10 @@
       "sha256": "0213cbe73d57801c3a4268aebd1c7aae155ee694844790c4983e479957650b35",
       "mode": 420
     },
+    "skills/pstack-pulse/menubar/PulseMenu.swift": {
+      "sha256": "35a5c2e43eb092671e9c1769e2e14e88e64138318976cce3c3ff8f6e56a068b8",
+      "mode": 420
+    },
     "skills/pstack-pulse/scripts/hook.mjs": {
       "sha256": "66ffd735de4191a3c959c81e1caa5a93daab40ccfbbc3a625f11669733c93c14",
       "mode": 420
@@ -126,7 +130,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/install.mjs": {
-      "sha256": "2ba3bb2db17db9f6433c4e4aa46e2f5e7c8c9c24ae73cb23711376c172497255",
+      "sha256": "f3255e06287bc2ce7b31ac621ca7abcb66c535e097801ed0be45e1a2185ffde8",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/io.mjs": {
@@ -134,7 +138,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/model.mjs": {
-      "sha256": "d4a910e389c1870e6a59f7f495f8811b78a6ad91c4007123afcb379520daf399",
+      "sha256": "a4fb7cd5de089f9906263530d9a20d52b2885aa29e4515c66273c0a97ebaa5e3",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/phone.mjs": {
@@ -142,11 +146,11 @@
       "mode": 420
     },
     "skills/pstack-pulse/scripts/pulse.mjs": {
-      "sha256": "16bbcf700a94d57fde0a4afb8e481c42b42e3966827c27334334b525c1403763",
+      "sha256": "057fe82fc97bbfb42c046dd3bf377faf5947dd0b83c335a78f093c7288bed52b",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/pulse.test.mjs": {
-      "sha256": "97e99b94f6c14233ac6023288da92d63ea74be73d0d954b022f34ad204fbb8d2",
+      "sha256": "c72f56846967bf4de19c08b95dcc5fc82694f8c8cdf3ee41c7c3e6ddf47e7bca",
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {

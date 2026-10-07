@@ -299,9 +299,19 @@ function keepShownUntilOutranked(ranked, shown, slots) {
   return chosen;
 }
 
-export function planBoard(views, phone, context) {
+function rankedLive(views) {
   const live = views.filter(({ session }) => session.life === 'live' && RANK[session.state] !== undefined);
   const ranked = live.toSorted((a, b) => RANK[a.session.state] - RANK[b.session.state] || (a.session.state === 'needs-you' ? firstNeed(a.session).openedAt.localeCompare(firstNeed(b.session).openedAt) : b.session.lastHookAt.localeCompare(a.session.lastHookAt)));
+  return { live, ranked };
+}
+
+export function menuBoardOf(views, context) {
+  const { live, ranked } = rankedLive(views);
+  return { fleet: fleetOf(live, context).body, cards: ranked.map((view) => ({ key: keyOf(view.session), state: view.session.state, ...cardOf(view).body })) };
+}
+
+export function planBoard(views, phone, context) {
+  const { live, ranked } = rankedLive(views);
   const capacity = phone.capacity && context.now < phone.capacity.until ? phone.capacity.slots : SESSION_SLOTS + 1;
   const chosen = keepShownUntilOutranked(ranked, new Set(Object.keys(phone.streams)), Math.max(Math.min(SESSION_SLOTS, capacity - 1), 0));
   return {

@@ -6,7 +6,7 @@ import test from 'node:test';
 import { eventOf } from './lib/event.mjs';
 import { hookCommand, withHook, withoutHook } from './lib/install.mjs';
 import { readRollout } from './lib/io.mjs';
-import { incidentsOf, keyOf, petOf, planBoard, reduce, SESSION_SLOTS, stepOf } from './lib/model.mjs';
+import { incidentsOf, keyOf, menuBoardOf, petOf, planBoard, reduce, SESSION_SLOTS, stepOf } from './lib/model.mjs';
 import { createClient, deliver, emptyPhone } from './lib/phone.mjs';
 
 const T0 = Date.parse('2026-10-06T10:00:00.000Z');
@@ -277,4 +277,17 @@ test('the pet waits with a badge while a session needs you, jumps on a fresh shi
   reduce(sessions, hook('busy', 'Stop', 61));
   reduce(sessions, hook('asking', 'Stop', 61));
   assert.equal(petOf(viewsOf(sessions), T0 + 62_000).mood, 'idle');
+});
+
+test('the menubar board lists every live session with the card the phone gets, ranked the same way', () => {
+  const sessions = {};
+  for (let index = 0; index < 6; index += 1) reduce(sessions, hook(`s${index}`, 'UserPromptSubmit', index));
+  reduce(sessions, ask('s5', 10));
+  const context = { now: T0 + 11_000, shippedToday: 0 };
+  const menu = menuBoardOf(viewsOf(sessions), context);
+  assert.equal(menu.cards.length, 6);
+  assert.deepEqual(menu.cards.map(({ state }) => state), ['needs-you', 'working', 'working', 'working', 'working', 'working']);
+  const phoneCards = new Map(planBoard(viewsOf(sessions), emptyPhone(), context).cards);
+  for (const card of menu.cards.filter(({ key }) => phoneCards.has(key))) assert.deepEqual(card.content_state, phoneCards.get(card.key).body.content_state);
+  assert.deepEqual(menu.fleet.content_state, phoneCards.get('pulse-fleet').body.content_state);
 });

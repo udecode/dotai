@@ -1,7 +1,7 @@
 ---
 name: pstack-pulse
-description: Show every Claude Code and Codex session on the iPhone lock screen through ActivitySmith, with each plan page's pipeline, and buzz when a session needs you, ships or fails.
-argument-hint: install | doctor | status | uninstall
+description: Show every Claude Code and Codex session on the iPhone lock screen through ActivitySmith and in the Mac menubar, with each plan page's pipeline, and buzz when a session needs you, ships or fails.
+argument-hint: install | doctor | status | menubar | uninstall
 disable-model-invocation: true
 ---
 
@@ -27,7 +27,7 @@ A daemon on this Mac turns hook events from every Claude Code and Codex session 
 
 ## Install
 
-1. Run `install`. It is done when it prints the hook files, `daemon: started` and the session list URL. The daemon picks up the key within 30 seconds of it being stored.
+1. Run `install`. It is done when it prints the hook files, `daemon: started`, `menubar: started` and the session list URL. The daemon picks up the key within 30 seconds of it being stored.
 2. Hand the owner the three steps it prints, which only the owner can do:
    - Store the ActivitySmith key in the Keychain with the `security add-generic-password` line.
    - Publish the read-only session list with the `tailscale funnel` line. The list lives at a secret path and accepts no input.
@@ -38,16 +38,22 @@ A daemon on this Mac turns hook events from every Claude Code and Codex session 
 ## Status and repair
 
 - `status` lists every live session with its state, then the cards on the phone and the badge.
-- `doctor` checks the key, the daemon, both hook files, the Claude session registry, that cc-same and cswap are on the daemon's PATH, and the list secret.
+- `doctor` checks the key, the daemon, the menubar, both hook files, the Claude session registry, that cc-same and cswap are on the daemon's PATH, and the list secret.
 - The daemon logs to `~/Library/Logs/pstack-pulse.log` and keeps its state in `~/.pstack-pulse/`. An inbox file it cannot read as an event moves to `~/.pstack-pulse/inbox/bad/`.
 - A card's pipeline comes from `node .agents/pstack/plan-page.mjs <plan> --rail` in the session's own repository. A repository synced before that mode existed shows "No plan" until its next sync-pstack run.
 - `install` owns only the hook entries whose command ends in `--owner=pstack-pulse`. It keeps every other hook in the same group, saves a first backup of each settings file beside it, and writes through a temporary file, so a crash never leaves half a file; a change another program makes during that write is lost. Claude's `PreToolUse` hook runs only for `AskUserQuestion` and `ExitPlanMode`.
 - Only one daemon runs at a time: it holds a socket under /tmp named for its state folder, and a second daemon that finds the socket answering exits.
-- `uninstall` stops the daemon, deletes its LaunchAgent and removes only its own hook entries. It ends its cards and clears the badge, says what is still on the phone if that fails, prints the line that stops the Funnel, and keeps the state folder.
+- `uninstall` stops the daemon and the menubar, deletes their LaunchAgents and removes only its own hook entries. It ends its cards and clears the badge, says what is still on the phone if that fails, prints the line that stops the Funnel, and keeps the state folder.
+
+## Menubar
+
+The menubar icon puts the phone's cards on the Mac. Its number counts the sessions that need you, in orange. With none, it counts failed sessions in red, then working ones. A moon means every session is idle, and a struck-through bolt means the daemon does not answer. Its menu shows the fleet card, then a card for every live session, ranked as on the phone: those that need you first, then failed, working and idle. Each card shows the session's title, state, detail line and stage bar. Clicking a card opens what its main button opens on the phone, and a row under it opens its second button. The phone shows at most four sessions, but the menu has no limit.
+
+`install` compiles `menubar/PulseMenu.swift` with Xcode's `swiftc` into `~/.pstack-pulse/bin/pstack-pulse-menu` and runs it as the `dev.pstack.pulse.menu` LaunchAgent. Without `swiftc` it prints that the menubar was not built and installs everything else. `menubar` rebuilds and restarts only the menubar. Quit stops it until the next login. Any other exit restarts it. It reads the daemon's `board.json` on the session list port every two seconds. About three seconds after it starts, it writes its menubar position, and whether macOS draws it, to `~/Library/Logs/pstack-pulse-menu.log`. There, `shown=false` means macOS is not drawing it right then. `--dump` prints the menu as text and quits, which checks it without screen recording access.
 
 ## Pet
 
-`node <skill>/scripts/pulse.mjs pet` opens a floating pet in the corner of the screen, above every window and on every Space, using the Codex desktop pet's sprite format and animations. It runs while any session works, waits with an orange badge counting the sessions that need you, plays its failed animation while one has failed, and jumps for ten seconds after a push ships. Click it for a tray that lists what needs you, with buttons that open the session or its plan page; drag it anywhere, and it keeps that spot. The first start fetches Electron through `npx` and the Codex sprite from OpenAI's pet CDN into `~/.pstack-pulse/pets/`. The pet reads the daemon's `state.json` on the session list port every two seconds. `--snapshot` saves `pet-snapshot.png` and `pet-snapshot-tray.png` in `~/.pstack-pulse/` and quits, which checks the render without screen recording access.
+The pet is paused while the menubar covers the Mac, so `install` never starts it. `node <skill>/scripts/pulse.mjs pet` opens a floating pet in the corner of the screen, above every window and on every Space, using the Codex desktop pet's sprite format and animations. It runs while any session works, waits with an orange badge counting the sessions that need you, plays its failed animation while one has failed, and jumps for ten seconds after a push ships. Click it for a tray that lists what needs you, with buttons that open the session or its plan page; drag it anywhere, and it keeps that spot. The first start fetches Electron through `npx` and the Codex sprite from OpenAI's pet CDN into `~/.pstack-pulse/pets/`. The pet reads the daemon's `state.json` on the session list port every two seconds. `--snapshot` saves `pet-snapshot.png` and `pet-snapshot-tray.png` in `~/.pstack-pulse/` and quits, which checks the render without screen recording access.
 
 ## Tests
 

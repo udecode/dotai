@@ -9,13 +9,15 @@ import { fileURLToPath } from 'node:url';
 import { editSettings, hookCommand, plistOf, withHook, withoutHook } from './lib/install.mjs';
 import { HOME } from './lib/event.mjs';
 import { accounts, apiKey, claudeRegistry, loadConfig, loadState, probe, railOf, readInbox, repoOf, saveConfig, saveState, writeFileAtomic } from './lib/io.mjs';
-import { firstNeed, incidentsOf, keyOf, petOf, planBoard, reduce, shippedToday } from './lib/model.mjs';
+import { firstNeed, incidentsOf, keyOf, menuBoardOf, petOf, planBoard, reduce, shippedToday } from './lib/model.mjs';
 import { createClient, deliver, teardown } from './lib/phone.mjs';
 
 const SCRIPTS = dirname(realpathSync(fileURLToPath(import.meta.url)));
 const LABEL = 'dev.pstack.pulse';
 const PLIST = join(homedir(), 'Library/LaunchAgents', `${LABEL}.plist`);
 const LOG = join(homedir(), 'Library/Logs/pstack-pulse.log');
+const MENU = { label: 'dev.pstack.pulse.menu', bin: join(HOME, 'bin/pstack-pulse-menu'), log: join(homedir(), 'Library/Logs/pstack-pulse-menu.log') };
+const MENU_PLIST = join(homedir(), 'Library/LaunchAgents', `${MENU.label}.plist`);
 const SETTINGS = { claude: join(homedir(), '.claude/settings.json'), codex: join(homedir(), '.codex/hooks.json') };
 const EVENTS = {
   claude: [['SessionStart'], ['UserPromptSubmit'], ['PreToolUse', 'AskUserQuestion|ExitPlanMode'], ['PostToolUse'], ['PostToolUseFailure'], ['Notification', 'permission_prompt'], ['PermissionDenied'], ['Stop'], ['StopFailure'], ['SessionEnd']],
@@ -26,6 +28,7 @@ const log = (...parts) => console.error(new Date().toISOString(), ...parts);
 const launchctl = (...args) => spawnSync('launchctl', args, { encoding: 'utf8' });
 
 let latestViews = [];
+let latestMenu = { fleet: null, cards: [] };
 let accountCache = { at: 0, value: { desktop: null, cli: null } };
 let lastProblems = '';
 
@@ -59,7 +62,9 @@ async function tick(state, config, client) {
   saveState(state);
   const views = viewsOf(state.sessions);
   latestViews = views;
-  const board = planBoard(views, state.phone, { now, shippedToday: shippedToday(state.sessions, now), account: accountCache.value.desktop, listUrl: config.listUrl });
+  const context = { now, shippedToday: shippedToday(state.sessions, now), account: accountCache.value.desktop, listUrl: config.listUrl };
+  latestMenu = menuBoardOf(views, context);
+  const board = planBoard(views, state.phone, context);
   problems.push(...(await deliver(state.phone, { cards: board.cards, badge: board.badge, incidents: incidentsOf(views), listUrl: config.listUrl }, { client, save: () => saveState(state) })));
   saveState(state);
   const summary = problems.join('; ');
@@ -88,10 +93,12 @@ function listHtml() {
 
 function serveList(config) {
   if (!config.listPort || !config.secret) return;
+  const feeds = { [`/${config.secret}/state.json`]: () => petOf(latestViews, Date.now()), [`/${config.secret}/board.json`]: () => latestMenu };
   createServer((request, response) => {
-    if (request.method === 'GET' && request.url?.split('?')[0] === `/${config.secret}/state.json`) {
+    const feed = feeds[request.url?.split('?')[0]];
+    if (request.method === 'GET' && feed) {
       response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-      response.end(JSON.stringify(petOf(latestViews, Date.now())));
+      response.end(JSON.stringify(feed()));
       return;
     }
     if (request.method === 'GET' && request.url?.split('?')[0].replace(/\/$/u, '') === `/${config.secret}`) {
@@ -151,6 +158,27 @@ async function run() {
   }
 }
 
+function load(label, plist) {
+  const uid = process.getuid();
+  launchctl('bootout', `gui/${uid}/${label}`);
+  for (let wait = 0; wait < 40 && launchctl('print', `gui/${uid}/${label}`).status === 0; wait += 1) spawnSync('sleep', ['0.25']);
+  return launchctl('bootstrap', `gui/${uid}`, plist);
+}
+
+function menubar() {
+  mkdirSync(dirname(MENU.bin), { recursive: true });
+  const build = spawnSync('xcrun', ['swiftc', '-O', '-o', MENU.bin, join(SCRIPTS, '..', 'menubar', 'PulseMenu.swift')], { encoding: 'utf8' });
+  if (build.status !== 0) {
+    process.exitCode = 1;
+    console.log(`menubar: not built; it needs Xcode's swiftc (${(build.stderr || build.error?.message || '').trim().split('\n')[0]})`);
+    return;
+  }
+  writeFileAtomic(MENU_PLIST, plistOf({ label: MENU.label, args: [MENU.bin], log: MENU.log, path: process.env.PATH, untilQuit: true }));
+  const boot = load(MENU.label, MENU_PLIST);
+  if (boot.status !== 0) process.exitCode = 1;
+  console.log(`menubar: ${boot.status === 0 ? 'started' : `launchctl failed: ${boot.stderr.trim()}`} (${MENU.log})`);
+}
+
 function install() {
   const config = loadConfig();
   config.listPort ??= 47811;
@@ -159,14 +187,12 @@ function install() {
   if (dns) config.listUrl = `https://${dns}:8443/${config.secret}/`;
   saveConfig(config);
   for (const runtime of ['claude', 'codex']) editSettings(SETTINGS[runtime], (settings) => withHook(settings, EVENTS[runtime], hookCommand(process.execPath, join(SCRIPTS, 'hook.mjs'), runtime)));
-  writeFileAtomic(PLIST, plistOf({ label: LABEL, node: process.execPath, script: join(SCRIPTS, 'pulse.mjs'), log: LOG, path: process.env.PATH }));
-  const uid = process.getuid();
-  launchctl('bootout', `gui/${uid}/${LABEL}`);
-  for (let wait = 0; wait < 40 && launchctl('print', `gui/${uid}/${LABEL}`).status === 0; wait += 1) spawnSync('sleep', ['0.25']);
-  const boot = launchctl('bootstrap', `gui/${uid}`, PLIST);
+  writeFileAtomic(PLIST, plistOf({ label: LABEL, args: [process.execPath, join(SCRIPTS, 'pulse.mjs'), 'run'], log: LOG, path: process.env.PATH }));
+  const boot = load(LABEL, PLIST);
   if (boot.status !== 0) process.exitCode = 1;
   console.log('hooks: ~/.claude/settings.json and ~/.codex/hooks.json (first backups beside them)');
   console.log(`daemon: ${boot.status === 0 ? 'started' : `launchctl failed: ${boot.stderr.trim()}`} (${LOG})`);
+  menubar();
   console.log(`session list: ${config.listUrl ?? 'no tailnet name found'}`);
   console.log('still yours to do:');
   console.log('  security add-generic-password -s pstack-pulse -a activitysmith -w   (paste the ActivitySmith key)');
@@ -175,15 +201,17 @@ function install() {
 }
 
 async function uninstall() {
-  launchctl('bootout', `gui/${process.getuid()}/${LABEL}`);
-  if (existsSync(PLIST)) unlinkSync(PLIST);
+  for (const [label, plist] of [[LABEL, PLIST], [MENU.label, MENU_PLIST]]) {
+    launchctl('bootout', `gui/${process.getuid()}/${label}`);
+    if (existsSync(plist)) unlinkSync(plist);
+  }
   for (const runtime of ['claude', 'codex']) if (existsSync(SETTINGS[runtime])) editSettings(SETTINGS[runtime], withoutHook);
   const state = loadState();
   const problems = await teardown(state.phone, createClient({ getKey: apiKey }), () => saveState(state));
   saveState(state);
   const left = Object.keys(state.phone.streams);
   const cleaned = !left.length && state.phone.badge === 0;
-  console.log(`hooks removed, daemon stopped and its LaunchAgent deleted; ${HOME} keeps its state`);
+  console.log(`hooks removed, daemon and menubar stopped and their LaunchAgents deleted; ${HOME} keeps its state`);
   console.log(cleaned ? 'cards ended and badge cleared' : `still on the phone: ${left.length} cards, badge ${state.phone.badge ?? 'unknown'}${problems.length ? ` (${problems.join('; ')})` : ''}; rerun uninstall to retry`);
   console.log('to stop publishing the session list: tailscale funnel --https=8443 off');
 }
@@ -205,6 +233,7 @@ function doctor() {
   const checks = [
     ['ActivitySmith key', Boolean(apiKey())],
     ['daemon', launchctl('print', `gui/${process.getuid()}/${LABEL}`).status === 0],
+    ['menubar', launchctl('print', `gui/${process.getuid()}/${MENU.label}`).status === 0],
     ['Claude hooks', hooked(SETTINGS.claude)],
     ['Codex hooks', hooked(SETTINGS.codex)],
     ['Claude session registry', Object.keys(claudeRegistry()).length > 0],
@@ -222,10 +251,10 @@ function pet() {
   console.log('pet: starting the floating pet');
 }
 
-const commands = { run, install, uninstall, status, doctor, pet };
+const commands = { run, install, uninstall, status, doctor, menubar, pet };
 const command = commands[process.argv[2]];
 if (!command) {
-  console.error('usage: pulse.mjs install | uninstall | status | doctor | run | pet');
+  console.error('usage: pulse.mjs install | uninstall | status | doctor | menubar | run | pet');
   process.exit(2);
 }
 await command();

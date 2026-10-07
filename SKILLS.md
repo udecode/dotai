@@ -26,7 +26,7 @@
 
 | Skill | Purpose |
 | --- | --- |
-| [pstack-pulse](skills/pstack-pulse/SKILL.md) | Show every Claude Code and Codex session on the iPhone lock screen through ActivitySmith, with each plan page's pipeline, and buzz when a session needs you, ships or fails. |
+| [pstack-pulse](skills/pstack-pulse/SKILL.md) | Show every Claude Code and Codex session on the iPhone lock screen through ActivitySmith and in the Mac menubar, with each plan page's pipeline, and buzz when a session needs you, ships or fails. |
 
 ## Unchanged upstream installation
 

@@ -38,13 +38,13 @@ export function editSettings(path, edit) {
 
 const xml = (text) => String(text).replace(/[&<>"']/gu, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[char]);
 
-export const plistOf = ({ label, node, script, log, path }) => `<?xml version="1.0" encoding="UTF-8"?>
+export const plistOf = ({ label, args, log, path, untilQuit = false }) => `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>Label</key><string>${xml(label)}</string>
-<key>ProgramArguments</key><array><string>${xml(node)}</string><string>${xml(script)}</string><string>run</string></array>
+<key>ProgramArguments</key><array>${args.map((arg) => `<string>${xml(arg)}</string>`).join('')}</array>
 <key>EnvironmentVariables</key><dict><key>PATH</key><string>${xml(path)}</string></dict>
-<key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
+<key>RunAtLoad</key><true/><key>KeepAlive</key>${untilQuit ? '<dict><key>SuccessfulExit</key><false/></dict>' : '<true/>'}
 <key>StandardOutPath</key><string>${xml(log)}</string><key>StandardErrorPath</key><string>${xml(log)}</string>
 </dict></plist>
 `;
