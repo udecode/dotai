@@ -519,3 +519,15 @@ test('the menubar opens a session in the desktop app by its host id, with its op
   assert.equal(row('desk').page, 'https://claude.ai/artifact/p');
   assert.equal(row('cli').open, 'https://claude.ai/code/session_y');
 });
+
+test('tapping a push opens the session, with its open plan page as a button', async () => {
+  const sessions = {};
+  reduce(sessions, { ...ask('asker', 1), cwd: '/w/a' });
+  const open = { page: 'https://claude.ai/artifact/p', stages: [{ label: 'Build', state: 'now' }], steps: { checked: 0, total: 0 } };
+  const [incident] = incidentsOf(viewsOf(sessions, { asker: 'https://claude.ai/code/session_a' }, { asker: open })).values();
+  const bodies = [];
+  const fetchImpl = async (url, init) => (bodies.push(JSON.parse(init.body)), { ok: true, status: 200, text: async () => '{}', headers: { get: () => null } });
+  await createClient({ getKey: () => 'key', fetchImpl }).push(incident, 'https://list.example/');
+  assert.equal(bodies[0].redirection, 'https://claude.ai/code/session_a');
+  assert.deepEqual(bodies[0].actions.map(({ title }) => title), ['Plan page', 'All sessions']);
+});

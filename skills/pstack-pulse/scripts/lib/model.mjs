@@ -399,12 +399,12 @@ export function incidentsOf(views) {
     const { session } = view;
     const title = labelOf(view.title);
     const key = `${session.runtime}:${session.id}`;
-    const answerUrl = view.appUrl ?? view.webUrl;
-    const link = view.rail?.page ?? answerUrl;
-    if (session.life === 'live') for (const need of Object.values(session.needs)) add({ id: `need:${key}:${need.id}:${need.openedAt}`, kind: 'needs-you', at: need.openedAt, title: `${title} needs you`, message: String(need.question), link, answerUrl });
-    if (session.failure) add({ id: `fail:${session.failure.id}`, kind: 'failed', at: session.since, title: `${title} failed`, message: session.failure.summary, link, answerUrl });
-    for (const ship of session.ships) add({ id: ship.id, kind: 'shipped', at: ship.at, title: `${title} shipped`, message: ship.summary, link, answerUrl });
-    for (const reply of session.replies) add({ id: reply.id, kind: 'replied', at: reply.at, title: `${title} replied`, message: reply.summary, link, answerUrl });
+    const page = openPlanPage(view);
+    const link = view.appUrl ?? view.webUrl ?? page;
+    if (session.life === 'live') for (const need of Object.values(session.needs)) add({ id: `need:${key}:${need.id}:${need.openedAt}`, kind: 'needs-you', at: need.openedAt, title: `${title} needs you`, message: String(need.question), link, page });
+    if (session.failure) add({ id: `fail:${session.failure.id}`, kind: 'failed', at: session.since, title: `${title} failed`, message: session.failure.summary, link, page });
+    for (const ship of session.ships) add({ id: ship.id, kind: 'shipped', at: ship.at, title: `${title} shipped`, message: ship.summary, link, page });
+    for (const reply of session.replies) add({ id: reply.id, kind: 'replied', at: reply.at, title: `${title} replied`, message: reply.summary, link, page });
   }
   return incidents;
 }

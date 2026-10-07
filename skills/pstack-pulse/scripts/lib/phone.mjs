@@ -44,7 +44,7 @@ export function createClient({ getKey, fetchImpl = globalThis.fetch, recheckMs =
     end: (streamKey, body) => call('DELETE', `/live-activity/stream/${streamKey}`, { content_state: { ...body.content_state, auto_dismiss_minutes: 0 } }),
     badge: (badge) => call('POST', '/badge', { badge }),
     push: (incident, listUrl) => {
-      const actions = [incident.answerUrl && { title: 'Answer', type: 'open_url', url: incident.answerUrl }, listUrl && { title: 'All sessions', type: 'open_url', url: listUrl }].filter(Boolean);
+      const actions = [incident.page && incident.page !== incident.link && { title: 'Plan page', type: 'open_url', url: incident.page }, listUrl && { title: 'All sessions', type: 'open_url', url: listUrl }].filter(Boolean);
       return call('POST', '/push-notification', {
         title: incident.title.slice(0, 120),
         message: incident.message.slice(0, 250),
