@@ -44,6 +44,8 @@ const opens = (line) => {
   const [, phase, decision = ''] = line.split('\t');
   return phase === 'panel' && SEATS.test(decision);
 };
+const MAX_ROUNDS = 3;
+const restartsRoundCount = (line) => ['build', 'owner'].includes(line.split('\t')[1]);
 
 function plansDir() {
   const config = '.agents/pstack.json';
@@ -119,6 +121,7 @@ function append(path, batch) {
   let opened = existing.some(opens);
   const isWriting = (line) => line.split('\t')[1] === 'writing';
   let written = isWriting(existing.findLast((line) => opens(line) || isWriting(line)) ?? '');
+  let rounds = existing.slice(existing.findLastIndex(restartsRoundCount) + 1).filter(opens).length;
   const rows = [];
   const found = [];
   for (const [index, cells] of batch.entries()) {
@@ -137,8 +140,14 @@ function append(path, batch) {
     if (opens(row) && opened && !written) {
       found.push(`${where}: a later round's seats row needs a writing row after the previous seats row: log the round's writing passes under phase writing, or log a writing row that says why none ran`);
     }
-    if (opens(row)) written = false;
-    else if (isWriting(row)) written = true;
+    if (opens(row) && rounds >= MAX_ROUNDS) {
+      found.push(`${where}: this would be panel round ${rounds + 1} since the last build or owner row, past the cap of ${MAX_ROUNDS}. Stop reviewing: settle each open finding as applied, dismissed with its reason or deferred with its owner, then build. A row in phase build, or in phase owner quoting the owner's ask for another round, starts the count again`);
+    }
+    if (restartsRoundCount(row)) rounds = 0;
+    if (opens(row)) {
+      written = false;
+      rounds += 1;
+    } else if (isWriting(row)) written = true;
     opened ||= opens(row);
     rows.push(row);
   }

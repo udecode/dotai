@@ -1810,6 +1810,27 @@ test("decisions-check takes a later round's seats row only after a writing row",
   assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'old.decisions.tsv'], root).status, 0, 'a whole-log check leaves rounds already written alone');
 });
 
+test('decisions-check refuses a fourth panel round until a build or owner row', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app');
+  const append = (phase, decision) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', phase, decision, 'why', 'evidence', 'recorded'], root);
+  const rounds = (count) => {
+    for (let round = 1; round <= count; round += 1) {
+      assert.equal(append('panel', 'seats opus').status, 0, `round ${round}`);
+      assert.equal(append('writing', 'unslop on the round fixes').status, 0);
+    }
+  };
+  rounds(3);
+  const stuck = append('panel', 'seats opus');
+  assert.equal(stuck.status, 1, 'a fourth round with no build between');
+  assert.match(stuck.stderr, /panel round 4 since the last build or owner row/);
+  assert.equal(append('build', 'settle the open findings and build').status, 0);
+  rounds(3);
+  assert.equal(append('panel', 'seats opus').status, 1, 'the count starts again after a build row');
+  assert.equal(append('owner', 'the owner asked for another round: "panel"').status, 0);
+  assert.equal(append('panel', 'seats opus').status, 0, 'an owner row allows the next round');
+});
+
 test('decisions-check requires scope on a proven row and leaves committed rows alone', () => {
   const { dir, run } = sandbox();
   const header = 'ts\tphase\tdecision\twhy\tevidence\tresult';
