@@ -291,3 +291,16 @@ test('the menubar board lists every live session with the card the phone gets, r
   for (const card of menu.cards.filter(({ key }) => phoneCards.has(key))) assert.deepEqual(card.content_state, phoneCards.get(card.key).body.content_state);
   assert.deepEqual(menu.fleet.content_state, phoneCards.get('pulse-fleet').body.content_state);
 });
+
+test('a turn that ends with only artifact page sockets open goes idle, and one with a WebSocket monitor the model armed keeps working', () => {
+  const sessions = {};
+  const watch = { id: 'w1', type: 'monitor', status: 'running', description: 'live updates for artifact 1kmVRY8AvwRkf1KwqAuSxM (watch)' };
+  const presence = { id: 'w2', type: 'monitor', status: 'running', description: 'presence on artifact https://claude.ai/artifact/1kmVRY8AvwRkf1KwqAuSxM' };
+  const armed = { id: 'm1', type: 'monitor', status: 'running', description: 'deploy events' };
+  reduce(sessions, claudeHook('watching', 'UserPromptSubmit', 0));
+  reduce(sessions, claudeHook('watching', 'Stop', 1, { background_tasks: [watch, presence] }));
+  assert.equal(sessions['claude:watching'].state, 'idle');
+  reduce(sessions, claudeHook('building', 'UserPromptSubmit', 2));
+  reduce(sessions, claudeHook('building', 'Stop', 3, { background_tasks: [watch, armed] }));
+  assert.equal(sessions['claude:building'].state, 'working');
+});
