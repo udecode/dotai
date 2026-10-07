@@ -201,6 +201,7 @@ test('a pin adds the plugin, keeps the other settings and their format, and a bu
   cli('apply', root, '--tag', 'v0.9.53');
   assert.equal(read(root, '.claude/settings.json'), pinnedText.replace('"ref": "v0.9.52"', '"ref": "v0.9.53"'));
 });
+
 test('project playbooks render into the block, and a new one makes check stale', () => {
   const { dir, cli } = sandbox();
   const playbook = '---\nextends: bug-fix\nwhen: Use it for any bug report.\n---\n# Bug fix\n';
@@ -1785,6 +1786,29 @@ test('decisions-check takes an open panel finding only with its patch and owner'
   assert.equal(ok.status, 0, ok.stderr);
 });
 
+test("decisions-check takes a later round's seats row only after a writing row", () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app');
+  const append = (phase, decision, result = 'recorded') => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', phase, decision, 'why', 'evidence', result], root);
+  assert.equal(append('panel', 'seats opus').status, 0, 'the first round');
+  assert.equal(append('panel', 'critical The guard drops typing', 'applied: the guard reads the composition flag').status, 0);
+  const unwritten = append('panel', 'seats opus');
+  assert.equal(unwritten.status, 1, 'a second round whose fixes had no writing pass');
+  assert.match(unwritten.stderr, /needs a writing row/);
+  assert.equal(append('writing', 'deslop and no-comments on the round 1 fixes').status, 0);
+  assert.equal(append('panel', 'seats opus').status, 0, 'the second round after the writing pass');
+  const batch = (name, rows) => {
+    writeFileSync(join(root, name), rows.map((row) => row.join('\t')).join('\n') + '\n');
+    return run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', '--from', name], root);
+  };
+  assert.equal(batch('written.tsv', [['writing', 'unslop on the round 2 fixes', 'why', 'evidence', 'recorded'], ['panel', 'seats opus', 'why', 'evidence', 'recorded']]).status, 0, 'a queued writing row before the next round');
+  const skipped = batch('skipped.tsv', [['writing', 'unslop on the round 3 fixes', 'why', 'evidence', 'recorded'], ['panel', 'seats opus', 'why', 'evidence', 'recorded'], ['panel', 'critical The guard drops typing', 'why', 'evidence', 'applied: fixed'], ['panel', 'seats opus', 'why', 'evidence', 'recorded']]);
+  assert.equal(skipped.status, 1, 'a queued round with no writing row after the previous one');
+  assert.match(skipped.stderr, /\(new row 4\): a later round's seats row/);
+  writeFileSync(join(root, 'old.decisions.tsv'), 'ts\tphase\tdecision\twhy\tevidence\tresult\n2026-10-06T10:00:00Z\tpanel\tseats opus\twhy\tevidence\trecorded\n2026-10-06T11:00:00Z\tpanel\tseats opus\twhy\tevidence\trecorded\n');
+  assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'old.decisions.tsv'], root).status, 0, 'a whole-log check leaves rounds already written alone');
+});
+
 test('decisions-check requires scope on a proven row and leaves committed rows alone', () => {
   const { dir, run } = sandbox();
   const header = 'ts\tphase\tdecision\twhy\tevidence\tresult';
@@ -2067,6 +2091,35 @@ test('proof writes each run to the next attempt log with its command and exit st
   assert.equal(read(dir, 'run/lint-a1.log'), `$ (${realpathSync(dir)}) echo found 2 problems; false | cat\nfound 2 problems\nexit=1\n`);
   assert.match(read(dir, 'run/lint-a2.log'), /^\$ \(.*\) .*-e 'console\.log\("clean"\)'\nclean\nexit=0\n$/);
   assert.match(prove("echo 'héllo—x'").stdout, /^héllo—x\n/u, 'a command line with multibyte text stays out of the output');
+});
+
+test('mutate links each workspace node_modules into its worktree', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-mutate-links-'));
+  const repo = join(dir, 'repo');
+  spawnSync('git', ['init', '-q', repo]);
+  mkdirSync(join(repo, 'pkg/node_modules/dep'), { recursive: true });
+  writeFileSync(join(repo, '.gitignore'), 'node_modules\n');
+  writeFileSync(join(repo, 'pkg/package.json'), '{ "type": "module" }\n');
+  writeFileSync(join(repo, 'pkg/node_modules/dep/package.json'), '{ "type": "module", "main": "index.js" }\n');
+  writeFileSync(join(repo, 'pkg/node_modules/dep/index.js'), 'export const base = 10;\n');
+  writeFileSync(join(repo, 'pkg/sum.mjs'), "import { base } from 'dep';\nexport const sum = (a) => a + base;\n");
+  writeFileSync(
+    join(repo, 'pkg/sum.test.mjs'),
+    "import assert from 'node:assert/strict';\nimport { mkdirSync, writeFileSync } from 'node:fs';\nimport { test } from 'node:test';\nimport { sum } from './sum.mjs';\nmkdirSync(new URL('./node_modules/.vite', import.meta.url), { recursive: true });\nwriteFileSync(new URL('./node_modules/.vite/written', import.meta.url), 'cache');\ntest('sum adds the base', () => assert.equal(sum(1), 11, 'sum lost its base'));\n",
+  );
+  spawnSync('git', ['-C', repo, 'add', '-A']);
+  commit(repo, 'base');
+  const sha = spawnSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
+  writeFileSync(
+    join(dir, 'spec.json'),
+    JSON.stringify({ commit: sha, test: [process.execPath, '--test', 'pkg/sum.test.mjs'], mutations: [{ name: 'minus', file: 'pkg/sum.mjs', from: 'a + base', to: 'a - base', expect: 'sum lost its base' }] }),
+  );
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== 'NODE_TEST_CONTEXT'));
+  const result = spawnSync(process.execPath, [join(HELPERS, 'mutate.mjs'), '--dir', join(dir, 'run'), join(dir, 'spec.json')], { cwd: repo, encoding: 'utf8', env });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /minus: caught/);
+  assert.equal(existsSync(join(repo, 'pkg/node_modules/dep/index.js')), true, 'removing the worktree keeps the checkout\'s packages');
+  assert.equal(existsSync(join(repo, 'pkg/node_modules/.vite/written')), false, 'a test cache stays in the worktree');
 });
 
 test('mutate counts a mutation caught only when its named assertion fails, in a worktree it makes and removes', () => {

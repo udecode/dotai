@@ -115,7 +115,10 @@ function problems(path) {
 function append(path, batch) {
   const stamp = new Date().toISOString().replace(/\.\d{3}Z$/u, 'Z');
   const text = existsSync(path) ? readFileSync(path, 'utf8') : null;
-  let opened = (text ?? '').split('\n').some(opens);
+  const existing = (text ?? '').split('\n');
+  let opened = existing.some(opens);
+  const isWriting = (line) => line.split('\t')[1] === 'writing';
+  let written = isWriting(existing.findLast((line) => opens(line) || isWriting(line)) ?? '');
   const rows = [];
   const found = [];
   for (const [index, cells] of batch.entries()) {
@@ -131,6 +134,11 @@ function append(path, batch) {
     }
     const row = [stamp, ...cells].join('\t');
     found.push(...rowProblems(row, where, opened), ...missingPlan(path, row, where));
+    if (opens(row) && opened && !written) {
+      found.push(`${where}: a later round's seats row needs a writing row after the previous seats row: log the round's writing passes under phase writing, or log a writing row that says why none ran`);
+    }
+    if (opens(row)) written = false;
+    else if (isWriting(row)) written = true;
     opened ||= opens(row);
     rows.push(row);
   }

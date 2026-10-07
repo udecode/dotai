@@ -9,9 +9,12 @@
 // Shows that each test fails when its fix is reverted. Run it from the
 // repository that holds the commit, one run per run directory at a time: it
 // makes a fresh worktree at the commit under <run-dir>/mutate/ with git worktree
-// add, and removes it after the mutations run, unless the run is killed. Packages
-// resolve from that path, so a tree inside a checkout uses that checkout's
-// node_modules. A mutated file whose real path lies outside the worktree is
+// add, and removes it after the mutations run, unless the run is killed. It
+// links each entry of the repository's root and package node_modules into the
+// worktree, except .cache, .vite and .vite-temp, so a test resolves the
+// checkout's installed packages without writing those caches in the checkout,
+// and a workspace sibling through those links resolves to the checkout's copy,
+// not the commit's. A mutated file whose real path lies outside the worktree is
 // refused. Each distinct test command first runs on the unmutated files and
 // must pass. A mutation runs only when its file is valid UTF-8, its anchor
 // matches exactly once and the control run's output does not hold its expected
@@ -24,8 +27,8 @@
 // default. Exits 0 only when every mutation is caught and the worktree is gone.
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { join, resolve, sep } from 'node:path';
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve, sep } from 'node:path';
 import { prove } from './proof.mjs';
 
 function problemWith(mutation, control, original) {
@@ -91,6 +94,19 @@ function check(dir, spec, tree) {
   return { lines, ok };
 }
 
+const UNLINKED = new Set(['.cache', '.vite', '.vite-temp']);
+
+function linkModules(root, tree) {
+  const listed = spawnSync('git', ['ls-files', '--', 'package.json', '*/package.json'], { cwd: tree, encoding: 'utf8' }).stdout;
+  for (const folder of new Set(['.', ...listed.split('\n').filter(Boolean).map(dirname)])) {
+    const modules = join(root, folder, 'node_modules');
+    const target = join(tree, folder, 'node_modules');
+    if (!existsSync(modules) || !existsSync(join(tree, folder)) || existsSync(target)) continue;
+    mkdirSync(target);
+    for (const name of readdirSync(modules)) if (!UNLINKED.has(name)) symlinkSync(join(modules, name), join(target, name));
+  }
+}
+
 const args = process.argv.slice(2);
 const dirAt = args.indexOf('--dir');
 const dir = dirAt === -1 ? undefined : args[dirAt + 1];
@@ -116,6 +132,7 @@ if (made.exit !== 0) {
 let result;
 let removed = false;
 try {
+  linkModules(spawnSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).stdout.trim(), tree);
   result = check(dir, spec, tree);
 } finally {
   removed = removeTree();
