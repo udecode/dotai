@@ -3,8 +3,12 @@
 // Usage: node .agents/pstack/plan-open.mjs <plan.md> [...]
 //        node .agents/pstack/plan-open.mjs --done   (every plan whose Status starts with a landed word, such as done or executed)
 // Lines already committed at HEAD skip the closed-box, citation, owner and stop
-// checks. PSTACK_BASE=<commit> checks against that commit instead, so an owner's
-// commit mid-run does not exempt the run's lines; a value that names no commit fails.
+// checks, except that a box closed since then is judged on its own line plus the lines
+// indented directly under it, up to a blank line or a nested box: their citations all
+// count, but its artifact, and in a findings section its owner: and stop:, count only
+// from its uncommitted lines. PSTACK_BASE=<commit> checks against that commit instead,
+// so an owner's commit mid-run does not exempt the run's lines; a value that names no
+// commit fails.
 // A closed box fails when it cites a run-directory file whose latest partial, open,
 // gap, blocked or inconclusive row in the plan's decision log (proof: <path>) has no
 // later fixed, proven or verified row, unless the latest accepted row after it names
