@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-// Runs a prompt in the other agent runtime, read-only, from the current directory, and prints its final answer: Codex on gpt-6.1-sol from Claude
-// Code, Claude on Opus from Codex. Installed by the sync-pstack skill.
+// Installed by the sync-pstack skill.
 
 import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, realpathSync } from 'node:fs';
@@ -33,9 +32,11 @@ const stopOnSignals = () => {
 // A child that ignores SIGTERM, or leaves a descendant holding its pipes, is
 // killed and abandoned at the deadline.
 // Hooks stay off unless asked for, because a project hook, such as a Stop hook
-// that stages files, would write from a read-only run.
-export function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model = MODELS[runtime], effort, hooks = false, ignoreUserConfig = false } = {}) {
-  const managed = ignoreUserConfig && managedCodexConfig();
+// that stages files, would write from a read-only run. Codex runs without the user's
+// config unless asked for, and never loads exec rules, whose allow decisions run a
+// command outside the sandbox.
+export function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model = MODELS[runtime], effort, hooks = false, userConfig = false } = {}) {
+  const managed = runtime === 'codex' && !userConfig && managedCodexConfig();
   if (managed) return Promise.resolve({ runtime, ok: false, text: `${managed} would still load under --ignore-user-config; refusing to run` });
   stopOnSignals();
   const answerFile = join(mkdtempSync(join(tmpdir(), 'pstack-cross-')), 'answer.txt');
@@ -46,7 +47,7 @@ export function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model
           'codex',
           [
             'exec',
-            ...(ignoreUserConfig ? ISOLATED_CODEX_ARGS : []),
+            ...(userConfig ? ['--ignore-rules'] : ISOLATED_CODEX_ARGS),
             '-m',
             model,
             ...(effort ? ['-c', `model_reasoning_effort=${effort}`] : []),
@@ -103,7 +104,8 @@ async function main(argv) {
   let model;
   let effort;
   let retired;
-  let ignoreUserConfig = false;
+  let userConfig = false;
+  let promptFile;
   let prompt = '';
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -112,24 +114,26 @@ async function main(argv) {
     else if (arg === '--model') model = argv[++index];
     else if (arg === '--effort') effort = argv[++index];
     else if (['--write', '--events', '--resume'].includes(arg)) retired = arg;
-    else if (arg === '--ignore-user-config') ignoreUserConfig = true;
-    else if (arg === '--prompt-file') prompt = readFileSync(argv[++index], 'utf8');
+    else if (arg === '--ignore-user-config') userConfig = false;
+    else if (arg === '--computer-use') userConfig = true;
+    else if (arg === '--prompt-file') promptFile = argv[++index];
     else prompt = arg;
   }
-  const usage = 'Usage: node .agents/pstack/cross.mjs [--to codex|claude] [--model <model>] [--effort <level>] [--timeout <seconds>] [--ignore-user-config] (--prompt-file <path> | <prompt>)';
+  const usage = 'Usage: node .agents/pstack/cross.mjs [--to codex|claude] [--model <model>] [--effort <level>] [--timeout <seconds>] [--computer-use] (--prompt-file <path> | <prompt>)';
   if (retired) {
     console.error(`${retired} is retired: cross.mjs runs Codex read-only\n${usage}`);
     return 2;
   }
+  if (promptFile) prompt = readFileSync(promptFile, 'utf8');
   if (!prompt.trim() || !['claude', 'codex'].includes(to) || !(timeout > 0)) {
     console.error(usage);
     return 2;
   }
-  if (ignoreUserConfig && to !== 'codex') {
-    console.error(`--ignore-user-config runs only --to codex\n${usage}`);
+  if (userConfig && to !== 'codex') {
+    console.error(`--computer-use runs only --to codex\n${usage}`);
     return 2;
   }
-  const answer = await ask(to, prompt, { timeout, model, effort, ignoreUserConfig });
+  const answer = await ask(to, prompt, { timeout, model, effort, userConfig });
   (answer.ok ? console.info : console.error)(answer.text);
   return answer.ok ? 0 : 1;
 }

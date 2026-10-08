@@ -914,7 +914,7 @@ export function renderPlaybook(root, name) {
 
 export function smoke(root, prompts, { timeout = 900 } = {}) {
   return Promise.all(
-    prompts.flatMap((prompt) => ['claude', 'codex'].map((runtime) => ask(runtime, prompt, { cwd: root, timeout, hooks: true }).then((answer) => ({ ...answer, prompt })))),
+    prompts.flatMap((prompt) => ['claude', 'codex'].map((runtime) => ask(runtime, prompt, { cwd: root, timeout, hooks: true, userConfig: true }).then((answer) => ({ ...answer, prompt })))),
   );
 }
 

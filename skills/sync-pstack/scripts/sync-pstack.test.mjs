@@ -322,7 +322,7 @@ test('smoke runs each prompt in both runtimes from the project root, without CLA
   });
   assert.equal(result.status, 0, result.stderr);
   assert.ok(result.stdout.includes(`claude in ${root} CLAUDECODE=unset: -p --model opus --permission-mode plan -- the toolbar closes`), result.stdout);
-  assert.ok(result.stdout.includes(`codex in ${root} with exec -m gpt-6.1-sol --sandbox read-only: the toolbar closes`), result.stdout);
+  assert.ok(result.stdout.includes(`codex in ${root} with exec --ignore-rules -m gpt-6.1-sol --sandbox: the toolbar closes`), result.stdout);
   assert.doesNotMatch(result.stdout, /noise/);
 });
 
@@ -357,7 +357,22 @@ test('cross runs a Codex seat read-only on the model and effort it names', () =>
     env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '' },
   });
   assert.equal(seat.status, 0, seat.stderr);
-  assert.match(seat.stdout, /exec -m gpt-6-astra -c model_reasoning_effort=high --disable hooks --sandbox read-only /);
+  assert.match(seat.stdout, /^exec --ignore-user-config --ignore-rules .* -m gpt-6-astra -c model_reasoning_effort=high --disable hooks --sandbox read-only /);
+});
+
+test('cross keeps the user config only for --computer-use, and never loads exec rules', () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'codex'), '#!/bin/sh\nargs="$*"\nwhile [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; *) shift ;; esac; done\necho "$args" > "$out"\n', { mode: 0o755 });
+  const run = spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', '--computer-use', 'open the page'], {
+    cwd: dir,
+    encoding: 'utf8',
+    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1' },
+  });
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(run.stdout, /^exec --ignore-rules -m gpt-6\.1-sol /);
+  assert.doesNotMatch(run.stdout, /--ignore-user-config/);
 });
 
 test('cross refuses the retired write, events and resume flags before launching Codex', () => {
@@ -365,17 +380,21 @@ test('cross refuses the retired write, events and resume flags before launching 
   const bin = join(dir, 'bin');
   mkdirSync(bin);
   const launched = join(dir, 'launched');
-  writeFileSync(join(bin, 'codex'), `#!/bin/sh\ntouch ${launched}\n`, { mode: 0o755 });
-  for (const flags of [['--write', '--events', join(dir, 'e.jsonl')], ['--write', '--events', join(dir, 'e.jsonl'), '--resume', 't-1']]) {
-    const result = spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', ...flags, 'build it'], {
+  writeFileSync(join(bin, 'codex'), `#!/bin/sh\ntouch ${launched}\nwhile [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; *) shift ;; esac; done\necho ok > "$out"\n`, { mode: 0o755 });
+  const run = (flags) =>
+    spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', ...flags, 'build it'], {
       cwd: dir,
       encoding: 'utf8',
       env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1' },
     });
+  for (const flags of [['--write', '--events', join(dir, 'e.jsonl')], ['--events', join(dir, 'e.jsonl')], ['--resume', 't-1']]) {
+    const result = run(flags);
     assert.equal(existsSync(launched), false, `${flags.join(' ')} launched Codex`);
     assert.equal(result.status, 2, flags.join(' '));
     assert.match(result.stderr, /runs Codex read-only/);
   }
+  assert.equal(run([]).status, 0, 'the same call without a retired flag launches');
+  assert.equal(existsSync(launched), true);
 });
 
 test('a stopped cross run stops the runtime it launched', async () => {
