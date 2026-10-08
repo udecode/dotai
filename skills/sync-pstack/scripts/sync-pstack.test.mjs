@@ -2550,3 +2550,58 @@ test('plan-open refuses a newly closed box that cites a not-passed proof until a
   assert.equal(append(`proof: ${log}; scope: the full type check, read 2026-10-07`, 'verified: the type check passes').status, 0);
   assert.equal(check('hold').status, 0, 'a later labeled pass');
 });
+
+function codexWriteRepo() {
+  const { dir } = sandbox();
+  const repo = join(dir, 'repo');
+  mkdirSync(repo);
+  const git = (...args) => spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { cwd: repo, encoding: 'utf8' });
+  git('init', '-q');
+  writeFileSync(join(repo, '.gitignore'), '*.log\nrun/\n');
+  writeFileSync(join(repo, 'a.ts'), 'export const a = 1;\n');
+  writeFileSync(join(repo, 'b.ts'), 'export const b = 1;\n');
+  writeFileSync(join(repo, 'kept.log'), 'tracked although ignored\n');
+  git('add', '-A');
+  git('add', '-f', 'kept.log');
+  git('commit', '-qm', 'base');
+  writeFileSync(join(repo, 'a.ts'), 'export const a = 2;\n');
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'codex'), '#!/bin/sh\nprintf "export const a = 3;\\n" > a.ts\nprintf "test(1);\\n" > new.test.ts\n[ -n "$FAKE_OUTSIDE" ] && printf "export const b = 9;\\n" > b.ts\necho "{}"\n', { mode: 0o755 });
+  writeFileSync(join(dir, 'task.md'), 'rename a');
+  const run = (env = {}) =>
+    spawnSync(process.execPath, [join(HELPERS, 'codex-write.mjs'), '--dir', join(repo, 'run'), '--name', 'w', '--prompt-file', join(dir, 'task.md'), '--', 'a.ts', 'new.test.ts'], {
+      cwd: repo,
+      encoding: 'utf8',
+      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, ...env },
+    });
+  return { repo, git, run };
+}
+
+test('codex-write returns a patch of the named paths built on the working tree', () => {
+  const { repo, git, run } = codexWriteRepo();
+  const result = run();
+  assert.equal(result.status, 0, result.stderr);
+  const patch = readFileSync(join(repo, 'run', 'w-a1.patch'), 'utf8');
+  assert.match(patch, /-export const a = 2;\n\+export const a = 3;/);
+  assert.match(patch, /new file mode 100644[\s\S]*\+test\(1\);/);
+  assert.doesNotMatch(patch, /kept\.log/);
+  assert.equal(git('apply', '--check', join('run', 'w-a1.patch')).status, 0);
+  assert.equal(existsSync(join(repo, 'run', 'w-export')), false);
+});
+
+test('codex-write writes no patch when Codex changes a path outside the named ones', () => {
+  const { repo, run } = codexWriteRepo();
+  const result = run({ FAKE_OUTSIDE: '1' });
+  assert.equal(result.status, 3, result.stderr);
+  assert.match(result.stderr, /b\.ts/);
+  assert.equal(existsSync(join(repo, 'run', 'w-a1.patch')), false);
+});
+
+test('codex-write never stages into the source index an inherited GIT_INDEX_FILE names', () => {
+  const { repo, git, run } = codexWriteRepo();
+  const result = run({ GIT_INDEX_FILE: join(repo, '.git', 'index') });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(git('diff', '--cached', '--name-only').stdout, '');
+  assert.equal(git('ls-files', 'new.test.ts').stdout, '');
+});

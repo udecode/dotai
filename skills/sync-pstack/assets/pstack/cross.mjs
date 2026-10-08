@@ -29,7 +29,7 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
 // killed and abandoned at the deadline.
 // Hooks stay off unless asked for, because a project hook, such as a Stop hook
 // that stages files, would write from a read-only run.
-export function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model = MODELS[runtime], effort, hooks = false, write = false, events, resume } = {}) {
+export function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model = MODELS[runtime], effort, hooks = false, write = false, events, resume, ignoreUserConfig = false } = {}) {
   const answerFile = join(mkdtempSync(join(tmpdir(), 'pstack-cross-')), 'answer.txt');
   const [command, args] =
     runtime === 'claude'
@@ -39,6 +39,7 @@ export function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model
           [
             'exec',
             ...(resume ? ['resume', resume] : []),
+            ...(ignoreUserConfig ? ['--ignore-user-config'] : []),
             '-m',
             model,
             ...(effort ? ['-c', `model_reasoning_effort=${effort}`] : []),
@@ -100,6 +101,7 @@ async function main(argv) {
   let events;
   let resume;
   let write = false;
+  let ignoreUserConfig = false;
   let prompt = '';
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -108,12 +110,13 @@ async function main(argv) {
     else if (arg === '--model') model = argv[++index];
     else if (arg === '--effort') effort = argv[++index];
     else if (arg === '--write') write = true;
+    else if (arg === '--ignore-user-config') ignoreUserConfig = true;
     else if (arg === '--events') events = argv[++index];
     else if (arg === '--resume') resume = argv[++index];
     else if (arg === '--prompt-file') prompt = readFileSync(argv[++index], 'utf8');
     else prompt = arg;
   }
-  const usage = 'Usage: node .agents/pstack/cross.mjs [--to codex|claude] [--model <model>] [--effort <level>] [--timeout <seconds>] [--write --events <file> [--resume <session>]] (--prompt-file <path> | <prompt>)';
+  const usage = 'Usage: node .agents/pstack/cross.mjs [--to codex|claude] [--model <model>] [--effort <level>] [--timeout <seconds>] [--ignore-user-config] [--write --events <file> [--resume <session>]] (--prompt-file <path> | <prompt>)';
   if (!prompt.trim() || !['claude', 'codex'].includes(to) || !(timeout > 0)) {
     console.error(usage);
     return 2;
@@ -122,7 +125,7 @@ async function main(argv) {
     console.error(`--write runs only --to codex, needs --events <file>, and is the only mode --resume works in\n${usage}`);
     return 2;
   }
-  const answer = await ask(to, prompt, { timeout, model, effort, write, events, resume });
+  const answer = await ask(to, prompt, { timeout, model, effort, write, events, resume, ignoreUserConfig });
   if (answer.session) console.info(`session ${answer.session}`);
   (answer.ok ? console.info : console.error)(answer.text);
   return answer.ok ? 0 : 1;
