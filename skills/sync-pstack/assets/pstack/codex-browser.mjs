@@ -2,7 +2,6 @@
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { createConnection } from 'node:net';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { ISOLATED_FEATURES, NO_EXEC_RULES, NO_WEB_OR_PROJECT_DOC } from './codex-isolation.mjs';
@@ -65,7 +64,6 @@ function browserRoots(supportDir) {
   return roots;
 }
 
-// Chrome lets an extension see only its own profile's tabs, so the profile it is enabled in bounds what Codex reaches.
 function extensionProfiles(roots) {
   return roots.flatMap((root) => {
     const names = readJson(join(root, 'Local State'))?.profile?.info_cache ?? {};
@@ -83,23 +81,6 @@ function extensionProfiles(roots) {
   });
 }
 
-const listening = (port) =>
-  new Promise((resolve) => {
-    const socket = createConnection({ host: '127.0.0.1', port }, () => {
-      socket.destroy();
-      resolve(true);
-    });
-    socket.on('error', () => resolve(false));
-    socket.setTimeout(1000, () => {
-      socket.destroy();
-      resolve(false);
-    });
-  });
-
-async function openDevToolsPorts(roots) {
-  const ports = roots.map((root) => Number(attempt(() => readFileSync(join(root, 'DevToolsActivePort'), 'utf8').split('\n')[0]))).filter(Boolean);
-  return (await Promise.all(ports.map(async (port) => ((await listening(port)) ? port : undefined)))).filter(Boolean);
-}
 
 function enabledServers(args, cwd) {
   const run = spawnSync('codex', ['mcp', 'list', '--json', ...args], { cwd, encoding: 'utf8' });
@@ -115,10 +96,8 @@ export async function browserLaunch({ cwd, chromeProfile, env = process.env }) {
     const home = env.HOME ?? homedir();
     const roots = browserRoots(join(home, 'Library/Application Support'));
     const profiles = extensionProfiles(roots);
-    if (profiles.length !== 1 || profiles[0].name !== chromeProfile)
-      throw new Error(`Codex's extension must be enabled only in the "${chromeProfile}" profile; it is enabled in ${profiles.map((p) => `${p.root}/${p.dir} (${p.name})`).join(', ') || 'no profile'}`);
-    const ports = await openDevToolsPorts(roots);
-    if (ports.length) throw new Error(`a browser has a DevTools port listening on ${ports.join(', ')}, which reaches every profile's tabs`);
+    if (!profiles.some((profile) => profile.name === chromeProfile))
+      throw new Error(`Codex's extension is not enabled in the "${chromeProfile}" profile; it is enabled in ${profiles.map((p) => `${p.root}/${p.dir} (${p.name})`).join(', ') || 'no profile'}`);
     const base = [...FEATURES_OFF.flatMap((feature) => ['--disable', feature]), ...NO_WEB_OR_PROJECT_DOC, '-c', `mcp_servers.${BROWSER_SERVER}=${toml(browserServer(env.CODEX_HOME ?? join(home, '.codex')))}`];
     const others = enabledServers(base, cwd).filter((name) => name !== BROWSER_SERVER);
     const unaddressable = others.find((name) => !/^[A-Za-z0-9_-]+$/.test(name));

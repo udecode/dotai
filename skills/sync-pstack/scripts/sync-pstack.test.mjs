@@ -427,31 +427,11 @@ test('the browser lane runs Codex on one browser-only server with no desktop ser
   assert.equal(readFileSync(machine.events, 'utf8').trim(), '{"type":"turn.completed"}');
 });
 
-test('the browser lane refuses when Codex extension is enabled in a second Chrome profile', MAC_ONLY, () => {
-  const machine = browserMachine({ profiles: ['Ellie QA', 'Main'] });
+test('the browser lane refuses when Codex extension is not enabled in the named Chrome profile', MAC_ONLY, () => {
+  const machine = browserMachine({ profiles: ['Main'] });
   const run = machine.cross();
   assert.equal(run.status, 1);
-  assert.match(run.stderr, /enabled only in the "Ellie QA" profile; it is enabled in .*\(Ellie QA\), .*\(Main\)/);
-  assert.equal(existsSync(machine.launched), false);
-});
-
-test('the browser lane refuses while a browser has a DevTools port listening', MAC_ONLY, async () => {
-  const machine = browserMachine();
-  const { createServer } = await import('node:net');
-  const server = createServer().listen(0, '127.0.0.1');
-  await new Promise((resolve) => server.on('listening', resolve));
-  writeFileSync(join(machine.chrome, 'DevToolsActivePort'), `${server.address().port}\n/devtools/browser/x`);
-  const run = await new Promise((resolve) => {
-    const child = spawn(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', '--computer-use', machine.events, '--chrome-profile', 'Ellie QA', 'check tasks'], {
-      env: { ...process.env, HOME: join(machine.dir, 'home'), CODEX_HOME: join(machine.dir, 'home/.codex'), PATH: `${join(machine.dir, 'bin')}:${process.env.PATH}` },
-    });
-    let stderr = '';
-    child.stderr.on('data', (chunk) => (stderr += chunk));
-    child.on('close', (status) => resolve({ status, stderr }));
-  });
-  server.close();
-  assert.equal(run.status, 1);
-  assert.match(run.stderr, /DevTools port listening on \d+/);
+  assert.match(run.stderr, /not enabled in the "Ellie QA" profile; it is enabled in .*\(Main\)/);
   assert.equal(existsSync(machine.launched), false);
 });
 
