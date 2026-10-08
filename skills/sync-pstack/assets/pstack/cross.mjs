@@ -8,25 +8,15 @@ import { appendFileSync, existsSync, mkdtempSync, readFileSync, realpathSync } f
 import { constants, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ISOLATED_CODEX_ARGS, managedCodexConfig } from './codex-isolation.mjs';
 
 export const MODELS = { claude: 'opus', codex: 'gpt-6.1-sol' };
-
-export const ISOLATED_CODEX_ARGS = [
-  '--ignore-user-config',
-  ...['apps', 'plugins', 'remote_plugin', 'browser_use', 'browser_use_external', 'browser_use_full_cdp_access', 'computer_use', 'in_app_browser', 'in_app_local_automation', 'image_generation', 'skill_mcp_dependency_install', 'tool_suggest'].flatMap((feature) => ['--disable', feature]),
-];
 
 export const otherRuntime = (env = process.env) => (env.CLAUDECODE ? 'codex' : 'claude');
 
 // Each child runs in its own process group, which outlives this process, so
 // stopping a run stops every runtime it launched.
 const running = new Set();
-for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
-  process.on(signal, () => {
-    for (const killAll of running) killAll('SIGTERM');
-    process.exit(128 + constants.signals[signal]);
-  });
-}
 
 // Codex writes its final message only to the -o file, and reads a piped stdin
 // as more prompt, so stdin is closed and the answer comes only from that file.
@@ -99,6 +89,12 @@ export function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model
 }
 
 async function main(argv) {
+  for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+    process.on(signal, () => {
+      for (const killAll of running) killAll('SIGTERM');
+      process.exit(128 + constants.signals[signal]);
+    });
+  }
   let to = otherRuntime();
   let timeout = 900;
   let model;
@@ -133,6 +129,11 @@ async function main(argv) {
   if ((write || events || resume) && (to !== 'codex' || !write || !events)) {
     console.error(`--write runs only --to codex, needs --events <file>, and is the only mode --resume works in\n${usage}`);
     return 2;
+  }
+  const managed = ignoreUserConfig && managedCodexConfig();
+  if (managed) {
+    console.error(`${managed} would still load under --ignore-user-config; refusing to run`);
+    return 1;
   }
   const answer = await ask(to, prompt, { timeout, model, effort, write, events, resume, ignoreUserConfig });
   if (answer.session) console.info(`session ${answer.session}`);

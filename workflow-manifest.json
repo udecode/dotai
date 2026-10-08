@@ -177,15 +177,19 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "ce8f16f415cc4a6426098bba97e608cc32605bcbd437bccb757a7c0655e705e2",
+      "sha256": "f41e9d0447d512ea868240a9b2b8639e6ba7a150ac8376dc3c579953cad9af79",
+      "mode": 420
+    },
+    "skills/sync-pstack/assets/pstack/codex-isolation.mjs": {
+      "sha256": "8349a4037d4aa6de59a8e5f5f9a3c46d2ae65728e49562925cd135da79019475",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/codex-write.mjs": {
-      "sha256": "441f12aba1a75102e85429e23cb9bab6623dba866deda43c5673eae5633a1d79",
+      "sha256": "8ab6ee666a5cacefa13d2a0d588af7c061654f32be71399d4e8ed497a8aaa575",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/cross.mjs": {
-      "sha256": "a9eefd2501fddc32ac7f4656483b125ef86b9022d3fd7d0b0f63797f5a530ac0",
+      "sha256": "3304b7d882edd563934c4e51dcedfdcd479f83e71aecbddaef8c8f2de43bab98",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
@@ -241,11 +245,11 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.mjs": {
-      "sha256": "d9a33f318e8b13b93a6086006f1bf2367a67b73687590dd8f679f6062c336cb4",
+      "sha256": "4398c1cb1526d95fbd9b68e406d0e9b93b2399a075415fc4231c38deb61cacbe",
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "6b3bbddc8a15afb979674e851bb72ecd58e1402e23802905d94fe6d272995076",
+      "sha256": "1e823c4d1d7145ce4522033ded6ef351aaf6dee39b703e5f2da28ba2e4a8b2e3",
       "mode": 420
     },
     "skills/test-audit/LICENSE": {

@@ -10,11 +10,11 @@
 
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFileSync, createWriteStream, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { copyFileSync, createWriteStream, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ISOLATED_CODEX_ARGS } from './cross.mjs';
+import { ISOLATED_CODEX_ARGS, managedCodexConfig } from './codex-isolation.mjs';
 
 const PREAMBLE =
   'You are editing a throwaway copy of a repository. Change only the files the task names. No dependencies are installed and nothing can be run or checked here, so do not try to install, build, test or commit. Make the edit exactly as specified and stop.\n\n';
@@ -32,6 +32,7 @@ const patchGit = (cwd, args) => execFileSync('git', ['-c', 'core.autocrlf=false'
 
 const lines = (buffer) => buffer.toString().split('\0').filter(Boolean);
 const isDir = (path) => existsSync(path) && statSync(path).isDirectory();
+const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
 function parse(argv) {
   const options = { model: 'gpt-6.1-sol', effort: 'high', timeout: 1800, paths: [] };
@@ -64,18 +65,27 @@ function manifest(root, skip) {
       if (skip.has(key)) continue;
       const stat = lstatSync(path);
       if (stat.isDirectory()) walk(path);
-      else entries.set(key, { kind: stat.isSymbolicLink() ? 'link' : stat.isFile() ? 'file' : 'other', mode: stat.mode & 0o777, hash: stat.isFile() ? createHash('sha256').update(readFileSync(path)).digest('hex') : '' });
+      else entries.set(key, { kind: stat.isSymbolicLink() ? 'link' : stat.isFile() ? 'file' : 'other', mode: stat.mode & 0o777, hash: stat.isFile() ? sha256(readFileSync(path)) : '' });
     }
   };
   walk(root);
   return entries;
 }
 
+function commitStartingBytes(repo, exportDir, paths) {
+  mkdirSync(repo);
+  patchGit(repo, ['init', '-q']);
+  for (const key of paths.filter((path) => existsSync(join(exportDir, path)))) {
+    mkdirSync(dirname(join(repo, key)), { recursive: true });
+    copyFileSync(join(exportDir, key), join(repo, key));
+  }
+  patchGit(repo, ['add', '-A']);
+  patchGit(repo, ['-c', 'user.name=pstack', '-c', 'user.email=pstack@local', '-c', 'commit.gpgsign=false', 'commit', '-q', '--no-verify', '--allow-empty', '-m', 'base']);
+}
+
 const isText = (bytes) => !bytes.includes(0) && Buffer.from(bytes.toString('utf8'), 'utf8').equals(bytes);
 
-function runCodex(cwd, prompt, { model, effort, timeout }, events, owned) {
-  const scratch = join(cwd, '.codex-tmp');
-  mkdirSync(scratch);
+function runCodex(cwd, scratch, prompt, { model, effort, timeout }, events, owned) {
   const args = [
     'exec',
     ...ISOLATED_CODEX_ARGS,
@@ -94,21 +104,20 @@ function runCodex(cwd, prompt, { model, effort, timeout }, events, owned) {
     'sandbox_workspace_write.exclude_slash_tmp=true',
     '-c',
     'sandbox_workspace_write.exclude_tmpdir_env_var=true',
-    '-c',
-    'project_doc_max_bytes=0',
     '--disable',
     'hooks',
     '--json',
     '--',
     PREAMBLE + prompt,
   ];
-  const env = { ...baseEnv, TMPDIR: scratch, GIT_CEILING_DIRECTORIES: dirname(cwd) };
+  const env = { ...baseEnv, TMPDIR: scratch };
   return new Promise((done) => {
     const log = createWriteStream(events, { flags: 'wx' });
     const child = spawn('codex', args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
     let failure;
     let stderr = '';
     const stopGroup = () => {
+      if (!child.pid) return;
       try {
         process.kill(-child.pid, 'SIGKILL');
       } catch (error) {
@@ -133,7 +142,6 @@ function runCodex(cwd, prompt, { model, effort, timeout }, events, owned) {
       clearTimeout(timer);
       stopGroup();
       log.end(() => {
-        rmSync(scratch, { recursive: true, force: true });
         if (failure) done({ ok: false, why: failure });
         else done(code === 0 ? { ok: true } : { ok: false, why: `codex exited ${code}: ${stderr.trim().split('\n').slice(-5).join('\n')}` });
       });
@@ -142,9 +150,6 @@ function runCodex(cwd, prompt, { model, effort, timeout }, events, owned) {
 }
 
 const calledConnectorOrPlugin = (events) => /"type":"(mcp_tool_call|plugin_call)"|"server":"/u.test(existsSync(events) ? readFileSync(events, 'utf8') : '');
-
-const codexHome = process.env.CODEX_HOME ?? join(homedir(), '.codex');
-const unignorableConfig = () => ['/etc/codex/config.toml', join(codexHome, 'managed_config.toml')].find((path) => existsSync(path));
 
 function nextAttempt(dir, name) {
   const used = readdirSync(dir).map((file) => (file.startsWith(`${name}-a`) ? Number(file.slice(name.length + 2).match(/^(\d+)\./u)?.[1] ?? 0) : 0));
@@ -168,30 +173,28 @@ async function main(argv) {
   const inRepo = relative(root, dir);
   if (!inRepo.startsWith('..') && !isAbsolute(inRepo)) {
     try {
-      sourceGit(root, ['check-ignore', '-q', '--no-index', inRepo]);
+      sourceGit(root, ['check-ignore', '-q', '--no-index', `${inRepo}/`]);
     } catch {
       console.error(`${dir} is inside the repository but not ignored; use the ignored run directory`);
       return 2;
     }
   }
-  const unsafe = unignorableConfig();
-  if (unsafe) {
-    console.error(`${unsafe} would still load under --ignore-user-config; refusing to run`);
+  const managed = managedCodexConfig();
+  if (managed) {
+    console.error(`${managed} would still load under --ignore-user-config; refusing to run`);
     return 1;
   }
   mkdirSync(dir, { recursive: true });
-  const exportDir = join(dir, `${options.name}-export`);
-  const patchDir = join(dir, `${options.name}-patchrepo`);
-  if (existsSync(exportDir) || existsSync(patchDir)) {
-    console.error(`${exportDir} or ${patchDir} already exists; remove it or pick another --name`);
-    return 1;
-  }
   const attempt = nextAttempt(dir, options.name);
   const prompt = readFileSync(options.promptFile, 'utf8');
+  // Outside every repository, so Codex finds no ancestor .codex/ config or git root.
+  const work = mkdtempSync(join(realpathSync(tmpdir()), 'pstack-codex-write-'));
+  const exportDir = join(work, 'export');
+  const patchRepo = join(work, 'patch');
   const owned = {};
   const cleanup = () => {
     owned.stop?.();
-    for (const path of [exportDir, patchDir]) rmSync(path, { recursive: true, force: true, maxRetries: 5 });
+    rmSync(work, { recursive: true, force: true, maxRetries: 5 });
   };
   for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
     process.on(signal, () => {
@@ -199,8 +202,8 @@ async function main(argv) {
       process.exit(1);
     });
   }
-  mkdirSync(exportDir);
   try {
+    mkdirSync(exportDir);
     const files = new Set([...lines(sourceGit(root, ['ls-files', '-z'])), ...lines(sourceGit(root, ['ls-files', '--others', '--exclude-standard', '-z']))]);
     for (const file of files) {
       if (file === '.codex' || file.startsWith('.codex/')) continue;
@@ -210,10 +213,12 @@ async function main(argv) {
       mkdirSync(dirname(join(exportDir, file)), { recursive: true });
       copyFileSync(from, join(exportDir, file));
     }
-    const skip = new Set(['.codex-tmp']);
+    commitStartingBytes(patchRepo, exportDir, paths);
+    const scratch = mkdtempSync(join(exportDir, '.tmp-'));
+    const skip = new Set([relative(exportDir, scratch)]);
     const before = manifest(exportDir, skip);
     const events = join(dir, `${attempt}.events.jsonl`);
-    const result = await runCodex(exportDir, prompt, options, events, owned);
+    const result = await runCodex(exportDir, scratch, prompt, options, events, owned);
     if (!result.ok) {
       console.error(result.why);
       return 1;
@@ -229,12 +234,16 @@ async function main(argv) {
       console.error(`Codex changed paths outside the named ones; no patch written:\n${outside.join('\n')}`);
       return 3;
     }
+    const written = new Map();
     const notText = changed.filter((key) => {
       const old = before.get(key);
       const now = after.get(key);
       if (!now || now.kind !== 'file') return true;
       if (old ? old.kind !== 'file' || old.mode !== now.mode : (now.mode & 0o111) !== 0) return true;
-      return !isText(readFileSync(join(exportDir, key)));
+      if (old && !isText(readFileSync(join(patchRepo, key)))) return true;
+      const bytes = readFileSync(join(exportDir, key));
+      written.set(key, bytes);
+      return !isText(bytes);
     });
     if (notText.length) {
       console.error(`Codex deleted a file, changed a mode or wrote something that is not UTF-8 text; no patch written:\n${notText.join('\n')}`);
@@ -244,20 +253,16 @@ async function main(argv) {
       console.error('Codex changed none of the named paths; no patch written');
       return 1;
     }
-    mkdirSync(patchDir);
-    patchGit(patchDir, ['init', '-q']);
-    for (const key of changed.filter((key) => before.has(key))) {
-      mkdirSync(dirname(join(patchDir, key)), { recursive: true });
-      copyFileSync(join(root, key), join(patchDir, key));
+    for (const [key, bytes] of written) {
+      if (sha256(bytes) !== after.get(key).hash) {
+        console.error(`${key} changed after Codex exited; no patch written`);
+        return 1;
+      }
+      mkdirSync(dirname(join(patchRepo, key)), { recursive: true });
+      writeFileSync(join(patchRepo, key), bytes);
     }
-    patchGit(patchDir, ['add', '-A']);
-    patchGit(patchDir, ['-c', 'user.name=pstack', '-c', 'user.email=pstack@local', '-c', 'commit.gpgsign=false', 'commit', '-q', '--no-verify', '--allow-empty', '-m', 'base']);
-    for (const key of changed) {
-      mkdirSync(dirname(join(patchDir, key)), { recursive: true });
-      copyFileSync(join(exportDir, key), join(patchDir, key));
-    }
-    patchGit(patchDir, ['add', '-A']);
-    const patch = patchGit(patchDir, ['diff-index', '-p', '--cached', '--no-renames', '--full-index', 'HEAD', '--']);
+    patchGit(patchRepo, ['add', '-A']);
+    const patch = patchGit(patchRepo, ['diff-index', '-p', '--cached', '--no-renames', '--full-index', 'HEAD', '--']);
     cleanup();
     const out = join(dir, `${attempt}.patch`);
     writeFileSync(`${out}.partial`, patch);

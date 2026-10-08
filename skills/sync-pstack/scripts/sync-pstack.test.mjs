@@ -2569,7 +2569,7 @@ function codexWriteRepo() {
   writeFileSync(join(repo, 'a.ts'), 'export const a = 2;\n');
   const bin = join(dir, 'bin');
   mkdirSync(bin);
-  writeFileSync(join(bin, 'codex'), '#!/bin/sh\n[ -e .codex ] && { echo "project config in the export" >&2; exit 7; }\nprintf "export const a = 3;\\n" > a.ts\nprintf "test(1);\\n" > new.test.ts\n[ -n "$FAKE_OUTSIDE" ] && printf "export const b = 9;\\n" > b.ts\n[ -n "$FAKE_MODE" ] && chmod +x a.ts\n[ -n "$FAKE_NUL" ] && printf "a\\000b" > a.ts\necho "{}"\n', { mode: 0o755 });
+  writeFileSync(join(bin, 'codex'), '#!/bin/sh\n[ -e .codex ] && { echo "project config in the export" >&2; exit 7; }\nprintf "export const a = 3;\\n" > a.ts\nprintf "test(1);\\n" > new.test.ts\n[ -n "$FAKE_OUTSIDE" ] && printf "export const b = 9;\\n" > b.ts\n[ -n "$FAKE_MODE" ] && chmod +x a.ts\n[ -n "$FAKE_NUL" ] && printf "a\\000b" > a.ts\n[ -n "$FAKE_SOURCE" ] && printf "export const lead = 1;\\n" > "$FAKE_SOURCE/a.ts"\necho "{}"\n', { mode: 0o755 });
   writeFileSync(join(dir, 'task.md'), 'rename a');
   const run = (env = {}) =>
     spawnSync(process.execPath, [join(HELPERS, 'codex-write.mjs'), '--dir', join(repo, 'run'), '--name', 'w', '--prompt-file', join(dir, 'task.md'), '--', 'a.ts', 'new.test.ts'], {
@@ -2616,4 +2616,13 @@ test('codex-write writes no patch when Codex changes a mode or writes bytes that
     assert.match(result.stderr, /a\.ts/);
     assert.equal(existsSync(join(repo, 'run', 'w-a1.patch')), false);
   }
+});
+
+test('codex-write diffs against the bytes Codex started from, so an edit made to the source during the run makes the patch fail to apply', () => {
+  const { repo, git, run } = codexWriteRepo();
+  const result = run({ FAKE_SOURCE: repo });
+  assert.equal(result.status, 0, result.stderr);
+  const patch = readFileSync(join(repo, 'run', 'w-a1.patch'), 'utf8');
+  assert.match(patch, /-export const a = 2;\n\+export const a = 3;/);
+  assert.notEqual(git('apply', '--check', join('run', 'w-a1.patch')).status, 0);
 });
