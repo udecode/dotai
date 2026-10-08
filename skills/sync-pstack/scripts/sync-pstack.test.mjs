@@ -2626,3 +2626,28 @@ test('codex-write diffs against the bytes Codex started from, so an edit made to
   assert.match(patch, /-export const a = 2;\n\+export const a = 3;/);
   assert.notEqual(git('apply', '--check', join('run', 'w-a1.patch')).status, 0);
 });
+
+test('codex-write still patches a named file when a named .gitignore ignores it', () => {
+  const { dir } = sandbox();
+  const repo = join(dir, 'repo');
+  mkdirSync(repo);
+  const git = (...args) => spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { cwd: repo, encoding: 'utf8' });
+  git('init', '-q');
+  writeFileSync(join(repo, 'a.ts'), 'export const a = 1;\n');
+  git('add', '-A');
+  git('commit', '-qm', 'base');
+  writeFileSync(join(repo, '.gitignore'), 'run/\n*.ts\n');
+  git('add', '.gitignore');
+  git('commit', '-qm', 'ignore');
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'codex'), '#!/bin/sh\nprintf "export const a = 3;\\n" > a.ts\necho "{}"\n', { mode: 0o755 });
+  writeFileSync(join(dir, 'task.md'), 'edit a');
+  const result = spawnSync(process.execPath, [join(HELPERS, 'codex-write.mjs'), '--dir', join(repo, 'run'), '--name', 'w', '--prompt-file', join(dir, 'task.md'), '--', 'a.ts', '.gitignore'], {
+    cwd: repo,
+    encoding: 'utf8',
+    env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(readFileSync(join(repo, 'run', 'w-a1.patch'), 'utf8'), /-export const a = 1;\n\+export const a = 3;/);
+});

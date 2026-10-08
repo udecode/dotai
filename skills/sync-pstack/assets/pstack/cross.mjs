@@ -17,6 +17,17 @@ export const otherRuntime = (env = process.env) => (env.CLAUDECODE ? 'codex' : '
 // Each child runs in its own process group, which outlives this process, so
 // stopping a run stops every runtime it launched.
 const running = new Set();
+let stopsOnSignals = false;
+const stopOnSignals = () => {
+  if (stopsOnSignals) return;
+  stopsOnSignals = true;
+  for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+    process.on(signal, () => {
+      for (const killAll of running) killAll('SIGTERM');
+      process.exit(128 + constants.signals[signal]);
+    });
+  }
+};
 
 // Codex writes its final message only to the -o file, and reads a piped stdin
 // as more prompt, so stdin is closed and the answer comes only from that file.
@@ -25,6 +36,9 @@ const running = new Set();
 // Hooks stay off unless asked for, because a project hook, such as a Stop hook
 // that stages files, would write from a read-only run.
 export function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model = MODELS[runtime], effort, hooks = false, write = false, events, resume, ignoreUserConfig = false } = {}) {
+  const managed = ignoreUserConfig && managedCodexConfig();
+  if (managed) return Promise.resolve({ runtime, ok: false, text: `${managed} would still load under --ignore-user-config; refusing to run` });
+  stopOnSignals();
   const answerFile = join(mkdtempSync(join(tmpdir(), 'pstack-cross-')), 'answer.txt');
   const [command, args] =
     runtime === 'claude'
@@ -89,12 +103,6 @@ export function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model
 }
 
 async function main(argv) {
-  for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
-    process.on(signal, () => {
-      for (const killAll of running) killAll('SIGTERM');
-      process.exit(128 + constants.signals[signal]);
-    });
-  }
   let to = otherRuntime();
   let timeout = 900;
   let model;
@@ -129,11 +137,6 @@ async function main(argv) {
   if ((write || events || resume) && (to !== 'codex' || !write || !events)) {
     console.error(`--write runs only --to codex, needs --events <file>, and is the only mode --resume works in\n${usage}`);
     return 2;
-  }
-  const managed = ignoreUserConfig && managedCodexConfig();
-  if (managed) {
-    console.error(`${managed} would still load under --ignore-user-config; refusing to run`);
-    return 1;
   }
   const answer = await ask(to, prompt, { timeout, model, effort, write, events, resume, ignoreUserConfig });
   if (answer.session) console.info(`session ${answer.session}`);

@@ -8,7 +8,7 @@
 // patch, on any other failure; 2 on bad arguments. The copy is removed on exit unless the
 // process is killed. Installed by the sync-pstack skill.
 
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { copyFileSync, createWriteStream, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -79,7 +79,9 @@ function commitStartingBytes(repo, exportDir, paths) {
     mkdirSync(dirname(join(repo, key)), { recursive: true });
     copyFileSync(join(exportDir, key), join(repo, key));
   }
-  patchGit(repo, ['add', '-A']);
+  mkdirSync(join(repo, '.git', 'info'));
+  writeFileSync(join(repo, '.git', 'info', 'attributes'), '* -text -filter diff\n');
+  patchGit(repo, ['add', '--force', '-A']);
   patchGit(repo, ['-c', 'user.name=pstack', '-c', 'user.email=pstack@local', '-c', 'commit.gpgsign=false', 'commit', '-q', '--no-verify', '--allow-empty', '-m', 'base']);
 }
 
@@ -191,6 +193,11 @@ async function main(argv) {
   const work = mkdtempSync(join(realpathSync(tmpdir()), 'pstack-codex-write-'));
   const exportDir = join(work, 'export');
   const patchRepo = join(work, 'patch');
+  if (spawnSync('git', ['rev-parse', '--git-dir'], { cwd: work, env: baseEnv }).status === 0) {
+    rmSync(work, { recursive: true, force: true });
+    console.error(`${work} is inside a git repository; point TMPDIR outside every repository`);
+    return 1;
+  }
   const owned = {};
   const cleanup = () => {
     owned.stop?.();
@@ -261,8 +268,12 @@ async function main(argv) {
       mkdirSync(dirname(join(patchRepo, key)), { recursive: true });
       writeFileSync(join(patchRepo, key), bytes);
     }
-    patchGit(patchRepo, ['add', '-A']);
+    patchGit(patchRepo, ['add', '--force', '-A']);
     const patch = patchGit(patchRepo, ['diff-index', '-p', '--cached', '--no-renames', '--full-index', 'HEAD', '--']);
+    if (!patch.length) {
+      console.error('the patch came out empty; no patch written');
+      return 1;
+    }
     cleanup();
     const out = join(dir, `${attempt}.patch`);
     writeFileSync(`${out}.partial`, patch);
