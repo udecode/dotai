@@ -360,19 +360,168 @@ test('cross runs a Codex seat read-only on the model and effort it names', () =>
   assert.match(seat.stdout, /^exec --ignore-user-config --ignore-rules .* -m gpt-6-astra -c model_reasoning_effort=high --disable hooks --sandbox read-only /);
 });
 
-test('cross keeps the user config only for --computer-use, and never loads exec rules', () => {
+function browserMachine({ profiles = ['Ellie QA'], appVersion = '26.1', stubborn = false } = {}) {
   const { dir, home } = sandbox();
+  const chrome = join(home, 'Library/Application Support/Google/Chrome');
+  mkdirSync(join(chrome, 'NativeMessagingHosts'), { recursive: true });
+  writeFileSync(join(chrome, 'NativeMessagingHosts/com.openai.codexextension.json'), '{}');
+  const names = {};
+  profiles.forEach((name, index) => {
+    mkdirSync(join(chrome, `Profile ${index}`));
+    writeFileSync(join(chrome, `Profile ${index}/Secure Preferences`), JSON.stringify({ extensions: { settings: { hehggadaopoacecdllhhajmbjkdcmajg: { disable_reasons: [] } } } }));
+    names[`Profile ${index}`] = { name };
+  });
+  writeFileSync(join(chrome, 'Local State'), JSON.stringify({ profile: { info_cache: names } }));
+  const app = join(dir, 'ChatGPT.app');
+  mkdirSync(join(app, 'Contents'), { recursive: true });
+  writeFileSync(join(app, 'Contents/Info.plist'), `<dict><key>CFBundleShortVersionString</key>\n<string>${appVersion}</string></dict>`);
+  const plugin = join(home, '.codex/plugins/cache/openai-bundled/unified-computer-use/26.1');
+  mkdirSync(plugin, { recursive: true });
+  const env = { BROWSER_USE_CODEX_APP_VERSION: '26.1', SKY_CUA_SERVICE_PATH: '/desktop', NODE_REPL_TRUSTED_SERVICES: '{"browser":"b","sky":"s"}', CUA_REPL_ENABLED_SURFACES: 'browser,computer' };
+  writeFileSync(join(plugin, '.mcp.json'), JSON.stringify({ mcpServers: { cua_repl: { command: join(app, 'Contents/Resources/node'), args: ['repl.mjs'], env, enabled_tools: ['js'] } } }));
   const bin = join(dir, 'bin');
   mkdirSync(bin);
-  writeFileSync(join(bin, 'codex'), '#!/bin/sh\nargs="$*"\nwhile [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; *) shift ;; esac; done\necho "$args" > "$out"\n', { mode: 0o755 });
-  const run = spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', '--computer-use', 'open the page'], {
-    cwd: dir,
-    encoding: 'utf8',
-    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1' },
-  });
+  const launched = join(dir, 'launched.json');
+  writeFileSync(
+    join(bin, 'codex'),
+    `#!${process.execPath}
+const fs = require('fs');
+const args = process.argv.slice(2);
+if (args[0] === 'mcp') {
+  const off = args.filter((a) => /^mcp_servers\\.\\w+\\.enabled=false$/.test(a)).map((a) => a.split('.')[1]);
+  const names = ['Sentry', 'cua_browser', ...(${stubborn} ? ['stubborn'] : [])];
+  console.log(JSON.stringify(names.map((name) => ({ name, enabled: name === 'stubborn' || !off.includes(name) }))));
+} else {
+  fs.writeFileSync(${JSON.stringify(launched)}, JSON.stringify({ args, cwd: process.cwd() }));
+  fs.writeFileSync(args[args.indexOf('-o') + 1], 'done');
+  console.log(JSON.stringify({ type: 'turn.completed' }));
+}
+`,
+    { mode: 0o755 },
+  );
+  const events = join(dir, 'events.jsonl');
+  const cross = (extra = []) =>
+    spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', '--computer-use', events, '--chrome-profile', 'Ellie QA', ...extra, 'check tasks'], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: { ...process.env, HOME: home, CODEX_HOME: join(home, '.codex'), PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1' },
+    });
+  return { dir, chrome, events, launched, cross };
+}
+
+const MAC_ONLY = { skip: process.platform !== 'darwin' && 'the browser lane runs only on macOS' };
+
+test('the browser lane runs Codex on one browser-only server with no desktop service or shell, from an empty folder, and saves its events', MAC_ONLY, () => {
+  const machine = browserMachine();
+  const run = machine.cross();
   assert.equal(run.status, 0, run.stderr);
-  assert.match(run.stdout, /^exec --ignore-rules -m gpt-6\.1-sol --disable hooks --sandbox read-only -o /);
-  assert.doesNotMatch(run.stdout, /--ignore-user-config/);
+  const { args, cwd } = JSON.parse(readFileSync(machine.launched, 'utf8'));
+  assert.notEqual(realpathSync(cwd), realpathSync(machine.dir));
+  assert.ok(args.includes('mcp_servers.Sentry.enabled=false'), args.join(' '));
+  const server = args.find((arg) => arg.startsWith('mcp_servers.cua_browser='));
+  assert.match(server, /"NODE_REPL_TRUSTED_SERVICES"="{\\"browser\\":\\"@oai\/browser-desktop\/service\\"}"/);
+  assert.match(server, /"CUA_REPL_ENABLED_SURFACES"="browser"/);
+  assert.doesNotMatch(server, /SKY_CUA_SERVICE_PATH|"sky"/);
+  for (const flag of ['shell_tool', 'unified_exec', 'apps', 'remote_plugin', 'skill_mcp_dependency_install']) assert.ok(args.join(' ').includes(`--disable ${flag}`), flag);
+  assert.ok(args.includes('--json') && args.includes('--ignore-rules') && args.join(' ').includes('--sandbox read-only'));
+  assert.equal(readFileSync(machine.events, 'utf8').trim(), '{"type":"turn.completed"}');
+});
+
+test('the browser lane refuses when Codex extension is enabled in a second Chrome profile', MAC_ONLY, () => {
+  const machine = browserMachine({ profiles: ['Ellie QA', 'Main'] });
+  const run = machine.cross();
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /enabled only in the "Ellie QA" profile; it is enabled in .*\(Ellie QA\), .*\(Main\)/);
+  assert.equal(existsSync(machine.launched), false);
+});
+
+test('the browser lane refuses while a browser has a DevTools port listening', MAC_ONLY, async () => {
+  const machine = browserMachine();
+  const { createServer } = await import('node:net');
+  const server = createServer().listen(0, '127.0.0.1');
+  await new Promise((resolve) => server.on('listening', resolve));
+  writeFileSync(join(machine.chrome, 'DevToolsActivePort'), `${server.address().port}\n/devtools/browser/x`);
+  const run = await new Promise((resolve) => {
+    const child = spawn(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', '--computer-use', machine.events, '--chrome-profile', 'Ellie QA', 'check tasks'], {
+      env: { ...process.env, HOME: join(machine.dir, 'home'), CODEX_HOME: join(machine.dir, 'home/.codex'), PATH: `${join(machine.dir, 'bin')}:${process.env.PATH}` },
+    });
+    let stderr = '';
+    child.stderr.on('data', (chunk) => (stderr += chunk));
+    child.on('close', (status) => resolve({ status, stderr }));
+  });
+  server.close();
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /DevTools port listening on \d+/);
+  assert.equal(existsSync(machine.launched), false);
+});
+
+test('the browser lane refuses when Codex still lists a server it cannot turn off', MAC_ONLY, () => {
+  const machine = browserMachine({ stubborn: true });
+  const run = machine.cross();
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /Codex still enables cua_browser, stubborn/);
+  assert.equal(existsSync(machine.launched), false);
+});
+
+test('the browser lane refuses when the cached plugin was built for another app version', MAC_ONLY, () => {
+  const machine = browserMachine({ appVersion: '26.2' });
+  const run = machine.cross();
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /cached computer-use plugin is for app 26\.1, but .* is 26\.2/);
+  assert.equal(existsSync(machine.launched), false);
+});
+
+function browserRun(steps, { code = 'await tab.getAXState();', text = 'Browser tab: 7, Title: "Ellie", URL: "https://next-ellie.vercel.app/tasks".\n0 heading Tasks', extra = [] } = {}) {
+  const meta = { 'codex/toolSurface': { extensionInstanceId: 'e1', openTabIds: ['7'] }, browser_use: { url: 'https://next-ellie.vercel.app/tasks' } };
+  const call = (id, callCode, callText) => ({ type: 'item.completed', item: { id, type: 'mcp_tool_call', server: 'cua_browser', arguments: { code: callCode }, result: { content: [{ type: 'text', text: callText }], _meta: meta } } });
+  return [call('item_1', code, text), ...extra.map((item, index) => ({ type: 'item.completed', item: { id: `x${index}`, ...item } })), { type: 'item.completed', item: { type: 'agent_message', text: `\`\`\`json\n${JSON.stringify(steps)}\n\`\`\`` } }]
+    .map((event) => JSON.stringify(event))
+    .join('\n');
+}
+
+const checkSteps = (events) => {
+  const dir = mkdtempSync(join(tmpdir(), 'cua-steps-'));
+  writeFileSync(join(dir, 'events.jsonl'), events);
+  const run = spawnSync(process.execPath, [join(HELPERS, 'cua-steps.mjs'), join(dir, 'events.jsonl'), '--host', 'next-ellie.vercel.app'], { encoding: 'utf8' });
+  return { status: run.status, steps: JSON.parse(run.stdout) };
+};
+
+const TASKS_PASS = [{ step: 1, result: 'PASS', url: 'https://next-ellie.vercel.app/tasks', checked: 'Tasks' }];
+
+test('cua-steps keeps a PASS that a page read backs', () => {
+  const { status, steps } = checkSteps(browserRun(TASKS_PASS));
+  assert.equal(status, 0, JSON.stringify(steps));
+  assert.equal(steps[0].result, 'PASS');
+});
+
+test('cua-steps downgrades a PASS backed only by text the run wrote itself', () => {
+  const { steps } = checkSteps(browserRun(TASKS_PASS, { code: 'nodeRepl.write(`Tasks heading present: ${ok}`)', text: 'Tasks heading present: false' }));
+  assert.equal(steps[0].result, 'UNPROVED');
+  assert.match(steps[0].reason, /no page read shows "Tasks"/);
+});
+
+test('cua-steps voids every PASS in a run that listed tabs', () => {
+  const { steps } = checkSteps(browserRun(TASKS_PASS, { code: 'await cua.listTabs({browser:"chrome"}); await tab.getAXState();' }));
+  assert.equal(steps[0].result, 'UNPROVED');
+  assert.match(steps[0].reason, /ran forbidden code/);
+});
+
+test('cua-steps voids every PASS in a run that ran a shell command', () => {
+  const { steps } = checkSteps(browserRun(TASKS_PASS, { extra: [{ type: 'command_execution', command: 'id' }] }));
+  assert.equal(steps[0].result, 'UNPROVED');
+  assert.match(steps[0].reason, /ran a command_execution item/);
+});
+
+test('cua-steps voids every PASS in a run that reached a host outside the list', () => {
+  const { steps } = checkSteps(browserRun(TASKS_PASS, { text: 'Browser tab: 7, Title: "QA", URL: "https://qa.example.com/tasks".\n0 heading Tasks' }));
+  assert.equal(steps[0].result, 'UNPROVED');
+  assert.match(steps[0].reason, /reached qa\.example\.com/);
+});
+
+test('cua-steps downgrades a PASS whose URL the runtime never reported', () => {
+  const { steps } = checkSteps(browserRun([{ ...TASKS_PASS[0], url: 'https://next-ellie.vercel.app/tasks?search=x' }]));
+  assert.equal(steps[0].result, 'UNPROVED');
+  assert.match(steps[0].reason, /no page the runtime reported/);
 });
 
 test('cross refuses the retired write, events and resume flags before launching Codex', () => {

@@ -2,10 +2,11 @@
 // Installed by the sync-pstack skill.
 
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { constants, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { browserLaunch } from './codex-browser.mjs';
 import { ISOLATED_CODEX_ARGS, managedCodexConfig, NO_EXEC_RULES } from './codex-isolation.mjs';
 
 export const MODELS = { claude: 'opus', codex: 'gpt-6.1-sol' };
@@ -32,9 +33,15 @@ const stopOnSignals = () => {
 // A child that ignores SIGTERM, or leaves a descendant holding its pipes, is
 // killed and abandoned at the deadline.
 // A project hook, such as a Stop hook that stages files, would still write from a read-only run.
-export function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model = MODELS[runtime], effort, hooks = false, userConfig = false } = {}) {
+export async function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model = MODELS[runtime], effort, hooks = false, userConfig = false, computerUse } = {}) {
   const managed = runtime === 'codex' && managedCodexConfig();
-  if (managed) return Promise.resolve({ runtime, ok: false, text: `${managed} would still load over the command line; refusing to run` });
+  if (managed) return { runtime, ok: false, text: `${managed} would still load over the command line; refusing to run` };
+  const runCwd = computerUse ? mkdtempSync(join(tmpdir(), 'pstack-browser-')) : cwd;
+  let launch = { args: userConfig ? NO_EXEC_RULES : ISOLATED_CODEX_ARGS };
+  if (computerUse) {
+    launch = await browserLaunch({ cwd: runCwd, chromeProfile: computerUse.chromeProfile });
+    if (launch.refusal) return { runtime, ok: false, text: `refusing the browser lane: ${launch.refusal}` };
+  }
   stopOnSignals();
   const answerFile = join(mkdtempSync(join(tmpdir(), 'pstack-cross-')), 'answer.txt');
   const [command, args] =
@@ -44,7 +51,8 @@ export function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model
           'codex',
           [
             'exec',
-            ...(userConfig ? NO_EXEC_RULES : ISOLATED_CODEX_ARGS),
+            ...(computerUse ? ['--json', '--skip-git-repo-check'] : []),
+            ...launch.args,
             '-m',
             model,
             ...(effort ? ['-c', `model_reasoning_effort=${effort}`] : []),
@@ -68,7 +76,7 @@ export function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model
       for (const timer of timers) clearTimeout(timer);
       resolve(answer);
     };
-    const child = spawn(command, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+    const child = spawn(command, args, { cwd: runCwd, env, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
     const killAll = (signal) => {
       try {
         process.kill(-child.pid, signal);
@@ -88,6 +96,7 @@ export function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model
     child.stderr.on('data', (chunk) => (stderr += chunk));
     child.on('error', (error) => done({ runtime, ok: false, text: error.message }));
     child.on('close', (code, signal) => {
+      if (computerUse) writeFileSync(computerUse.events, stdout);
       const text = (runtime === 'codex' ? (existsSync(answerFile) ? readFileSync(answerFile, 'utf8') : '') : stdout).trim();
       const failure = `${code === 0 ? 'no answer' : `exit ${code ?? signal}`}: ${stderr.trim().split('\n').slice(-5).join('\n')}`;
       done(code === 0 && text ? { runtime, ok: true, text } : { runtime, ok: false, text: failure });
@@ -101,7 +110,8 @@ async function main(argv) {
   let model;
   let effort;
   let retired;
-  let userConfig = false;
+  let events;
+  let chromeProfile;
   let promptFile;
   let isolated = false;
   let prompt = '';
@@ -113,16 +123,17 @@ async function main(argv) {
     else if (arg === '--effort') effort = argv[++index];
     else if (['--write', '--events', '--resume'].includes(arg)) retired = arg;
     else if (arg === '--ignore-user-config') isolated = true;
-    else if (arg === '--computer-use') userConfig = true;
+    else if (arg === '--computer-use') events = argv[++index];
+    else if (arg === '--chrome-profile') chromeProfile = argv[++index];
     else if (arg === '--prompt-file') promptFile = argv[++index];
     else prompt = arg;
   }
-  const usage = 'Usage: node .agents/pstack/cross.mjs [--to codex|claude] [--model <model>] [--effort <level>] [--timeout <seconds>] [--computer-use] (--prompt-file <path> | <prompt>)';
+  const usage = 'Usage: node .agents/pstack/cross.mjs [--to codex|claude] [--model <model>] [--effort <level>] [--timeout <seconds>] [--computer-use <events file> --chrome-profile <name>] (--prompt-file <path> | <prompt>)';
   if (retired) {
     console.error(`${retired} is retired: cross.mjs runs Codex read-only\n${usage}`);
     return 2;
   }
-  if (isolated && userConfig) {
+  if (isolated && events) {
     console.error(`--ignore-user-config and --computer-use conflict\n${usage}`);
     return 2;
   }
@@ -131,11 +142,11 @@ async function main(argv) {
     console.error(usage);
     return 2;
   }
-  if (userConfig && to !== 'codex') {
-    console.error(`--computer-use runs only --to codex\n${usage}`);
+  if ((events || chromeProfile) && (to !== 'codex' || !events || !chromeProfile)) {
+    console.error(`--computer-use and --chrome-profile go together, and only --to codex\n${usage}`);
     return 2;
   }
-  const answer = await ask(to, prompt, { timeout, model, effort, userConfig });
+  const answer = await ask(to, prompt, { timeout, model, effort, computerUse: events && { events, chromeProfile } });
   (answer.ok ? console.info : console.error)(answer.text);
   return answer.ok ? 0 : 1;
 }

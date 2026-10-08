@@ -7,15 +7,11 @@ import { userInfo } from 'node:os';
 // command outside the sandbox (codex-rs/core/src/exec_policy.rs:440).
 export const NO_EXEC_RULES = ['--ignore-rules'];
 
-export const ISOLATED_CODEX_ARGS = [
-  '--ignore-user-config',
-  ...NO_EXEC_RULES,
-  '-c',
-  'web_search="disabled"',
-  '-c',
-  'project_doc_max_bytes=0',
-  ...['apps', 'plugins', 'remote_plugin', 'browser_use', 'browser_use_external', 'browser_use_full_cdp_access', 'computer_use', 'in_app_browser', 'in_app_local_automation', 'image_generation', 'skill_mcp_dependency_install', 'tool_suggest', 'multi_agent', 'multi_agent_v2', 'memories', 'chronicle'].flatMap((feature) => ['--disable', feature]),
-];
+export const ISOLATED_FEATURES = ['apps', 'plugins', 'remote_plugin', 'browser_use', 'browser_use_external', 'browser_use_full_cdp_access', 'computer_use', 'in_app_browser', 'in_app_local_automation', 'image_generation', 'skill_mcp_dependency_install', 'tool_suggest', 'multi_agent', 'multi_agent_v2', 'memories', 'chronicle'];
+
+export const NO_WEB_OR_PROJECT_DOC = ['-c', 'web_search="disabled"', '-c', 'project_doc_max_bytes=0'];
+
+export const ISOLATED_CODEX_ARGS = ['--ignore-user-config', ...NO_EXEC_RULES, ...NO_WEB_OR_PROJECT_DOC, ...ISOLATED_FEATURES.flatMap((feature) => ['--disable', feature])];
 
 // Codex loads system and MDM-managed config above the command line, so either can
 // turn back on what the arguments turn off.
