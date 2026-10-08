@@ -42,6 +42,7 @@ func tint(_ name: String?) -> NSColor {
   case "red": .systemRed
   case "green": .systemGreen
   case "purple": .systemPurple
+  case "yellow": .systemYellow
   case "gray": .systemGray
   default: .systemBlue
   }

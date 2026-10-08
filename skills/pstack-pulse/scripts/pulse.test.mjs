@@ -176,33 +176,39 @@ test('a crowded project lists the session that needs you first, with its questio
   assert.equal(card.action.url, 'https://claude.ai/code/s9');
 });
 
-test('a project card lists only its working sessions and those that need you, with no idle or ship counts', () => {
+test('a project card lists sessions that need you, then working ones, then the ones waiting for you to resume their run, with no ship counts', () => {
   const sessions = {};
   reduce(sessions, hook('busy', 'UserPromptSubmit', 0, { cwd: '/w/ellie' }));
   reduce(sessions, hook('shipper', 'UserPromptSubmit', 0, { cwd: '/w/ellie', push: { sha: 'abc1234567', branch: 'next' } }));
   reduce(sessions, { kind: 'push', runtime: 'claude', session: 'shipper', at: at(1), sha: 'abc1234567', branch: 'next', outcome: 'confirmed', repoId: 'ellie', repoName: 'ellie' });
-  for (const id of ['shipper', 'planned', 'chat']) {
+  for (const id of ['shipper', 'scrub']) {
     reduce(sessions, hook(id, 'UserPromptSubmit', 1, { cwd: '/w/ellie' }));
     reduce(sessions, hook(id, 'Stop', 2, { cwd: '/w/ellie' }));
   }
-  const open = { page: null, stages: [{ label: 'Plan', state: 'done' }, { label: 'Build', state: 'waiting' }], steps: { checked: 0, total: 0 } };
-  const card = () => planBoard(viewsOf(sessions, {}, { planned: open }), emptyPhone(), { now: T0 + 60_000, shippedToday: 1 }).cards[0][1].body.content_state;
-  assert.deepEqual(card().metrics.map(({ value }) => value), ['busy']);
-  assert.equal(card().subtitle, '1 working');
+  const titles = { scrub: '🚧 scrub (4/9)', shipper: 'shipper' };
+  const card = () => planBoard(viewsOf(sessions, {}, {}, titles), emptyPhone(), { now: T0 + 60_000, shippedToday: 1 }).cards[0][1].body.content_state;
+  assert.deepEqual(card().metrics, [
+    { label: 'Build', value: 'busy', color: 'blue' },
+    { label: 'Build 4/9', value: 'scrub', color: 'yellow' },
+  ]);
+  assert.equal(card().subtitle, '1 working · 1 to resume');
   reduce(sessions, { ...ask('asker', 3), cwd: '/w/ellie' });
-  assert.deepEqual(card().metrics.map(({ value }) => value), ['asker', 'busy']);
+  assert.deepEqual(card().metrics.map(({ value }) => value), ['asker', 'busy', 'scrub']);
 });
 
-test('a project with no working session shows one idle count', () => {
+test('a project whose runs all wait for you to resume them shows each one with its stage', () => {
   const sessions = {};
-  for (const id of ['chat1', 'chat2', 'finished']) {
+  for (const id of ['scrub', 'hookdeck']) {
     reduce(sessions, hook(id, 'UserPromptSubmit', 0, { cwd: '/w/ellie' }));
     reduce(sessions, hook(id, 'Stop', 1, { cwd: '/w/ellie' }));
   }
-  const done = { page: null, stages: [{ label: 'Ship', state: 'done' }], steps: { checked: 0, total: 0 } };
-  const [[, card]] = planBoard(viewsOf(sessions, {}, { finished: done }), emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
-  assert.deepEqual(card.body.content_state.metrics, [{ label: 'idle', value: '3', color: 'gray' }]);
-  assert.equal(card.body.content_state.subtitle, 'all idle');
+  const titles = { scrub: '🧪 scrub (10/10)', hookdeck: '🟠 hookdeck (3/7)' };
+  const [[, card]] = planBoard(viewsOf(sessions, {}, {}, titles), emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
+  assert.deepEqual(card.body.content_state.metrics, [
+    { label: 'Waiting 3/7', value: 'hookdeck', color: 'yellow' },
+    { label: 'Verify 10/10', value: 'scrub', color: 'yellow' },
+  ]);
+  assert.equal(card.body.content_state.subtitle, '2 to resume');
 });
 
 test('eight sessions fill eight metrics, and a ninth folds two into a more value', () => {

@@ -12,8 +12,8 @@ const PUSH_GIVE_UP_MS = 24 * HOUR;
 const SHIP_KEPT_MS = 24 * HOUR;
 const ENDED_KEPT_MS = 7 * 24 * HOUR;
 const RANK = { 'needs-you': 0, failed: 1, working: 2, idle: 3 };
-const STATE_COLOR = { 'needs-you': 'orange', failed: 'red', working: 'blue', idle: 'gray' };
-const STATE_LABEL = { 'needs-you': 'Needs you', failed: 'Failed', working: 'Working', idle: 'Idle' };
+const STATE_COLOR = { 'needs-you': 'orange', failed: 'red', working: 'blue', resume: 'yellow', idle: 'gray' };
+const STATE_LABEL = { 'needs-you': 'Needs you', failed: 'Failed', working: 'Working', resume: 'Your turn', idle: 'Idle' };
 
 const ms = (iso) => Date.parse(iso);
 const iso = (time) => new Date(time).toISOString();
@@ -245,6 +245,8 @@ function titleStageOf(title) {
   return count ? { label, step: Number(count[1]), total: Number(count[2]) } : { label, step: 1, total: 1 };
 }
 
+// An idle session whose title still carries a stage handed back mid-run and waits for the owner to resume it.
+const shownStateOf = ({ session, title }) => (session.state === 'idle' && titleStageOf(title) ? 'resume' : session.state);
 const stageText = (stage) => (stage.total > 1 ? `${stage.label} ${stage.step}/${stage.total}` : stage.label);
 const openPlanPage = (view) => (view.rail?.page && view.rail.stages.some(({ state }) => LIVE_STAGES.includes(state)) ? view.rail.page : null);
 
@@ -255,7 +257,7 @@ export function stepOf(rail) {
 }
 
 function sessionCardOf(view) {
-  const { state } = view.session;
+  const state = shownStateOf(view);
   const need = state === 'needs-you' ? firstNeed(view.session) : null;
   const stage = titleStageOf(view.title);
   const subtitle = (need ? String(need.question) : [view.project.name, stage ? stageText(stage) : STATE_LABEL[state]].join(' · ')).slice(0, 120);
@@ -314,19 +316,17 @@ const byUrgencyThenName = (a, b) =>
 
 function projectCardOf({ project, sessions }, { listUrl }) {
   const ordered = sessions.toSorted(byUrgencyThenName);
-  const active = ordered.filter(({ session }) => session.state !== 'idle');
-  const shown = active.length > METRIC_LIMIT ? active.slice(0, METRIC_LIMIT - 1) : active;
-  const metrics = shown.length
-    ? shown.map((view) => ({ label: valueOf(view), value: clip(labelOf(view.title), 20), color: STATE_COLOR[view.session.state] }))
-    : [{ label: 'idle', value: String(ordered.length), color: 'gray' }];
-  if (shown.length < active.length) metrics.push({ label: 'more', value: `+${active.length - shown.length}`, color: 'gray' });
+  const shown = ordered.length > METRIC_LIMIT ? ordered.slice(0, METRIC_LIMIT - 1) : ordered;
+  const metrics = shown.map((view) => ({ label: valueOf(view), value: clip(labelOf(view.title), 20), color: STATE_COLOR[shownStateOf(view)] }));
+  if (shown.length < ordered.length) metrics.push({ label: 'more', value: `+${ordered.length - shown.length}`, color: 'gray' });
   const asking = ordered.find(({ session }) => session.state === 'needs-you');
-  const counts = Object.groupBy(active, ({ session }) => session.state);
+  const counts = Object.groupBy(ordered, shownStateOf);
   const subtitle = asking
     ? `${clip(labelOf(asking.title), 30)}: ${firstNeed(asking.session).question}`
-    : active.length
-      ? ['failed', 'working'].filter((state) => counts[state]).map((state) => `${counts[state].length} ${STATE_LABEL[state].toLowerCase()}`).join(' · ')
-      : 'all idle';
+    : Object.entries({ failed: 'failed', working: 'working', resume: 'to resume' })
+        .filter(([state]) => counts[state])
+        .map(([state, word]) => `${counts[state].length} ${word}`)
+        .join(' · ');
   const action = asking?.webUrl ? { title: 'Answer', type: 'open_url', url: asking.webUrl } : listUrl ? { title: 'All sessions', type: 'open_url', url: listUrl } : null;
   return { type: 'stats', body: { content_state: { title: project.name, subtitle: clip(subtitle, 110), type: 'stats', metrics }, ...(action ? { action } : {}) } };
 }
