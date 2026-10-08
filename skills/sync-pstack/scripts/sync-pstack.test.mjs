@@ -1716,6 +1716,61 @@ test('plan-open makes a newly closed box name its artifact and a deferred findin
   assert.doesNotMatch(result.stderr, /:5:|:7:|:8:|:13:/);
 });
 
+test('plan-open reads a closed box artifact from a line indented directly under it', () => {
+  const { dir, run } = sandbox();
+  const legacy = '# Plan\n\nStatus: In progress.\n\n- [x] shipped long ago\n';
+  const root = project(dir, 'app', { files: { 'plan.md': legacy } });
+  run('git', ['add', '.'], root);
+  run('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'plan'], root);
+
+  writeFileSync(join(root, 'plan.md'), `${legacy}- [x] step one\n  Closed by \`scripts/check.mjs\`.\n- [x] step two\n\n  Closed by \`scripts/other.mjs\`.\n`);
+  const result = run(process.execPath, [join(HELPERS, 'plan-open.mjs'), 'plan.md'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /plan\.md:8: .*step two \(name the artifact/);
+  assert.doesNotMatch(result.stderr, /plan\.md:6:/);
+});
+
+test('plan-open does not let a closed box borrow a nested box artifact', () => {
+  const { dir, run } = sandbox();
+  const legacy = '# Plan\n\nStatus: In progress.\n\n';
+  const root = project(dir, 'app', { files: { 'plan.md': legacy } });
+  run('git', ['add', '.'], root);
+  run('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'plan'], root);
+
+  writeFileSync(join(root, 'plan.md'), `${legacy}- [x] finish A\n  - [x] finish B \`scripts/b.mjs\`\n`);
+  const result = run(process.execPath, [join(HELPERS, 'plan-open.mjs'), 'plan.md'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /plan\.md:5: .*finish A \(name the artifact/);
+  assert.doesNotMatch(result.stderr, /plan\.md:6:/);
+});
+
+test('plan-open does not take a closing artifact from an indented line committed before the box closed', () => {
+  const { dir, run } = sandbox();
+  const before = '# Plan\n\nStatus: In progress.\n\n- [ ] step one\n  Proof: `pnpm test x`\n';
+  const root = project(dir, 'app', { files: { 'plan.md': before } });
+  run('git', ['add', '.'], root);
+  run('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'plan'], root);
+
+  writeFileSync(join(root, 'plan.md'), before.replace('- [ ] step one', '- [x] step one'));
+  const result = run(process.execPath, [join(HELPERS, 'plan-open.mjs'), 'plan.md'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /plan\.md:5: .*step one \(name the artifact/);
+});
+
+test('plan-open makes a closed Open work box name its owner and stop when its artifact is on an indented line', () => {
+  const { dir, run } = sandbox();
+  const legacy = '# Plan\n\nStatus: In progress.\n\n## Open work\n\n';
+  const root = project(dir, 'app', { files: { 'plan.md': legacy } });
+  run('git', ['add', '.'], root);
+  run('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'plan'], root);
+
+  writeFileSync(join(root, 'plan.md'), `${legacy}- [x] ledger merge\n  Closed by \`scripts/merge.mjs\`.\n- [x] schema check, owner: zbeyens\n  Closed by \`scripts/check.mjs\`, stop: 2026-11-08.\n`);
+  const result = run(process.execPath, [join(HELPERS, 'plan-open.mjs'), 'plan.md'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /plan\.md:7: .*ledger merge \(name its owner:/);
+  assert.doesNotMatch(result.stderr, /plan\.md:9:/);
+});
+
 test('plan-open makes an Open work item added since HEAD name its owner and its stop', () => {
   const { dir, run } = sandbox();
   const legacy = '# Plan\n\nStatus: In progress.\n\n## Open work\n\n- old backlog item\n';

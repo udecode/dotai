@@ -68,6 +68,8 @@ function openLines(path) {
   let closedBox = null;
   const checkClosedBox = () => {
     if (closedBox) {
+      if (!ARTIFACT.test(closedBox.fresh)) found.push(`${closedBox.where} (name the artifact that closed it, or skip: <reason>)`);
+      else if (closedBox.finding && !(/\bowner:/iu.test(closedBox.fresh) && /\bstop:/iu.test(closedBox.fresh))) found.push(`${closedBox.where} (name its owner:, where it is tracked, and its stop:)`);
       const problems = [...unprovenCitations(closedBox.text), ...notPassedCitations(closedBox.text, states, words)];
       found.push(...problems.map((problem) => `${closedBox.where} (${problem})`));
     }
@@ -98,8 +100,10 @@ function openLines(path) {
       commented = true;
       line = line.slice(0, start);
     }
-    if (closedBox && line.trim() && raw.search(/\S/u) > closedBox.indent) closedBox.text += ` ${line.trim()}`;
-    else checkClosedBox();
+    if (closedBox && line.trim() && raw.search(/\S/u) > closedBox.indent && !OPEN_BOX.test(line) && !CLOSED_BOX.test(line)) {
+      closedBox.text += ` ${line.trim()}`;
+      if (!committed.has(raw)) closedBox.fresh += ` ${line.trim()}`;
+    } else checkClosedBox();
     const heading = line.match(/^(#{1,6})\s/u);
     if (heading) {
       // A heading nested under a findings heading, such as a question under
@@ -129,11 +133,11 @@ function openLines(path) {
       continue;
     }
     if (committed.has(raw)) continue;
-    if (CLOSED_BOX.test(line) && !ARTIFACT.test(line)) found.push(`${where} (name the artifact that closed it, or skip: <reason>)`);
-    else if (findings && ITEM.test(line) && !(/\bowner:/iu.test(line) && /\bstop:/iu.test(line))) found.push(`${where} (name its owner:, where it is tracked, and its stop:)`);
-    if (CLOSED_BOX.test(line)) {
+    const closed = CLOSED_BOX.test(line);
+    if (!closed && findings && ITEM.test(line) && !(/\bowner:/iu.test(line) && /\bstop:/iu.test(line))) found.push(`${where} (name its owner:, where it is tracked, and its stop:)`);
+    if (closed) {
       checkClosedBox();
-      closedBox = { indent: raw.search(/\S/u), text: line, where: `${path}:${index + 1}: ${raw.trim()}` };
+      closedBox = { finding: findings && ITEM.test(line), fresh: line, indent: raw.search(/\S/u), text: line, where: `${path}:${index + 1}: ${raw.trim()}` };
     }
   }
   checkClosedBox();
