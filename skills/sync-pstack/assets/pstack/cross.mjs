@@ -6,7 +6,7 @@ import { existsSync, mkdtempSync, readFileSync, realpathSync } from 'node:fs';
 import { constants, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ISOLATED_CODEX_ARGS, managedCodexConfig } from './codex-isolation.mjs';
+import { ISOLATED_CODEX_ARGS, managedCodexConfig, NO_EXEC_RULES } from './codex-isolation.mjs';
 
 export const MODELS = { claude: 'opus', codex: 'gpt-6.1-sol' };
 
@@ -31,13 +31,10 @@ const stopOnSignals = () => {
 // as more prompt, so stdin is closed and the answer comes only from that file.
 // A child that ignores SIGTERM, or leaves a descendant holding its pipes, is
 // killed and abandoned at the deadline.
-// Hooks stay off unless asked for, because a project hook, such as a Stop hook
-// that stages files, would write from a read-only run. Codex runs without the user's
-// config unless asked for, and never loads exec rules, whose allow decisions run a
-// command outside the sandbox.
+// A project hook, such as a Stop hook that stages files, would still write from a read-only run.
 export function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model = MODELS[runtime], effort, hooks = false, userConfig = false } = {}) {
-  const managed = runtime === 'codex' && !userConfig && managedCodexConfig();
-  if (managed) return Promise.resolve({ runtime, ok: false, text: `${managed} would still load under --ignore-user-config; refusing to run` });
+  const managed = runtime === 'codex' && managedCodexConfig();
+  if (managed) return Promise.resolve({ runtime, ok: false, text: `${managed} would still load over the command line; refusing to run` });
   stopOnSignals();
   const answerFile = join(mkdtempSync(join(tmpdir(), 'pstack-cross-')), 'answer.txt');
   const [command, args] =
@@ -47,7 +44,7 @@ export function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model
           'codex',
           [
             'exec',
-            ...(userConfig ? ['--ignore-rules'] : ISOLATED_CODEX_ARGS),
+            ...(userConfig ? NO_EXEC_RULES : ISOLATED_CODEX_ARGS),
             '-m',
             model,
             ...(effort ? ['-c', `model_reasoning_effort=${effort}`] : []),
@@ -106,6 +103,7 @@ async function main(argv) {
   let retired;
   let userConfig = false;
   let promptFile;
+  let isolated = false;
   let prompt = '';
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -114,7 +112,7 @@ async function main(argv) {
     else if (arg === '--model') model = argv[++index];
     else if (arg === '--effort') effort = argv[++index];
     else if (['--write', '--events', '--resume'].includes(arg)) retired = arg;
-    else if (arg === '--ignore-user-config') userConfig = false;
+    else if (arg === '--ignore-user-config') isolated = true;
     else if (arg === '--computer-use') userConfig = true;
     else if (arg === '--prompt-file') promptFile = argv[++index];
     else prompt = arg;
@@ -122,6 +120,10 @@ async function main(argv) {
   const usage = 'Usage: node .agents/pstack/cross.mjs [--to codex|claude] [--model <model>] [--effort <level>] [--timeout <seconds>] [--computer-use] (--prompt-file <path> | <prompt>)';
   if (retired) {
     console.error(`${retired} is retired: cross.mjs runs Codex read-only\n${usage}`);
+    return 2;
+  }
+  if (isolated && userConfig) {
+    console.error(`--ignore-user-config and --computer-use conflict\n${usage}`);
     return 2;
   }
   if (promptFile) prompt = readFileSync(promptFile, 'utf8');

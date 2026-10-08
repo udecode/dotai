@@ -5,9 +5,11 @@ import { userInfo } from 'node:os';
 
 // --ignore-user-config still loads execpolicy rules, and an allow rule runs its
 // command outside the sandbox (codex-rs/core/src/exec_policy.rs:440).
+export const NO_EXEC_RULES = ['--ignore-rules'];
+
 export const ISOLATED_CODEX_ARGS = [
   '--ignore-user-config',
-  '--ignore-rules',
+  ...NO_EXEC_RULES,
   '-c',
   'web_search="disabled"',
   '-c',

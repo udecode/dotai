@@ -308,7 +308,7 @@ test('smoke runs each prompt in both runtimes from the project root, without CLA
   writeFileSync(join(bin, 'claude'), '#!/bin/sh\necho "progress noise" >&2\necho "claude in $(pwd) CLAUDECODE=${CLAUDECODE:-unset}: $*"\n', { mode: 0o755 });
   const codex = [
     '#!/bin/sh',
-    'flags="$1 $2 $3 $4 $5"',
+    'flags="$1 $2 $3 $4 $5 $6"',
     'while [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; *) prompt="$1"; shift ;; esac; done',
     'echo "transcript noise"',
     'echo "progress noise" >&2',
@@ -322,7 +322,7 @@ test('smoke runs each prompt in both runtimes from the project root, without CLA
   });
   assert.equal(result.status, 0, result.stderr);
   assert.ok(result.stdout.includes(`claude in ${root} CLAUDECODE=unset: -p --model opus --permission-mode plan -- the toolbar closes`), result.stdout);
-  assert.ok(result.stdout.includes(`codex in ${root} with exec --ignore-rules -m gpt-6.1-sol --sandbox: the toolbar closes`), result.stdout);
+  assert.ok(result.stdout.includes(`codex in ${root} with exec --ignore-rules -m gpt-6.1-sol --sandbox read-only: the toolbar closes`), result.stdout);
   assert.doesNotMatch(result.stdout, /noise/);
 });
 
@@ -371,7 +371,7 @@ test('cross keeps the user config only for --computer-use, and never loads exec 
     env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1' },
   });
   assert.equal(run.status, 0, run.stderr);
-  assert.match(run.stdout, /^exec --ignore-rules -m gpt-6\.1-sol /);
+  assert.match(run.stdout, /^exec --ignore-rules -m gpt-6\.1-sol --disable hooks --sandbox read-only -o /);
   assert.doesNotMatch(run.stdout, /--ignore-user-config/);
 });
 
@@ -387,7 +387,7 @@ test('cross refuses the retired write, events and resume flags before launching 
       encoding: 'utf8',
       env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1' },
     });
-  for (const flags of [['--write', '--events', join(dir, 'e.jsonl')], ['--events', join(dir, 'e.jsonl')], ['--resume', 't-1']]) {
+  for (const flags of [['--write'], ['--events', join(dir, 'e.jsonl')], ['--resume', 't-1']]) {
     const result = run(flags);
     assert.equal(existsSync(launched), false, `${flags.join(' ')} launched Codex`);
     assert.equal(result.status, 2, flags.join(' '));
