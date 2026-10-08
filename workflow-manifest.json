@@ -105,7 +105,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/SKILL.md": {
-      "sha256": "820082025682c8073f30b23648afe164729bb5beb575c917ae68d9b0027203c0",
+      "sha256": "262f27c61e4d610c53dc26386b840421f7cb33ca2e9d0ac48f40a7fbd001fa9a",
       "mode": 420
     },
     "skills/pstack-pulse/desktop/index.html": {
@@ -129,7 +129,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/menubar/PulseMenu.swift": {
-      "sha256": "60385053acad285f21a07ca889edffa046116fd0d596d68cee3dad8547fab639",
+      "sha256": "34b7b39658d4aa3afe651dc8f252ae89c5c55a38aab3eff8e306281536b20f3e",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/hook.mjs": {
@@ -141,7 +141,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/install.mjs": {
-      "sha256": "f3255e06287bc2ce7b31ac621ca7abcb66c535e097801ed0be45e1a2185ffde8",
+      "sha256": "48b98de0b51898125c2aba0f12617dd05030cb9a042ddcb538f569195ecf91bd",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/io.mjs": {
@@ -149,19 +149,19 @@
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/model.mjs": {
-      "sha256": "a79757d7ef45be0972d7129475460eb3aea81e9516e9e9a94e99234e8c51c59a",
+      "sha256": "7084a4f23c6514aa61f0305ebfd93e77eeff2fe95ab1df4ade842e720fc402da",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/phone.mjs": {
-      "sha256": "ede72601ea7210409630d8be8ddc8d41b5a55588d00002c476aa44bdd9fbba87",
+      "sha256": "55b83d8ca60cc8a79c7d7b0214dad0ee7552b6a2039d366a30e4f35a1df4ce42",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/pulse.mjs": {
-      "sha256": "251d7c98b7dff4aa2336c5c7294118c4fac1feccfb6551b8c655837aa6f9044e",
+      "sha256": "f94e5a15502139d7087f31962479ea3154797111657b5b60cd14adc90589ddeb",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/pulse.test.mjs": {
-      "sha256": "c7eaa1f21c1e3c99eb07b0c3c49db23878aa9ad9a57b8be83587cf39e28342d1",
+      "sha256": "3c262674f32fd4eb2514bbf80f2ad2bacc460fccb6e6c4303f8216d0fb45edeb",
       "mode": 420
     },
     "skills/rca/SKILL.md": {

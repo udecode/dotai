@@ -1,4 +1,8 @@
-import { copyFileSync, existsSync, readFileSync, realpathSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { copyFileSync, existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { writeFileAtomic } from './io.mjs';
 
 const OWNER = '--owner=pstack-pulse';
@@ -48,3 +52,31 @@ export const plistOf = ({ label, args, log, path, untilQuit = false }) => `<?xml
 <key>StandardOutPath</key><string>${xml(log)}</string><key>StandardErrorPath</key><string>${xml(log)}</string>
 </dict></plist>
 `;
+
+export function codeHash(dir) {
+  const hash = createHash('sha1');
+  const walk = (folder) => {
+    for (const entry of readdirSync(folder, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+      const path = join(folder, entry.name);
+      if (entry.isDirectory()) walk(path);
+      else if (entry.isFile()) hash.update(`${path.slice(dir.length)}\0`).update(readFileSync(path));
+    }
+  };
+  walk(dir);
+  return hash.digest('hex');
+}
+
+// A changed skill must read the same twice before the daemon restarts on it, so an update still copying files never loads half of them.
+export function nextHeal(watch, current) {
+  if (current === watch.running) return { running: watch.running, pending: null, heal: false };
+  return { running: watch.running, pending: current, heal: current === watch.pending };
+}
+
+const nodeMajor = (node) => Number(spawnSync(node, ['-p', 'process.versions.node'], { encoding: 'utf8' }).stdout?.split('.')[0]);
+
+// Hooks and the daemon outlive the shell that ran install, so they use a node path that survives a version upgrade.
+export function stableNode() {
+  const candidates = [join(homedir(), '.local/share/fnm/aliases/default/bin/node'), '/opt/homebrew/bin/node', '/usr/local/bin/node'];
+  return candidates.find((node) => existsSync(node) && nodeMajor(node) >= 22) ?? process.execPath;
+}

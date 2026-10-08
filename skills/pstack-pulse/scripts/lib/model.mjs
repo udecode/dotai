@@ -238,7 +238,7 @@ const LIVE_STAGES = ['now', 'waiting', 'blocked', 'stopped'];
 // The pstack Session title rule leads each title with its stage or state emoji and ends it with (n/total).
 const TITLE_STAGES = { '📝': 'Plan', '📐': 'Design', '👥': 'Plan review', '🚧': 'Build', '✍': 'Writing', '🔎': 'Code review', '🧪': 'Verify', '🕵': 'Audit', '🚀': 'Ship', '🧠': 'Reflect', '🟠': 'Waiting', '🔴': 'Blocked', '💤': 'Paused' };
 
-function titleStageOf(title) {
+export function titleStageOf(title) {
   const label = TITLE_STAGES[/^(\p{Extended_Pictographic})\uFE0F?\s/u.exec(title ?? '')?.[1]];
   if (!label) return null;
   const count = /\((\d+)\/(\d+)[^)]*\)\s*$/u.exec(title);

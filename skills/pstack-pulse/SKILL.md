@@ -1,7 +1,7 @@
 ---
 name: pstack-pulse
 description: Show every Claude Code and Codex session on the iPhone lock screen through ActivitySmith and in the Mac menubar, with each plan page's pipeline, and buzz when a session needs you, ships or fails.
-argument-hint: install | doctor | status | menubar | uninstall
+argument-hint: install [--auto-update] | update | doctor | status | menubar | uninstall
 disable-model-invocation: true
 ---
 
@@ -27,18 +27,24 @@ A daemon on this Mac turns hook events from every Claude Code and Codex session 
 
 ## Install
 
-1. Run `install`. It is done when it prints the hook files, `daemon: started`, `menubar: started` and the session list URL. The daemon picks up the key within 30 seconds of it being stored.
+On another Mac, install the skill and its companion first with `npx --yes skills add udecode/dotai --skill pstack-pulse --skill rca --agent claude-code --global -y`. The phone needs its own ActivitySmith account and app, and cards show only sessions in repositories synced by sync-pstack, whose Session title rule gives each title its stage.
+
+1. Run `install`, adding `--auto-update` when the owner wants the daily update in [Updates](#updates). It is done when it prints the hook files, `daemon: started`, `menubar: started` and the session list URL. The daemon picks up the key within 30 seconds of it being stored.
 2. Hand the owner the three steps it prints, which only the owner can do:
    - Store the ActivitySmith key in the Keychain with the `security add-generic-password` line.
    - Publish the read-only session list with the `tailscale funnel` line. The list lives at a secret path and accepts no input.
    - In Codex, open `/hooks` once and trust the pstack-pulse hooks.
 3. Ask the owner to turn off the Claude app's own "Push when actions required", so each question buzzes once.
-4. Run `doctor`. It is done when every line reads `ok`.
+4. Run `doctor`. It is done when every line reads `ok` or `warn`. A `warn` line names an optional part and what is lost without it.
+
+## Updates
+
+The daemon checks its skill folder every 30 seconds. Once a change reads the same twice, it rewrites its hooks, rebuilds the menubar when its Swift source changed, and exits, and launchd starts it again on the new code. So an update is only `npx --yes skills update pstack-pulse rca --global --yes`, which `update` runs. With `install --auto-update`, the daemon runs `update` once a day, so every push to dotai's main branch reaches the Mac within a day; `install --no-auto-update` turns that off. `update` logs its result to the daemon log. `install` points the hooks and the daemon at the fnm default node, or else Homebrew's, when that node is version 22 or later, so upgrading node does not break them.
 
 ## Status and repair
 
 - `status` lists every live session with its state, then the cards on the phone and the badge.
-- `doctor` checks the key, the daemon, the menubar, both hook files, the Claude session registry, that cc-same and cswap are on the daemon's PATH, and the list secret.
+- `doctor` checks the key, the daemon, the menubar, both hook files and the node they run, the Claude session registry and the list secret. It warns when it has seen no pstack-titled session, when there is no session list URL and when auto-update is off. It also warns when cc-same or cswap is missing from the daemon's PATH, which only costs the account names.
 - The daemon logs to `~/Library/Logs/pstack-pulse.log` and keeps its state in `~/.pstack-pulse/`. An inbox file it cannot read as an event moves to `~/.pstack-pulse/inbox/bad/`.
 - A card's pipeline comes from `node .agents/pstack/plan-page.mjs <plan> --rail` in the session's own repository. A repository synced before that mode existed shows "No plan" until its next sync-pstack run.
 - `install` owns only the hook entries whose command ends in `--owner=pstack-pulse`. It keeps every other hook in the same group, saves a first backup of each settings file beside it, and writes through a temporary file, so a crash never leaves half a file; a change another program makes during that write is lost. Claude's `PreToolUse` hook runs only for `AskUserQuestion` and `ExitPlanMode`.

@@ -6,13 +6,18 @@ import { connect, createServer as createSocketServer } from 'node:net';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { editSettings, hookCommand, plistOf, withHook, withoutHook } from './lib/install.mjs';
+import { codeHash, editSettings, hookCommand, nextHeal, plistOf, stableNode, withHook, withoutHook } from './lib/install.mjs';
 import { HOME } from './lib/event.mjs';
 import { accounts, apiKey, claudeRegistry, loadConfig, loadState, probe, projectOf, railOf, readInbox, saveConfig, saveState, writeFileAtomic } from './lib/io.mjs';
-import { firstNeed, incidentsOf, menuBoardOf, petOf, planBoard, reduce, shippedToday } from './lib/model.mjs';
+import { firstNeed, incidentsOf, menuBoardOf, petOf, planBoard, reduce, shippedToday, titleStageOf } from './lib/model.mjs';
 import { createClient, deliver, teardown } from './lib/phone.mjs';
 
 const SCRIPTS = dirname(realpathSync(fileURLToPath(import.meta.url)));
+const SKILL = dirname(SCRIPTS);
+const MENU_SOURCE = join(SKILL, 'menubar', 'PulseMenu.swift');
+const SKILLS = ['pstack-pulse', 'rca'];
+const UPDATE_EVERY_MS = 24 * 3_600_000;
+const UPDATED = join(HOME, 'updated.json');
 const LABEL = 'dev.pstack.pulse';
 const PLIST = join(homedir(), 'Library/LaunchAgents', `${LABEL}.plist`);
 const LOG = join(homedir(), 'Library/Logs/pstack-pulse.log');
@@ -146,15 +151,46 @@ async function run() {
   const client = createClient({ getKey: apiKey });
   serveList(config);
   log('pstack-pulse running', SCRIPTS);
-  for (;;) {
+  let watch = { running: codeHash(SKILL), pending: null };
+  for (let ticks = 1; ; ticks += 1) {
     try {
       await tick(state, config, client);
     } catch (error) {
       log('tick', error.stack ?? error.message);
       state = loadState();
     }
+    if (ticks % 15 === 0) {
+      watch = nextHeal(watch, codeHash(SKILL));
+      if (watch.heal) heal();
+      if (config.autoUpdate && Date.now() - lastUpdate() > UPDATE_EVERY_MS) spawn(process.execPath, [join(SCRIPTS, 'pulse.mjs'), 'update'], { stdio: 'inherit' });
+    }
     await new Promise((done) => setTimeout(done, 2000));
   }
+}
+
+// launchd restarts the daemon on its new code; hooks and the menubar are rewritten first, because new code can change them.
+function heal() {
+  log('skill changed; rewriting hooks and restarting');
+  writeHooks(stableNode());
+  if (existsSync(MENU_PLIST) && loadConfig().menuSource !== sourceHash()) {
+    if (buildMenu().status === 0) launchctl('kickstart', '-k', `gui/${process.getuid()}/${MENU.label}`);
+    else log('menubar: rebuild failed; the old one keeps running');
+  }
+  process.exit(0);
+}
+
+const lastUpdate = () => (existsSync(UPDATED) ? JSON.parse(readFileSync(UPDATED, 'utf8')).at : 0);
+
+function update() {
+  writeFileAtomic(UPDATED, JSON.stringify({ at: Date.now() }));
+  const installed = SKILLS.filter((name) => ['.agents/skills', '.claude/skills'].some((folder) => existsSync(join(homedir(), folder, name))));
+  const result = spawnSync(join(dirname(process.execPath), 'npx'), ['--yes', 'skills', 'update', ...installed, '--global', '--yes'], { encoding: 'utf8', timeout: 300_000 });
+  log(`update ${installed.join(' ')}: ${result.status === 0 ? 'done' : `failed (${(result.stderr || result.error?.message || '').trim().split('\n').at(-1)})`}`);
+  process.exitCode = result.status === 0 ? 0 : 1;
+}
+
+function writeHooks(node) {
+  for (const runtime of ['claude', 'codex']) editSettings(SETTINGS[runtime], (settings) => withHook(settings, EVENTS[runtime], hookCommand(node, join(SCRIPTS, 'hook.mjs'), runtime)));
 }
 
 function load(label, plist) {
@@ -164,9 +200,18 @@ function load(label, plist) {
   return launchctl('bootstrap', `gui/${uid}`, plist);
 }
 
-function menubar() {
+const sourceHash = () => createHash('sha1').update(readFileSync(MENU_SOURCE)).digest('hex');
+
+function buildMenu() {
   mkdirSync(dirname(MENU.bin), { recursive: true });
-  const build = spawnSync('xcrun', ['swiftc', '-O', '-o', MENU.bin, join(SCRIPTS, '..', 'menubar', 'PulseMenu.swift')], { encoding: 'utf8' });
+  const source = sourceHash();
+  const build = spawnSync('xcrun', ['swiftc', '-O', '-o', MENU.bin, MENU_SOURCE], { encoding: 'utf8' });
+  if (build.status === 0) saveConfig({ ...loadConfig(), menuSource: source });
+  return build;
+}
+
+function menubar() {
+  const build = buildMenu();
   if (build.status !== 0) {
     process.exitCode = 1;
     console.log(`menubar: not built; it needs Xcode's swiftc (${(build.stderr || build.error?.message || '').trim().split('\n')[0]})`);
@@ -184,15 +229,19 @@ function install() {
   config.secret ??= randomBytes(24).toString('hex');
   const dns = JSON.parse(spawnSync('tailscale', ['status', '--json'], { encoding: 'utf8' }).stdout || '{}').Self?.DNSName?.replace(/\.$/u, '');
   if (dns) config.listUrl = `https://${dns}:8443/${config.secret}/`;
+  if (process.argv.includes('--auto-update')) config.autoUpdate = true;
+  if (process.argv.includes('--no-auto-update')) config.autoUpdate = false;
   saveConfig(config);
-  for (const runtime of ['claude', 'codex']) editSettings(SETTINGS[runtime], (settings) => withHook(settings, EVENTS[runtime], hookCommand(process.execPath, join(SCRIPTS, 'hook.mjs'), runtime)));
-  writeFileAtomic(PLIST, plistOf({ label: LABEL, args: [process.execPath, join(SCRIPTS, 'pulse.mjs'), 'run'], log: LOG, path: process.env.PATH }));
+  const node = stableNode();
+  writeHooks(node);
+  writeFileAtomic(PLIST, plistOf({ label: LABEL, args: [node, join(SCRIPTS, 'pulse.mjs'), 'run'], log: LOG, path: process.env.PATH }));
   const boot = load(LABEL, PLIST);
   if (boot.status !== 0) process.exitCode = 1;
   console.log('hooks: ~/.claude/settings.json and ~/.codex/hooks.json (first backups beside them)');
   console.log(`daemon: ${boot.status === 0 ? 'started' : `launchctl failed: ${boot.stderr.trim()}`} (${LOG})`);
   menubar();
   console.log(`session list: ${config.listUrl ?? 'no tailnet name found'}`);
+  console.log(`auto-update: ${config.autoUpdate ? 'on, daily' : 'off; install --auto-update turns it on'}`);
   console.log('still yours to do:');
   console.log('  security add-generic-password -s pstack-pulse -a activitysmith -w   (paste the ActivitySmith key)');
   console.log(`  tailscale funnel --bg --https=8443 http://127.0.0.1:${config.listPort}   (publishes the read-only list)`);
@@ -226,6 +275,8 @@ function status() {
 
 function doctor() {
   const hooked = (path) => existsSync(path) && readFileSync(path, 'utf8').includes('--owner=pstack-pulse');
+  const hookCommands = existsSync(SETTINGS.claude) ? Object.values(JSON.parse(readFileSync(SETTINGS.claude, 'utf8')).hooks ?? {}).flat().flatMap((group) => group.hooks ?? []).map((hook) => hook.command) : [];
+  const hookNode = hookCommands.map((command) => /^"([^"]+)" "[^"]+hook\.mjs" claude --owner=pstack-pulse$/u.exec(command ?? '')?.[1]).find(Boolean);
   const plist = existsSync(PLIST) ? readFileSync(PLIST, 'utf8') : '';
   const daemonPath = plist.match(/<key>PATH<\/key><string>([^<]*)<\/string>/u)?.[1] ?? '';
   const onDaemonPath = (tool) => spawnSync('/bin/sh', ['-c', `command -v ${tool}`], { env: { PATH: daemonPath } }).status === 0;
@@ -234,13 +285,20 @@ function doctor() {
     ['daemon', launchctl('print', `gui/${process.getuid()}/${LABEL}`).status === 0],
     ['menubar', launchctl('print', `gui/${process.getuid()}/${MENU.label}`).status === 0],
     ['Claude hooks', hooked(SETTINGS.claude)],
+    ['the hooks\' node', Boolean(hookNode && existsSync(hookNode))],
     ['Codex hooks', hooked(SETTINGS.codex)],
     ['Claude session registry', Object.keys(claudeRegistry()).length > 0],
-    ['cc-same on the daemon PATH', onDaemonPath('cc-same')],
-    ['cswap on the daemon PATH', onDaemonPath('cswap')],
     ['session list secret', Boolean(loadConfig().secret)],
   ];
+  const hints = [
+    ['a pstack session seen; cards show only sessions titled by the Session title rule of a repository synced by sync-pstack', Object.values(loadState().sessions).some(({ title }) => titleStageOf(title))],
+    ['a session list URL; without Tailscale Funnel the All sessions buttons open nothing', Boolean(loadConfig().listUrl)],
+    ['cc-same on the daemon PATH, for the account on the menubar', onDaemonPath('cc-same')],
+    ['cswap on the daemon PATH, for the CLI account on the session list', onDaemonPath('cswap')],
+    ['auto-update; install --auto-update turns it on', Boolean(loadConfig().autoUpdate)],
+  ];
   for (const [name, ok] of checks) console.log(`${ok ? 'ok  ' : 'MISS'} ${name}`);
+  for (const [name, ok] of hints) console.log(`${ok ? 'ok  ' : 'warn'} ${name}`);
   process.exitCode = checks.every(([, ok]) => ok) ? 0 : 1;
 }
 
@@ -250,10 +308,10 @@ function pet() {
   console.log('pet: starting the floating pet');
 }
 
-const commands = { run, install, uninstall, status, doctor, menubar, pet };
+const commands = { run, install, uninstall, status, doctor, menubar, pet, update };
 const command = commands[process.argv[2]];
 if (!command) {
-  console.error('usage: pulse.mjs install | uninstall | status | doctor | menubar | run | pet');
+  console.error('usage: pulse.mjs install [--auto-update | --no-auto-update] | update | uninstall | status | doctor | menubar | run | pet');
   process.exit(2);
 }
 await command();

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import test from 'node:test';
 import { eventOf } from './lib/event.mjs';
-import { hookCommand, withHook, withoutHook } from './lib/install.mjs';
+import { codeHash, hookCommand, nextHeal, withHook, withoutHook } from './lib/install.mjs';
 import { projectOf, readRollout } from './lib/io.mjs';
 import { incidentsOf, keyOf, menuBoardOf, petOf, planBoard, projectKeyOf, reduce, stepOf } from './lib/model.mjs';
 import { createClient, deliver, emptyPhone } from './lib/phone.mjs';
@@ -536,4 +536,19 @@ test('tapping a push opens the session, with its open plan page as a button', as
   await createClient({ getKey: () => 'key', fetchImpl }).push(incident, 'https://list.example/');
   assert.equal(bodies[0].redirection, 'https://claude.ai/code/session_a');
   assert.deepEqual(bodies[0].actions.map(({ url }) => url), ['https://claude.ai/artifact/p', 'https://list.example/']);
+});
+
+test('a skill update restarts the daemon only once a change anywhere in the skill reads the same twice', () => {
+  const skill = mkdtempSync(join(tmpdir(), 'pulse-skill-'));
+  mkdirSync(join(skill, 'scripts/lib'), { recursive: true });
+  writeFileSync(join(skill, 'scripts/lib/model.mjs'), 'old');
+  let watch = { running: codeHash(skill), pending: null };
+  assert.equal(nextHeal(watch, codeHash(skill)).heal, false);
+  writeFileSync(join(skill, 'scripts/lib/model.mjs'), 'half');
+  watch = nextHeal(watch, codeHash(skill));
+  assert.equal(watch.heal, false);
+  writeFileSync(join(skill, 'scripts/lib/model.mjs'), 'new');
+  watch = nextHeal(watch, codeHash(skill));
+  assert.equal(watch.heal, false);
+  assert.equal(nextHeal(watch, codeHash(skill)).heal, true);
 });
