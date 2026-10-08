@@ -261,7 +261,7 @@ function sessionCardOf(view) {
   const need = state === 'needs-you' ? firstNeed(view.session) : null;
   const stage = titleStageOf(view.title);
   const subtitle = (need ? String(need.question) : [view.project.name, stage ? stage.label : STATE_LABEL[state]].join(' · ')).slice(0, 120);
-  const title = clip(labelOf(view.title), 80);
+  const title = clip(nameOf(view.title), 80);
   const color = STATE_COLOR[state] ?? 'blue';
   const page = openPlanPage(view);
   const planPage = page ? { title: 'Plan', type: 'open_url', url: page } : null;
@@ -300,7 +300,8 @@ function fleetOf(views, { shippedToday, account, listUrl }) {
 }
 
 const clip = (text, size) => (text.length > size ? `${text.slice(0, size - 1)}…` : text);
-const labelOf = (title) => title.replace(/^\p{Extended_Pictographic}\uFE0F?\s*/u, '').replace(/\s*\(\d+\/\d+[^)]*\)\s*$/u, '');
+const nameOf = (title) => title.replace(/\s*\(\d+\/\d+[^)]*\)\s*$/u, '');
+const labelOf = (title) => nameOf(title).replace(/^\p{Extended_Pictographic}\uFE0F?\s*/u, '');
 
 function valueOf(view) {
   const { state } = view.session;
@@ -317,7 +318,7 @@ const byUrgencyThenName = (a, b) =>
 function projectCardOf({ project, sessions }, { listUrl }) {
   const ordered = sessions.toSorted(byUrgencyThenName);
   const shown = ordered.length > METRIC_LIMIT ? ordered.slice(0, METRIC_LIMIT - 1) : ordered;
-  const metrics = shown.map((view) => ({ label: valueOf(view), value: clip(labelOf(view.title), 20), color: STATE_COLOR[shownStateOf(view)] }));
+  const metrics = shown.map((view) => ({ label: valueOf(view), value: clip(nameOf(view.title), 20), color: STATE_COLOR[shownStateOf(view)] }));
   if (shown.length < ordered.length) metrics.push({ label: 'more', value: `+${ordered.length - shown.length}`, color: 'gray' });
   const asking = ordered.find(({ session }) => session.state === 'needs-you');
   const counts = Object.groupBy(ordered, shownStateOf);

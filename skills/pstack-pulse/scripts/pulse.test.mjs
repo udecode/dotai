@@ -116,7 +116,7 @@ test('only sessions whose title shows a pstack stage reach the phone', () => {
   const views = viewsOf(sessions, {}, {}, { chat: 'quick question', loose: 'Find Balloon Popper' });
   const cards = planBoard(views, emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
   assert.deepEqual(cards.map(([key]) => key), [projectKeyOf(projectFrom('/w/a')), keyOf(sessions['claude:poteto'])]);
-  assert.deepEqual(cards[0][1].body.content_state.metrics.map(({ value }) => value), ['poteto']);
+  assert.deepEqual(cards[0][1].body.content_state.metrics.map(({ value }) => value), ['🚧 poteto']);
 });
 
 test('a card reads the stage from the session title, and links the plan page only while the plan is open', () => {
@@ -170,7 +170,7 @@ test('a crowded project lists the session that needs you first, with its questio
   const card = projectCard(sessions, { s9: 'https://claude.ai/code/s9' });
   const { metrics, subtitle } = card.content_state;
   assert.equal(metrics.length, 8);
-  assert.deepEqual(metrics[0], { label: 'Needs you', value: 's9', color: 'orange' });
+  assert.deepEqual(metrics[0], { label: 'Needs you', value: '🚧 s9', color: 'orange' });
   assert.deepEqual(metrics[7], { label: 'more', value: '+3', color: 'gray' });
   assert.equal(subtitle, 's9: Ship s9?');
   assert.equal(card.action.url, 'https://claude.ai/code/s9');
@@ -188,12 +188,12 @@ test('a project card lists sessions that need you, then working ones, then the o
   const titles = { scrub: '🚧 scrub (4/9)', shipper: 'shipper' };
   const card = () => planBoard(viewsOf(sessions, {}, {}, titles), emptyPhone(), { now: T0 + 60_000, shippedToday: 1 }).cards[0][1].body.content_state;
   assert.deepEqual(card().metrics, [
-    { label: 'Build', value: 'busy', color: 'blue' },
-    { label: 'Build 4/9', value: 'scrub', color: 'yellow' },
+    { label: 'Build', value: '🚧 busy', color: 'blue' },
+    { label: 'Build 4/9', value: '🚧 scrub', color: 'yellow' },
   ]);
   assert.equal(card().subtitle, '1 working · 1 to resume');
   reduce(sessions, { ...ask('asker', 3), cwd: '/w/ellie' });
-  assert.deepEqual(card().metrics.map(({ value }) => value), ['asker', 'busy', 'scrub']);
+  assert.deepEqual(card().metrics.map(({ value }) => value), ['🚧 asker', '🚧 busy', '🚧 scrub']);
 });
 
 test('a project whose runs all wait for you to resume them shows each one with its stage', () => {
@@ -205,8 +205,8 @@ test('a project whose runs all wait for you to resume them shows each one with i
   const titles = { scrub: '🧪 scrub (10/10)', hookdeck: '🟠 hookdeck (3/7)' };
   const [[, card]] = planBoard(viewsOf(sessions, {}, {}, titles), emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
   assert.deepEqual(card.body.content_state.metrics, [
-    { label: 'Waiting 3/7', value: 'hookdeck', color: 'yellow' },
-    { label: 'Verify 10/10', value: 'scrub', color: 'yellow' },
+    { label: 'Waiting 3/7', value: '🟠 hookdeck', color: 'yellow' },
+    { label: 'Verify 10/10', value: '🧪 scrub', color: 'yellow' },
   ]);
   assert.equal(card.body.content_state.subtitle, '2 to resume');
 });
@@ -485,7 +485,7 @@ test('the menubar keeps the fleet line and lists every live session ranked, and 
   for (const row of menu.cards) {
     const view = views.find(({ session }) => keyOf(session) === row.key);
     const metrics = phoneCards.get(projectKeyOf(view.project)).body.content_state.metrics;
-    assert.ok(metrics.some(({ value, color }) => value === view.session.id && color === row.content_state.color), view.title);
+    assert.ok(metrics.some(({ value, color }) => value === row.content_state.title && color === row.content_state.color), view.title);
   }
   assert.equal(menu.fleet.content_state.title, 'pstack fleet');
 });
