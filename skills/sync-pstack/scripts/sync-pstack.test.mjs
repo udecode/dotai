@@ -2561,13 +2561,15 @@ function codexWriteRepo() {
   writeFileSync(join(repo, 'a.ts'), 'export const a = 1;\n');
   writeFileSync(join(repo, 'b.ts'), 'export const b = 1;\n');
   writeFileSync(join(repo, 'kept.log'), 'tracked although ignored\n');
+  mkdirSync(join(repo, '.codex'));
+  writeFileSync(join(repo, '.codex', 'config.toml'), '[mcp_servers.x]\ncommand = "x"\n');
   git('add', '-A');
   git('add', '-f', 'kept.log');
   git('commit', '-qm', 'base');
   writeFileSync(join(repo, 'a.ts'), 'export const a = 2;\n');
   const bin = join(dir, 'bin');
   mkdirSync(bin);
-  writeFileSync(join(bin, 'codex'), '#!/bin/sh\nprintf "export const a = 3;\\n" > a.ts\nprintf "test(1);\\n" > new.test.ts\n[ -n "$FAKE_OUTSIDE" ] && printf "export const b = 9;\\n" > b.ts\necho "{}"\n', { mode: 0o755 });
+  writeFileSync(join(bin, 'codex'), '#!/bin/sh\n[ -e .codex ] && { echo "project config in the export" >&2; exit 7; }\nprintf "export const a = 3;\\n" > a.ts\nprintf "test(1);\\n" > new.test.ts\n[ -n "$FAKE_OUTSIDE" ] && printf "export const b = 9;\\n" > b.ts\n[ -n "$FAKE_MODE" ] && chmod +x a.ts\n[ -n "$FAKE_NUL" ] && printf "a\\000b" > a.ts\necho "{}"\n', { mode: 0o755 });
   writeFileSync(join(dir, 'task.md'), 'rename a');
   const run = (env = {}) =>
     spawnSync(process.execPath, [join(HELPERS, 'codex-write.mjs'), '--dir', join(repo, 'run'), '--name', 'w', '--prompt-file', join(dir, 'task.md'), '--', 'a.ts', 'new.test.ts'], {
@@ -2604,4 +2606,14 @@ test('codex-write never stages into the source index an inherited GIT_INDEX_FILE
   assert.equal(result.status, 0, result.stderr);
   assert.equal(git('diff', '--cached', '--name-only').stdout, '');
   assert.equal(git('ls-files', 'new.test.ts').stdout, '');
+});
+
+test('codex-write writes no patch when Codex changes a mode or writes bytes that are not text', () => {
+  for (const env of [{ FAKE_MODE: '1' }, { FAKE_NUL: '1' }]) {
+    const { repo, run } = codexWriteRepo();
+    const result = run(env);
+    assert.equal(result.status, 3, result.stderr);
+    assert.match(result.stderr, /a\.ts/);
+    assert.equal(existsSync(join(repo, 'run', 'w-a1.patch')), false);
+  }
 });

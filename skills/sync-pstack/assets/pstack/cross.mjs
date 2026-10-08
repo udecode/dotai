@@ -11,6 +11,11 @@ import { fileURLToPath } from 'node:url';
 
 export const MODELS = { claude: 'opus', codex: 'gpt-6.1-sol' };
 
+export const ISOLATED_CODEX_ARGS = [
+  '--ignore-user-config',
+  ...['apps', 'plugins', 'remote_plugin', 'browser_use', 'browser_use_external', 'browser_use_full_cdp_access', 'computer_use', 'in_app_browser', 'in_app_local_automation', 'image_generation', 'skill_mcp_dependency_install', 'tool_suggest'].flatMap((feature) => ['--disable', feature]),
+];
+
 export const otherRuntime = (env = process.env) => (env.CLAUDECODE ? 'codex' : 'claude');
 
 // Each child runs in its own process group, which outlives this process, so
@@ -39,7 +44,7 @@ export function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model
           [
             'exec',
             ...(resume ? ['resume', resume] : []),
-            ...(ignoreUserConfig ? ['--ignore-user-config'] : []),
+            ...(ignoreUserConfig ? ISOLATED_CODEX_ARGS : []),
             '-m',
             model,
             ...(effort ? ['-c', `model_reasoning_effort=${effort}`] : []),
@@ -119,6 +124,10 @@ async function main(argv) {
   const usage = 'Usage: node .agents/pstack/cross.mjs [--to codex|claude] [--model <model>] [--effort <level>] [--timeout <seconds>] [--ignore-user-config] [--write --events <file> [--resume <session>]] (--prompt-file <path> | <prompt>)';
   if (!prompt.trim() || !['claude', 'codex'].includes(to) || !(timeout > 0)) {
     console.error(usage);
+    return 2;
+  }
+  if (ignoreUserConfig && to !== 'codex') {
+    console.error(`--ignore-user-config runs only --to codex\n${usage}`);
     return 2;
   }
   if ((write || events || resume) && (to !== 'codex' || !write || !events)) {
