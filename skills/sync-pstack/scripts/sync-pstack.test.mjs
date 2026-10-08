@@ -366,16 +366,16 @@ test('cross refuses the retired write, events and resume flags before launching 
   mkdirSync(bin);
   const launched = join(dir, 'launched');
   writeFileSync(join(bin, 'codex'), `#!/bin/sh\ntouch ${launched}\n`, { mode: 0o755 });
-  for (const flags of [['--write'], ['--events', join(dir, 'e.jsonl')], ['--resume', 't-1']]) {
+  for (const flags of [['--write', '--events', join(dir, 'e.jsonl')], ['--write', '--events', join(dir, 'e.jsonl'), '--resume', 't-1']]) {
     const result = spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', ...flags, 'build it'], {
       cwd: dir,
       encoding: 'utf8',
       env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1' },
     });
-    assert.equal(result.status, 2, flags[0]);
+    assert.equal(existsSync(launched), false, `${flags.join(' ')} launched Codex`);
+    assert.equal(result.status, 2, flags.join(' '));
     assert.match(result.stderr, /runs Codex read-only/);
   }
-  assert.equal(existsSync(launched), false);
 });
 
 test('a stopped cross run stops the runtime it launched', async () => {
