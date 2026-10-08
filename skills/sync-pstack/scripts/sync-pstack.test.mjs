@@ -1417,6 +1417,97 @@ test('plan-page opens an open plan with its brief, its open questions and its ch
   assert.match(html.replace(/<[^>]+>/gu, ''), /review rounds are in docs\/plans\/plan\.md/);
 });
 
+test('plan-page shows Teach as How it works right after the brief and before the open questions', () => {
+  const { dir, run } = sandbox();
+  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Teach\n\nA page is the one place the owner reads.\n\n## Open questions\n\n${MEMO}\n## Main changes\n\n- Moves the owner.\n`;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const html = read(root, 'docs/plans/artifacts/plan.html');
+  assert.ok(html.includes('<h2>How it works</h2>'), 'Teach shows under its page title');
+  assert.ok(html.indexOf('Old plans need a brief.') < html.indexOf('A page is the one place the owner reads.'), 'Teach follows the brief');
+  assert.ok(html.indexOf('A page is the one place the owner reads.') < html.indexOf('Build the memo now?'), 'Teach comes before the open questions');
+});
+
+test('plan-page shows each Defaults row as one line with the word that switches it', () => {
+  const { dir, run } = sandbox();
+  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Defaults\n\n| Decision | Pick | Alternative | Word |\n| --- | --- | --- | --- |\n| Page look | One line per choice. | The old table | keep table |\n`;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const html = read(root, 'docs/plans/artifacts/plan.html');
+  assert.match(html, /<li><strong>Page look\.<\/strong> One line per choice\. <span class="alt">Other option: The old table\. Say <code>keep table<\/code> to switch\.<\/span><\/li>/);
+  assert.ok(!html.includes('<th>Decision</th>'), 'the table no longer shows');
+});
+
+test('plan-page groups Defaults rows under Big calls, Small calls and Details when the table has an Impact column', () => {
+  const { dir, run } = sandbox();
+  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Defaults\n\n| Decision | Pick | Alternative | Word | Impact |\n| --- | --- | --- | --- | --- |\n| Button color | Blue | Green | green | detail |\n| Storage | One file | A database | database | big |\n| Sort order | Newest first | Oldest first | oldest | small |\n`;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const picked = read(root, 'docs/plans/artifacts/plan.html').split('<h2>Picked for you</h2>')[1];
+  assert.match(picked, /^<h3>Big calls<\/h3><ul class="picks"><li><strong>Storage\.<\/strong>.*?<\/ul><h3>Small calls<\/h3><ul class="picks"><li><strong>Sort order\.<\/strong>.*?<\/ul><h3>Details<\/h3><ul class="picks"><li><strong>Button color\.<\/strong>/);
+});
+
+test('plan-page refuses an open plan whose Defaults impact is not big, small or detail', () => {
+  const { dir, run } = sandbox();
+  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Defaults\n\n| Decision | Pick | Alternative | Word | Impact |\n| --- | --- | --- | --- | --- |\n| Storage | One file | A database | database | high |\n`;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md', '--check'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /## Defaults in .* gives "Storage" the impact "high"; write big, small or detail/);
+});
+
+test('plan-page shows a Teach picture inline, with one viewer for the whole page', () => {
+  const { dir, run } = sandbox();
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4"/></svg>';
+  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Demo\n\n1. Open the page. ![after](after.svg)\n\n## Teach\n\nA page is the one place the owner reads.\n\n![before](before.svg) ![after](after.svg)\n`;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan, 'docs/plans/before.svg': svg, 'docs/plans/after.svg': svg } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const html = read(root, 'docs/plans/artifacts/plan.html');
+  const teach = html.slice(html.indexOf('<h2>How it works</h2>'), html.indexOf('</section>', html.indexOf('<h2>How it works</h2>')));
+  assert.match(teach, /<div class="shots"><figure class="shot"><img src="data:image\/svg\+xml;base64,[^"]+" alt="Before"><figcaption>Before<\/figcaption><\/figure><figure class="shot"><img src="data:image\/svg\+xml;base64,/);
+  assert.equal(html.split('<dialog class="lightbox">').length - 1, 1, 'Demo and Teach share one viewer');
+});
+
+test('plan-page refuses an open plan whose Teach runs past three paragraphs', () => {
+  const { dir, run } = sandbox();
+  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Teach\n\nOne.\n\nTwo.\n\nThree.\n\nFour.\n`;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md', '--check'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /## Teach in .* runs 4 paragraphs and 4 words, where 3 paragraphs and 160 words are the most/);
+});
+
+test('plan-page refuses an open plan whose Teach puts a picture inside a sentence', () => {
+  const { dir, run } = sandbox();
+  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Teach\n\nThe page looks like this ![after](after.svg) now.\n`;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md', '--check'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /## Teach in .* puts a picture inside a sentence/);
+});
+
+test('plan-page refuses an open plan whose Teach holds a code block', () => {
+  const { dir, run } = sandbox();
+  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Teach\n\nIt draws the page.\n\n\`\`\`js\nrender(page);\n\`\`\`\n`;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md', '--check'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /## Teach in .* holds code \`\`\`js/);
+});
+
+test('plan-page refuses an open plan whose Teach holds code', () => {
+  const { dir, run } = sandbox();
+  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Teach\n\nThe \`renderPage\` function draws it.\n`;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md', '--check'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /## Teach in .* holds code `renderPage`/);
+});
+
 test('plan-page renders an open question as a decision memo: why it needs you, the facts, each option with what happens and its cost, the pick with its reason, and what go does', () => {
   const { dir, run } = sandbox();
   const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Open questions\n\n${MEMO}`;
