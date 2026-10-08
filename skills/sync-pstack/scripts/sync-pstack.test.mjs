@@ -360,39 +360,22 @@ test('cross runs a Codex seat read-only on the model and effort it names', () =>
   assert.match(seat.stdout, /exec -m gpt-6-astra -c model_reasoning_effort=high --disable hooks --sandbox read-only /);
 });
 
-test('cross runs a Codex build worker that writes, logs its events, and resumes its session', () => {
+test('cross refuses the retired write, events and resume flags before launching Codex', () => {
   const { dir, home } = sandbox();
   const bin = join(dir, 'bin');
   mkdirSync(bin);
-  const codex = [
-    '#!/bin/sh',
-    'echo "$*" >> "$ARGS_LOG"',
-    'while [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; *) shift ;; esac; done',
-    'echo \'{"type":"thread.started","thread_id":"t-1"}\'',
-    'echo \'{"type":"item.completed","item":{"type":"file_change"}}\'',
-    'echo "built" > "$out"',
-  ].join('\n');
-  writeFileSync(join(bin, 'codex'), `${codex}\n`, { mode: 0o755 });
-  const argsLog = join(dir, 'args.log');
-  const events = join(dir, 'events.jsonl');
-  const run = (args) =>
-    spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', '--model', 'gpt-6.1-sol', '--effort', 'high', ...args], {
+  const launched = join(dir, 'launched');
+  writeFileSync(join(bin, 'codex'), `#!/bin/sh\ntouch ${launched}\n`, { mode: 0o755 });
+  for (const flags of [['--write'], ['--events', join(dir, 'e.jsonl')], ['--resume', 't-1']]) {
+    const result = spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', ...flags, 'build it'], {
       cwd: dir,
       encoding: 'utf8',
-      env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1', ARGS_LOG: argsLog },
+      env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1' },
     });
-  const first = run(['--write', '--events', events, 'build the slice']);
-  assert.equal(first.status, 0, first.stderr);
-  assert.equal(first.stdout.trim(), 'session t-1\nbuilt');
-  const resumed = run(['--write', '--events', events, '--resume', 't-1', 'fix the test name']);
-  assert.equal(resumed.status, 0, resumed.stderr);
-  const [writeArgs, resumeArgs] = readFileSync(argsLog, 'utf8').trim().split('\n');
-  assert.match(writeArgs, /^exec -m gpt-6\.1-sol -c model_reasoning_effort=high --disable hooks -c sandbox_mode="workspace-write" --json -o \S+ -- build the slice$/);
-  assert.match(resumeArgs, /^exec resume t-1 -m gpt-6\.1-sol .*-c sandbox_mode="workspace-write" --json -o \S+ -- fix the test name$/);
-  assert.equal(readFileSync(events, 'utf8').match(/thread\.started/g)?.length, 2, 'both runs append their events');
-  const refused = run(['--to', 'claude', '--write', '--events', events, 'build it']);
-  assert.equal(refused.status, 2);
-  assert.match(refused.stderr, /--write runs only --to codex/);
+    assert.equal(result.status, 2, flags[0]);
+    assert.match(result.stderr, /runs Codex read-only/);
+  }
+  assert.equal(existsSync(launched), false);
 });
 
 test('a stopped cross run stops the runtime it launched', async () => {
