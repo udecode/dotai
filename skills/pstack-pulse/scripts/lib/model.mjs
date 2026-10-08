@@ -260,13 +260,13 @@ function sessionCardOf(view) {
   const state = shownStateOf(view);
   const need = state === 'needs-you' ? firstNeed(view.session) : null;
   const stage = titleStageOf(view.title);
-  const subtitle = (need ? String(need.question) : [view.project.name, stage ? stageText(stage) : STATE_LABEL[state]].join(' · ')).slice(0, 120);
+  const subtitle = (need ? String(need.question) : [view.project.name, stage ? stage.label : STATE_LABEL[state]].join(' · ')).slice(0, 120);
   const title = clip(labelOf(view.title), 80);
   const color = STATE_COLOR[state] ?? 'blue';
   const page = openPlanPage(view);
-  const planPage = page ? { title: 'Plan page', type: 'open_url', url: page } : null;
-  const answer = view.webUrl ? { title: 'Answer', type: 'open_url', url: view.webUrl } : null;
-  const [action, secondary] = (need ? [answer, planPage] : [planPage, answer]).filter(Boolean);
+  const planPage = page ? { title: 'Plan', type: 'open_url', url: page } : null;
+  const openSession = view.webUrl ? { title: 'Open', type: 'open_url', url: view.webUrl } : null;
+  const [action, secondary] = (need ? [openSession, planPage] : [planPage, openSession]).filter(Boolean);
   return {
     type: 'segmented_progress',
     body: {
@@ -327,7 +327,7 @@ function projectCardOf({ project, sessions }, { listUrl }) {
         .filter(([state]) => counts[state])
         .map(([state, word]) => `${counts[state].length} ${word}`)
         .join(' · ');
-  const action = asking?.webUrl ? { title: 'Answer', type: 'open_url', url: asking.webUrl } : listUrl ? { title: 'All sessions', type: 'open_url', url: listUrl } : null;
+  const action = asking?.webUrl ? { title: 'Open', type: 'open_url', url: asking.webUrl } : listUrl ? { title: 'All sessions', type: 'open_url', url: listUrl } : null;
   return { type: 'stats', body: { content_state: { title: project.name, subtitle: clip(subtitle, 110), type: 'stats', metrics }, ...(action ? { action } : {}) } };
 }
 

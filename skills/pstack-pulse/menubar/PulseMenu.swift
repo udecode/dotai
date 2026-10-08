@@ -184,7 +184,7 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate {
     for card in board.cards {
       menu.addItem(row(cardText(card.contentState), opens: card.open.map { Action(title: "Open session", url: $0) }))
       if let page = card.page {
-        let extra = row(styled("↳ Plan page", size: 11, color: .linkColor), opens: Action(title: "Plan page", url: page))
+        let extra = row(styled("↳ Plan", size: 11, color: .linkColor), opens: Action(title: "Plan", url: page))
         extra.indentationLevel = 1
         menu.addItem(extra)
       }

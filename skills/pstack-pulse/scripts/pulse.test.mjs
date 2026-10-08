@@ -163,7 +163,7 @@ test('a session that just went idle keeps its card for fifteen minutes before a 
 
 const projectCard = (sessions, urls, context = {}) => planBoard(viewsOf(sessions, urls), emptyPhone(), { now: T0 + 60_000, shippedToday: 0, ...context }).cards[0][1].body;
 
-test('a crowded project lists the session that needs you first, with its question and Answer button, and folds the rest into a more value', () => {
+test('a crowded project lists the session that needs you first, with its question and a button that opens it, and folds the rest into a more value', () => {
   const sessions = {};
   for (let index = 0; index < 10; index += 1) reduce(sessions, hook(`s${index}`, 'UserPromptSubmit', index, { cwd: '/w/ellie' }));
   reduce(sessions, { ...ask('s9', 20), cwd: '/w/ellie' });
@@ -535,5 +535,5 @@ test('tapping a push opens the session, with its open plan page as a button', as
   const fetchImpl = async (url, init) => (bodies.push(JSON.parse(init.body)), { ok: true, status: 200, text: async () => '{}', headers: { get: () => null } });
   await createClient({ getKey: () => 'key', fetchImpl }).push(incident, 'https://list.example/');
   assert.equal(bodies[0].redirection, 'https://claude.ai/code/session_a');
-  assert.deepEqual(bodies[0].actions.map(({ title }) => title), ['Plan page', 'All sessions']);
+  assert.deepEqual(bodies[0].actions.map(({ url }) => url), ['https://claude.ai/artifact/p', 'https://list.example/']);
 });
