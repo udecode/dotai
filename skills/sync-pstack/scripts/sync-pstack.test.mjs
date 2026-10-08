@@ -1481,6 +1481,16 @@ test('plan-page refuses an open plan whose Teach runs past three paragraphs', ()
   assert.match(result.stderr, /## Teach in .* runs 4 paragraphs and 4 words, where 3 paragraphs and 160 words are the most/);
 });
 
+test('plan-page refuses an open plan whose Teach runs past 160 words in three paragraphs', () => {
+  const { dir, run } = sandbox();
+  const paragraph = (words) => Array.from({ length: words }, () => 'word').join(' ');
+  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Teach\n\n${paragraph(60)}\n\n${paragraph(60)}\n\n${paragraph(41)}\n`;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md', '--check'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /## Teach in .* runs 3 paragraphs and 161 words/);
+});
+
 test('plan-page refuses an open plan whose Teach puts a picture inside a sentence', () => {
   const { dir, run } = sandbox();
   const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Teach\n\nThe page looks like this ![after](after.svg) now.\n`;
