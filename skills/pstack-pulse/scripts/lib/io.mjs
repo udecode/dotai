@@ -40,6 +40,8 @@ export function loadState() {
     renameSync(path, join(HOME, `state.corrupt-${Date.now()}.json`));
     return { v: 2, sessions: {}, phone: emptyPhone(), applied: [] };
   }
+  const blank = emptyPhone();
+  state.phone = { ...blank, ...state.phone, budget: { ...blank.budget, ...state.phone?.budget }, pausedUntil: { ...blank.pausedUntil, ...state.phone?.pausedUntil } };
   for (const session of Object.values(state.sessions ?? {})) {
     delete session.pending;
     delete session.findings;

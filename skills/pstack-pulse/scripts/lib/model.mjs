@@ -391,6 +391,25 @@ export function planBoard(views, phone, context) {
   };
 }
 
+const WIDGET_TEXT = 64;
+
+function packed(names) {
+  for (let count = names.length; count > 0; count -= 1) {
+    const rest = names.length - count;
+    const text = [...names.slice(0, count), ...(rest ? [`+${rest}`] : [])].join(' · ');
+    if (text.length <= WIDGET_TEXT) return text;
+  }
+  return `${names.length} waiting`;
+}
+
+export function widgetsOf(views) {
+  const { ranked } = rankedLive(views.filter((view) => titleStageOf(view.title)));
+  const waiting = ranked.filter((view) => ['needs-you', 'failed', 'resume'].includes(shownStateOf(view)));
+  const working = ranked.filter(({ session }) => session.state === 'working').length;
+  const summary = [waiting.length && `${waiting.length} your turn`, working && `${working} working`].filter(Boolean).join(' · ');
+  return { 'pstack.summary': summary || 'all quiet', 'pstack.waiting': waiting.length ? packed(waiting.map((view) => nameOf(view.title))) : 'nothing waiting' };
+}
+
 export function incidentsOf(views) {
   const incidents = new Map();
   const add = (incident) => {

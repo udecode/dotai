@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { codeHash, editSettings, hookCommand, nextHeal, plistOf, stableNode, withHook, withoutHook } from './lib/install.mjs';
 import { HOME } from './lib/event.mjs';
 import { accounts, apiKey, claudeRegistry, loadConfig, loadState, probe, projectOf, railOf, readInbox, saveConfig, saveState, writeFileAtomic } from './lib/io.mjs';
-import { firstNeed, incidentsOf, menuBoardOf, petOf, planBoard, reduce, shippedToday, titleStageOf } from './lib/model.mjs';
+import { firstNeed, incidentsOf, menuBoardOf, petOf, planBoard, reduce, shippedToday, titleStageOf, widgetsOf } from './lib/model.mjs';
 import { createClient, deliver, teardown } from './lib/phone.mjs';
 
 const SCRIPTS = dirname(realpathSync(fileURLToPath(import.meta.url)));
@@ -69,7 +69,7 @@ async function tick(state, config, client) {
   const context = { now, shippedToday: shippedToday(state.sessions, now), account: accountCache.value.desktop, listUrl: config.listUrl };
   latestMenu = menuBoardOf(views, context);
   const board = planBoard(views, state.phone, context);
-  problems.push(...(await deliver(state.phone, { cards: board.cards, badge: board.badge, incidents: incidentsOf(views), listUrl: config.listUrl }, { client, save: () => saveState(state) })));
+  problems.push(...(await deliver(state.phone, { cards: board.cards, badge: board.badge, incidents: incidentsOf(views), metrics: widgetsOf(views), listUrl: config.listUrl }, { client, save: () => saveState(state) })));
   saveState(state);
   const summary = problems.join('; ');
   if (summary && summary !== lastProblems) log(summary);

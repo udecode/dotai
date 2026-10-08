@@ -7,7 +7,7 @@ import test from 'node:test';
 import { eventOf } from './lib/event.mjs';
 import { codeHash, hookCommand, nextHeal, withHook, withoutHook } from './lib/install.mjs';
 import { projectOf, readRollout } from './lib/io.mjs';
-import { incidentsOf, keyOf, menuBoardOf, petOf, planBoard, projectKeyOf, reduce, stepOf } from './lib/model.mjs';
+import { incidentsOf, keyOf, menuBoardOf, petOf, planBoard, projectKeyOf, reduce, stepOf, widgetsOf } from './lib/model.mjs';
 import { createClient, deliver, emptyPhone } from './lib/phone.mjs';
 
 const T0 = Date.parse('2026-10-06T10:00:00.000Z');
@@ -30,6 +30,7 @@ function fakeClient(script = {}) {
     end: async (key) => (calls.push(`end ${key}`), VALID_KEY.test(key) ? answer('end', key) : { ok: false, kind: 'rejected', status: 400 }),
     badge: async (value) => (calls.push(`badge ${value}`), answer('badge', value)),
     push: async (incident) => (calls.push(`push ${incident.title}`), answer('push', incident.kind)),
+    metric: async (key, value) => (calls.push(`metric ${key} ${value}`), answer('metric', key)),
   };
 }
 const send = (sessions, phone, client, seconds) => {
@@ -209,6 +210,36 @@ test('a project whose runs all wait for you to resume them shows each one with i
     { label: 'Verify 10/10', value: '🧪 scrub', color: 'yellow' },
   ]);
   assert.equal(card.body.content_state.subtitle, '2 to resume');
+});
+
+test('the widgets count who waits on you and name them, questions first, folding names that pass 64 characters into a count', () => {
+  const sessions = {};
+  for (const id of ['quiet', 'busy']) reduce(sessions, hook(id, 'UserPromptSubmit', 0));
+  assert.deepEqual(widgetsOf(viewsOf(sessions, {}, {}, { quiet: 'quiet' })), { 'pstack.summary': '1 working', 'pstack.waiting': 'nothing waiting' });
+  const titles = { quiet: 'quiet' };
+  for (const [index, id] of ['first-long-session-name', 'second-long-session-name', 'third-long-session-name'].entries()) {
+    reduce(sessions, hook(id, 'UserPromptSubmit', 1));
+    reduce(sessions, hook(id, 'Stop', 2 + index));
+    titles[id] = `🔎 ${id} (2/5)`;
+  }
+  reduce(sessions, ask('asker', 9));
+  titles.asker = '🟠 asker (3/7)';
+  const widgets = widgetsOf(viewsOf(sessions, {}, {}, titles));
+  assert.equal(widgets['pstack.summary'], '4 your turn · 1 working');
+  assert.equal(widgets['pstack.waiting'], '🟠 asker · 🔎 third-long-session-name · +2');
+  assert.ok(widgets['pstack.waiting'].length <= 64);
+});
+
+test('a widget value goes out once per change, and a metric the account lacks is retried only after a pause', async () => {
+  const phone = emptyPhone();
+  const tick = (metrics, client, seconds) => deliver(phone, { cards: [], badge: phone.badge, incidents: new Map(), metrics }, { client, clock: () => T0 + seconds * 1000 });
+  const first = fakeClient({ 'metric pstack.waiting': { ok: false, kind: 'rejected', status: 404 } });
+  await tick({ 'pstack.summary': '1 working', 'pstack.waiting': 'nothing waiting' }, first, 0);
+  await tick({ 'pstack.summary': '1 working', 'pstack.waiting': 'nothing waiting' }, first, 2);
+  assert.deepEqual(first.calls.filter((call) => call.startsWith('metric')), ['metric pstack.summary 1 working', 'metric pstack.waiting nothing waiting']);
+  const later = fakeClient();
+  await tick({ 'pstack.summary': '1 working', 'pstack.waiting': 'nothing waiting' }, later, 700);
+  assert.deepEqual(later.calls.filter((call) => call.startsWith('metric')), ['metric pstack.waiting nothing waiting']);
 });
 
 test('eight sessions fill eight metrics, and a ninth folds two into a more value', () => {

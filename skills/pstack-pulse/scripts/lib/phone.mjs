@@ -1,13 +1,15 @@
 import { hashOf } from './model.mjs';
 
 const API = 'https://activitysmith.com/api';
-const LIMITS = { push: { minute: 60, tick: 1 }, live: { minute: 300, tick: 8 }, badge: { minute: 60, tick: 1 } };
+const LIMITS = { push: { minute: 60, tick: 1 }, live: { minute: 300, tick: 8 }, badge: { minute: 60, tick: 1 }, metric: { minute: 300, tick: 2 } };
+// A metric exists only once the owner creates it in the ActivitySmith web app, so a missing one waits before the next try.
+const METRIC_RETRY_MS = 10 * 60_000;
 const CAPACITY_RETRY_MS = 10 * 60_000;
 const PAUSED_RETRY_MS = 60_000;
 const ACK_KEPT_MS = 7 * 24 * 3_600_000;
 const KIND_ORDER = { 'needs-you': 0, failed: 1, shipped: 2, replied: 3 };
 
-export const emptyPhone = () => ({ streams: {}, rejected: {}, badge: null, acks: {}, budget: { push: [], live: [], badge: [] }, pausedUntil: { push: 0, live: 0, badge: 0 }, capacity: null });
+export const emptyPhone = () => ({ streams: {}, rejected: {}, badge: null, acks: {}, budget: { push: [], live: [], badge: [], metric: [] }, pausedUntil: { push: 0, live: 0, badge: 0, metric: 0 }, capacity: null, metrics: {} });
 
 export function createClient({ getKey, fetchImpl = globalThis.fetch, recheckMs = 30_000 }) {
   let key = null;
@@ -43,6 +45,7 @@ export function createClient({ getKey, fetchImpl = globalThis.fetch, recheckMs =
     put: (streamKey, body) => call('PUT', `/live-activity/stream/${streamKey}`, { ...body, tags: ['pstack-pulse'] }),
     end: (streamKey, body) => call('DELETE', `/live-activity/stream/${streamKey}`, { content_state: { ...body.content_state, auto_dismiss_minutes: 0 } }),
     badge: (badge) => call('POST', '/badge', { badge }),
+    metric: (key, value) => call('POST', `/metrics/${encodeURIComponent(key)}/value`, { value }),
     push: (incident, listUrl) => {
       const actions = [incident.page && incident.page !== incident.link && { title: 'Plan', type: 'open_url', url: incident.page }, listUrl && { title: 'All sessions', type: 'open_url', url: listUrl }].filter(Boolean);
       return call('POST', '/push-notification', {
@@ -66,7 +69,7 @@ function spend(phone, feature, at, used) {
 
 export async function deliver(phone, desired, { client, clock = Date.now, save = () => {} }) {
   const problems = [];
-  const used = { push: 0, live: 0, badge: 0 };
+  const used = { push: 0, live: 0, badge: 0, metric: 0 };
   const want = new Map(desired.cards);
   const blocked = new Set();
   const refused = (feature, result, what) => {
@@ -117,6 +120,20 @@ export async function deliver(phone, desired, { client, clock = Date.now, save =
       phone.badge = desired.badge;
       save();
     } else refused('badge', result, 'badge');
+  }
+
+  for (const [key, value] of Object.entries(desired.metrics ?? {})) {
+    const sent = phone.metrics[key];
+    if (sent?.value === value || clock() < (sent?.retryAt ?? 0)) continue;
+    if (!spend(phone, 'metric', clock(), used)) break;
+    const result = await client.metric(key, value);
+    if (result.ok) {
+      phone.metrics[key] = { value };
+      save();
+    } else {
+      phone.metrics[key] = { retryAt: clock() + (result.kind === 'rate' ? result.retryAfter * 1000 : METRIC_RETRY_MS) };
+      refused('metric', result, `metric ${key}`);
+    }
   }
 
   for (const id of desired.incidents.keys()) phone.acks[id] = { attempts: 0, ...phone.acks[id], liveAt: clock() };
