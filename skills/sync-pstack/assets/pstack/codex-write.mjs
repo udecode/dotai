@@ -32,6 +32,8 @@ const patchGit = (cwd, args) => execFileSync('git', ['-c', 'core.autocrlf=false'
 
 const lines = (buffer) => buffer.toString().split('\0').filter(Boolean);
 const isDir = (path) => existsSync(path) && statSync(path).isDirectory();
+// The patch repository's own attributes outrank any .gitattributes among the named paths.
+const NEUTRAL_ATTRIBUTES = '* -text -filter diff\n';
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
 function parse(argv) {
@@ -80,7 +82,7 @@ function commitStartingBytes(repo, exportDir, paths) {
     copyFileSync(join(exportDir, key), join(repo, key));
   }
   mkdirSync(join(repo, '.git', 'info'));
-  writeFileSync(join(repo, '.git', 'info', 'attributes'), '* -text -filter diff\n');
+  writeFileSync(join(repo, '.git', 'info', 'attributes'), NEUTRAL_ATTRIBUTES);
   patchGit(repo, ['add', '--force', '-A']);
   patchGit(repo, ['-c', 'user.name=pstack', '-c', 'user.email=pstack@local', '-c', 'commit.gpgsign=false', 'commit', '-q', '--no-verify', '--allow-empty', '-m', 'base']);
 }

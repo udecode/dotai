@@ -2571,13 +2571,13 @@ function codexWriteRepo() {
   mkdirSync(bin);
   writeFileSync(join(bin, 'codex'), '#!/bin/sh\n[ -e .codex ] && { echo "project config in the export" >&2; exit 7; }\nprintf "export const a = 3;\\n" > a.ts\nprintf "test(1);\\n" > new.test.ts\n[ -n "$FAKE_OUTSIDE" ] && printf "export const b = 9;\\n" > b.ts\n[ -n "$FAKE_MODE" ] && chmod +x a.ts\n[ -n "$FAKE_NUL" ] && printf "a\\000b" > a.ts\n[ -n "$FAKE_SOURCE" ] && printf "export const lead = 1;\\n" > "$FAKE_SOURCE/a.ts"\necho "{}"\n', { mode: 0o755 });
   writeFileSync(join(dir, 'task.md'), 'rename a');
-  const run = (env = {}) =>
-    spawnSync(process.execPath, [join(HELPERS, 'codex-write.mjs'), '--dir', join(repo, 'run'), '--name', 'w', '--prompt-file', join(dir, 'task.md'), '--', 'a.ts', 'new.test.ts'], {
+  const run = (env = {}, paths = ['a.ts', 'new.test.ts']) =>
+    spawnSync(process.execPath, [join(HELPERS, 'codex-write.mjs'), '--dir', join(repo, 'run'), '--name', 'w', '--prompt-file', join(dir, 'task.md'), '--', ...paths], {
       cwd: repo,
       encoding: 'utf8',
       env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, ...env },
     });
-  return { repo, git, run };
+  return { dir, repo, git, run };
 }
 
 test('codex-write returns a patch of the named paths built on the working tree', () => {
@@ -2650,4 +2650,27 @@ test('codex-write still patches a named file when a named .gitignore ignores it'
   });
   assert.equal(result.status, 0, result.stderr);
   assert.match(readFileSync(join(repo, 'run', 'w-a1.patch'), 'utf8'), /-export const a = 1;\n\+export const a = 3;/);
+});
+
+test('codex-write runs no git filter from the user global config on the bytes Codex wrote', () => {
+  const { dir, repo, git, run } = codexWriteRepo();
+  const home = join(dir, 'spyhome');
+  mkdirSync(home);
+  const mark = join(dir, 'filter-ran');
+  writeFileSync(join(home, 'spy.sh'), `touch ${mark}\ncat\n`);
+  writeFileSync(join(home, '.gitconfig'), `[filter "spy"]\n\tclean = sh ${join(home, 'spy.sh')}\n`);
+  writeFileSync(join(repo, '.gitattributes'), '*.ts filter=spy\n');
+  git('add', '.gitattributes');
+  git('commit', '-qm', 'attributes');
+  const control = join(dir, 'control');
+  mkdirSync(control);
+  spawnSync('git', ['init', '-q'], { cwd: control });
+  writeFileSync(join(control, '.gitattributes'), '*.ts filter=spy\n');
+  writeFileSync(join(control, 'c.ts'), 'c\n');
+  spawnSync('git', ['add', '-A'], { cwd: control, env: { ...process.env, HOME: home } });
+  assert.equal(existsSync(mark), true, 'the spy filter runs under that HOME');
+  rmSync(mark);
+  const result = run({ HOME: home }, ['a.ts', 'new.test.ts', '.gitattributes']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(existsSync(mark), false);
 });

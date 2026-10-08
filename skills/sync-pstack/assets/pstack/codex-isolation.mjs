@@ -1,6 +1,7 @@
 // Installed by the sync-pstack skill.
 
 import { existsSync } from 'node:fs';
+import { userInfo } from 'node:os';
 
 // --ignore-user-config still loads execpolicy rules, and an allow rule runs its
 // command outside the sandbox (codex-rs/core/src/exec_policy.rs:440).
@@ -16,5 +17,12 @@ export const ISOLATED_CODEX_ARGS = [
 
 // Codex loads system and MDM-managed config above the command line, so either can
 // turn back on what the arguments turn off.
-export const managedCodexConfig = () =>
-  ['/etc/codex', '/Library/Managed Preferences/com.openai.codex.plist', `/Library/Managed Preferences/${process.env.USER}/com.openai.codex.plist`].find((path) => existsSync(path));
+export function managedCodexConfig() {
+  let user;
+  try {
+    user = userInfo().username;
+  } catch {
+    return 'managed config for a user with no passwd entry';
+  }
+  return ['/etc/codex', '/Library/Managed Preferences/com.openai.codex.plist', `/Library/Managed Preferences/${user}/com.openai.codex.plist`].find((path) => existsSync(path));
+}
