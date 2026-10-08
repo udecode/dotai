@@ -1977,6 +1977,85 @@ test('freeze writes a commit no ref points to without touching the checkout inde
   assert.equal(spawnSync(process.execPath, [join(HELPERS, 'freeze.mjs')], { cwd: repo }).status, 2);
 });
 
+test('freeze refuses a parent whose changed paths the new freeze does not name', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-freeze-parent-'));
+  const repo = join(dir, 'repo');
+  spawnSync('git', ['init', '-q', repo]);
+  mkdirSync(join(repo, 'docs'));
+  writeFileSync(join(repo, 'docs', 'a.md'), 'base a\n');
+  writeFileSync(join(repo, 'b.md'), 'base b\n');
+  spawnSync('git', ['-C', repo, 'add', '-A']);
+  commit(repo, 'base');
+  const runDir = join(dir, 'run');
+  const freeze = (...args) => spawnSync(process.execPath, [join(HELPERS, 'freeze.mjs'), '--dir', runDir, ...args], { cwd: repo, encoding: 'utf8' });
+  const show = (rev, path) => spawnSync('git', ['-C', repo, 'show', `${rev}:${path}`], { encoding: 'utf8' }).stdout;
+  const commitOnly = (path, message) => {
+    spawnSync('git', ['-C', repo, 'add', '--', path]);
+    spawnSync('git', ['-C', repo, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '--only', '-m', message, '--', path]);
+  };
+
+  writeFileSync(join(repo, 'docs', 'a.md'), 'iteration one\n');
+  const first = freeze('docs/a.md').stdout.trim();
+  writeFileSync(join(repo, 'b.md'), 'iteration two\n');
+
+  const dropped = freeze('--parent', first, 'b.md');
+  assert.equal(dropped.status, 1);
+  assert.match(dropped.stderr, /1 path\(s\) differ between HEAD and --parent \S+ and hold uncommitted changes, but are not named.*: docs\/a\.md\./u);
+
+  const named = freeze('--parent', first, 'docs/a.md', 'b.md');
+  assert.equal(named.status, 0, named.stderr);
+  assert.equal(show(named.stdout.trim(), 'docs/a.md'), 'iteration one\n');
+  assert.equal(show(named.stdout.trim(), 'b.md'), 'iteration two\n');
+
+  const byDirectory = freeze('--parent', first, 'docs', 'b.md');
+  assert.equal(byDirectory.status, 0, byDirectory.stderr);
+
+  const newChain = freeze('b.md');
+  assert.equal(newChain.status, 0, newChain.stderr);
+
+  writeFileSync(join(repo, 'c.md'), 'unrelated\n');
+  commitOnly('c.md', 'owner commits an unrelated file');
+  assert.match(freeze('--parent', first, 'b.md').stderr, /^1 path\(s\) .*: docs\/a\.md\./u);
+
+  writeFileSync(join(repo, 'new.md'), 'untracked\n');
+  const withUntracked = freeze('--parent', first, 'docs/a.md', 'new.md').stdout.trim();
+  assert.match(freeze('--parent', withUntracked, 'docs/a.md', 'b.md').stderr, /: new\.md\./u);
+
+  commitOnly('docs/a.md', 'owner commits iteration one');
+  const afterOwnerCommit = freeze('--parent', first, 'b.md');
+  assert.equal(afterOwnerCommit.status, 0, afterOwnerCommit.stderr);
+
+  symlinkSync('b.md', join(repo, 'link'));
+  commitOnly('link', 'owner adds a link');
+  rmSync(join(repo, 'link'));
+  symlinkSync('c.md', join(repo, 'link'));
+  const linkFreeze = freeze('link').stdout.trim();
+  rmSync(join(repo, 'link'));
+  symlinkSync('docs/a.md', join(repo, 'link'));
+  commitOnly('link', 'owner points the link elsewhere');
+  const afterLinkCommit = freeze('--parent', linkFreeze, 'b.md');
+  assert.equal(afterLinkCommit.status, 0, afterLinkCommit.stderr);
+});
+
+test('freeze refuses an unnamed parent path whose name git quotes', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-freeze-quoted-'));
+  const repo = join(dir, 'repo');
+  spawnSync('git', ['init', '-q', repo]);
+  writeFileSync(join(repo, 'quote"d.md'), 'base\n');
+  writeFileSync(join(repo, 'b.md'), 'base\n');
+  spawnSync('git', ['-C', repo, 'add', '-A']);
+  commit(repo, 'base');
+  const runDir = join(dir, 'run');
+  const freeze = (...args) => spawnSync(process.execPath, [join(HELPERS, 'freeze.mjs'), '--dir', runDir, ...args], { cwd: repo, encoding: 'utf8' });
+
+  writeFileSync(join(repo, 'quote"d.md'), 'iteration one\n');
+  const first = freeze('quote"d.md').stdout.trim();
+  writeFileSync(join(repo, 'b.md'), 'iteration two\n');
+  const dropped = freeze('--parent', first, 'b.md');
+  assert.equal(dropped.status, 1);
+  assert.match(dropped.stderr, /: quote"d\.md\./u);
+});
+
 test('decisions-check append --from writes every queued row or none', () => {
   const { dir, run } = sandbox();
   const root = project(dir, 'app');
