@@ -102,7 +102,6 @@ section.plan + section.plan { border-top: 1px solid var(--rule); padding-top: 14
 p { margin: 0 0 8px; max-width: 72ch; }
 ul, ol { margin: 0 0 8px; padding-left: 1.3em; }
 li { margin: 2px 0; }
-.picks .alt { opacity: 0.75; }
 li > ul, li > ol { margin: 2px 0; }
 code { font: 0.86em var(--mono); padding: 0 2px; color: var(--ink); }
 pre { margin: 0; padding: 10px 12px; background: var(--code); border-radius: 6px; }
@@ -202,7 +201,6 @@ const ROLES = [
   [/^public api$/i, 'api'],
   [/^main changes$/i, 'main'],
   [/^defaults$/i, 'picked'],
-  [/^teach$/i, 'teach'],
   [/^close$/i, 'close'],
   [/^(scope|steps|evidence|proof|claims|asks|verification|notes|panel gate)$/i, 'details'],
 ];
@@ -624,40 +622,6 @@ function tableHtml(head, rows) {
   return `<div class="scroll"><table><thead><tr>${head.map((cell) => `<th>${inline(cell)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
-const clause = (text) => text.trim().replace(/[.!?]+$/u, '');
-
-function picksHtml(lines) {
-  const out = [];
-  let prose = [];
-  const flush = () => {
-    if (prose.length) out.push(blocksHtml(prose));
-    prose = [];
-  };
-  for (let index = 0; index < lines.length; ) {
-    if (isFence(lines[index])) {
-      const { next } = readFence(lines, index);
-      prose.push(...lines.slice(index, next));
-      index = next;
-      continue;
-    }
-    const head = /^\s*\|/.test(lines[index]) && TABLE_RULE.test(lines[index + 1] ?? '') ? splitRow(lines[index]) : null;
-    if (!head || !DEFAULTS_HEAD.every((cell, at) => headCell(head[at] ?? '') === cell)) {
-      prose.push(lines[index]);
-      index += 1;
-      continue;
-    }
-    flush();
-    const rows = [];
-    for (index += 2; index < lines.length && /^\s*\|/.test(lines[index]); index += 1) rows.push(splitRow(lines[index]));
-    const items = rows.map(([decision = '', pick = '', alternative = '', word = '']) =>
-      `<li><strong>${inline(clause(decision))}.</strong> ${inline(clause(pick))}. <span class="alt">Other option: ${inline(clause(alternative))}. Say <code>${escapeHtml(word.replace(/`/g, '').trim())}</code> to switch.</span></li>`
-    );
-    out.push(`<ul class="picks">${items.join('')}</ul>`);
-  }
-  flush();
-  return out.join('');
-}
-
 function itemHtml(text) {
   const task = text.match(/^(?:[-*+]\s+)?\[( |x|X)\]\s+([\s\S]*)$/);
   if (!task) return inline(text);
@@ -947,7 +911,7 @@ function longParts(ask) {
   ].filter(Boolean);
 }
 
-const PAGE_PARTS = ['Brief', 'Teach', 'Open questions', 'Defaults'];
+const PAGE_PARTS = ['Brief', 'Open questions', 'Defaults'];
 
 function assertPlain(plan, where) {
   for (const title of PAGE_PARTS) {
@@ -1364,7 +1328,6 @@ function page(planPath, { folded = false } = {}) {
     );
   const sectionHtml = (section, className = 'plan', tag = '') =>
     `<section class="${className}"><h2>${inline(section.title)}${tag ? ` <span class="count">${tag}</span>` : ''}</h2>${blocksHtml(section.lines)}</section>`;
-  const pickedHtml = (section) => `<section class="plan"><h2>Picked for you</h2>${picksHtml(section.lines)}</section>`;
   const changeHtml = (role) =>
     byRole(role)
       .sort((a, b) => lead.indexOf(a.title.toLowerCase()) - lead.indexOf(b.title.toLowerCase()))
@@ -1479,10 +1442,9 @@ function page(planPath, { folded = false } = {}) {
     <div class="meta">${delta ? `<span>Plan <strong>${inline(focus.title || basename(newestOpenIteration.path, '.md'))}</strong></span>` : ''}${roundTag}<span>Updated ${updated} UTC</span></div>
   </header>
   <section class="brief card">${answers}</section>
-  ${byRole('teach', source).map((section) => sectionHtml({ ...section, title: 'How it works' })).join('')}
   ${byRole('demo', source).map((section) => demoHtml(section, dirname(leader.path))).join('')}
   ${asking}
-  ${byRole('picked', source).map((section) => pickedHtml(section)).join('')}
+  ${byRole('picked', source).map((section) => sectionHtml({ ...section, title: 'Picked for you' })).join('')}
   ${changes}
   <p class="source">Proof, steps, history and review rounds are in ${files}.</p>
 </main>`;
@@ -1499,13 +1461,12 @@ ${brief ? briefMain() : `<main>
   </header>
   ${(own ? byRole('demo', own) : []).map((section) => demoHtml(section, dirname(planPath))).join('')}
   ${needs || olderNeeds.length ? needsSection(needs?.lines ?? [], olderNeeds) : ''}${close ? sectionHtml(close, 'panel') : ''}
-  ${(own ? byRole('teach', own) : []).map((section) => sectionHtml({ ...section, title: 'How it works' })).join('')}
   ${changeHtml('api')}
   ${changeHtml('lead')}
   ${changeHtml('main')}
   ${own
     ? byRole('picked', own)
-        .map((section) => pickedHtml(section))
+        .map((section) => sectionHtml({ ...section, title: 'Picked for you' }))
         .join('\n  ')
     : ''}
   ${doc.lead.some((line) => line.trim()) ? `<section class="plan">${blocksHtml(doc.lead)}</section>` : ''}

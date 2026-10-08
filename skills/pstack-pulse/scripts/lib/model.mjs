@@ -247,8 +247,6 @@ export function titleStageOf(title) {
 
 // An idle session whose title still carries a stage handed back mid-run and waits for the owner to resume it.
 const shownStateOf = ({ session, title }) => (session.state === 'idle' && titleStageOf(title) ? 'resume' : session.state);
-const STAGE_SYMBOL = { Plan: 'list.bullet.clipboard', Design: 'pencil.and.ruler', 'Plan review': 'person.2', Build: 'hammer', Writing: 'pencil', 'Code review': 'magnifyingglass', Verify: 'checkmark.seal', Audit: 'eye', Ship: 'paperplane', Reflect: 'brain', Waiting: 'hourglass', Blocked: 'exclamationmark.octagon', Paused: 'pause.circle' };
-const STATE_SYMBOL = { 'needs-you': 'hand.raised', failed: 'xmark.octagon', working: 'bolt', resume: 'pause.circle', idle: 'moon' };
 const stageText = (stage) => (stage.total > 1 ? `${stage.label} ${stage.step}/${stage.total}` : stage.label);
 const openPlanPage = (view) => (view.rail?.page && view.rail.stages.some(({ state }) => LIVE_STAGES.includes(state)) ? view.rail.page : null);
 
@@ -266,14 +264,13 @@ function sessionCardOf(view) {
   const title = clip(nameOf(view.title), 80);
   const color = STATE_COLOR[state] ?? 'blue';
   const page = openPlanPage(view);
-  const symbol = ['needs-you', 'failed'].includes(state) || !stage ? STATE_SYMBOL[state] : STAGE_SYMBOL[stage.label];
   const planPage = page ? { title: 'Plan', type: 'open_url', url: page } : null;
   const openSession = view.webUrl ? { title: 'Open', type: 'open_url', url: view.webUrl } : null;
   const [action, secondary] = (need ? [openSession, planPage] : [planPage, openSession]).filter(Boolean);
   return {
     type: 'segmented_progress',
     body: {
-      content_state: { title, subtitle, type: 'segmented_progress', number_of_steps: stage?.total ?? 1, current_step: stage?.step ?? 1, color, icon: { symbol, color }, badge: { title: STATE_LABEL[state] ?? 'Working', color } },
+      content_state: { title, subtitle, type: 'segmented_progress', number_of_steps: stage?.total ?? 1, current_step: stage?.step ?? 1, color, badge: { title: STATE_LABEL[state] ?? 'Working', color } },
       ...(action ? { action } : {}),
       ...(secondary ? { secondary_action: secondary } : {}),
     },
@@ -332,9 +329,7 @@ function projectCardOf({ project, sessions }, { listUrl }) {
         .map(([state, word]) => `${counts[state].length} ${word}`)
         .join(' · ');
   const action = asking?.webUrl ? { title: 'Open', type: 'open_url', url: asking.webUrl } : listUrl ? { title: 'All sessions', type: 'open_url', url: listUrl } : null;
-  const lead = shownStateOf(ordered[0]);
-  const icon = { symbol: STATE_SYMBOL[lead], color: STATE_COLOR[lead] };
-  return { type: 'stats', body: { content_state: { title: project.name, subtitle: clip(subtitle, 110), type: 'stats', metrics, icon }, ...(action ? { action } : {}) } };
+  return { type: 'stats', body: { content_state: { title: project.name, subtitle: clip(subtitle, 110), type: 'stats', metrics }, ...(action ? { action } : {}) } };
 }
 
 function projectsOf(ranked) {
