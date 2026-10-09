@@ -30,8 +30,13 @@ const TEMPLATE = join(SKILL, 'assets/block.md');
 const HELPERS = join(SKILL, 'assets/pstack');
 const CONFIG = '.agents/pstack.json';
 const HELPER_DIR = '.agents/pstack';
-const CORE_HELPERS = ['codex-browser.mjs', 'codex-isolation.mjs', 'cross.mjs', 'cua-steps.mjs', 'freeze.mjs', 'lead.mjs', 'mutate.mjs', 'proof.mjs', 'reply.mjs', 'reread.mjs'];
-const SECTION_HELPERS = { plans: ['decisions-check.mjs', 'plan-open.mjs', 'plan-page.mjs', 'status.mjs'] };
+// A `.md` helper is a rule file the block points to; it renders like the block.
+const CORE_HELPERS = ['codex-browser.mjs', 'codex-isolation.mjs', 'cross.mjs', 'cua-steps.mjs', 'freeze.mjs', 'lead.mjs', 'mutate.mjs', 'proof.mjs', 'reply.mjs', 'reread.mjs', 'rules/close.md', 'rules/panel.md', 'rules/reflect.md', 'rules/title.md'];
+const SECTION_HELPERS = {
+  plans: ['decisions-check.mjs', 'plan-open.mjs', 'plan-page.mjs', 'status.mjs', 'rules/pages.md', 'rules/trails.md'],
+  'long-runs': ['rules/long-runs.md'],
+  tests: ['rules/tests.md'],
+};
 const PLUGIN = 'pstack@pstack-claude';
 const MARKETPLACE = 'pstack-claude';
 const REPO = 'michael-denyer/pstack-claude';
@@ -69,7 +74,16 @@ function parseLine(line) {
   }
 }
 
-export function render(template, config) {
+function sectionIds() {
+  const rules = [CORE_HELPERS, ...Object.values(SECTION_HELPERS)].flat().filter((name) => name.endsWith('.md'));
+  return [TEMPLATE, ...rules.map((name) => join(HELPERS, name))].flatMap((path) =>
+    [...readFileSync(path, 'utf8').matchAll(/^<!-- section (\S+) -->$/gmu)].map((match) => match[1]),
+  );
+}
+
+// `known` lists sections that live in other templates, so a skip entry for a
+// section a rule file holds does not fail the block's render.
+export function render(template, config, known = []) {
   const skip = new Set(config.skip ?? []);
   const sections = new Set();
   const regions = [];
@@ -90,7 +104,7 @@ export function render(template, config) {
     if (regions.every(Boolean)) out.push(raw.replace(/\{\{(\w+)\}\}/gu, (_, key) => fill(key, config, index)));
   }
   if (regions.length > 0) throw new Error('Template ends inside an open region');
-  const unknown = [...skip].filter((id) => !sections.has(id));
+  const unknown = [...skip].filter((id) => !sections.has(id) && !known.includes(id));
   if (unknown.length > 0) {
     throw new Error(`skip names unknown sections: ${unknown.join(', ')} (sections: ${[...sections].join(', ')})`);
   }
@@ -438,7 +452,8 @@ export function apply(root, { tag, force = false, write = true } = {}) {
   const stored = readJson(configPath);
   const config = withDerived(root, { ...stored, ...(tag ? { tag } : {}) });
   validate(config);
-  const body = render(readFileSync(TEMPLATE, 'utf8'), config);
+  const known = sectionIds();
+  const body = render(readFileSync(TEMPLATE, 'utf8'), config, known);
   const changes = [];
   const refusals = [];
   const synced = { block: sha(body), files: {} };
@@ -456,7 +471,7 @@ export function apply(root, { tag, force = false, write = true } = {}) {
   if (current?.body !== body) {
     const detail = diff(current?.body ?? '', body);
     if (current && !force && sha(current.body) !== stored.synced?.block) {
-      const last = lastVersion(stored, 'assets/block.md', (text) => render(text, withDerived(root, stored)), stored.synced?.block);
+      const last = lastVersion(stored, 'assets/block.md', (text) => render(text, withDerived(root, stored), known), stored.synced?.block);
       refusals.push({
         path: 'AGENTS.md',
         reason: 'the block was edited since the last sync',
@@ -473,19 +488,21 @@ export function apply(root, { tag, force = false, write = true } = {}) {
       const path = `${HELPER_DIR}/${name}`;
       const present = existsSync(join(root, path)) ? readFileSync(join(root, path), 'utf8') : null;
       const edited = present !== null && sha(present) !== stored.synced?.files?.[path];
+      const rule = name.endsWith('.md');
+      const build = (text, settings) => (rule ? `${render(text, settings, known)}\n` : text);
       if (!section || !skipped.has(section)) {
-        const source = readFileSync(join(HELPERS, name), 'utf8');
+        const source = build(readFileSync(join(HELPERS, name), 'utf8'), config);
         synced.files[path] = sha(source);
         if (present === source) continue;
         if (edited && !force) {
-          const last = lastVersion(stored, `assets/pstack/${name}`, (text) => text, stored.synced?.files?.[path]);
+          const last = lastVersion(stored, `assets/pstack/${name}`, (text) => build(text, withDerived(root, stored)), stored.synced?.files?.[path]);
           refusals.push({
             path,
             reason: 'the helper was edited since the last sync',
             diff: last === null ? `current helper against the shared one:\n${diff(present, source)}` : `the project's edit since the last sync:\n${diff(last, present)}`,
           });
         }
-        else changes.push({ path, text: source, executable: true });
+        else changes.push({ path, text: source, executable: !rule });
       } else if (present !== null) {
         if (edited && !force) refusals.push({ path, reason: `the helper was edited, and its section "${section}" is now skipped` });
         else changes.push({ path, remove: true });
