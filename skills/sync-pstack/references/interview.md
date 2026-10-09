@@ -88,6 +88,7 @@ Write `.agents/pstack.json`. The script adds `synced` on the first apply. This e
 | `branch` | The branch agents work on and deliver to; in `pr` mode, the PR base. Required. |
 | `protected` | A branch agents never edit or push without a request, usually the default branch. It must differ from `branch`; leave it out when agents work on the default branch. |
 | `delivery` | `push`, `pr` or `user`. Required. |
+| `pushBranches` | `true` in `user` delivery to let the lead commit and push every branch except `branch` and `protected`, a PR head branch included. Optional; off by default. |
 | `lintFix` | The last check a completed task runs. Required. |
 | `check` | The broad check for a settled change, used by the Tests and Commit rules. Required. |
 | `plans` | The directory for plans and decision logs, used by the Plans rule and its helpers. Required unless `plans` is skipped. |
@@ -99,6 +100,6 @@ Write `.agents/pstack.json`. The script adds `synced` on the first apply. This e
 | `regen` | The project's command that regenerates skills from rules when `bunx skiller@latest apply` alone is not enough, such as `pnpm install` when a prepare script also syncs rule resources. Optional; used only with `skiller`. |
 | `dropped` | Typed commands the owner chose to drop without an entry point; `verify` stops flagging them. Optional. |
 | `pageTopic` | `{ "field": "<frontmatter list>", "hub": "<path with {topic}>" }`: a plan without a `Topic:` line takes its subject from the first entry of that list, and the page links the subject's history at `hub`. A subject whose hub exists must carry each required section in its file or its open plan. The leading plan's playbook lists them under `page-require`, or every playbook does when that plan names none. The review sections themselves live in each playbook's frontmatter, as the `plan-page` skill describes, never in this config. For a project whose plans already name a ledger scope. Optional. |
-| `skip` | Block sections the project keeps as its own rule: `tests`, `review`, `plans`, `long-runs`, `commits`. |
+| `skip` | Block sections the project keeps as its own rule: `tests`, `review`, `plans`, `long-runs`, `commits`. A skipped section also drops its rule file from `.agents/pstack/rules/`. |
 
 Answers to questions 2 and 8 have no field. Carry them into the adaptation and the setup summary.

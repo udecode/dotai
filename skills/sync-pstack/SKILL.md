@@ -17,7 +17,7 @@ Setup brings the shared layer: the plugin pin, the overrides block, its helpers,
 | Layer | Lives in | Changed by |
 | --- | --- | --- |
 | Upstream | The `pstack@pstack-claude` plugin at a pinned tag, in each project's `.claude/settings.json`, the user's `~/.claude/settings.json` and the user's Codex marketplace | `sync --tag` and `user-pin`. pstack itself is never edited. |
-| Shared | [`assets/block.md`](assets/block.md), rendered between the `pstack:begin` and `pstack:end` markers of each project's `AGENTS.md`, plus the helpers in `assets/pstack/`, copied to `.agents/pstack/` | An edit to this skill's source in the dotai checkout, then a sync |
+| Shared | [`assets/block.md`](assets/block.md), rendered between the `pstack:begin` and `pstack:end` markers of each project's `AGENTS.md`, plus the helpers in `assets/pstack/`, copied to `.agents/pstack/`, and the rule files in `assets/pstack/rules/`, rendered like the block into `.agents/pstack/rules/` | An edit to this skill's source in the dotai checkout, then a sync |
 | Project | `.agents/pstack.json`, which holds the interview's answers, the [project playbooks](#project-playbooks) in `.agents/playbooks/`, which the block lists, and every rule outside the block, which wins over it | The project, by hand or through setup |
 
 ## Run the script
@@ -137,7 +137,7 @@ Keep project knowledge in skills and the project's rules; a playbook only orders
 
 ## Template grammar
 
-`assets/block.md` is Markdown with line directives.
+`assets/block.md` and each rule file in `assets/pstack/rules/` are Markdown with line directives. The block keeps every rule a typical task needs and one pointer line per rule file, each naming the trigger that sends an agent to read it; a rule whose text moves to a rule file keeps its `overrides` notes above its pointer.
 
 - `<!-- if key -->`, `<!-- if !key -->`, `<!-- if key=a|b -->` and `<!-- if key!=a -->` open a region that renders when the condition holds on the project config.
 - `<!-- section id -->` opens a region that is dropped when the config lists `id` under `skip`.

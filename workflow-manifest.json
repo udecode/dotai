@@ -182,7 +182,7 @@
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
-      "sha256": "72f8310fc7c8dc3e098596c6801bdd2b50d4832ed35058ca56fe2ef229bbc0fa",
+      "sha256": "e67d238cb9f7f0e856b6b62263b9d41a166672bb05470ae03bbc3ca822ecc6fa",
       "mode": 420
     },
     "skills/sync-pstack/agents/openai.yaml": {
@@ -290,11 +290,11 @@
       "mode": 420
     },
     "skills/sync-pstack/references/interview.md": {
-      "sha256": "fa33d6e811c4a1ba6c611275f30b2c60271b2e4091aae1ac693db5a4055152c9",
+      "sha256": "7a53309cd6ec6c866366cd0b88fcf16c780a2dd94b990760ef7940454b9d2d74",
       "mode": 420
     },
     "skills/sync-pstack/scripts/audit.mjs": {
-      "sha256": "a84181ae3a5a18e5010182e699a2992792c5018ff6e4b60e4ded257e835a1525",
+      "sha256": "e04f55bd3bc49f9fec89ddd27301f1cf226834036684089249acb351a4cf96a8",
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.mjs": {
@@ -302,7 +302,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "bbe52258041631be6ba53fb42f39b8416db371b0f64e0f2a523cc91fcaed6098",
+      "sha256": "c1af5be943e602c5a38a4c4b9b7dae9223e72549fd251cfde29f47689c3834ae",
       "mode": 420
     },
     "skills/test-audit/LICENSE": {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
@@ -147,13 +147,38 @@ test('apply inserts one block after the intro, and a second apply changes nothin
   assert.equal(cli('check', root).status, 0);
 });
 
-test('apply installs every helper the rendered rules name, whichever sections are skipped', () => {
+test('apply installs every helper and rule file the rendered rules name, whichever sections are skipped', () => {
   const { dir, cli } = sandbox();
   const root = project(dir, 'app', { config: { ...CONFIG, skip: ['tests', 'review', 'plans', 'long-runs', 'commits'] }, agents: '# App\n' });
   assert.equal(cli('apply', root).status, 0);
-  const named = new Set(read(root, 'AGENTS.md').match(/\.agents\/pstack\/[\w-]+\.mjs/gu));
+  const rules = join(root, '.agents/pstack/rules');
+  const texts = [read(root, 'AGENTS.md'), ...readdirSync(rules).map((name) => read(root, `.agents/pstack/rules/${name}`))];
+  const named = new Set(texts.flatMap((text) => text.match(/\.agents\/pstack\/(?:rules\/)?[\w-]+\.(?:mjs|md)/gu) ?? []));
   assert.ok(named.size > 0);
   for (const path of named) assert.ok(existsSync(join(root, path)), `${path} is named but not installed`);
+});
+
+test('apply renders each rule file with the project config and leaves out the file of a skipped section', () => {
+  const { dir, cli } = sandbox();
+  const root = project(dir, 'app', { config: { ...CONFIG, plans: 'notes/plans', skip: ['long-runs'] }, agents: '# App\n' });
+  assert.equal(cli('apply', root).status, 0);
+  const trails = read(root, '.agents/pstack/rules/trails.md');
+  assert.match(trails, /notes\/plans\/<date>-<slug>\.md/);
+  assert.doesNotMatch(trails, /\{\{|<!--/);
+  assert.ok(!existsSync(join(root, '.agents/pstack/rules/long-runs.md')));
+});
+
+test('pushBranches lets the lead commit and push every branch but the working one in user delivery', () => {
+  const { dir, cli } = sandbox();
+  const owner = project(dir, 'owner', { config: { ...CONFIG, delivery: 'user' }, agents: '# App\n' });
+  const branches = project(dir, 'branches', { config: { ...CONFIG, delivery: 'user', pushBranches: true }, agents: '# App\n' });
+  assert.equal(cli('apply', owner).status, 0);
+  assert.equal(cli('apply', branches).status, 0);
+  assert.match(read(owner, 'AGENTS.md'), /The repair stays uncommitted there for the owner's commit\./);
+  assert.doesNotMatch(read(owner, 'AGENTS.md'), /On every other branch the lead commits and pushes/);
+  assert.match(read(branches, 'AGENTS.md'), /On every other branch the lead commits and pushes/);
+  assert.match(read(branches, 'AGENTS.md'), /git push origin HEAD:<head branch>/);
+  assert.doesNotMatch(read(branches, 'AGENTS.md'), /The repair stays uncommitted there/);
 });
 
 test('check fails once the project config moves past what was applied', () => {
@@ -840,7 +865,7 @@ test('the audit report shows block and pstack repeats ahead of a flood of projec
   });
   const result = run(process.execPath, [AUDIT, root], root);
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /\.agents\/rules\/b\.mdc:\d+ ~ block:\d+: Every test must fail/);
+  assert.match(result.stdout, /\.agents\/rules\/b\.mdc:\d+ ~ rules\/tests\.md:\d+: Every test must fail/);
   assert.match(result.stdout, /\.agents\/rules\/b\.mdc:\d+ ~ pstack\/prove\/SKILL\.md:\d+: Verify against the real artifact/);
   assert.match(result.stdout, /repeated elsewhere in the project \(score >= 0\.5\): 80,/);
 });
@@ -922,7 +947,7 @@ test('verify fails a setup that cut a typed command, left dead links or retired 
   const root = setupFixture(dir, home);
   for (const path of ['.agents/rules/task.mdc', '.agents/skills/task/SKILL.md']) rmSync(join(root, path));
   writeFileSync(join(root, '.agents/skills/sync-ui/SKILL.md'), '---\nname: sync-ui\n---\n# Sync UI\n\nClose with `node .agents/pstack/plan-open.mjs <plan>`.\n');
-  writeFileSync(join(root, 'AGENTS.md'), read(root, 'AGENTS.md').replace('Never claim a skipped or unavailable proof passed.', 'Never claim an unrun proof passed.'));
+  writeFileSync(join(root, 'AGENTS.md'), read(root, 'AGENTS.md').replace('allow two informed attempts or ten minutes', 'allow three informed attempts or ten minutes'));
 
   const result = cli('verify', root);
   assert.equal(result.status, 1);
@@ -2160,21 +2185,21 @@ test('a refusal shows only what the project edited, even after the shared templa
   const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
   run(process.execPath, [shared.script, 'apply', root]);
   writeFileSync(join(root, 'AGENTS.md'), read(root, 'AGENTS.md').replace('**Blocked.**', '**Blocked (local lesson).**'));
-  writeFileSync(shared.template, readFileSync(shared.template, 'utf8').replace('Never claim a skipped or unavailable proof passed.', 'Never claim an unrun proof passed.'));
+  writeFileSync(shared.template, readFileSync(shared.template, 'utf8').replace('allow two informed attempts or ten minutes', 'allow three informed attempts or ten minutes'));
   commit(shared.repo, 'template change');
 
   const refused = run(process.execPath, [shared.script, 'apply', root]);
   assert.equal(refused.status, 1);
   assert.match(refused.stdout, /the project's edit since the last sync/);
   assert.match(refused.stdout, /\+- \*\*Blocked \(local lesson\)\.\*\*/);
-  assert.doesNotMatch(refused.stdout, /unrun proof/);
+  assert.doesNotMatch(refused.stdout, /three informed attempts/);
 });
 
 test('a clean shared source refuses to drop edits a project was synced from before they were committed', () => {
   const { dir, run } = sandbox();
   const shared = sharedSource(dir);
   const original = readFileSync(shared.template, 'utf8');
-  writeFileSync(shared.template, original.replace('Never claim a skipped or unavailable proof passed.', 'Never claim an unrun proof passed.'));
+  writeFileSync(shared.template, original.replace('allow two informed attempts or ten minutes', 'allow three informed attempts or ten minutes'));
   const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
   assert.equal(run(process.execPath, [shared.script, 'apply', root]).status, 0);
   writeFileSync(shared.template, original);
@@ -2182,13 +2207,13 @@ test('a clean shared source refuses to drop edits a project was synced from befo
   const refused = run(process.execPath, [shared.script, 'apply', root]);
   assert.equal(refused.status, 1);
   assert.match(refused.stdout, /uncommitted shared edits/);
-  assert.match(read(root, 'AGENTS.md'), /unrun proof/);
+  assert.match(read(root, 'AGENTS.md'), /three informed attempts/);
 });
 
 test('an older copy of the shared source refuses to undo a newer sync', () => {
   const { dir, run } = sandbox();
   const shared = sharedSource(dir);
-  writeFileSync(shared.template, readFileSync(shared.template, 'utf8').replace('Never claim a skipped or unavailable proof passed.', 'Never claim an unrun proof passed.'));
+  writeFileSync(shared.template, readFileSync(shared.template, 'utf8').replace('allow two informed attempts or ten minutes', 'allow three informed attempts or ten minutes'));
   commit(shared.repo, 'newer rule');
   const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
   run(process.execPath, [shared.script, 'apply', root]);
@@ -2197,13 +2222,13 @@ test('an older copy of the shared source refuses to undo a newer sync', () => {
   const refused = run(process.execPath, [shared.script, 'apply', root]);
   assert.equal(refused.status, 1);
   assert.match(refused.stdout, /does not include/);
-  assert.match(read(root, 'AGENTS.md'), /unrun proof/);
+  assert.match(read(root, 'AGENTS.md'), /three informed attempts/);
 });
 
 test('a sync from an uncommitted source records the commit once it lands', () => {
   const { dir, run } = sandbox();
   const shared = sharedSource(dir);
-  writeFileSync(shared.template, readFileSync(shared.template, 'utf8').replace('Never claim a skipped or unavailable proof passed.', 'Never claim an unrun proof passed.'));
+  writeFileSync(shared.template, readFileSync(shared.template, 'utf8').replace('allow two informed attempts or ten minutes', 'allow three informed attempts or ten minutes'));
   const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
   run(process.execPath, [shared.script, 'apply', root]);
   assert.equal(readJson(root, '.agents/pstack.json').synced.source, null);

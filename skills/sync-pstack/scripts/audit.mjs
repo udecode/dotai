@@ -8,6 +8,7 @@ import { discover, localSkills, locateBlock, markdownFiles, skillMention, unmark
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DOTAI_CHECKOUT = existsSync(resolve(HERE, '../../../workflow-manifest.json')) ? resolve(HERE, '../../..') : null;
 const TEMPLATE = resolve(HERE, '../assets/block.md');
+const RULES = resolve(HERE, '../assets/pstack/rules');
 const SHINGLE = 3;
 const MIN_WORDS = 6;
 const STOP_WORDS = new Set('a an and any are as at be by each every for from if in into is it its no not of on one only or so than that the their then this to when with'.split(' '));
@@ -113,7 +114,13 @@ function audit(root, minScore) {
   }
 
   const blockText = readFileSync(TEMPLATE, 'utf8');
-  const block = shingledSentences(blockText, 'block');
+  // The block's rule files are shared text too, so a project sentence that repeats one is a block repeat.
+  const block = [
+    ...shingledSentences(blockText, 'block'),
+    ...readdirSync(RULES)
+      .filter((name) => name.endsWith('.md'))
+      .flatMap((name) => shingledSentences(readFileSync(join(RULES, name), 'utf8'), `rules/${name}`)),
+  ];
   const pstackText = pstackSkillsDir(root);
   const pstack = pstackText.dir ? [...markdownFiles(pstackText.dir)].flatMap((path) => shingledSentences(readFileSync(path, 'utf8'), `pstack/${relative(pstackText.dir, path)}`)) : [];
   const references = { pstack: [pstack, index(pstack)], block: [block, index(block)], project: [project, index(project)] };
