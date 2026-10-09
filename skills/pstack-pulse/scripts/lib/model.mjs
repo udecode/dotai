@@ -154,6 +154,19 @@ function applyRegistry(session, entry) {
   session.pid = entry.pid ?? session.pid;
 }
 
+// The desktop app runs a resumed session in a new process, so a newer process of the same desktop session replaces the older one.
+function supersede(sessions, key, host, at) {
+  for (const [other, older] of Object.entries(sessions)) {
+    if (other === key || older.host !== host || older.life !== 'live') continue;
+    older.life = 'ended';
+    older.endedAt = at;
+    older.active = false;
+    older.failure = null;
+    older.needs = {};
+    derive(older, at);
+  }
+}
+
 function applyGone(session, gone, key) {
   if (session.life === 'ended' || session.failure?.showUntil) return;
   if (!session.active) {
@@ -224,7 +237,10 @@ export function reduce(sessions, observation) {
   if (!sessions[key] && observation.kind !== 'hook') return;
   const session = (sessions[key] ??= newSession(observation));
   if (observation.kind === 'hook') applyHook(session, observation, key);
-  else if (observation.kind === 'registry') applyRegistry(session, observation);
+  else if (observation.kind === 'registry') {
+    applyRegistry(session, observation);
+    if (session.host) supersede(sessions, key, session.host, observation.at);
+  }
   else if (observation.kind === 'gone') applyGone(session, observation, key);
   else if (observation.kind === 'thread') {
     session.audience = ['vscode', 'cli'].includes(observation.source) ? 'owner' : 'hidden';

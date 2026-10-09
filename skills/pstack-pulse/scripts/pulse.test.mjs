@@ -242,6 +242,20 @@ test('a widget value goes out once per change, and a metric the account lacks is
   assert.deepEqual(later.calls.filter((call) => call.startsWith('metric')), ['metric pstack.waiting nothing waiting']);
 });
 
+test('a desktop session the app resumes in a new process replaces its old process instead of reading as failed', () => {
+  const sessions = {};
+  const registry = (session, seconds, pid) => ({ kind: 'registry', runtime: 'claude', session, at: at(seconds), host: 'local_desk', status: 'busy', name: null, bridge: null, entrypoint: 'claude-desktop', pid });
+  reduce(sessions, hook('old', 'UserPromptSubmit', 0));
+  reduce(sessions, registry('old', 1, 1));
+  reduce(sessions, { kind: 'gone', runtime: 'claude', session: 'old', at: at(2) });
+  reduce(sessions, hook('new', 'UserPromptSubmit', 3));
+  reduce(sessions, registry('new', 4, 2));
+  const views = viewsOf(sessions);
+  const [[, card]] = planBoard(views, emptyPhone(), { now: T0 + 5000, shippedToday: 0 }).cards;
+  assert.deepEqual(card.body.content_state.metrics.map(({ label, value }) => `${label} ${value}`), ['Build 🚧 new']);
+  assert.ok(![...incidentsOf(views).values()].some(({ kind }) => kind === 'failed'));
+});
+
 test('eight sessions fill eight metrics, and a ninth folds two into a more value', () => {
   const sessions = {};
   for (let index = 0; index < 8; index += 1) reduce(sessions, hook(`s${index}`, 'UserPromptSubmit', index, { cwd: '/w/ellie' }));
