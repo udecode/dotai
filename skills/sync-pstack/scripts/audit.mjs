@@ -3,12 +3,13 @@ import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from 'n
 import { homedir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { discover, localSkills, locateBlock, markdownFiles, skillMention, unmarkedRules, USER_SKILL_DIRS, userTypedInvocations } from './sync-pstack.mjs';
+import { discover, localSkills, locateBlock, markdownFiles, RULE_FILES, skillMention, unmarkedRules, USER_SKILL_DIRS, userTypedInvocations } from './sync-pstack.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DOTAI_CHECKOUT = existsSync(resolve(HERE, '../../../workflow-manifest.json')) ? resolve(HERE, '../../..') : null;
 const TEMPLATE = resolve(HERE, '../assets/block.md');
 const RULES = resolve(HERE, '../assets/pstack/rules');
+const SHARED_FILES = new Set(['block', ...Object.keys(RULE_FILES).map((name) => `rules/${name}`)]);
 const SHINGLE = 3;
 const MIN_WORDS = 6;
 const STOP_WORDS = new Set('a an and any are as at be by each every for from if in into is it its no not of on one only or so than that the their then this to when with'.split(' '));
@@ -114,16 +115,13 @@ function audit(root, minScore) {
   }
 
   const blockText = readFileSync(TEMPLATE, 'utf8');
-  // The block's rule files are shared text too, so a project sentence that repeats one is a block repeat.
-  const block = [
+  const shared = [
     ...shingledSentences(blockText, 'block'),
-    ...readdirSync(RULES)
-      .filter((name) => name.endsWith('.md'))
-      .flatMap((name) => shingledSentences(readFileSync(join(RULES, name), 'utf8'), `rules/${name}`)),
+    ...Object.keys(RULE_FILES).flatMap((name) => shingledSentences(readFileSync(join(RULES, name), 'utf8'), `rules/${name}`)),
   ];
   const pstackText = pstackSkillsDir(root);
   const pstack = pstackText.dir ? [...markdownFiles(pstackText.dir)].flatMap((path) => shingledSentences(readFileSync(path, 'utf8'), `pstack/${relative(pstackText.dir, path)}`)) : [];
-  const references = { pstack: [pstack, index(pstack)], block: [block, index(block)], project: [project, index(project)] };
+  const references = { pstack: [pstack, index(pstack)], block: [shared, index(shared)], project: [project, index(project)] };
 
   const overlaps = [];
   const pairs = new Set();
@@ -144,7 +142,7 @@ function audit(root, minScore) {
     compare(sentence, 'block');
     compare(sentence, 'project', (other) => other.file === sentence.file);
   }
-  for (const sentence of block) compare(sentence, 'pstack');
+  for (const sentence of shared) compare(sentence, 'pstack');
   overlaps.sort((a, b) => b.score - a.score || a.file.localeCompare(b.file) || a.line - b.line);
 
   const routeFiles = [join(root, 'AGENTS.md'), ...projectFiles].filter((path) => existsSync(path));
@@ -204,8 +202,8 @@ function report(result) {
   for (const skill of result.userSkills) out.push(`${skill.name} | ${skill.source ?? '?'} | ${skill.typed.all} | ${yesNo(skill.inDotai) || 'no'} | ${yesNo(skill.stale)}`);
   out.push('', `## Block rules with no overrides note or adds marker: ${result.unmarkedRules.join(', ') || 'none'}`);
   const kinds = [
-    ['Block sentences that repeat pstack', (overlap) => overlap.file === 'block', true],
-    ['Project sentences that repeat pstack', (overlap) => overlap.file !== 'block' && overlap.with === 'pstack', true],
+    ['Block sentences that repeat pstack', (overlap) => SHARED_FILES.has(overlap.file), true],
+    ['Project sentences that repeat pstack', (overlap) => !SHARED_FILES.has(overlap.file) && overlap.with === 'pstack', true],
     ['Project sentences that repeat the block', (overlap) => overlap.with === 'block', false],
     ['Project sentences repeated elsewhere in the project', (overlap) => overlap.with === 'project', false],
   ];

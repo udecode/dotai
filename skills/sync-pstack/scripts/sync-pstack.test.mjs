@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { hintModes, overrideAnchors, render, unmarkedRules } from './sync-pstack.mjs';
+import { hintModes, overrideAnchors, render, sharedTemplates, unmarkedRules } from './sync-pstack.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SCRIPT = join(HERE, 'sync-pstack.mjs');
@@ -119,15 +119,43 @@ test('render keeps only the regions the config selects and refuses what it canno
   assert.equal(render(template, { branch: 'next', delivery: 'user', risk: '', skip: [] }), 'on next\nnot push\ntests\nreview on request\nalways');
   assert.equal(render(template, { branch: 'next', delivery: 'push', risk: 'auth', skip: ['tests'] }), 'on next\npush only\nalways');
   assert.throws(() => render('run {{lintFix}}', { skip: [] }), /needs "lintFix"/);
-  assert.throws(() => render('<!-- section tests -->\nx\n<!-- end -->', { skip: ['test'] }), /unknown sections: test/);
 });
 
-test('the shipped template renders cleanly for every delivery', () => {
-  for (const delivery of ['push', 'pr', 'user']) {
-    for (const reviewList of ['', '  - `pr`: Before opening a PR, the diff gets a panel.']) {
-      const block = render(TEMPLATE, { ...CONFIG, delivery, reviewList });
-      assert.doesNotMatch(block, /<!--|\{\{|\}\}/, `${delivery} reviewList=${Boolean(reviewList)}`);
+test('the shipped block and rule files render cleanly for every delivery', () => {
+  for (const [index, template] of sharedTemplates().entries()) {
+    for (const [delivery, pushBranches] of [['push', false], ['pr', false], ['user', false], ['user', true]]) {
+      for (const reviewList of ['', '  - `pr`: Before opening a PR, the diff gets a panel.']) {
+        const rendered = render(template, { ...CONFIG, delivery, pushBranches, reviewList });
+        assert.doesNotMatch(rendered, /<!--|\{\{|\}\}/, `template ${index} ${delivery} pushBranches=${pushBranches} reviewList=${Boolean(reviewList)}`);
+      }
     }
+  }
+});
+
+test('a section marker indented inside a rule file still counts, so skipping that section applies', () => {
+  const { dir, run } = sandbox();
+  const shared = sharedSource(dir);
+  const panel = join(dirname(shared.template), 'pstack/rules/panel.md');
+  const before = readFileSync(panel, 'utf8');
+  const after = before.replace('<!-- section review -->', '  <!-- section review -->');
+  assert.notEqual(after, before);
+  writeFileSync(panel, after);
+  commit(shared.repo, 'indented marker');
+  const root = project(dir, 'app', { config: { ...CONFIG, skip: ['review'] }, agents: '# App\n' });
+  assert.equal(run(process.execPath, [shared.script, 'apply', root]).status, 0);
+  assert.doesNotMatch(read(root, '.agents/pstack/rules/panel.md'), /\*\*Review\.\*\*/);
+});
+
+test('apply refuses a skip entry that no template holds and a pushBranches that grants nothing it says', () => {
+  const { dir, cli } = sandbox();
+  for (const [name, config, refusal] of [
+    ['typo', { ...CONFIG, skip: ['test'] }, /skip names unknown sections: test/],
+    ['string', { ...CONFIG, delivery: 'user', pushBranches: 'false' }, /pushBranches must be true or false/],
+    ['push', { ...CONFIG, pushBranches: true }, /pushBranches applies only to user delivery/],
+  ]) {
+    const result = cli('apply', project(dir, name, { config, agents: '# App\n' }));
+    assert.notEqual(result.status, 0, name);
+    assert.match(`${result.stdout}${result.stderr}`, refusal, name);
   }
 });
 
@@ -2185,7 +2213,10 @@ test('a refusal shows only what the project edited, even after the shared templa
   const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
   run(process.execPath, [shared.script, 'apply', root]);
   writeFileSync(join(root, 'AGENTS.md'), read(root, 'AGENTS.md').replace('**Blocked.**', '**Blocked (local lesson).**'));
-  writeFileSync(shared.template, readFileSync(shared.template, 'utf8').replace('allow two informed attempts or ten minutes', 'allow three informed attempts or ten minutes'));
+  const before = readFileSync(shared.template, 'utf8');
+  const after = before.replace('allow two informed attempts or ten minutes', 'allow three informed attempts or ten minutes');
+  assert.notEqual(after, before);
+  writeFileSync(shared.template, after);
   commit(shared.repo, 'template change');
 
   const refused = run(process.execPath, [shared.script, 'apply', root]);

@@ -30,13 +30,11 @@ const TEMPLATE = join(SKILL, 'assets/block.md');
 const HELPERS = join(SKILL, 'assets/pstack');
 const CONFIG = '.agents/pstack.json';
 const HELPER_DIR = '.agents/pstack';
-// A `.md` helper is a rule file the block points to; it renders like the block.
-const CORE_HELPERS = ['codex-browser.mjs', 'codex-isolation.mjs', 'cross.mjs', 'cua-steps.mjs', 'freeze.mjs', 'lead.mjs', 'mutate.mjs', 'proof.mjs', 'reply.mjs', 'reread.mjs', 'rules/close.md', 'rules/panel.md', 'rules/reflect.md', 'rules/title.md'];
-const SECTION_HELPERS = {
-  plans: ['decisions-check.mjs', 'plan-open.mjs', 'plan-page.mjs', 'status.mjs', 'rules/pages.md', 'rules/trails.md'],
-  'long-runs': ['rules/long-runs.md'],
-  tests: ['rules/tests.md'],
-};
+const CORE_HELPERS = ['codex-browser.mjs', 'codex-isolation.mjs', 'cross.mjs', 'cua-steps.mjs', 'freeze.mjs', 'lead.mjs', 'mutate.mjs', 'proof.mjs', 'reply.mjs', 'reread.mjs'];
+const SECTION_HELPERS = { plans: ['decisions-check.mjs', 'plan-open.mjs', 'plan-page.mjs', 'status.mjs'] };
+const RULES = join(HELPERS, 'rules');
+export const RULE_FILES = { 'close.md': null, 'long-runs.md': 'long-runs', 'pages.md': 'plans', 'panel.md': null, 'reflect.md': null, 'tests.md': 'tests', 'title.md': null, 'trails.md': 'plans' };
+const SECTION = /^<!-- section (\S+) -->$/u;
 const PLUGIN = 'pstack@pstack-claude';
 const MARKETPLACE = 'pstack-claude';
 const REPO = 'michael-denyer/pstack-claude';
@@ -74,18 +72,16 @@ function parseLine(line) {
   }
 }
 
-function sectionIds() {
-  const rules = [CORE_HELPERS, ...Object.values(SECTION_HELPERS)].flat().filter((name) => name.endsWith('.md'));
-  return [TEMPLATE, ...rules.map((name) => join(HELPERS, name))].flatMap((path) =>
-    [...readFileSync(path, 'utf8').matchAll(/^<!-- section (\S+) -->$/gmu)].map((match) => match[1]),
-  );
+export function sharedTemplates() {
+  const unlisted = readdirSync(RULES).filter((name) => name.endsWith('.md') && !Object.hasOwn(RULE_FILES, name));
+  if (unlisted.length > 0) throw new Error(`rule files missing from RULE_FILES: ${unlisted.join(', ')}`);
+  return [readFileSync(TEMPLATE, 'utf8'), ...Object.keys(RULE_FILES).map((name) => readFileSync(join(RULES, name), 'utf8'))];
 }
 
-// `known` lists sections that live in other templates, so a skip entry for a
-// section a rule file holds does not fail the block's render.
-export function render(template, config, known = []) {
+const sectionsOf = (template) => template.split('\n').flatMap((line) => line.trim().match(SECTION)?.[1] ?? []);
+
+export function render(template, config) {
   const skip = new Set(config.skip ?? []);
-  const sections = new Set();
   const regions = [];
   const out = [];
   for (const [index, raw] of template.split('\n').entries()) {
@@ -93,7 +89,6 @@ export function render(template, config, known = []) {
     if (line.startsWith('<!-- #')) continue;
     const open = line.match(/^<!-- (if|section) (\S+) -->$/u);
     if (open) {
-      if (open[1] === 'section') sections.add(open[2]);
       regions.push(open[1] === 'section' ? !skip.has(open[2]) : holds(open[2], config));
       continue;
     }
@@ -104,10 +99,6 @@ export function render(template, config, known = []) {
     if (regions.every(Boolean)) out.push(raw.replace(/\{\{(\w+)\}\}/gu, (_, key) => fill(key, config, index)));
   }
   if (regions.length > 0) throw new Error('Template ends inside an open region');
-  const unknown = [...skip].filter((id) => !sections.has(id) && !known.includes(id));
-  if (unknown.length > 0) {
-    throw new Error(`skip names unknown sections: ${unknown.join(', ')} (sections: ${[...sections].join(', ')})`);
-  }
   return out.join('\n').replace(/\n{3,}/gu, '\n\n').trim();
 }
 
@@ -232,7 +223,7 @@ function upstream() {
 
 const anchoredPaths = (root) => [
   ...new Set([
-    ...overrideAnchors(readFileSync(TEMPLATE, 'utf8')).map((note) => note.path),
+    ...overrideAnchors(sharedTemplates().join('\n')).map((note) => note.path),
     ...projectPlaybooks(root).flatMap((playbook) => playbook.extends.map((stem) => `poteto-mode/playbooks/${stem}.md`)),
   ]),
 ];
@@ -257,7 +248,7 @@ export function anchorProblems(root, tag) {
   };
   const problems = [];
   try {
-    for (const { path, anchor } of overrideAnchors(readFileSync(TEMPLATE, 'utf8'))) {
+    for (const { path, anchor } of overrideAnchors(sharedTemplates().join('\n'))) {
       const text = read(path);
       if (text === null) problems.push({ reason: `the block overrides ${path}, which pstack ${tag} no longer has` });
       else if (!flat(text).includes(flat(anchor))) {
@@ -304,6 +295,13 @@ function validate(config) {
     throw new Error('protected must differ from branch; leave it empty when agents work on the default branch');
   }
   if (config.skip !== undefined && !Array.isArray(config.skip)) throw new Error('skip must be a list of section ids');
+  const sections = new Set(sharedTemplates().flatMap(sectionsOf));
+  const unknown = (config.skip ?? []).filter((id) => !sections.has(id));
+  if (unknown.length > 0) throw new Error(`skip names unknown sections: ${unknown.join(', ')} (sections: ${[...sections].join(', ')})`);
+  const orphans = Object.values(RULE_FILES).filter((id) => id !== null && !sections.has(id));
+  if (orphans.length > 0) throw new Error(`RULE_FILES names sections no template holds: ${orphans.join(', ')}`);
+  if (config.pushBranches !== undefined && typeof config.pushBranches !== 'boolean') throw new Error('pushBranches must be true or false');
+  if (config.pushBranches && config.delivery !== 'user') throw new Error('pushBranches applies only to user delivery');
 }
 
 export function locateBlock(text) {
@@ -452,8 +450,7 @@ export function apply(root, { tag, force = false, write = true } = {}) {
   const stored = readJson(configPath);
   const config = withDerived(root, { ...stored, ...(tag ? { tag } : {}) });
   validate(config);
-  const known = sectionIds();
-  const body = render(readFileSync(TEMPLATE, 'utf8'), config, known);
+  const body = render(readFileSync(TEMPLATE, 'utf8'), config);
   const changes = [];
   const refusals = [];
   const synced = { block: sha(body), files: {} };
@@ -471,7 +468,7 @@ export function apply(root, { tag, force = false, write = true } = {}) {
   if (current?.body !== body) {
     const detail = diff(current?.body ?? '', body);
     if (current && !force && sha(current.body) !== stored.synced?.block) {
-      const last = lastVersion(stored, 'assets/block.md', (text) => render(text, withDerived(root, stored), known), stored.synced?.block);
+      const last = lastVersion(stored, 'assets/block.md', (text) => render(text, withDerived(root, stored)), stored.synced?.block);
       refusals.push({
         path: 'AGENTS.md',
         reason: 'the block was edited since the last sync',
@@ -483,13 +480,17 @@ export function apply(root, { tag, force = false, write = true } = {}) {
   }
 
   const skipped = new Set(config.skip ?? []);
-  for (const [section, names] of [[null, CORE_HELPERS], ...Object.entries(SECTION_HELPERS)]) {
+  const groups = [
+    [null, CORE_HELPERS, false],
+    ...Object.entries(SECTION_HELPERS).map(([section, names]) => [section, names, false]),
+    ...Object.entries(RULE_FILES).map(([name, section]) => [section, [`rules/${name}`], true]),
+  ];
+  for (const [section, names, rule] of groups) {
     for (const name of names) {
       const path = `${HELPER_DIR}/${name}`;
       const present = existsSync(join(root, path)) ? readFileSync(join(root, path), 'utf8') : null;
       const edited = present !== null && sha(present) !== stored.synced?.files?.[path];
-      const rule = name.endsWith('.md');
-      const build = (text, settings) => (rule ? `${render(text, settings, known)}\n` : text);
+      const build = (text, settings) => (rule ? `${render(text, settings)}\n` : text);
       if (!section || !skipped.has(section)) {
         const source = build(readFileSync(join(HELPERS, name), 'utf8'), config);
         synced.files[path] = sha(source);
