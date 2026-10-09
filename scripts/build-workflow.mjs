@@ -13,6 +13,7 @@ const upstream = JSON.parse(readFileSync(join(root, 'upstream-skills.json'), 'ut
 const groups = {
   'Review': ['test-audit'],
   'Communication': ['walkthrough', 'video-transcripts', 'plan-page'],
+  'Workflow': ['redo'],
   'Maintenance': ['sync-pstack'],
   'Monitoring': ['pstack-pulse', 'rca'],
 };

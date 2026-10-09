@@ -321,7 +321,7 @@ test('smoke runs each prompt in both runtimes from the project root, without CLA
     env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1' },
   });
   assert.equal(result.status, 0, result.stderr);
-  assert.ok(result.stdout.includes(`claude in ${root} CLAUDECODE=unset: -p --model opus --permission-mode plan -- the toolbar closes`), result.stdout);
+  assert.ok(result.stdout.replace(/--session-id [\da-f-]{36} /u, '').includes(`claude in ${root} CLAUDECODE=unset: -p --model opus --permission-mode plan -- the toolbar closes`), result.stdout);
   assert.ok(result.stdout.includes(`codex in ${root} with exec --ignore-rules -m gpt-6.1-sol --sandbox read-only: the toolbar closes`), result.stdout);
   assert.doesNotMatch(result.stdout, /noise/);
 });
@@ -343,7 +343,8 @@ test('cross runs a prompt file in the other runtime: Codex from Claude Code, Cla
   assert.equal(fromClaude.status, 0, fromClaude.stderr);
   assert.equal(fromClaude.stdout.trim(), 'codex: Review docs/plans/x.md for gaps.');
   const fromCodex = cross({});
-  assert.equal(fromCodex.stdout.trim(), 'claude: -p --model opus --settings {"disableAllHooks":true} --permission-mode plan -- Review docs/plans/x.md for gaps.');
+  assert.equal(fromCodex.stdout.trim().replace(/--session-id [\da-f-]{36} /u, ''), 'claude: -p --model opus --settings {"disableAllHooks":true} --permission-mode plan -- Review docs/plans/x.md for gaps.');
+  assert.match(fromCodex.stderr, /^seat: opus @default$/mu, 'a seat with no transcript and no --effort says its effort is the default');
 });
 
 test('cross runs a Codex seat read-only on the model and effort it names', () => {
@@ -2680,4 +2681,78 @@ test('plan-open refuses a newly closed box that cites a not-passed proof until a
   assert.match(check('hold').stderr, /latest labeled verdict is not passed/, 'the owner reversed the Defaults row');
   assert.equal(append(`proof: ${log}; scope: the full type check, read 2026-10-07`, 'verified: the type check passes').status, 0);
   assert.equal(check('hold').status, 0, 'a later labeled pass');
+});
+
+const claudeCall = (marker, effort) =>
+  [
+    JSON.stringify({ type: 'user', message: { content: [{ type: 'tool_result', content: 'done' }] } }),
+    JSON.stringify({ type: 'assistant', effort, message: { model: 'claude-opus-5-5', content: [{ type: 'tool_use', input: { command: `node decisions-check.mjs append ${marker} --from q.tsv` } }] } }),
+  ].join('\n');
+
+test('decisions-check append opens with a lead row naming the model and effort, and again only when they change', () => {
+  const { dir, env, home } = sandbox();
+  const root = project(dir, 'app', { files: { 'q.tsv': 'build\tship it\twhy\tevidence\tdecided\n' } });
+  const transcript = join(home, '.claude/projects/-app/session.jsonl');
+  const append = () => spawnSync(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', '--from', 'q.tsv'], { cwd: root, encoding: 'utf8', env: { ...env, CODEX_HOME: join(home, '.codex') } });
+  const leads = () => read(root, 'log.decisions.tsv').split('\n').filter((line) => line.split('\t')[1] === 'lead').map((line) => line.split('\t')[2]);
+
+  const blind = append();
+  assert.equal(blind.status, 0, blind.stderr);
+  assert.match(blind.stderr, /gets no lead row/, 'an unknown effort says so');
+  assert.deepEqual(leads(), []);
+
+  mkdirSync(dirname(transcript), { recursive: true });
+  writeFileSync(transcript, `${claudeCall('log.decisions.tsv', 'medium')}\n`);
+  assert.equal(append().status, 0);
+  writeFileSync(transcript, `${claudeCall('log.decisions.tsv', 'medium')}\n${claudeCall('log.decisions.tsv', 'medium')}\n`);
+  assert.equal(append().status, 0);
+  assert.deepEqual(leads(), ['claude-opus-5-5 @medium'], 'an unchanged lead writes no second row');
+
+  writeFileSync(transcript, `${claudeCall('log.decisions.tsv', 'medium')}\n${claudeCall('other.decisions.tsv', 'xhigh')}\n`);
+  append();
+  assert.deepEqual(leads(), ['claude-opus-5-5 @medium'], 'a session whose pending call is another command is not this one');
+
+  rmSync(transcript);
+  const rollout = join(home, '.codex/sessions/2026/10/09/rollout-a.jsonl');
+  mkdirSync(dirname(rollout), { recursive: true });
+  writeFileSync(
+    rollout,
+    [
+      { type: 'turn_context', payload: { model: 'gpt-6.1-sol', effort: 'xhigh' } },
+      { type: 'response_item', payload: { type: 'custom_tool_call', input: 'tools.exec_command({cmd:"node decisions-check.mjs append log.decisions.tsv --from q.tsv"})' } },
+    ]
+      .map((record) => JSON.stringify(record))
+      .join('\n'),
+  );
+  assert.equal(append().status, 0);
+  assert.deepEqual(leads(), ['claude-opus-5-5 @medium', 'gpt-6.1-sol @xhigh'], 'a Codex session reads its turn context');
+  assert.equal(spawnSync(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'log.decisions.tsv'], { cwd: root, encoding: 'utf8' }).status, 0, 'lead rows pass the check');
+});
+
+test('plan-page shows each lead model and effort in the header', () => {
+  const { dir, run } = sandbox();
+  const plan = '# Plan\n\nStatus: executed\n\n## Main changes\n\n- Raise the effort.\n';
+  const log = [
+    'ts\tphase\tdecision\twhy\tevidence\tresult',
+    reviewRow('lead', 'claude-opus-5-5 @medium', 'recorded claude session'),
+    reviewRow('plan', 'Draft the plan', 'decided'),
+    reviewRow('lead', 'claude-opus-5-5 @xhigh', 'recorded claude session'),
+  ].join('\n');
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan, 'docs/plans/plan.decisions.tsv': `${log}\n` } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const html = read(root, 'docs/plans/artifacts/plan.html');
+  const header = html.slice(html.indexOf('<header>'), html.indexOf('</header>')).replace(/<[^>]+>/gu, ' ').replace(/\s+/gu, ' ');
+  assert.match(header, /Lead claude-opus-5-5 medium claude-opus-5-5 xhigh/);
+});
+
+test('decisions-check append names the stage a batch moves the log into', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app');
+  const append = (phase, decision, result = 'recorded') => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', phase, decision, 'why', 'evidence', result], root);
+  assert.match(append('architect', 'three runners').stdout, /Stage: Design\. Rename the session/);
+  assert.doesNotMatch(append('architect', 'picked the base').stdout, /Stage:/, 'a row in the same stage');
+  assert.match(append('build', 'built: the helper').stdout, /Stage: Build\./);
+  assert.match(append('panel', 'seats opus').stdout, /Stage: Code review\./, 'a panel round after a build reviews the code');
+  assert.match(append('writing', 'deslop on the round 1 fixes').stdout, /Stage: Writing\./);
 });
