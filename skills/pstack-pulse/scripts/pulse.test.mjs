@@ -311,6 +311,29 @@ test('a question buzzes once, and not again after a restart', async () => {
   assert.deepEqual(pushes(client), ['push a needs you']);
 });
 
+test('an allowed permission prompt stops needing you once its own tool finishes, while another tool finishing leaves it open', () => {
+  const sessions = {};
+  reduce(sessions, hook('asked', 'UserPromptSubmit', 0));
+  reduce(sessions, hook('asked', 'PreToolUse', 1, { tool: 'Bash', toolUseId: 'tu-bash' }));
+  reduce(sessions, hook('asked', 'PermissionRequest', 1, { tool: 'Bash' }));
+  reduce(sessions, prompted('asked', 7));
+  reduce(sessions, hook('asked', 'PostToolUse', 8, { tool: 'Read', toolUseId: 'tu-read' }));
+  assert.equal(sessions['claude:asked'].state, 'needs-you');
+  reduce(sessions, hook('asked', 'PostToolUse', 9, { tool: 'Bash', toolUseId: 'tu-bash' }));
+  assert.equal(sessions['claude:asked'].state, 'working');
+});
+
+test('an allowed permission prompt stops needing you when Claude leaves its waiting status, before the tool finishes', () => {
+  const sessions = {};
+  const registry = (seconds, status) => ({ kind: 'registry', runtime: 'claude', session: 'long', at: at(seconds), host: null, status, name: null, bridge: null, entrypoint: 'claude-desktop', pid: 1 });
+  reduce(sessions, hook('long', 'UserPromptSubmit', 0));
+  reduce(sessions, prompted('long', 7));
+  reduce(sessions, registry(8, 'waiting'));
+  assert.equal(sessions['claude:long'].state, 'needs-you');
+  reduce(sessions, registry(10, 'busy'));
+  assert.equal(sessions['claude:long'].state, 'working');
+});
+
 test('a permission prompt needs you once Claude shows it unanswered, until the turn ends or you send a prompt, and a call a hook allows never does', () => {
   const sessions = {};
   reduce(sessions, hook('asked', 'UserPromptSubmit', 0));

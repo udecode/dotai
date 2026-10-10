@@ -63,7 +63,7 @@ function newSession(observation) {
 const openNeed = (session, id, need) => {
   session.needs[id] ??= { id, ...need };
 };
-const openPermission = (session, tool, at, question) => openNeed(session, `permission:${at}`, { kind: 'permission', tool, openedAt: at, question, options: [] });
+const openPermission = (session, tool, at, question, toolUseId = null) => openNeed(session, `permission:${at}`, { kind: 'permission', tool, toolUseId, openedAt: at, question, options: [] });
 const askingOwner = (session) => Object.values(session.needs).some((need) => need.kind === 'question' || need.kind === 'permission');
 const settlesPermission = (session, need, event) => need.kind === 'permission' && session.runtime === 'codex' && need.tool === event.tool;
 const closeNeeds = (session, match) => {
@@ -103,6 +103,7 @@ function applyHook(session, event, key) {
       break;
     case 'PreToolUse':
       session.active = true;
+      (session.toolUses ??= {})[event.tool] = event.toolUseId;
       if (QUESTION_TOOLS.includes(event.tool)) {
         const first = event.questions?.[0] ?? { question: event.tool === 'ExitPlanMode' ? 'Approve the plan?' : 'A question waits for you', options: [] };
         openNeed(session, event.toolUseId ?? `${event.tool}:${event.at}`, { kind: 'question', openedAt: event.at, question: first.question, options: first.options ?? [] });
@@ -110,15 +111,17 @@ function applyHook(session, event, key) {
       break;
     case 'PermissionRequest':
       if (session.runtime === 'codex') openPermission(session, event.tool, event.at, `Allow ${event.tool ?? 'a tool'}?`);
+      // Claude's prompt notice names no tool, so it answers for the call that asked last.
+      else session.asking = session.toolUses?.[event.tool] ?? null;
       break;
     case 'Notification':
-      if (event.notification === 'permission_prompt' && !askingOwner(session)) openPermission(session, null, event.at, event.message ?? 'Claude needs your permission');
+      if (event.notification === 'permission_prompt' && !askingOwner(session)) openPermission(session, null, event.at, event.message ?? 'Claude needs your permission', session.asking);
       break;
     case 'PostToolUse':
     case 'PostToolUseFailure':
     case 'PermissionDenied':
       session.active = true;
-      closeNeeds(session, (need) => settlesPermission(session, need, event) || need.id === event.toolUseId || (need.kind === 'question' && !event.toolUseId && QUESTION_TOOLS.includes(event.tool)));
+      closeNeeds(session, (need) => settlesPermission(session, need, event) || need.id === event.toolUseId || (need.toolUseId && need.toolUseId === event.toolUseId) || (need.kind === 'question' && !event.toolUseId && QUESTION_TOOLS.includes(event.tool)));
       break;
     case 'Stop':
       session.active = event.background > 0;
@@ -147,6 +150,9 @@ function applyHook(session, event, key) {
 
 function applyRegistry(session, entry) {
   session.lastAliveAt = entry.at;
+  // Claude reports waiting while a prompt is open, so leaving it means the owner answered.
+  if (session.status === 'waiting' && ['busy', 'idle'].includes(entry.status)) closeNeeds(session, (need) => need.kind === 'permission');
+  session.status = entry.status;
   session.title = entry.name ?? session.title;
   session.bridge = entry.bridge ?? session.bridge;
   session.host = entry.host ?? session.host;
