@@ -128,7 +128,7 @@
 <!-- end -->
 <!-- section long-runs -->
 <!-- # overrides poteto-mode/playbooks/pause-safely.md "Commit uncommitted edits as one clear `wip:` commit on the current branch so nothing is lost." -->
-- **Long runs.** Before a multi-slice build after "go", `/loop`, `/goal`, a pause or a resume, after every compaction, and when a plan phase closes, read `.agents/pstack/rules/long-runs.md` in full.
+- **Long runs.** Before a multi-slice build after "go", `/loop`, `/goal`, a pause or a resume, and after every compaction, read `.agents/pstack/rules/long-runs.md` in full.
 <!-- end -->
 <!-- # adds -->
 <!-- # overrides show-me-your-work/SKILL.md "spawn a subagent on a different model family" -->
