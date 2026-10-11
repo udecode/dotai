@@ -397,18 +397,36 @@ export function menuBoardOf(views, context) {
 
 const sessionRankOf = ({ session }, now) => (session.state === 'idle' && now - ms(session.since) < IDLE_GRACE_MS ? RANK.working : RANK[session.state]);
 
+// A project folds into one card only while its sessions do not fit one card each, and unfolds once they fit with a card to spare,
+// so a session flickering between states does not end and restart cards, which iOS rations.
+function foldedProjects(groups, shown, slots) {
+  const folded = new Set(groups.filter((group) => shown.has(group.key) && group.sessions.length > 1).map((group) => group.key));
+  const needed = () => groups.reduce((sum, group) => sum + (folded.has(group.key) ? 1 : group.sessions.length), 0);
+  for (const group of groups.filter(({ key }) => folded.has(key)).toSorted((a, b) => a.sessions.length - b.sessions.length)) {
+    if (needed() + group.sessions.length - 1 < slots) folded.delete(group.key);
+  }
+  for (const group of groups.toSorted((a, b) => b.sessions.length - a.sessions.length || a.rank - b.rank)) {
+    if (needed() <= slots) break;
+    if (group.sessions.length > 1) folded.add(group.key);
+  }
+  return folded;
+}
+
 export function planBoard(views, phone, context) {
   const { live } = rankedLive(views);
   const { ranked } = rankedLive(views.filter((view) => titleStageOf(view.title)));
   const shown = new Set(Object.keys(phone.streams));
   const slots = phone.capacity && context.now < phone.capacity.until ? Math.min(SLOTS, phone.capacity.slots) : SLOTS;
-  const projects = keepShownUntilOutranked(projectsOf(ranked), shown, slots);
-  const candidates = ranked
-    .filter((view) => view.session.state !== 'idle' || shown.has(keyOf(view.session)))
-    .map((view) => ({ key: keyOf(view.session), rank: sessionRankOf(view, context.now), view }));
-  const sessions = keepShownUntilOutranked(candidates, shown, slots - projects.length);
+  const groups = projectsOf(ranked);
+  const folded = foldedProjects(groups, shown, slots);
+  const units = groups
+    .flatMap((group) => {
+      const members = group.sessions.map((view) => ({ key: keyOf(view.session), rank: sessionRankOf(view, context.now), view }));
+      return folded.has(group.key) ? [{ key: group.key, rank: Math.min(...members.map(({ rank }) => rank)), group }] : members;
+    })
+    .toSorted((a, b) => a.rank - b.rank);
   return {
-    cards: [...projects.map((group) => [group.key, projectCardOf(group, context)]), ...sessions.map(({ key, view }) => [key, sessionCardOf(view)])],
+    cards: keepShownUntilOutranked(units, shown, slots).map(({ key, group, view }) => [key, group ? projectCardOf(group, context) : sessionCardOf(view)]),
     badge: live.filter(({ session }) => session.state === 'needs-you').length,
   };
 }

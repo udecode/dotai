@@ -41,36 +41,55 @@ const send = (sessions, phone, client, seconds) => {
 };
 const pushes = (client) => client.calls.filter((call) => call.startsWith('push'));
 
-test('the board holds five project cards and no fleet card, and a sixth project takes a slot only when it is strictly more urgent', async () => {
+test('sessions take one card each while five fit, and the busiest project folds into one card only when they do not', () => {
   const sessions = {};
-  ['/w/sixth', '/w/ellie', '/w/plate.js', '/w/dotai', '/w/pstack', '/w/smith'].forEach((cwd, index) => reduce(sessions, hook(`s${index}`, 'UserPromptSubmit', index, { cwd })));
-  reduce(sessions, hook('s6', 'UserPromptSubmit', 6, { cwd: '/w/ellie' }));
-  const phone = emptyPhone();
-  await send(sessions, phone, fakeClient(), 10);
-  assert.equal(Object.keys(phone.streams).length, 5);
-  assert.ok(!phone.streams['pulse-fleet']);
-  const sixth = projectKeyOf(projectFrom('/w/sixth'));
-  reduce(sessions, hook('s0', 'PostToolUse', 20, { cwd: '/w/sixth', tool: 'Bash' }));
-  const equal = fakeClient();
-  await send(sessions, phone, equal, 21);
-  assert.ok(!equal.calls.some((call) => call.startsWith('end') || call === `put ${sixth}`));
-  reduce(sessions, { ...ask('s0', 30), cwd: '/w/sixth' });
-  const urgent = fakeClient();
-  await send(sessions, phone, urgent, 31);
-  assert.equal(urgent.calls.filter((call) => call.startsWith('end')).length, 1);
-  assert.ok(phone.streams[sixth]);
+  ['e1', 'e2', 'e3'].forEach((id, index) => reduce(sessions, hook(id, 'UserPromptSubmit', index, { cwd: '/w/ellie' })));
+  ['p1', 'p2'].forEach((id, index) => reduce(sessions, hook(id, 'UserPromptSubmit', 3 + index, { cwd: '/w/plate' })));
+  const key = (id) => keyOf(sessions[`claude:${id}`]);
+  const ellie = projectKeyOf(projectFrom('/w/ellie'));
+  const board = () => planBoard(viewsOf(sessions), emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards.map(([cardKey]) => cardKey);
+  assert.deepEqual(new Set(board()), new Set(['e1', 'e2', 'e3', 'p1', 'p2'].map(key)));
+  reduce(sessions, hook('e4', 'UserPromptSubmit', 6, { cwd: '/w/ellie' }));
+  assert.deepEqual(new Set(board()), new Set([ellie, key('p1'), key('p2')]));
 });
 
-test('a project card keeps its stream as sessions join, and a hook that changes nothing on the card sends nothing', async () => {
+test('a folded project unfolds only once its sessions fit with a card to spare', async () => {
   const sessions = {};
-  const key = projectKeyOf(projectFrom('/w/ellie'));
+  ['e1', 'e2', 'e3', 'e4'].forEach((id, index) => reduce(sessions, hook(id, 'UserPromptSubmit', index, { cwd: '/w/ellie' })));
+  ['p1', 'p2'].forEach((id, index) => reduce(sessions, hook(id, 'UserPromptSubmit', 4 + index, { cwd: '/w/plate' })));
+  const ellie = projectKeyOf(projectFrom('/w/ellie'));
+  const phone = emptyPhone();
+  await send(sessions, phone, fakeClient(), 10);
+  assert.ok(phone.streams[ellie]);
+  reduce(sessions, hook('e4', 'SessionEnd', 11, { cwd: '/w/ellie' }));
+  await send(sessions, phone, fakeClient(), 12);
+  assert.ok(phone.streams[ellie]);
+  reduce(sessions, hook('e3', 'SessionEnd', 13, { cwd: '/w/ellie' }));
+  await send(sessions, phone, fakeClient(), 14);
+  assert.ok(!phone.streams[ellie]);
+  assert.ok(phone.streams[keyOf(sessions['claude:e1'])]);
+});
+
+test('a run waiting for you to resume it takes a free card', () => {
+  const sessions = {};
+  reduce(sessions, hook('busy', 'UserPromptSubmit', 0, { cwd: '/w/a' }));
+  reduce(sessions, hook('paused', 'UserPromptSubmit', 0, { cwd: '/w/b' }));
+  reduce(sessions, hook('paused', 'Stop', 1, { cwd: '/w/b' }));
+  const cards = planBoard(viewsOf(sessions), emptyPhone(), { now: T0 + 60 * 60_000, shippedToday: 0 }).cards;
+  assert.deepEqual(cards.map(([cardKey]) => cardKey), [keyOf(sessions['claude:busy']), keyOf(sessions['claude:paused'])]);
+  assert.equal(cards[1][1].body.content_state.color, 'yellow');
+});
+
+test('a session card keeps its stream as other sessions join, and a hook that changes nothing on the card sends nothing', async () => {
+  const sessions = {};
   reduce(sessions, hook('a', 'UserPromptSubmit', 0, { cwd: '/w/ellie' }));
+  const key = keyOf(sessions['claude:a']);
   const phone = emptyPhone();
   await send(sessions, phone, fakeClient(), 1);
   reduce(sessions, hook('b', 'UserPromptSubmit', 2, { cwd: '/w/ellie' }));
   const joined = fakeClient();
   await send(sessions, phone, joined, 3);
-  assert.deepEqual(joined.calls.filter((call) => call.endsWith(key)), [`put ${key}`]);
+  assert.deepEqual(joined.calls.filter((call) => call.endsWith(key)), []);
   reduce(sessions, hook('a', 'PostToolUse', 4, { cwd: '/w/ellie', tool: 'Bash' }));
   const quiet = fakeClient();
   await send(sessions, phone, quiet, 5);
@@ -94,7 +113,7 @@ test('cards an older daemon left, the fleet and an alert, end before any new car
   assert.equal(phone.streams[old1].type, 'segmented_progress');
 });
 
-test('session cards fill the slots the project cards leave, those that need you first, then working ones, and idle ones get none', () => {
+test('session cards that need you come first, then working ones', () => {
   const sessions = {};
   reduce(sessions, hook('a1', 'UserPromptSubmit', 1, { cwd: '/w/a' }));
   reduce(sessions, hook('a1', 'Stop', 2, { cwd: '/w/a' }));
@@ -102,11 +121,11 @@ test('session cards fill the slots the project cards leave, those that need you 
   reduce(sessions, hook('b3', 'UserPromptSubmit', 5, { cwd: '/w/b' }));
   const cards = planBoard(viewsOf(sessions), emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
   const key = (id) => keyOf(sessions[`claude:${id}`]);
-  assert.deepEqual(cards.map(([cardKey]) => cardKey), [projectKeyOf(projectFrom('/w/b')), projectKeyOf(projectFrom('/w/a')), key('b2'), key('b3')]);
-  const asking = cards[2][1];
+  assert.deepEqual(cards.map(([cardKey]) => cardKey), [key('b2'), key('b3'), key('a1')]);
+  const asking = cards[0][1];
   assert.equal(asking.type, 'segmented_progress');
   assert.equal(asking.body.content_state.subtitle, 'Ship b2?');
-  assert.equal(cards[3][1].body.content_state.subtitle, 'b · Build');
+  assert.equal(cards[1][1].body.content_state.subtitle, 'b · Build');
 });
 
 test('only sessions whose title shows a pstack stage reach the phone', () => {
@@ -116,8 +135,7 @@ test('only sessions whose title shows a pstack stage reach the phone', () => {
   reduce(sessions, hook('loose', 'UserPromptSubmit', 2, { cwd: null }));
   const views = viewsOf(sessions, {}, {}, { chat: 'quick question', loose: 'Find Balloon Popper' });
   const cards = planBoard(views, emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
-  assert.deepEqual(cards.map(([key]) => key), [projectKeyOf(projectFrom('/w/a')), keyOf(sessions['claude:poteto'])]);
-  assert.deepEqual(cards[0][1].body.content_state.metrics.map(({ value }) => value), ['🚧 poteto']);
+  assert.deepEqual(cards.map(([key]) => key), [keyOf(sessions['claude:poteto'])]);
 });
 
 test('a card reads the stage from the session title, and links the plan page only while the plan is open', () => {
@@ -125,11 +143,10 @@ test('a card reads the stage from the session title, and links the plan page onl
   reduce(sessions, hook('scrub', 'UserPromptSubmit', 0, { cwd: '/w/a' }));
   const rail = (state) => ({ page: 'https://claude.ai/artifact/scrub', stages: [{ label: 'Plan', state: 'done' }, { label: 'Reflect', state }], steps: { checked: 12, total: 12 } });
   const board = (state) => planBoard(viewsOf(sessions, {}, { scrub: rail(state) }, { scrub: '📝 scrub (1/3)' }), emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
-  const [[, project], [, session]] = board('done');
-  assert.equal(project.body.content_state.metrics[0].label, 'Plan 1/3');
+  const [[, session]] = board('done');
   assert.deepEqual([session.body.content_state.current_step, session.body.content_state.number_of_steps], [1, 3]);
   assert.equal(session.body.action, undefined);
-  assert.equal(board('waiting')[1][1].body.action.url, 'https://claude.ai/artifact/scrub');
+  assert.equal(board('waiting')[0][1].body.action.url, 'https://claude.ai/artifact/scrub');
 });
 
 test('a question turns a shown session card orange in place, without ending it', async () => {
@@ -147,12 +164,12 @@ test('a question turns a shown session card orange in place, without ending it',
 
 test('a session that just went idle keeps its card for fifteen minutes before a working session takes it', async () => {
   const sessions = {};
-  for (let index = 0; index < 5; index += 1) reduce(sessions, hook(`s${index}`, 'UserPromptSubmit', index, { cwd: '/w/a' }));
+  for (let index = 0; index < 6; index += 1) reduce(sessions, hook(`s${index}`, 'UserPromptSubmit', index, { cwd: `/w/${index}` }));
   const key = (id) => keyOf(sessions[`claude:${id}`]);
   const phone = emptyPhone();
   await send(sessions, phone, fakeClient(), 10);
   assert.ok(!phone.streams[key('s0')]);
-  reduce(sessions, hook('s4', 'Stop', 20, { cwd: '/w/a' }));
+  reduce(sessions, hook('s4', 'Stop', 20, { cwd: '/w/4' }));
   const early = fakeClient();
   await send(sessions, phone, early, 80);
   assert.ok(!early.calls.some((call) => call.startsWith('end')));
@@ -162,7 +179,9 @@ test('a session that just went idle keeps its card for fifteen minutes before a 
   assert.ok(phone.streams[key('s0')]);
 });
 
-const projectCard = (sessions, urls, context = {}) => planBoard(viewsOf(sessions, urls), emptyPhone(), { now: T0 + 60_000, shippedToday: 0, ...context }).cards[0][1].body;
+// One free card forces a project with two or more sessions to fold.
+const crowded = () => ({ ...emptyPhone(), capacity: { slots: 1, until: Infinity } });
+const projectCard = (sessions, urls, context = {}) => planBoard(viewsOf(sessions, urls), crowded(), { now: T0 + 60_000, shippedToday: 0, ...context }).cards[0][1].body;
 
 test('a crowded project lists the session that needs you first, with its question and a button that opens it, and folds the rest into a more value', () => {
   const sessions = {};
@@ -187,7 +206,7 @@ test('a project card lists sessions that need you, then working ones, then the o
     reduce(sessions, hook(id, 'Stop', 2, { cwd: '/w/ellie' }));
   }
   const titles = { scrub: '🚧 scrub (4/9)', shipper: 'shipper' };
-  const card = () => planBoard(viewsOf(sessions, {}, {}, titles), emptyPhone(), { now: T0 + 60_000, shippedToday: 1 }).cards[0][1].body.content_state;
+  const card = () => planBoard(viewsOf(sessions, {}, {}, titles), crowded(), { now: T0 + 60_000, shippedToday: 1 }).cards[0][1].body.content_state;
   assert.deepEqual(card().metrics, [
     { label: 'Build', value: '🚧 busy', color: 'blue' },
     { label: 'Build 4/9', value: '🚧 scrub', color: 'yellow' },
@@ -204,7 +223,7 @@ test('a project whose runs all wait for you to resume them shows each one with i
     reduce(sessions, hook(id, 'Stop', 1, { cwd: '/w/ellie' }));
   }
   const titles = { scrub: '🧪 scrub (10/10)', hookdeck: '🟠 hookdeck (3/7)' };
-  const [[, card]] = planBoard(viewsOf(sessions, {}, {}, titles), emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
+  const [[, card]] = planBoard(viewsOf(sessions, {}, {}, titles), crowded(), { now: T0 + 60_000, shippedToday: 0 }).cards;
   assert.deepEqual(card.body.content_state.metrics, [
     { label: 'Waiting 3/7', value: '🟠 hookdeck', color: 'yellow' },
     { label: 'Verify 10/10', value: '🧪 scrub', color: 'yellow' },
@@ -251,8 +270,8 @@ test('a desktop session the app resumes in a new process replaces its old proces
   reduce(sessions, hook('new', 'UserPromptSubmit', 3));
   reduce(sessions, registry('new', 4, 2));
   const views = viewsOf(sessions);
-  const [[, card]] = planBoard(views, emptyPhone(), { now: T0 + 5000, shippedToday: 0 }).cards;
-  assert.deepEqual(card.body.content_state.metrics.map(({ label, value }) => `${label} ${value}`), ['Build 🚧 new']);
+  const cards = planBoard(views, emptyPhone(), { now: T0 + 5000, shippedToday: 0 }).cards;
+  assert.deepEqual(cards.map(([key]) => key), [keyOf(sessions['claude:new'])]);
   assert.ok(![...incidentsOf(views).values()].some(({ kind }) => kind === 'failed'));
 });
 
@@ -427,11 +446,11 @@ test('a card the API refuses holds back neither the badge nor the pushes, and th
   reduce(sessions, { ...ask('alpha', 2), cwd: '/w/a' });
   reduce(sessions, hook('beta', 'SessionStart', 3, { cwd: '/w/b' }));
   reduce(sessions, { ...ask('beta', 3), cwd: '/w/b' });
-  const client = fakeClient({ [`put ${projectKeyOf(projectFrom('/w/a'))}`]: { ok: false, kind: 'capacity' } });
+  const client = fakeClient({ [`put ${keyOf(sessions['claude:alpha'])}`]: { ok: false, kind: 'capacity' } });
   await send(sessions, phone, client, 4);
   assert.deepEqual(client.calls.filter((call) => !call.startsWith('put') && !call.startsWith('end')), ['badge 2', 'push alpha needs you']);
-  assert.ok(!client.calls.includes(`put ${projectKeyOf(projectFrom('/w/b'))}`));
-  assert.equal(planBoard(viewsOf(sessions), phone, { now: T0 + 3_600_000, shippedToday: 0 }).cards.length, 4);
+  assert.ok(!client.calls.includes(`put ${keyOf(sessions['claude:beta'])}`));
+  assert.equal(planBoard(viewsOf(sessions), phone, { now: T0 + 3_600_000, shippedToday: 0 }).cards.length, 2);
 });
 
 test('the daemon picks up a key stored after it started', async () => {
@@ -541,7 +560,7 @@ test('the pet waits with a badge while a session needs you, jumps on a fresh shi
   assert.equal(petOf(viewsOf(sessions), T0 + 62_000).mood, 'idle');
 });
 
-test('the menubar keeps the fleet line and lists every live session ranked, and each one is a metric on its project phone card', () => {
+test('the menubar keeps the fleet line and lists every live session ranked, and each one shows on the phone in its color, on its own card or its project card', () => {
   const sessions = {};
   ['/w/a', '/w/a', '/w/a', '/w/b', '/w/b', null].forEach((cwd, index) => reduce(sessions, hook(`s${index}`, 'UserPromptSubmit', index, { cwd })));
   reduce(sessions, { ...ask('s4', 10), cwd: '/w/b' });
@@ -552,8 +571,9 @@ test('the menubar keeps the fleet line and lists every live session ranked, and 
   const phoneCards = new Map(planBoard(views, emptyPhone(), context).cards);
   for (const row of menu.cards) {
     const view = views.find(({ session }) => keyOf(session) === row.key);
-    const metrics = phoneCards.get(projectKeyOf(view.project)).body.content_state.metrics;
-    assert.ok(metrics.some(({ value, color }) => value === row.content_state.title && color === row.content_state.color), view.title);
+    const own = phoneCards.get(row.key)?.body.content_state;
+    const metrics = phoneCards.get(projectKeyOf(view.project))?.body.content_state.metrics ?? [];
+    assert.ok(own?.color === row.content_state.color || metrics.some(({ value, color }) => value === row.content_state.title && color === row.content_state.color), view.title);
   }
   assert.equal(menu.fleet.content_state.title, 'pstack fleet');
 });
