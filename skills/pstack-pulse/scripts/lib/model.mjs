@@ -4,6 +4,7 @@ import { QUESTION_TOOLS } from './event.mjs';
 
 const SLOTS = 5;
 const IDLE_GRACE_MS = 15 * 60_000;
+const UNFOLD_CALM_MS = 10 * 60_000;
 const METRIC_LIMIT = 8;
 const HOUR = 3_600_000;
 const LOST_SHOWN_MS = HOUR;
@@ -397,18 +398,21 @@ export function menuBoardOf(views, context) {
 
 const sessionRankOf = ({ session }, now) => (session.state === 'idle' && now - ms(session.since) < IDLE_GRACE_MS ? RANK.working : RANK[session.state]);
 
-// A project folds into one card only while its sessions do not fit one card each, and unfolds once they fit with a card to spare,
-// so a session flickering between states does not end and restart cards, which iOS rations.
-function foldedProjects(groups, shown, slots) {
-  const folded = new Set(groups.filter((group) => shown.has(group.key) && group.sessions.length > 1).map((group) => group.key));
+// A project folds into one card only while its sessions do not fit one card each, and unfolds once they have fit for a while,
+// so a session that comes and goes does not end and restart cards, which iOS rations.
+function foldedProjects(groups, phone, slots, now) {
+  const fitSince = (phone.fitSince ??= {});
+  const folded = new Set(groups.filter((group) => group.key in phone.streams && group.sessions.length > 1).map((group) => group.key));
   const needed = () => groups.reduce((sum, group) => sum + (folded.has(group.key) ? 1 : group.sessions.length), 0);
   for (const group of groups.filter(({ key }) => folded.has(key)).toSorted((a, b) => a.sessions.length - b.sessions.length)) {
-    if (needed() + group.sessions.length - 1 < slots) folded.delete(group.key);
+    if (needed() + group.sessions.length - 1 > slots) delete fitSince[group.key];
+    else if (now - (fitSince[group.key] ??= now) >= UNFOLD_CALM_MS) folded.delete(group.key);
   }
   for (const group of groups.toSorted((a, b) => b.sessions.length - a.sessions.length || a.rank - b.rank)) {
     if (needed() <= slots) break;
     if (group.sessions.length > 1) folded.add(group.key);
   }
+  for (const key of Object.keys(fitSince)) if (!folded.has(key)) delete fitSince[key];
   return folded;
 }
 
@@ -418,7 +422,7 @@ export function planBoard(views, phone, context) {
   const shown = new Set(Object.keys(phone.streams));
   const slots = phone.capacity && context.now < phone.capacity.until ? Math.min(SLOTS, phone.capacity.slots) : SLOTS;
   const groups = projectsOf(ranked);
-  const folded = foldedProjects(groups, shown, slots);
+  const folded = foldedProjects(groups, phone, slots, context.now);
   const units = groups
     .flatMap((group) => {
       const members = group.sessions.map((view) => ({ key: keyOf(view.session), rank: sessionRankOf(view, context.now), view }));

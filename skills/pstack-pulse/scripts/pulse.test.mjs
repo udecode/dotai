@@ -53,7 +53,7 @@ test('sessions take one card each while five fit, and the busiest project folds 
   assert.deepEqual(new Set(board()), new Set([ellie, key('p1'), key('p2')]));
 });
 
-test('a folded project unfolds only once its sessions fit with a card to spare', async () => {
+test('a folded project unfolds once its sessions have fit for ten minutes, so a session that comes and goes does not flip cards', async () => {
   const sessions = {};
   ['e1', 'e2', 'e3', 'e4'].forEach((id, index) => reduce(sessions, hook(id, 'UserPromptSubmit', index, { cwd: '/w/ellie' })));
   ['p1', 'p2'].forEach((id, index) => reduce(sessions, hook(id, 'UserPromptSubmit', 4 + index, { cwd: '/w/plate' })));
@@ -63,9 +63,9 @@ test('a folded project unfolds only once its sessions fit with a card to spare',
   assert.ok(phone.streams[ellie]);
   reduce(sessions, hook('e4', 'SessionEnd', 11, { cwd: '/w/ellie' }));
   await send(sessions, phone, fakeClient(), 12);
+  await send(sessions, phone, fakeClient(), 12 + 9 * 60);
   assert.ok(phone.streams[ellie]);
-  reduce(sessions, hook('e3', 'SessionEnd', 13, { cwd: '/w/ellie' }));
-  await send(sessions, phone, fakeClient(), 14);
+  await send(sessions, phone, fakeClient(), 12 + 10 * 60);
   assert.ok(!phone.streams[ellie]);
   assert.ok(phone.streams[keyOf(sessions['claude:e1'])]);
 });
