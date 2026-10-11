@@ -314,6 +314,26 @@ const claudeHook = (session, event, seconds, input = {}) => ({ kind: 'hook', ...
 const prompted = (session, seconds) => claudeHook(session, 'Notification', seconds, { notification_type: 'permission_prompt', message: 'Claude needs your permission to use Bash' });
 const needsOf = (session) => Object.values(session.needs).map((need) => need.question);
 
+test('a push buzzes as shipped only once its turn ends, once for the newest push, and not when the turn hands back a page', () => {
+  const sessions = {};
+  const pushed = (id, seconds, sha) => {
+    reduce(sessions, hook(id, 'PostToolUse', seconds, { tool: 'Bash', toolUseId: `tu-${sha}`, push: { sha, branch: 'next' } }));
+    reduce(sessions, { kind: 'push', runtime: 'claude', session: id, at: at(seconds + 1), sha, branch: 'next', outcome: 'confirmed', repoId: 'repo', repoName: 'repo' });
+  };
+  const shipped = () => [...incidentsOf(viewsOf(sessions)).values()].filter(({ kind }) => kind === 'shipped').map(({ message }) => message);
+  reduce(sessions, hook('worker', 'UserPromptSubmit', 0));
+  pushed('worker', 1, 'aaaaaaaaaa');
+  pushed('worker', 3, 'bbbbbbbbbb');
+  assert.deepEqual(shipped(), []);
+  reduce(sessions, hook('worker', 'Stop', 5));
+  assert.deepEqual(shipped(), ['repo next bbbbbbbbb']);
+  reduce(sessions, hook('pager', 'UserPromptSubmit', 0, { plans: ['docs/plans/x.decisions.tsv'] }));
+  pushed('pager', 1, 'cccccccccc');
+  reduce(sessions, hook('pager', 'PostToolUse', 3, { tool: 'Artifact', published: true }));
+  reduce(sessions, hook('pager', 'Stop', 5, { lastMessage: 'Here is the page' }));
+  assert.deepEqual(shipped(), ['repo next bbbbbbbbb']);
+});
+
 test('a question buzzes once, and not again after a restart', async () => {
   const sessions = {};
   reduce(sessions, hook('a', 'SessionStart', 0));
