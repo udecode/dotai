@@ -346,14 +346,18 @@ function summaryCardOf(groups, { listUrl }) {
   if (shown.length < ordered.length) metrics.push({ label: 'more', value: `+${ordered.length - shown.length}`, color: 'gray' });
   const asking = ordered.find(({ session }) => session.state === 'needs-you');
   const counts = Object.groupBy(ordered, shownStateOf);
-  const tally = single
-    ? Object.entries({ failed: 'failed', working: 'working', resume: 'to resume' })
-        .filter(([state]) => counts[state])
-        .map(([state, word]) => `${counts[state].length} ${word}`)
-    : smallestFirst.map(({ project, sessions }) => `${project.name} ${sessions.length}`);
-  const subtitle = asking ? `${clip(labelOf(asking.title), 30)}: ${firstNeed(asking.session).question}` : tally.join(' · ');
+  const tally = (words) =>
+    Object.entries(words)
+      .filter(([state]) => counts[state])
+      .map(([state, word]) => `${counts[state].length} ${word}`)
+      .join(' · ');
+  const states = { failed: 'failed', working: 'working', resume: 'to resume' };
+  // One project names the card; across projects the state counts say more than a list of names.
+  const title = single ? groups[0].project.name : tally({ 'needs-you': 'needs you', ...states });
+  const overview = single ? tally(states) : smallestFirst.map(({ project, sessions }) => `${project.name} ${sessions.length}`).join(' · ');
+  const subtitle = asking ? `${clip(labelOf(asking.title), 30)}: ${firstNeed(asking.session).question}` : overview;
   const action = asking?.webUrl ? { title: 'Open', type: 'open_url', url: asking.webUrl } : listUrl ? { title: 'All sessions', type: 'open_url', url: listUrl } : null;
-  return { type: 'stats', body: { content_state: { title: single ? groups[0].project.name : 'All projects', subtitle: clip(subtitle, 110), type: 'stats', metrics }, ...(action ? { action } : {}) } };
+  return { type: 'stats', body: { content_state: { title: clip(title, 60), subtitle: clip(subtitle, 110), type: 'stats', metrics }, ...(action ? { action } : {}) } };
 }
 
 function projectsOf(ranked) {

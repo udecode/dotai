@@ -54,13 +54,19 @@ test('one session gets only its own card, and a second in the same project adds 
   assert.deepEqual(new Set(cards.slice(1).map(([cardKey]) => cardKey)), new Set([key('a'), key('b')]));
 });
 
-test('sessions across projects share one summary card that lists the project with the fewest sessions first', () => {
+test('sessions across projects share one summary card titled by its state counts, listing the project with the fewest sessions first', () => {
   const sessions = {};
   ['p1', 'p2', 'p3', 'p4', 'p5'].forEach((id, index) => reduce(sessions, hook(id, 'UserPromptSubmit', index, { cwd: '/w/plate' })));
   reduce(sessions, hook('e1', 'UserPromptSubmit', 0, { cwd: '/w/ellie' }));
+  reduce(sessions, hook('e1', 'Stop', 6, { cwd: '/w/ellie' }));
   const [[cardKey, card]] = boardOf(sessions);
   assert.equal(cardKey, SUMMARY_KEY);
-  assert.equal(card.body.content_state.metrics[0].value, '🚧 e1');
+  const face = card.body.content_state;
+  assert.equal(face.title, '5 working · 1 to resume');
+  assert.equal(face.subtitle, 'ellie 1 · plate 5');
+  assert.equal(face.metrics[0].value, '🚧 e1');
+  reduce(sessions, { ...ask('p1', 7), cwd: '/w/plate' });
+  assert.equal(boardOf(sessions)[0][1].body.content_state.title, '1 needs you · 4 working · 1 to resume');
 });
 
 test('the four session cards go to sessions waiting on you before working ones', () => {
