@@ -120,7 +120,7 @@ export async function deliver(phone, desired, { client, clock = Date.now, save =
   }
 
   for (const id of desired.incidents.keys()) phone.acks[id] = { attempts: 0, ...phone.acks[id], liveAt: clock() };
-  const due = [...desired.incidents.values()].filter(({ id }) => !phone.acks[id].sentAt && clock() >= (phone.acks[id].retryAt ?? 0)).sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || a.at.localeCompare(b.at));
+  const due = [...desired.incidents.values()].filter(({ id, at }) => !phone.acks[id].sentAt && clock() >= (phone.acks[id].retryAt ?? 0) && clock() - Date.parse(at) >= (desired.holdMs ?? 0)).sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || a.at.localeCompare(b.at));
   for (const incident of due) {
     if (!spend(phone, 'push', clock(), used)) break;
     const ack = phone.acks[incident.id];

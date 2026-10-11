@@ -437,7 +437,8 @@ export function incidentsOf(views) {
     // A push lands mid-run, so it buzzes once the turn ends, and a hand-back of that turn already says the work came back.
     const ship = session.ships.at(-1);
     if (ship && !session.active && !session.replies.some((reply) => reply.at >= ship.at)) add({ id: ship.id, kind: 'shipped', at: ship.at, title: `${title} shipped`, message: ship.summary, link, page });
-    for (const reply of session.replies) add({ id: reply.id, kind: 'replied', at: reply.at, title: `${title} replied`, message: reply.summary, link, page });
+    // Starting the next turn means the owner saw the reply.
+    for (const reply of session.replies) if (reply.turn === session.turn) add({ id: reply.id, kind: 'replied', at: reply.at, title: `${title} replied`, message: reply.summary, link, page });
   }
   return incidents;
 }

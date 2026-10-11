@@ -32,11 +32,11 @@ function fakeClient(script = {}) {
     push: async (incident) => (calls.push(`push ${incident.title}`), answer('push', incident.kind)),
   };
 }
-const send = (sessions, phone, client, seconds) => {
+const send = (sessions, phone, client, seconds, holdMs = 0) => {
   const now = T0 + seconds * 1000;
   const views = viewsOf(sessions);
   const board = planBoard(views, phone, { now, shippedToday: 0 });
-  return deliver(phone, { cards: board.cards, badge: board.badge, incidents: incidentsOf(views), listUrl: null }, { client, clock: () => now });
+  return deliver(phone, { cards: board.cards, badge: board.badge, incidents: incidentsOf(views), listUrl: null, holdMs }, { client, clock: () => now });
 };
 const pushes = (client) => client.calls.filter((call) => call.startsWith('push'));
 
@@ -585,6 +585,30 @@ test('a turn that hands back a plan page pushes once that the session replied, w
   assert.equal(sessions['claude:pager'].state, 'idle');
   const incidents = [...incidentsOf(viewsOf(sessions)).values()];
   assert.deepEqual(incidents.map(({ kind, title, message }) => ({ kind, title, message })), [{ kind: 'replied', title: 'pager replied', message: 'Shipped the lean cards.' }]);
+  reduce(sessions, hook('pager', 'UserPromptSubmit', 3, { cwd: '/w/ellie' }));
+  assert.deepEqual([...incidentsOf(viewsOf(sessions)).values()], []);
+});
+
+test('while you are at the Mac a push waits a minute and goes out only if it still stands, and away from it a push goes at once', async () => {
+  const sessions = {};
+  for (const id of ['held', 'answered']) {
+    reduce(sessions, hook(id, 'SessionStart', 0));
+    reduce(sessions, ask(id, 1));
+  }
+  const phone = emptyPhone();
+  const early = fakeClient();
+  await send(sessions, phone, early, 10, 60_000);
+  assert.deepEqual(pushes(early), []);
+  reduce(sessions, hook('answered', 'UserPromptSubmit', 20));
+  const late = fakeClient();
+  await send(sessions, phone, late, 62, 60_000);
+  await send(sessions, phone, late, 63, 60_000);
+  assert.deepEqual(pushes(late), ['push held needs you']);
+  reduce(sessions, hook('away', 'SessionStart', 70));
+  reduce(sessions, ask('away', 70));
+  const away = fakeClient();
+  await send(sessions, phone, away, 71);
+  assert.deepEqual(pushes(away), ['push away needs you']);
 });
 
 test('the menubar opens a session in the desktop app by its host id, with its open plan page on a second row', () => {
