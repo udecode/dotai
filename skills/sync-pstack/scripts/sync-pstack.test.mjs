@@ -618,6 +618,40 @@ test('cross passes a prompt that starts with dashes as the prompt, and gives up 
   assert.ok(Date.now() - started < 15000, `took ${Date.now() - started} ms`);
 });
 
+test('cross prints its usage for --help and refuses an unknown flag, launching no runtime', () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  const launched = join(dir, 'launched');
+  writeFileSync(join(bin, 'claude'), `#!/bin/sh\ntouch ${launched}\nfor arg; do last="$arg"; done\necho "prompt=[$last]"\n`, { mode: 0o755 });
+  const cross = (args) =>
+    spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'claude', ...args], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '' },
+    });
+
+  for (const flag of ['--help', '-h']) {
+    const help = cross([flag]);
+    assert.equal(help.status, 0, flag);
+    assert.match(help.stdout, /^Usage: node \.agents\/pstack\/cross\.mjs /u, flag);
+  }
+  for (const flag of ['--modle', '-?', '---model']) {
+    const unknown = cross([flag, 'review it']);
+    assert.equal(unknown.status, 2, flag);
+    assert.ok(unknown.stderr.startsWith(`unknown flag ${flag}\nUsage: node .agents/pstack/cross.mjs `), unknown.stderr);
+  }
+  const flagAsValue = cross(['--effort', '--modle', 'review it']);
+  assert.equal(flagAsValue.status, 2);
+  assert.match(flagAsValue.stderr, /^--effort needs a value\nUsage: node \.agents\/pstack\/cross\.mjs /u);
+  assert.equal(existsSync(launched), false, 'a help, unknown-flag or flag-as-value call launched a runtime');
+
+  const prompted = cross(['review it']);
+  assert.equal(prompted.status, 0, prompted.stderr);
+  assert.equal(prompted.stdout.trim(), 'prompt=[review it]');
+  assert.equal(existsSync(launched), true);
+});
+
 test('smoke fails when a runtime exits cleanly with no answer', () => {
   const { dir, home } = sandbox();
   const bin = join(dir, 'bin');
@@ -2400,6 +2434,39 @@ test('freeze refuses an unnamed parent path whose name git quotes', () => {
   assert.match(dropped.stderr, /: quote"d\.md\./u);
 });
 
+test('freeze names only the missing paths, running no git but a read-only HEAD probe first, and still freezes a tracked file deleted from disk', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-freeze-missing-'));
+  const repo = join(dir, 'repo');
+  spawnSync('git', ['init', '-q', repo]);
+  writeFileSync(join(repo, 'plan.md'), 'base\n');
+  writeFileSync(join(repo, 'gone.md'), 'base\n');
+  mkdirSync(join(repo, 'notes'));
+  writeFileSync(join(repo, 'notes', 'n.md'), 'base\n');
+  spawnSync('git', ['-C', repo, 'add', '-A']);
+  commit(repo, 'base');
+  writeFileSync(join(repo, 'plan.md'), 'round one\n');
+  rmSync(join(repo, 'gone.md'));
+  rmSync(join(repo, 'notes'), { recursive: true });
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  const gitCalls = join(dir, 'git-calls');
+  const realGit = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+  writeFileSync(join(bin, 'git'), `#!/bin/sh\necho "$*" >> ${gitCalls}\nexec ${realGit} "$@"\n`, { mode: 0o755 });
+  const freeze = (runDir, ...paths) =>
+    spawnSync(process.execPath, [join(HELPERS, 'freeze.mjs'), '--dir', join(dir, runDir), ...paths], { cwd: repo, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } });
+
+  const missing = freeze('refused', 'plan.md', 'missing.md', 'gone.md', 'notes/', 'plan.md/child', 'plan.md/', 'docs/absent.md');
+  assert.equal(missing.status, 1);
+  assert.equal(missing.stderr, '4 path(s) not found in the working tree or HEAD: missing.md, plan.md/child, plan.md/, docs/absent.md\n');
+  const calls = readFileSync(gitCalls, 'utf8').trim().split('\n');
+  assert.ok(calls.length > 0 && calls.every((call) => call.startsWith('cat-file -e ')), `a refused freeze ran git beyond the HEAD probe: ${calls}`);
+
+  const deletion = freeze('kept', 'plan.md', 'gone.md', 'notes/');
+  assert.equal(deletion.status, 0, deletion.stderr);
+  const tree = spawnSync('git', ['-C', repo, 'ls-tree', '--name-only', deletion.stdout.trim()], { encoding: 'utf8' }).stdout;
+  assert.equal(tree, 'plan.md\n', 'the frozen tree records the deletion');
+});
+
 test('decisions-check append --from writes every queued row or none', () => {
   const { dir, run } = sandbox();
   const root = project(dir, 'app');
@@ -2676,6 +2743,46 @@ test('reread prints each changed sentence whole against its last snapshot', () =
   const after = hook('startup').stdout;
   assert.ok(after.includes('+ Never stash.'), after);
   assert.match(after, /--dir docs\/plans\/artifacts\/reread\/s-startup/);
+});
+
+test('reread --hook names on a reload line each skill a compacted session loaded, and only after a compaction', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-reread-reload-'));
+  writeFileSync(join(dir, 'AGENTS.md'), 'Rules.\n');
+  const typed = (uuid, name) => ({ type: 'user', uuid, message: { role: 'user', content: `<command-message>${name}</command-message>\n<command-name>/${name}</command-name>\n<command-args>go</command-args>` } });
+  const launched = (uuid, name) => ({ type: 'user', uuid, message: { role: 'user', content: [{ type: 'tool_result', content: `Launching skill: ${name}` }] }, toolUseResult: { success: true, commandName: name } });
+  const loaded = (parentUuid, text) => ({ type: 'user', isMeta: true, parentUuid, uuid: `${parentUuid}-text`, message: { role: 'user', content: [{ type: 'text', text }] } });
+  const transcript = [
+    typed('t1', 'best-api-review'),
+    loaded('t1', 'Base directory for this skill: /x/best-api-review'),
+    launched('t2', 'pstack:poteto-mode'),
+    loaded('t2', 'Base directory for this skill: /x/poteto-mode'),
+    typed('t3', 'compact'),
+    { type: 'user', parentUuid: 't3', uuid: 't3-out', message: { role: 'user', content: '<local-command-stdout>Compacted</local-command-stdout>' } },
+    launched('t4', 'plan-page'),
+    { type: 'attachment', parentUuid: 't4', uuid: 't4-hook', attachment: { type: 'hook_success', hookName: 'PostToolUse:Skill' } },
+    loaded('t4-hook', 'Base directory for this skill: /x/plan-page'),
+    launched('t5', 'pstack:poteto-mode'),
+    loaded('t5', '(Re-invocation of /pstack:poteto-mode, the previously loaded copy was truncated by compaction; the full instructions follow.)'),
+    { type: 'system', subtype: 'compact_boundary', uuid: 'b1', content: 'Conversation compacted' },
+    { type: 'user', isCompactSummary: true, uuid: 's1', message: { role: 'user', content: 'This session is being continued.' } },
+  ];
+  writeFileSync(join(dir, 'transcript.jsonl'), `${transcript.map((record) => JSON.stringify(record)).join('\n')}\nnot json\n`);
+  const hook = (payload) => spawnSync(process.execPath, [join(HELPERS, 'reread.mjs'), '--hook', 'AGENTS.md'], { cwd: dir, encoding: 'utf8', input: JSON.stringify({ session_id: 's1', ...payload }) });
+
+  const compacted = hook({ source: 'compact', transcript_path: join(dir, 'transcript.jsonl') });
+  assert.equal(compacted.status, 0, compacted.stderr);
+  assert.match(compacted.stdout, /^reload: best-api-review, pstack:poteto-mode, plan-page\. These skills loaded before the compaction; as the Long runs rule says, reload through the Skill tool each one whose mode you are running before your next step\.$/mu);
+  assert.match(compacted.stdout, /^Instruction snapshots: /mu, 'the reload line comes with the snapshot lines, not instead of them');
+  for (const source of ['startup', 'resume', 'clear']) {
+    assert.doesNotMatch(hook({ source, transcript_path: join(dir, 'transcript.jsonl') }).stdout, /reload:/, `${source} prints no reload line`);
+  }
+  mkdirSync(join(dir, 'directory.jsonl'));
+  for (const unreadable of ['gone.jsonl', 'directory.jsonl']) {
+    const result = hook({ source: 'compact', transcript_path: join(dir, unreadable) });
+    assert.equal(result.status, 0, `${unreadable} blocks the hook`);
+    assert.doesNotMatch(result.stdout, /reload:/);
+    assert.match(result.stdout, /^Instruction snapshots: /mu, unreadable);
+  }
 });
 
 test('decisions-check append asks a marking row to name the file it grades, and reads a label only in its own grammar', () => {
