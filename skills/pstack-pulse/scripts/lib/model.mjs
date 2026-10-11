@@ -3,8 +3,6 @@ import { join, resolve } from 'node:path';
 import { QUESTION_TOOLS } from './event.mjs';
 
 const SLOTS = 5;
-const IDLE_GRACE_MS = 15 * 60_000;
-const UNFOLD_CALM_MS = 10 * 60_000;
 const METRIC_LIMIT = 8;
 const HOUR = 3_600_000;
 const LOST_SHOWN_MS = HOUR;
@@ -19,7 +17,7 @@ const STATE_LABEL = { 'needs-you': 'Needs you', failed: 'Failed', working: 'Work
 const ms = (iso) => Date.parse(iso);
 const iso = (time) => new Date(time).toISOString();
 export const keyOf = (session) => `pulse-${createHash('sha1').update(`${session.runtime}:${session.id}`).digest('hex').slice(0, 12)}`;
-export const projectKeyOf = (project) => `pulse-p-${createHash('sha1').update(project.id).digest('hex').slice(0, 12)}`;
+export const SUMMARY_KEY = 'pulse-summary';
 export const hashOf = (value) => createHash('sha1').update(JSON.stringify(value)).digest('hex');
 
 function planPathOf(signal, cwd) {
@@ -338,27 +336,30 @@ const byUrgencyThenName = (a, b) =>
   labelOf(a.title).localeCompare(labelOf(b.title)) ||
   keyOf(a.session).localeCompare(keyOf(b.session));
 
-function projectCardOf({ project, sessions }, { listUrl }) {
-  const ordered = sessions.toSorted(byUrgencyThenName);
+// Across projects the smallest project leads, so a lone session is not buried under a busy project's.
+function summaryCardOf(groups, { listUrl }) {
+  const single = groups.length === 1;
+  const smallestFirst = groups.toSorted((a, b) => a.sessions.length - b.sessions.length || a.rank - b.rank);
+  const ordered = smallestFirst.flatMap((group) => group.sessions.toSorted(byUrgencyThenName));
   const shown = ordered.length > METRIC_LIMIT ? ordered.slice(0, METRIC_LIMIT - 1) : ordered;
   const metrics = shown.map((view) => ({ label: valueOf(view), value: clip(nameOf(view.title), 20), color: STATE_COLOR[shownStateOf(view)] }));
   if (shown.length < ordered.length) metrics.push({ label: 'more', value: `+${ordered.length - shown.length}`, color: 'gray' });
   const asking = ordered.find(({ session }) => session.state === 'needs-you');
   const counts = Object.groupBy(ordered, shownStateOf);
-  const subtitle = asking
-    ? `${clip(labelOf(asking.title), 30)}: ${firstNeed(asking.session).question}`
-    : Object.entries({ failed: 'failed', working: 'working', resume: 'to resume' })
+  const tally = single
+    ? Object.entries({ failed: 'failed', working: 'working', resume: 'to resume' })
         .filter(([state]) => counts[state])
         .map(([state, word]) => `${counts[state].length} ${word}`)
-        .join(' · ');
+    : smallestFirst.map(({ project, sessions }) => `${project.name} ${sessions.length}`);
+  const subtitle = asking ? `${clip(labelOf(asking.title), 30)}: ${firstNeed(asking.session).question}` : tally.join(' · ');
   const action = asking?.webUrl ? { title: 'Open', type: 'open_url', url: asking.webUrl } : listUrl ? { title: 'All sessions', type: 'open_url', url: listUrl } : null;
-  return { type: 'stats', body: { content_state: { title: project.name, subtitle: clip(subtitle, 110), type: 'stats', metrics }, ...(action ? { action } : {}) } };
+  return { type: 'stats', body: { content_state: { title: single ? groups[0].project.name : 'All projects', subtitle: clip(subtitle, 110), type: 'stats', metrics }, ...(action ? { action } : {}) } };
 }
 
 function projectsOf(ranked) {
   const groups = new Map();
   for (const view of ranked) {
-    if (!groups.has(view.project.id)) groups.set(view.project.id, { key: projectKeyOf(view.project), rank: RANK[view.session.state], project: view.project, sessions: [] });
+    if (!groups.has(view.project.id)) groups.set(view.project.id, { rank: RANK[view.session.state], project: view.project, sessions: [] });
     groups.get(view.project.id).sessions.push(view);
   }
   return [...groups.values()];
@@ -396,43 +397,24 @@ export function menuBoardOf(views, context) {
   return { fleet: fleetOf(live, context).body, cards: ranked.map(rowOf) };
 }
 
-const sessionRankOf = ({ session }, now) => (session.state === 'idle' && now - ms(session.since) < IDLE_GRACE_MS ? RANK.working : RANK[session.state]);
-
-// A project folds into one card only while its sessions do not fit one card each, and unfolds once they have fit for a while,
-// so a session that comes and goes does not end and restart cards, which iOS rations.
-function foldedProjects(groups, phone, slots, now) {
-  const fitSince = (phone.fitSince ??= {});
-  const folded = new Set(groups.filter((group) => group.key in phone.streams && group.sessions.length > 1).map((group) => group.key));
-  const needed = () => groups.reduce((sum, group) => sum + (folded.has(group.key) ? 1 : group.sessions.length), 0);
-  for (const group of groups.filter(({ key }) => folded.has(key)).toSorted((a, b) => a.sessions.length - b.sessions.length)) {
-    if (needed() + group.sessions.length - 1 > slots) delete fitSince[group.key];
-    else if (now - (fitSince[group.key] ??= now) >= UNFOLD_CALM_MS) folded.delete(group.key);
-  }
-  for (const group of groups.toSorted((a, b) => b.sessions.length - a.sessions.length || a.rank - b.rank)) {
-    if (needed() <= slots) break;
-    if (group.sessions.length > 1) folded.add(group.key);
-  }
-  for (const key of Object.keys(fitSince)) if (!folded.has(key)) delete fitSince[key];
-  return folded;
+const OWNER_STAGES = ['Waiting', 'Blocked', 'Paused'];
+// The cards beside the summary go first to sessions that wait on the owner, then to working ones.
+function slotRankOf(view) {
+  const state = shownStateOf(view);
+  if (state === 'needs-you') return 0;
+  if (state === 'failed') return 1;
+  return state === 'resume' || OWNER_STAGES.includes(titleStageOf(view.title)?.label) ? 2 : 3;
 }
 
 export function planBoard(views, phone, context) {
   const { live } = rankedLive(views);
   const { ranked } = rankedLive(views.filter((view) => titleStageOf(view.title)));
-  const shown = new Set(Object.keys(phone.streams));
+  const badge = live.filter(({ session }) => session.state === 'needs-you').length;
   const slots = phone.capacity && context.now < phone.capacity.until ? Math.min(SLOTS, phone.capacity.slots) : SLOTS;
-  const groups = projectsOf(ranked);
-  const folded = foldedProjects(groups, phone, slots, context.now);
-  const units = groups
-    .flatMap((group) => {
-      const members = group.sessions.map((view) => ({ key: keyOf(view.session), rank: sessionRankOf(view, context.now), view }));
-      return folded.has(group.key) ? [{ key: group.key, rank: Math.min(...members.map(({ rank }) => rank)), group }] : members;
-    })
-    .toSorted((a, b) => a.rank - b.rank);
-  return {
-    cards: keepShownUntilOutranked(units, shown, slots).map(({ key, group, view }) => [key, group ? projectCardOf(group, context) : sessionCardOf(view)]),
-    badge: live.filter(({ session }) => session.state === 'needs-you').length,
-  };
+  const units = ranked.map((view) => ({ key: keyOf(view.session), rank: slotRankOf(view), view })).toSorted((a, b) => a.rank - b.rank);
+  if (units.length < 2) return { cards: units.map(({ key, view }) => [key, sessionCardOf(view)]), badge };
+  const chosen = keepShownUntilOutranked(units, new Set(Object.keys(phone.streams)), slots - 1);
+  return { cards: [[SUMMARY_KEY, summaryCardOf(projectsOf(ranked), context)], ...chosen.map(({ key, view }) => [key, sessionCardOf(view)])], badge };
 }
 
 const WIDGET_TEXT = 64;
