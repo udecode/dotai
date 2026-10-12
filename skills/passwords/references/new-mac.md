@@ -151,8 +151,9 @@ entries only within the requested cleanup scope.
 
 ## Share a portable copy
 
-Share the `udecode/dotai` install command, or package only `SKILL.md` and this guide
-under a `passwords/` folder. Exclude every
+Share the `udecode/dotai` install command, or package `SKILL.md` and all shared
+files under `references/` in a `passwords/` folder. Keep every referenced route
+in the package. Exclude every
 machine configuration, recovery record, account ID, and private proof artifact.
 Inspect the archive contents before sharing. The recipient uses their own
 1Password account, vault choices, token, and approval preferences.

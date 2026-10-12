@@ -117,11 +117,23 @@
       "mode": 493
     },
     "skills/passwords/SKILL.md": {
-      "sha256": "b05b6cbf0583516ee6d31eb066746274a85957e988d80568795d7fcc519054c6",
+      "sha256": "8d1f916ac69b86aa274fd31d214d2f6891c4b83afa706c4b6fcbfaa69aa1a333",
+      "mode": 420
+    },
+    "skills/passwords/references/credential-recovery.md": {
+      "sha256": "d1e094309db5c644893614cbcd8ff25e11482b45c8460e5ef499b0d20d142705",
+      "mode": 420
+    },
+    "skills/passwords/references/handoff.md": {
+      "sha256": "96e289ba831580bf7eedf6dce7c3c2c0c5c652bb9fc0691d69bf09ab1b6bfed7",
       "mode": 420
     },
     "skills/passwords/references/new-mac.md": {
-      "sha256": "ee6142b2d1681049c49044b1aabba1b681bbdf5cfeebf196672b26c692976013",
+      "sha256": "a83c5244e8f5865a8c5ff88875c8b109879513e668d4dfcfdcf819843005db1b",
+      "mode": 420
+    },
+    "skills/passwords/references/verification.md": {
+      "sha256": "fcea616201c91cc79f34957bd69efd55c5152d661ca9762bbc530ac7d09ad681",
       "mode": 420
     },
     "skills/plan-page/SKILL.md": {
