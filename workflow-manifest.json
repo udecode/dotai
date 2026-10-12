@@ -4,6 +4,17 @@
   "skillsCliVersion": "1.5.25",
   "skills": [
     {
+      "name": "passwords",
+      "distribution": "bundled",
+      "description": "Set up unattended 1Password access on a Mac or sign in to websites and apps without repeated human approvals. Use for new-device setup, passwords, authenticator codes, email or SMS verification, passkey alternatives, and blocked logins.",
+      "category": "Workflow",
+      "dependencies": [],
+      "capabilities": [
+        "macOS login Keychain, 1Password CLI and an account with service-account access; authorized browser or native-app controls that can consume credentials without exposing them"
+      ],
+      "provenance": null
+    },
+    {
       "name": "plan-page",
       "distribution": "bundled",
       "description": "Write, check, repair and publish a plan page: a project's plans and subject files under its plans directory, rendered by .agents/pstack/plan-page.mjs and rendered as one local HTML page per subject with a local index of every subject, and published to claude.ai at each hand-back for comments and feedback. The page is how work hands back to the user. Use before writing or changing a plan, a subject file in <plans>/topics or its page; at every stop that hands work back, such as a review verdict other than a review-only panel's, a next answer or a playbook's close; when a plan page or its claude.ai artifact looks wrong or refuses to render; to republish a page; or to change the page shape or a playbook's page sections.",
@@ -90,20 +101,28 @@
   ],
   "files": {
     "README.md": {
-      "sha256": "19430750e43de9c0f785ff88585c3a7ac1d58452b3c60df65bca6c3d38f86fbb",
+      "sha256": "1ac4e3670d1c2710d0667a37ccd1386d8f55a917ca5292c07681c5537c2f8b30",
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "cec8bbeaa42dcd30ea1324e666f6f9779639f285011b078ba4edeb226fce04b1",
+      "sha256": "f179df558e9cc440817600fad55376f8d91f865d76075e8785ab7a90a7567d0a",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
-      "sha256": "e62653d58158cda85689126f0262ec0ee394f39515ec86cde5d864e1ef19b33f",
+      "sha256": "5960054542b9b750dda7b592c3adf9d7a93ffeed844993edb8b6788e1062e599",
       "mode": 420
     },
     "scripts/validate-skills": {
       "sha256": "a3590ae37cc4f403fbdc06712e3609d1c03ffbf6c980df3ac15c3ecdff54c149",
       "mode": 493
+    },
+    "skills/passwords/SKILL.md": {
+      "sha256": "b05b6cbf0583516ee6d31eb066746274a85957e988d80568795d7fcc519054c6",
+      "mode": 420
+    },
+    "skills/passwords/references/new-mac.md": {
+      "sha256": "ee6142b2d1681049c49044b1aabba1b681bbdf5cfeebf196672b26c692976013",
+      "mode": 420
     },
     "skills/plan-page/SKILL.md": {
       "sha256": "08cf62ff733102881aeef9550efa07ed94765765673d49c564733e9eac1e6f66",
@@ -114,7 +133,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/SKILL.md": {
-      "sha256": "9c46032b81beddccc3d1b0a686906060bfeaf7c23225992a317496f62a70b8de",
+      "sha256": "7a18280b91eb1aeaf87e871b3a3490ffa25a7691792ebf456892161fc37a2a82",
       "mode": 420
     },
     "skills/pstack-pulse/desktop/index.html": {
@@ -158,11 +177,11 @@
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/model.mjs": {
-      "sha256": "df34ef631a520410cc3fcfb689a51e8f567f0163d1a8674e306445498fb4248b",
+      "sha256": "64ab7e83e9df9800092bacfeeedb4e8e8d1c996f4957a8f40f2195bed68615d4",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/phone.mjs": {
-      "sha256": "a7a62eabb25fb322de297fc019a13d3a7201aa1bedcd40e83e31b28e40209602",
+      "sha256": "03dd0c7a0ee37025110fcb5886239347b3b734daf1241ce0ffe5c96b970d1d17",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/pulse.mjs": {
@@ -170,7 +189,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/scripts/pulse.test.mjs": {
-      "sha256": "55d2623a9d0cbf25b3cc6a526a2038b4480f1ff693031706c675175e1621b6c4",
+      "sha256": "4ba4e51356a39e086227f4eb67ea4fd3fa5947bde6e0705da607663c719770f9",
       "mode": 420
     },
     "skills/rca/SKILL.md": {
