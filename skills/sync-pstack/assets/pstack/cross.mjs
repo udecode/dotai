@@ -46,7 +46,7 @@ const stopOnSignals = () => {
 // A child that ignores SIGTERM, or leaves a descendant holding its pipes, is
 // killed and abandoned at the deadline.
 // A project hook, such as a Stop hook that stages files, would still write from a read-only run.
-export async function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model = MODELS[runtime], effort, hooks = false, userConfig = false, computerUse } = {}) {
+export async function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model = MODELS[runtime], effort, hooks = false, userConfig = false, readDirs = [], computerUse } = {}) {
   const managed = runtime === 'codex' && managedCodexConfig();
   if (managed) return { runtime, ok: false, text: `${managed} would still load over the command line; refusing to run` };
   const runCwd = computerUse ? mkdtempSync(join(tmpdir(), 'pstack-browser-')) : cwd;
@@ -60,7 +60,7 @@ export async function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900,
   const sessionId = randomUUID();
   const [command, args] =
     runtime === 'claude'
-      ? ['claude', ['-p', '--session-id', sessionId, '--model', model, ...(effort ? ['--effort', effort] : []), ...(hooks ? [] : ['--settings', '{"disableAllHooks":true}']), '--permission-mode', 'plan', '--', prompt]]
+      ? ['claude', ['-p', '--session-id', sessionId, '--model', model, ...(effort ? ['--effort', effort] : []), ...(hooks ? [] : ['--settings', '{"disableAllHooks":true}']), ...readDirs.flatMap((dir) => ['--add-dir', dir]), '--permission-mode', 'plan', '--', prompt]]
       : [
           'codex',
           [

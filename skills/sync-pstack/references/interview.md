@@ -55,7 +55,7 @@ The owner settled these for every project. Report them as applied.
 - Panels seat Opus, `codex:gpt-6-astra @high` and `codex:gpt-6.1-sol @xhigh`, read-only through `cross.mjs`, and a critical finding is the blocking ceiling.
 - Principles are read, not named in replies.
 - One writing pass per kind of change, with `deslop` and `no-comments` before any review, each panel round's fixes included.
-- A `codex:gpt-6.1-sol @xhigh` seat reviews decision trails from Claude Code, and an Opus seat from Codex.
+- A `codex:gpt-6.1-sol` seat, at the effort the panel gives it, reviews decision trails from Claude Code, and an Opus seat from Codex.
 - The blocked budget, and the todo list and close discipline.
 - Production deploys and releases need an explicit request.
 - The plugin pin follows the latest upstream tag.

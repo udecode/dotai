@@ -35,6 +35,7 @@ const SECTION_HELPERS = { plans: ['decisions-check.mjs', 'plan-open.mjs', 'plan-
 const RULES = join(HELPERS, 'rules');
 export const RULE_FILES = { 'close.md': null, 'long-runs.md': 'long-runs', 'pages.md': 'plans', 'panel.md': null, 'reflect.md': null, 'tests.md': 'tests', 'title.md': null, 'trails.md': 'plans' };
 const SECTION = /^<!-- section (\S+) -->$/u;
+const CONTINUATION = /^ {2}[^\s-]/u;
 const PLUGIN = 'pstack@pstack-claude';
 const MARKETPLACE = 'pstack-claude';
 const REPO = 'michael-denyer/pstack-claude';
@@ -99,7 +100,12 @@ export function render(template, config) {
     if (regions.every(Boolean)) out.push(raw.replace(/\{\{(\w+)\}\}/gu, (_, key) => fill(key, config, index)));
   }
   if (regions.length > 0) throw new Error('Template ends inside an open region');
-  return out.join('\n').replace(/\n{3,}/gu, '\n\n').trim();
+  const lines = [];
+  for (const line of out.join('\n').split('\n')) {
+    if (CONTINUATION.test(line) && lines.at(-1)?.startsWith('- ')) lines[lines.length - 1] += ` ${line.trim()}`;
+    else lines.push(line);
+  }
+  return lines.join('\n').replace(/\n{3,}/gu, '\n\n').trim();
 }
 
 function holds(expression, config) {
@@ -931,8 +937,9 @@ export function renderPlaybook(root, name) {
 }
 
 export function smoke(root, prompts, { timeout = 900 } = {}) {
+  const readDirs = [join(homedir(), '.claude/plugins')];
   return Promise.all(
-    prompts.flatMap((prompt) => ['claude', 'codex'].map((runtime) => ask(runtime, prompt, { cwd: root, timeout, hooks: true, userConfig: true }).then((answer) => ({ ...answer, prompt })))),
+    prompts.flatMap((prompt) => ['claude', 'codex'].map((runtime) => ask(runtime, prompt, { cwd: root, timeout, hooks: true, userConfig: true, readDirs }).then((answer) => ({ ...answer, prompt })))),
   );
 }
 

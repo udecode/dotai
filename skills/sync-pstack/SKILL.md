@@ -144,7 +144,7 @@ Keep project knowledge in skills and the project's rules; a playbook only orders
 - `<!-- end -->` closes the innermost region. Regions nest.
 - `{{key}}` inserts a config value. A rendered line whose value is missing fails the render, and so does a `skip` entry that names no section.
 - A line starting with `<!-- #` is a template note and never renders. A note `<!-- # overrides <path> "<text>" -->` names pstack text the next override replaces, with `<path>` relative to pstack's `plugins/pstack/skills/`; `apply --tag` and `verify` fail when that text is gone. An override carries one note per pstack step it replaces, so widening its scope adds a note for every step it newly covers. A rule that only adds to pstack carries `<!-- # adds -->` instead, and `verify` flags a rule with neither.
-- An indented line continues the list item above it, so a conditional sentence can join a rule.
+- An indented line continues the list item above it, so a conditional sentence can join a rule. It renders onto that item's line, unless it starts a nested list item or follows one.
 
 ## Boundaries
 

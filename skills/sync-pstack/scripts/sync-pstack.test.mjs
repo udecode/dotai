@@ -121,12 +121,18 @@ test('render keeps only the regions the config selects and refuses what it canno
   assert.throws(() => render('run {{lintFix}}', { skip: [] }), /needs "lintFix"/);
 });
 
+test('an indented line renders onto its rule, and a nested list keeps its own lines', () => {
+  const template = ['- **Git.** Check the branch.', '<!-- if protected -->', '  Never edit from `{{protected}}`.', '<!-- end -->', '  The rows:', '  - `pr`: a panel.', '  After the list.'].join('\n');
+  assert.equal(render(template, { protected: 'main', skip: [] }), '- **Git.** Check the branch. Never edit from `main`. The rows:\n  - `pr`: a panel.\n  After the list.');
+});
+
 test('the shipped block and rule files render cleanly for every delivery', () => {
   for (const [index, template] of sharedTemplates().entries()) {
     for (const [delivery, pushBranches] of [['push', false], ['pr', false], ['user', false], ['user', true]]) {
       for (const reviewList of ['', '  - `pr`: Before opening a PR, the diff gets a panel.']) {
         const rendered = render(template, { ...CONFIG, delivery, pushBranches, reviewList });
         assert.doesNotMatch(rendered, /<!--|\{\{|\}\}/, `template ${index} ${delivery} pushBranches=${pushBranches} reviewList=${Boolean(reviewList)}`);
+        assert.doesNotMatch(rendered, /^ {2}[^\s-]/mu, `template ${index} leaves an indented line that reads as a stray sentence`);
       }
     }
   }
@@ -374,7 +380,7 @@ test('smoke runs each prompt in both runtimes from the project root, without CLA
     env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1' },
   });
   assert.equal(result.status, 0, result.stderr);
-  assert.ok(result.stdout.replace(/--session-id [\da-f-]{36} /u, '').includes(`claude in ${root} CLAUDECODE=unset: -p --model opus --permission-mode plan -- the toolbar closes`), result.stdout);
+  assert.ok(result.stdout.replace(/--session-id [\da-f-]{36} /u, '').includes(`claude in ${root} CLAUDECODE=unset: -p --model opus --add-dir ${home}/.claude/plugins --permission-mode plan -- the toolbar closes`), result.stdout);
   assert.ok(result.stdout.includes(`codex in ${root} with exec --ignore-rules -m gpt-6.1-sol --sandbox read-only: the toolbar closes`), result.stdout);
   assert.doesNotMatch(result.stdout, /noise/);
 });
