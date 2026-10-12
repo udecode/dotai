@@ -432,13 +432,13 @@ export function incidentsOf(views) {
     const key = `${session.runtime}:${session.id}`;
     const page = openPlanPage(view);
     const link = view.appUrl ?? view.webUrl ?? page;
-    if (session.life === 'live') for (const need of Object.values(session.needs)) add({ id: `need:${key}:${need.id}:${need.openedAt}`, kind: 'needs-you', at: need.openedAt, title: `${title} needs you`, message: String(need.question), link, page });
-    if (session.failure) add({ id: `fail:${session.failure.id}`, kind: 'failed', at: session.since, title: `${title} failed`, message: session.failure.summary, link, page });
+    if (session.life === 'live') for (const need of Object.values(session.needs)) add({ id: `need:${key}:${need.id}:${need.openedAt}`, kind: 'needs-you', at: need.openedAt, name: title, title: `${title} needs you`, message: String(need.question), link, page });
+    if (session.failure) add({ id: `fail:${session.failure.id}`, kind: 'failed', at: session.since, name: title, title: `${title} failed`, message: session.failure.summary, link, page });
     // A push lands mid-run, so it buzzes once the turn ends, and a hand-back of that turn already says the work came back.
     const ship = session.ships.at(-1);
-    if (ship && !session.active && !session.replies.some((reply) => reply.at >= ship.at)) add({ id: ship.id, kind: 'shipped', at: ship.at, title: `${title} shipped`, message: ship.summary, link, page });
+    if (ship && !session.active && !session.replies.some((reply) => reply.at >= ship.at)) add({ id: ship.id, kind: 'shipped', at: ship.at, name: title, title: `${title} shipped`, message: ship.summary, link, page });
     // Starting the next turn means the owner saw the reply.
-    for (const reply of session.replies) if (reply.turn === session.turn) add({ id: reply.id, kind: 'replied', at: reply.at, title: `${title} replied`, message: reply.summary, link, page });
+    for (const reply of session.replies) if (reply.turn === session.turn) add({ id: reply.id, kind: 'replied', at: reply.at, name: title, title: `${title} replied`, message: reply.summary, link, page });
   }
   return incidents;
 }

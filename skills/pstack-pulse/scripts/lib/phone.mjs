@@ -6,6 +6,8 @@ const CAPACITY_RETRY_MS = 10 * 60_000;
 const PAUSED_RETRY_MS = 60_000;
 const ACK_KEPT_MS = 7 * 24 * 3_600_000;
 const KIND_ORDER = { 'needs-you': 0, failed: 1, shipped: 2, replied: 3 };
+// What a sent push turns into once it no longer stands; a shipped push stays true, so it keeps its text.
+const CLEARED = { 'needs-you': 'No longer needs you', failed: 'Failure cleared', replied: 'Picked back up' };
 
 export const emptyPhone = () => ({ streams: {}, rejected: {}, badge: null, acks: {}, budget: { push: [], live: [], badge: [] }, pausedUntil: { push: 0, live: 0, badge: 0 }, capacity: null });
 
@@ -33,7 +35,7 @@ export function createClient({ getKey, fetchImpl = globalThis.fetch, recheckMs =
     try {
       json = text ? JSON.parse(text) : {};
     } catch {}
-    if (response.ok || (method === 'DELETE' && response.status === 404)) return { ok: true, paused: json.operation === 'paused' };
+    if (response.ok || (method === 'DELETE' && response.status === 404)) return { ok: true, paused: json.operation === 'paused', id: json.notification_id };
     if (response.status === 401) key = null;
     if (response.status === 429) return 'limit' in json && 'active' in json ? { ok: false, kind: 'capacity' } : { ok: false, kind: 'rate', retryAfter: Number(response.headers.get('retry-after')) || 30 };
     if (response.status >= 500) return { ok: false, kind: 'transient', status: response.status };
@@ -53,6 +55,7 @@ export function createClient({ getKey, fetchImpl = globalThis.fetch, recheckMs =
         tags: ['pstack-pulse'],
       });
     },
+    replace: (id, { title, message, link }) => call('PUT', `/push-notification/${encodeURIComponent(id)}`, { title, message, ...(link ? { redirection: link } : {}) }),
   };
 }
 
@@ -72,6 +75,10 @@ export async function deliver(phone, desired, { client, clock = Date.now, save =
   const refused = (feature, result, what) => {
     if (result.kind === 'rate') phone.pausedUntil[feature] = clock() + result.retryAfter * 1000;
     problems.push(`${what}: ${result.kind}${result.status ? ` ${result.status}` : ''}${result.detail ? ` ${result.detail}` : ''}`);
+  };
+  const backOff = (ack, result) => {
+    ack.attempts += 1;
+    ack.retryAt = clock() + (result.kind === 'rate' ? result.retryAfter * 1000 : Math.min(2000 * 2 ** ack.attempts, 300_000));
   };
 
   for (const [key, stream] of Object.entries(phone.streams)) {
@@ -126,13 +133,23 @@ export async function deliver(phone, desired, { client, clock = Date.now, save =
     const ack = phone.acks[incident.id];
     const result = await client.push(incident, desired.listUrl);
     if (result.ok) {
-      ack.sentAt = clock();
+      Object.assign(ack, { sentAt: clock(), notificationId: result.id, kind: incident.kind, name: incident.name, link: incident.link });
       save();
     } else {
-      ack.attempts += 1;
-      ack.retryAt = clock() + (result.kind === 'rate' ? result.retryAfter * 1000 : Math.min(2000 * 2 ** ack.attempts, 300_000));
+      backOff(ack, result);
       refused('push', result, `push ${incident.kind}`);
     }
+  }
+  // ActivitySmith cannot delete a push, but it can silently replace one, so a stale alert becomes a cleared note.
+  for (const [id, ack] of Object.entries(phone.acks)) {
+    if (!ack.notificationId || ack.clearedAt || !CLEARED[ack.kind] || desired.incidents.has(id) || clock() < (ack.retryAt ?? 0)) continue;
+    if (!spend(phone, 'push', clock(), used)) break;
+    const result = await client.replace(ack.notificationId, { title: `✓ ${ack.name}`, message: CLEARED[ack.kind], link: ack.link });
+    if (result.ok || result.kind === 'rejected') {
+      ack.clearedAt = clock();
+      save();
+    } else backOff(ack, result);
+    if (!result.ok) refused('push', result, `replace ${ack.kind}`);
   }
   for (const [id, ack] of Object.entries(phone.acks)) if (clock() - ack.liveAt > ACK_KEPT_MS) delete phone.acks[id];
   return problems;
