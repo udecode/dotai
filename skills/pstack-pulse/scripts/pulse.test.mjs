@@ -43,7 +43,7 @@ const pushes = (client) => client.calls.filter((call) => call.startsWith('push')
 
 const boardOf = (sessions, titles = {}) => planBoard(viewsOf(sessions, {}, {}, titles), emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
 
-test('one session gets only its own card, and a second in the same project adds that project as a summary card first', () => {
+test('one session gets only its own card, and a second working one turns the board into the summary card alone', () => {
   const sessions = {};
   reduce(sessions, hook('a', 'UserPromptSubmit', 0, { cwd: '/w/ellie' }));
   const key = (id) => keyOf(sessions[`claude:${id}`]);
@@ -52,7 +52,7 @@ test('one session gets only its own card, and a second in the same project adds 
   const cards = boardOf(sessions);
   assert.equal(cards[0][0], SUMMARY_KEY);
   assert.equal(cards[0][1].body.content_state.title, 'ellie');
-  assert.deepEqual(new Set(cards.slice(1).map(([cardKey]) => cardKey)), new Set([key('a'), key('b')]));
+  assert.equal(cards.length, 1);
 });
 
 test('sessions across projects share one summary card titled by its state counts, listing the project with the fewest sessions first', () => {
@@ -70,16 +70,14 @@ test('sessions across projects share one summary card titled by its state counts
   assert.equal(boardOf(sessions)[0][1].body.content_state.title, '1 needs you · 4 working · 1 to resume');
 });
 
-test('the four session cards go to sessions waiting on you before working ones', () => {
+test('beside the summary card only sessions waiting on you get their own card', () => {
   const sessions = {};
   ['w1', 'w2', 'w3', 'w4'].forEach((id, index) => reduce(sessions, hook(id, 'UserPromptSubmit', 10 + index, { cwd: '/w/a' })));
   reduce(sessions, hook('paused', 'UserPromptSubmit', 0, { cwd: '/w/b' }));
   reduce(sessions, hook('paused', 'Stop', 1, { cwd: '/w/b' }));
   reduce(sessions, { ...ask('asker', 2), cwd: '/w/c' });
   const keys = boardOf(sessions).slice(1).map(([cardKey]) => cardKey);
-  assert.equal(keys.length, 4);
-  assert.ok(keys.includes(keyOf(sessions['claude:paused'])));
-  assert.ok(keys.includes(keyOf(sessions['claude:asker'])));
+  assert.deepEqual(keys, [keyOf(sessions['claude:asker']), keyOf(sessions['claude:paused'])]);
 });
 
 test('the summary card updates in place when sessions spread from one project to several', async () => {
@@ -94,9 +92,10 @@ test('the summary card updates in place when sessions spread from one project to
   assert.ok(!client.calls.includes(`end ${SUMMARY_KEY}`));
 });
 
-test('a session card keeps its stream as other sessions join, and a hook that changes nothing on the card sends nothing', async () => {
+test('a waiting session keeps its card as other sessions join, and a hook that changes nothing on the card sends nothing', async () => {
   const sessions = {};
   reduce(sessions, hook('a', 'UserPromptSubmit', 0, { cwd: '/w/ellie' }));
+  reduce(sessions, hook('a', 'Stop', 0, { cwd: '/w/ellie' }));
   const key = keyOf(sessions['claude:a']);
   const phone = emptyPhone();
   await send(sessions, phone, fakeClient(), 1);
@@ -104,7 +103,7 @@ test('a session card keeps its stream as other sessions join, and a hook that ch
   const joined = fakeClient();
   await send(sessions, phone, joined, 3);
   assert.deepEqual(joined.calls.filter((call) => call.endsWith(key)), []);
-  reduce(sessions, hook('a', 'PostToolUse', 4, { cwd: '/w/ellie', tool: 'Bash' }));
+  reduce(sessions, hook('b', 'PostToolUse', 4, { cwd: '/w/ellie', tool: 'Bash' }));
   const quiet = fakeClient();
   await send(sessions, phone, quiet, 5);
   assert.ok(!quiet.calls.includes(`put ${key}`));
@@ -113,6 +112,7 @@ test('a session card keeps its stream as other sessions join, and a hook that ch
 test('cards an older daemon left, the fleet and an alert, end before any new card starts', async () => {
   const sessions = {};
   reduce(sessions, hook('old1', 'UserPromptSubmit', 0, { cwd: '/w/ellie' }));
+  reduce(sessions, hook('old1', 'Stop', 0, { cwd: '/w/ellie' }));
   reduce(sessions, hook('old2', 'UserPromptSubmit', 0, { cwd: '/w/plate' }));
   const old1 = keyOf(sessions['claude:old1']);
   const phone = emptyPhone();
@@ -127,7 +127,7 @@ test('cards an older daemon left, the fleet and an alert, end before any new car
   assert.equal(phone.streams[old1].type, 'segmented_progress');
 });
 
-test('behind the summary card, a session that needs you comes first, then one waiting to resume, then working ones', () => {
+test('behind the summary card, a session that needs you comes first, then one waiting to resume, and a working one has no card', () => {
   const sessions = {};
   reduce(sessions, hook('a1', 'UserPromptSubmit', 1, { cwd: '/w/a' }));
   reduce(sessions, hook('a1', 'Stop', 2, { cwd: '/w/a' }));
@@ -135,11 +135,11 @@ test('behind the summary card, a session that needs you comes first, then one wa
   reduce(sessions, hook('b3', 'UserPromptSubmit', 5, { cwd: '/w/b' }));
   const cards = planBoard(viewsOf(sessions), emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
   const key = (id) => keyOf(sessions[`claude:${id}`]);
-  assert.deepEqual(cards.map(([cardKey]) => cardKey), [SUMMARY_KEY, key('b2'), key('a1'), key('b3')]);
+  assert.deepEqual(cards.map(([cardKey]) => cardKey), [SUMMARY_KEY, key('b2'), key('a1')]);
   const asking = cards[1][1];
   assert.equal(asking.type, 'segmented_progress');
   assert.equal(asking.body.content_state.subtitle, 'Ship b2?');
-  assert.equal(cards[3][1].body.content_state.subtitle, 'b · Build');
+  assert.equal(cards[2][1].body.content_state.subtitle, 'a · Build');
 });
 
 test('only sessions whose title shows a pstack stage reach the phone', () => {

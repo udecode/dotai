@@ -402,12 +402,12 @@ export function menuBoardOf(views, context) {
 }
 
 const OWNER_STAGES = ['Waiting', 'Blocked', 'Paused'];
-// The cards beside the summary go first to sessions that wait on the owner, then to working ones.
-function slotRankOf(view) {
+// Beside the summary card only a session that waits on the owner gets a card of its own; working ones show on the summary alone.
+function waitRankOf(view) {
   const state = shownStateOf(view);
   if (state === 'needs-you') return 0;
   if (state === 'failed') return 1;
-  return state === 'resume' || OWNER_STAGES.includes(titleStageOf(view.title)?.label) ? 2 : 3;
+  return state === 'resume' || OWNER_STAGES.includes(titleStageOf(view.title)?.label) ? 2 : null;
 }
 
 export function planBoard(views, phone, context) {
@@ -415,8 +415,11 @@ export function planBoard(views, phone, context) {
   const { ranked } = rankedLive(views.filter((view) => titleStageOf(view.title)));
   const badge = live.filter(({ session }) => session.state === 'needs-you').length;
   const slots = phone.capacity && context.now < phone.capacity.until ? Math.min(SLOTS, phone.capacity.slots) : SLOTS;
-  const units = ranked.map((view) => ({ key: keyOf(view.session), rank: slotRankOf(view), view })).toSorted((a, b) => a.rank - b.rank);
-  if (units.length < 2) return { cards: units.map(({ key, view }) => [key, sessionCardOf(view)]), badge };
+  if (ranked.length < 2) return { cards: ranked.map((view) => [keyOf(view.session), sessionCardOf(view)]), badge };
+  const units = ranked
+    .map((view) => ({ key: keyOf(view.session), rank: waitRankOf(view), view }))
+    .filter(({ rank }) => rank !== null)
+    .toSorted((a, b) => a.rank - b.rank);
   const chosen = keepShownUntilOutranked(units, new Set(Object.keys(phone.streams)), slots - 1);
   return { cards: [[SUMMARY_KEY, summaryCardOf(projectsOf(ranked), context)], ...chosen.map(({ key, view }) => [key, sessionCardOf(view)])], badge };
 }
