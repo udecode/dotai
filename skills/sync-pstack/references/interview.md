@@ -52,7 +52,7 @@ The owner settled these for every project. Report them as applied.
 - A message anyone outside the team can read, a comment, review, label or close on a public repository included, needs explicit authorization from the active request and otherwise waits as a draft, and a "can we X?" question gets a proposal, not the action. A message only team members can read and shared quota proceed without asking; widening an access grant needs a go-ahead per target.
 - Claude Code runs every pstack role on Opus except Codex panel seats; Codex roles inherit the session model.
 - No per-delegate worktrees.
-- Panels seat Opus, `codex:gpt-6-astra @high` and `codex:gpt-6.1-sol @xhigh`, read-only through `cross.mjs`, and a critical finding is the blocking ceiling.
+- Panels seat Opus, `codex:gpt-6-astra @high` and `codex:gpt-6.1-sol @xhigh`, through `cross.mjs --reach`, which cannot write the project, and a critical finding is the blocking ceiling.
 - Principles are read, not named in replies.
 - One writing pass per kind of change, with `deslop` and `no-comments` before any review, each panel round's fixes included.
 - A `codex:gpt-6.1-sol` seat, at the effort the panel gives it, reviews decision trails from Claude Code, and an Opus seat from Codex.

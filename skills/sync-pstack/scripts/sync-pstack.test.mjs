@@ -442,6 +442,27 @@ test('cross --bypass runs a Codex worker on the owner config with hooks and no s
   }
 });
 
+test('cross --reach runs a Codex seat on the owner config with network, writing only a scratch folder, and drops an inherited permission profile', () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'codex'), '#!/bin/sh\nargs="$*"\nwhile [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; *) shift ;; esac; done\nprintf "%s\\ncwd=%s\\nprofile=%s\\n" "$args" "$PWD" "$CODEX_PERMISSION_PROFILE" > "$out"\n', { mode: 0o755 });
+  const run = (args) =>
+    spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), ...args, 'review it'], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1', CODEX_PERMISSION_PROFILE: ':danger-full-access' },
+    });
+  const seat = run(['--to', 'codex', '--reach', '--model', 'gpt-6-astra']);
+  assert.equal(seat.status, 0, seat.stderr);
+  assert.match(seat.stdout, /^exec --ignore-rules --skip-git-repo-check -c web_search="live" -m gpt-6-astra --disable hooks --sandbox workspace-write -c sandbox_workspace_write\.network_access=true -o \S+ -- Your working directory is a scratch folder you may write\. The project is \S+: read it by absolute path and never write it\.\n\nreview it\n/u);
+  assert.match(seat.stdout, /^cwd=\S*pstack-reach-\S+$/mu);
+  assert.match(seat.stdout, /^profile=$/mu);
+  const refused = run(['--to', 'codex', '--reach', '--bypass']);
+  assert.equal(refused.status, 2);
+  assert.equal(refused.stdout, '');
+});
+
 function browserMachine({ profiles = ['Ellie QA'], appVersion = '26.1', stubborn = false } = {}) {
   const { dir, home } = sandbox();
   const chrome = join(home, 'Library/Application Support/Google/Chrome');

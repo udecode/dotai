@@ -159,5 +159,5 @@ Keep project knowledge in skills and the project's rules; a playbook only orders
 - [Interview](references/interview.md): the questions, their evidence and recommendations, and the config fields.
 - [Adapt](references/adapt.md): vendored copies, orphaned skills, rule forks, Codex seats, formatters, and rewriting project rules around the block.
 - [`assets/block.md`](assets/block.md): the shared block.
-- `assets/pstack/`: the plan and decision-log helpers the Plans rule runs, and `cross.mjs`, which runs a prompt read-only in the other runtime on a named model and effort, for a panel's other-family seats and `smoke`, or with `--bypass` as a Codex worker on the owner's own Codex config with no sandbox.
+- `assets/pstack/`: the plan and decision-log helpers the Plans rule runs, and `cross.mjs`, which runs a prompt in the other runtime on a named model and effort, read-only for `smoke` and with `--reach` for a panel's Codex seats, which load the owner's config and network and write only a scratch folder, or with `--bypass` as a Codex worker on the owner's own Codex config with no sandbox.
 - `scripts/sync-pstack.mjs`, with its tests in `scripts/sync-pstack.test.mjs`.
