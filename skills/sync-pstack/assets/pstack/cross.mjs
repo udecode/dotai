@@ -46,11 +46,11 @@ const stopOnSignals = () => {
 // A child that ignores SIGTERM, or leaves a descendant holding its pipes, is
 // killed and abandoned at the deadline.
 // A project hook, such as a Stop hook that stages files, would still write from a read-only run.
-export async function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model = MODELS[runtime], effort, hooks = false, userConfig = false, readDirs = [], computerUse } = {}) {
-  const managed = runtime === 'codex' && managedCodexConfig();
+export async function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900, model = MODELS[runtime], effort, hooks = false, userConfig = false, readDirs = [], computerUse, bypass = false } = {}) {
+  const managed = runtime === 'codex' && !bypass && managedCodexConfig();
   if (managed) return { runtime, ok: false, text: `${managed} would still load over the command line; refusing to run` };
   const runCwd = computerUse ? mkdtempSync(join(tmpdir(), 'pstack-browser-')) : cwd;
-  let launch = { args: userConfig ? NO_EXEC_RULES : ISOLATED_CODEX_ARGS };
+  let launch = { args: bypass ? [] : userConfig ? NO_EXEC_RULES : ISOLATED_CODEX_ARGS };
   if (computerUse) {
     launch = await browserLaunch({ cwd: runCwd, chromeProfile: computerUse.chromeProfile });
     if (launch.refusal) return { runtime, ok: false, text: `refusing the browser lane: ${launch.refusal}` };
@@ -70,9 +70,8 @@ export async function ask(runtime, prompt, { cwd = process.cwd(), timeout = 900,
             '-m',
             model,
             ...(effort ? ['-c', `model_reasoning_effort=${effort}`] : []),
-            ...(hooks ? [] : ['--disable', 'hooks']),
-            '--sandbox',
-            'read-only',
+            ...(hooks || bypass ? [] : ['--disable', 'hooks']),
+            ...(bypass ? ['--dangerously-bypass-approvals-and-sandbox'] : ['--sandbox', 'read-only']),
             '-o',
             answerFile,
             '--',
@@ -125,6 +124,7 @@ async function main(argv) {
   const values = {};
   let retired;
   let isolated = false;
+  let bypass = false;
   let help = false;
   let refusal;
   let prompt = '';
@@ -136,13 +136,14 @@ async function main(argv) {
     else if (key) refusal ??= `${arg} needs a value`;
     else if (['--write', '--events', '--resume'].includes(arg)) retired = arg;
     else if (arg === '--ignore-user-config') isolated = true;
+    else if (arg === '--bypass') bypass = true;
     else if (arg === '--help' || arg === '-h') help = true;
     else if (DASHED_WORD.test(arg)) refusal ??= `unknown flag ${arg}`;
     else prompt = arg;
   }
   const { to = otherRuntime(), model, effort, events, chromeProfile, promptFile } = values;
   const timeout = Number(values.timeout ?? 900);
-  const usage = 'Usage: node .agents/pstack/cross.mjs [--to codex|claude] [--model <model>] [--effort <level>] [--timeout <seconds>] [--computer-use <events file> --chrome-profile <name>] (--prompt-file <path> | <prompt>)';
+  const usage = 'Usage: node .agents/pstack/cross.mjs [--to codex|claude] [--model <model>] [--effort <level>] [--timeout <seconds>] [--bypass | --computer-use <events file> --chrome-profile <name>] (--prompt-file <path> | <prompt>)';
   if (help) {
     console.info(usage);
     return 0;
@@ -152,7 +153,11 @@ async function main(argv) {
     return 2;
   }
   if (retired) {
-    console.error(`${retired} is retired: cross.mjs runs Codex read-only\n${usage}`);
+    console.error(`${retired} is retired: cross.mjs runs Codex read-only, or with no sandbox under --bypass\n${usage}`);
+    return 2;
+  }
+  if (bypass && (to !== 'codex' || isolated || events)) {
+    console.error(`--bypass runs only --to codex, without --ignore-user-config or --computer-use\n${usage}`);
     return 2;
   }
   if (isolated && events) {
@@ -168,7 +173,7 @@ async function main(argv) {
     console.error(`--computer-use and --chrome-profile go together, and only --to codex\n${usage}`);
     return 2;
   }
-  const answer = await ask(to, prompt, { timeout, model, effort, computerUse: events && { events, chromeProfile } });
+  const answer = await ask(to, prompt, { timeout, model, effort, bypass, computerUse: events && { events, chromeProfile } });
   (answer.ok ? console.info : console.error)(answer.text);
   if (answer.seat) console.error(`seat: ${answer.seat}`);
   return answer.ok ? 0 : 1;

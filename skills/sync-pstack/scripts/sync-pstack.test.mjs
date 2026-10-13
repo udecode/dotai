@@ -420,6 +420,28 @@ test('cross runs a Codex seat read-only on the model and effort it names', () =>
   assert.match(seat.stdout, /^exec --ignore-user-config --ignore-rules .* -m gpt-6-astra -c model_reasoning_effort=high --disable hooks --sandbox read-only /);
 });
 
+test('cross --bypass runs a Codex worker on the owner config with hooks and no sandbox, and refuses any other runtime or lane', () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'codex'), '#!/bin/sh\nargs="$*"\nwhile [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; *) shift ;; esac; done\necho "$args" > "$out"\n', { mode: 0o755 });
+  const run = (args) =>
+    spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), ...args, 'research it'], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1' },
+    });
+  const worker = run(['--to', 'codex', '--bypass']);
+  assert.equal(worker.status, 0, worker.stderr);
+  assert.match(worker.stdout.trim(), /^exec -m gpt-6\.1-sol --dangerously-bypass-approvals-and-sandbox -o \S+ -- research it$/u);
+  for (const args of [['--to', 'claude', '--bypass'], ['--to', 'codex', '--bypass', '--ignore-user-config']]) {
+    const refused = run(args);
+    assert.equal(refused.status, 2, args.join(' '));
+    assert.equal(refused.stdout, '', args.join(' '));
+    assert.match(refused.stderr, /^--bypass runs only --to codex/u, args.join(' '));
+  }
+});
+
 function browserMachine({ profiles = ['Ellie QA'], appVersion = '26.1', stubborn = false } = {}) {
   const { dir, home } = sandbox();
   const chrome = join(home, 'Library/Application Support/Google/Chrome');
@@ -580,7 +602,7 @@ test('cross refuses the retired write, events and resume flags before launching 
     const result = run(flags);
     assert.equal(existsSync(launched), false, `${flags.join(' ')} launched Codex`);
     assert.equal(result.status, 2, flags.join(' '));
-    assert.match(result.stderr, /runs Codex read-only/);
+    assert.match(result.stderr, /is retired: cross\.mjs runs Codex read-only, or with no sandbox under --bypass/);
   }
   assert.equal(run([]).status, 0, 'the same call without a retired flag launches');
   assert.equal(existsSync(launched), true);
