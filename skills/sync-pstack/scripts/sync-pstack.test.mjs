@@ -1301,7 +1301,7 @@ test('plan-page keeps an older iteration\'s open question in Needs you under a n
 
 const reviewRow = (phase, decision, result) => `2026-01-01T00:00:00Z\t${phase}\t${decision}\twhy\tevidence\t${result}`;
 
-test('plan-page tags the latest panel round and lists every round at the bottom by priority', () => {
+test("plan-page counts each seat's rounds in the header and lists every round at the bottom by priority", () => {
   const { dir, run } = sandbox();
   const plan = '# Plan\n\nStatus: executed\n\n## Main changes\n\n- Seat Codex.\n';
   const log = [
@@ -1318,9 +1318,8 @@ test('plan-page tags the latest panel round and lists every round at the bottom 
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
   assert.equal(result.status, 0, result.stderr);
   const html = read(root, 'docs/plans/artifacts/plan.html');
-  const header = html.slice(html.indexOf('<header>'), html.indexOf('</header>')).replace(/<[^>]+>/gu, '');
-  assert.match(header, /Review round 2/);
-  assert.match(header, /gpt-6\.1-sol xhigh missing/, 'a missing seat says so');
+  const header = html.slice(html.indexOf('<header>'), html.indexOf('</header>')).replace(/<[^>]+>/gu, ' ').replace(/\s+/gu, ' ');
+  assert.match(header, /Reviews opus ×2 gpt-6-astra high gpt-6\.1-sol xhigh missing /, 'a seat counts its rounds, and a missing seat says so');
   const history = html.slice(html.lastIndexOf('Review history')).replace(/<[^>]+>/gu, '');
   const order = ['Round 1', 'critical The seat writes files', 'nit Rename the flag', 'Accepted the hand-off edits', 'Round 2', 'warning Fallback hides a missing seat'].map((text) => history.indexOf(text));
   assert.ok(order.every((index, at) => index > (order[at - 1] ?? -1)), JSON.stringify(order));
@@ -1697,14 +1696,14 @@ test('plan-page shows Teach as How it works right after the brief and before the
   assert.ok(html.indexOf('A page is the one place the owner reads.') < html.indexOf('Build the memo now?'), 'Teach comes before the open questions');
 });
 
-test('plan-page shows each Defaults row as one line with the word that switches it', () => {
+test('plan-page shows each Defaults row as its decision over the pick in bold and the alternative marked (alt), with the word that switches it', () => {
   const { dir, run } = sandbox();
   const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Defaults\n\n| Decision | Pick | Alternative | Word |\n| --- | --- | --- | --- |\n| Page look | One line per choice. | The old table | keep table |\n`;
   const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
   assert.equal(result.status, 0, result.stderr);
   const html = read(root, 'docs/plans/artifacts/plan.html');
-  assert.match(html, /<li><strong>Page look\.<\/strong> One line per choice\. <span class="alt">Other option: The old table\. Say <code>keep table<\/code> to switch\.<\/span><\/li>/);
+  assert.ok(html.includes('<li>Page look<ul><li><strong>One line per choice</strong></li><li class="alt">The old table (alt) · say <code>keep table</code></li></ul></li>'));
   assert.ok(!html.includes('<th>Decision</th>'), 'the table no longer shows');
 });
 
@@ -1715,7 +1714,7 @@ test('plan-page groups Defaults rows under Big calls, Small calls and Details wh
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
   assert.equal(result.status, 0, result.stderr);
   const picked = read(root, 'docs/plans/artifacts/plan.html').split('<h2>Picked for you</h2>')[1];
-  assert.match(picked, /^<h3>Big calls<\/h3><ul class="picks"><li><strong>Storage\.<\/strong>.*?<\/ul><h3>Small calls<\/h3><ul class="picks"><li><strong>Sort order\.<\/strong>.*?<\/ul><h3>Details<\/h3><ul class="picks"><li><strong>Button color\.<\/strong>/);
+  assert.match(picked, /^<h3>Big calls<\/h3><ul class="picks"><li>Storage<ul>.*?<h3>Small calls<\/h3><ul class="picks"><li>Sort order<ul>.*?<h3>Details<\/h3><ul class="picks"><li>Button color<ul>/);
 });
 
 test('plan-page refuses an open plan whose Defaults impact is not big, small or detail', () => {
@@ -2955,7 +2954,7 @@ test('plan-page shows each lead model and effort in the header', () => {
   assert.equal(result.status, 0, result.stderr);
   const html = read(root, 'docs/plans/artifacts/plan.html');
   const header = html.slice(html.indexOf('<header>'), html.indexOf('</header>')).replace(/<[^>]+>/gu, ' ').replace(/\s+/gu, ' ');
-  assert.match(header, /Lead claude-opus-5-5 medium claude-opus-5-5 xhigh/);
+  assert.match(header, /Lead claude-opus-5-5 medium Lead claude-opus-5-5 xhigh/);
 });
 
 test('decisions-check append names the stage a batch moves the log into', () => {
@@ -2967,4 +2966,303 @@ test('decisions-check append names the stage a batch moves the log into', () => 
   assert.match(append('build', 'built: the helper').stdout, /Stage: Build\./);
   assert.match(append('panel', 'seats opus').stdout, /Stage: Code review\./, 'a panel round after a build reviews the code');
   assert.match(append('writing', 'deslop on the round 1 fixes').stdout, /Stage: Writing\./);
+});
+
+const LOG_HEAD = 'time\tphase\tdecision\twhy\tevidence\tresult\n';
+const logRow = (phase, decision) => `2026-10-13T00:00:00Z\t${phase}\t${decision}\twhy\tevidence\tfixed: done\n`;
+const prPlan = (fields, body = '') =>
+  `# PR\n\nStatus: executed\nPlaybook: feature\n${fields}\n${brief()}## Teach\n\nThe page is the plan.\n\n## Demo\n\n1. Open the page. ![after](shots/after.png)\n2. Scroll down. ![before](https://github.com/user-attachments/assets/v1)\n\n## Defaults\n\n| Decision | Pick | Alternative | Word | Impact |\n| --- | --- | --- | --- | --- |\n| Body shape | The page | A hand-written body | hand body | big |\n\n## Public API\n\n\`\`\`ts before\nold()\n\`\`\`\n\n\`\`\`ts after\nnext()\n\`\`\`\n\n## Main changes\n\n- Moves the owner.\n\n## Steps\n\n- [x] Build it. Proof: the test.\n${body}`;
+
+test('plan-page --pr writes the models, brief, frames, picks and API diff between markers', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', {
+    files: {
+      'docs/plans/pr.md': prPlan('', '\n## Design\n\nInternal only.\n\n## Notes\n\nLeft in the plan.\n'),
+      'docs/plans/shots/after.png': 'png',
+      'docs/plans/pr.decisions.tsv': LOG_HEAD + logRow('lead', 'claude-opus-5-5 @xhigh') + logRow('panel', 'seats claude-opus-5-5 @high, codex:gpt-6.1-sol @xhigh missing') + logRow('build', 'built it') + logRow('writing', 'deslop and unslop') + logRow('panel', 'seats claude-opus-5-5 @high, codex:gpt-6.1-sol @xhigh missing'),
+    },
+  });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/pr.md', '--pr'], root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(result.stdout.trim().split('\n').slice(1), ['--attach ./docs/plans/shots/after.png']);
+  const body = read(root, 'docs/plans/artifacts/pr.pr.md');
+  assert.ok(
+    body.startsWith('<!-- plan-page:start -->\n- `claude-opus-5-5 xhigh` · `feature` · not run: design, verify, audit\n  - `claude-opus-5-5` `high` ×2\n  - `gpt-6.1-sol` `xhigh` missing ×2\n\nIt opens with a brief.\n\n> [!CAUTION]\n> Old plans need a brief.\n'),
+    'each lead with the playbook and the checks that did not run, its seats with their rounds, then Changes and Risks'
+  );
+  assert.match(body, /\n1\. Open the page\.\n\nAfter\n\n<!-- frame: \.\/docs\/plans\/shots\/after\.png -->\n!\[after\]\(\.\/docs\/plans\/shots\/after\.png\)\n/);
+  assert.match(body, /\n2\. Scroll down\.\n\nBefore\n\nhttps:\/\/github\.com\/user-attachments\/assets\/v1\n/);
+  assert.ok(body.includes('\n## Decisions\n\n- Body shape\n  - **The page**\n  - A hand-written body (alt)\n'));
+  assert.match(body, /\n```diff\n-old\(\)\n\+next\(\)\n```\n/);
+  assert.doesNotMatch(body, /Left in the plan|Internal only|Moves the owner|Status:/, 'engineer sections and the Status line stay in the plan');
+  assert.ok(body.indexOf('## How it works') < body.indexOf('## Demo') && body.indexOf('## Decisions') < body.indexOf('## Public API'));
+  assert.ok(body.endsWith('\n## Plans\n\n- PR (`docs/plans/pr.md`)\n\n<!-- plan-page:end -->\n'));
+  assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/pr.md'], root).status, 0);
+  assert.match(read(root, 'docs/plans/artifacts/pr.html'), /<a href="https:\/\/github\.com\/user-attachments\/assets\/v1">/, 'the page links a frame it cannot inline');
+});
+
+test('plan-page --pr --into replaces only its region and reuses an uploaded frame', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', { files: { 'docs/plans/pr.md': prPlan(''), 'docs/plans/shots/after.png': 'png' } });
+  const uploaded = '![after](https://github.com/user-attachments/assets/abc)';
+  writeFileSync(
+    join(root, 'body.md'),
+    `<!-- auto-release:start -->\n- [ ] Auto release\n<!-- auto-release:end -->\n\n<!-- plan-page:start -->\nOld region.\n<!-- frame: ./docs/plans/shots/after.png -->\n${uploaded}\n<!-- plan-page:end -->\n\n## Videos\n\nKept by hand.\n`
+  );
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/pr.md', '--pr', '--into', 'body.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.stdout, /--attach/, 'an uploaded frame is not attached again');
+  const body = read(root, 'docs/plans/artifacts/pr.pr.md');
+  assert.match(body, /^<!-- auto-release:start -->\n- \[ \] Auto release\n<!-- auto-release:end -->\n\n<!-- plan-page:start -->\n`feature` · not run: /);
+  assert.ok(body.includes(`<!-- frame: ./docs/plans/shots/after.png -->\n${uploaded}\n`));
+  assert.doesNotMatch(body, /Old region\.|!\[after\]\(\.\//);
+  assert.match(body, /<!-- plan-page:end -->\n\n## Videos\n\nKept by hand\.\n$/);
+  writeFileSync(join(root, 'plain.md'), 'Hand-written body.\n');
+  assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/pr.md', '--pr', '--into', 'plain.md'], root).status, 0);
+  assert.match(read(root, 'docs/plans/artifacts/pr.pr.md'), /<!-- plan-page:end -->\n\nHand-written body\.\n$/, 'a body without the markers keeps its text below the region');
+});
+
+test('plan-page --pr folds the plans a PR plan lists into its rail and models', () => {
+  const { dir, run } = sandbox();
+  const child = '# A\n\nStatus: executed\nPlaybook: bug-fix\n\n## Steps\n\n- [x] One.\n- [x] Two.\n';
+  const root = project(dir, 'app', {
+    files: {
+      'docs/plans/pr.md': prPlan('Plans: a.md'),
+      'docs/plans/shots/after.png': 'png',
+      'docs/plans/a.md': child,
+      'docs/plans/pr.decisions.tsv': LOG_HEAD + logRow('lead', 'claude-opus-5-5 @xhigh'),
+      'docs/plans/a.decisions.tsv': LOG_HEAD + logRow('lead', 'gpt-6.1-sol @xhigh') + logRow('build', 'built') + logRow('panel', 'seats gpt-6-astra @xhigh'),
+    },
+  });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/pr.md', '--pr'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const body = read(root, 'docs/plans/artifacts/pr.pr.md');
+  assert.ok(body.includes('\n## Plans\n\n- PR (`docs/plans/pr.md`)\n- A (`docs/plans/a.md`)\n'));
+  assert.ok(
+    body.includes('\n- `claude-opus-5-5 xhigh` · `feature`, `bug-fix` · not run: design, plan review, verify, audit\n- `gpt-6.1-sol xhigh`\n  - `gpt-6-astra` `xhigh`\n'),
+    "the carried plan's playbook, review and lead count"
+  );
+  writeFileSync(join(root, 'docs/plans/pr.md'), prPlan('Plans: a.md, gone.md'));
+  const missing = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/pr.md', '--pr'], root);
+  assert.equal(missing.status, 1);
+  assert.match(missing.stderr, /lists docs\/plans\/gone\.md on its Plans: line, but that plan does not exist/);
+});
+
+test('plan-page --pr refuses a plan titled with a PR number', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', { files: { 'docs/plans/pr.md': prPlan('').replace('# PR\n', '# PR 5165 redo\n'), 'docs/plans/shots/after.png': 'png' } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/pr.md', '--pr'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /is titled "PR 5165 redo"; the PR body links its plan by title, so name the change instead of the PR/);
+});
+
+test('plan-page --pr refuses a plan without a brief, even an executed one', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', { files: { 'docs/plans/pr.md': '# PR\n\nStatus: executed\n\n## Main changes\n\n- Moves the owner.\n' } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/pr.md', '--pr'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /needs a ## Brief before --pr, because the PR body opens with its Changes and Risks/);
+  assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/pr.md'], root).status, 0, 'the page still renders without a brief');
+});
+
+test("plan-page --pr shows the sections the playbook's page-pr line names, from each carried plan when the PR plan has none", () => {
+  const { dir, run } = sandbox();
+  const shape = '\n## Document shape\n\n```json before\n{ "level": 1 }\n```\n\n```json after\n{ "level": 2 }\n```\n\n## Layer and owner\n\nPlite owns the level.\n';
+  const root = project(dir, 'app', {
+    files: {
+      '.agents/playbooks/plan.md': playbook('page-lead: What other editors do, Document shape, Layer and owner\npage-pairs: Document shape\npage-pr: Document shape, What other editors do\n'),
+      'docs/plans/pr.md': prPlan('Plans: a.md', shape),
+      'docs/plans/shots/after.png': 'png',
+      'docs/plans/a.md': '# A\n\nStatus: executed\nPlaybook: plan\n\n## What other editors do\n\nLexical drops the key.\n',
+    },
+  });
+  const pr = () => run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/pr.md', '--pr'], root);
+  assert.equal(pr().status, 0);
+  const body = read(root, 'docs/plans/artifacts/pr.pr.md');
+  assert.ok(body.includes('\n## What other editors do\n\n### A\n\nLexical drops the key.\n'), "the carried plan's section shows under its title");
+  assert.ok(body.includes('\n## Document shape\n\n```diff\n-{ "level": 1 }\n+{ "level": 2 }\n```\n'), 'a paired section shows as one diff');
+  assert.ok(body.indexOf('## Public API') < body.indexOf('## What other editors do') && body.indexOf('## What other editors do') < body.indexOf('## Document shape'), 'page-lead order, after Public API');
+  assert.doesNotMatch(body, /Layer and owner|Plite owns the level/, 'a section the line leaves out stays in the plan');
+  writeFileSync(join(root, '.agents/playbooks/babysit.md'), playbook(''));
+  writeFileSync(join(root, 'docs/plans/pr.md'), prPlan('Plans: a.md', shape).replace('Playbook: feature', 'Playbook: babysit'));
+  assert.equal(pr().status, 0);
+  assert.match(read(root, 'docs/plans/artifacts/pr.pr.md'), /\n## What other editors do\n\n### A\n/, "a carried plan's playbook names sections for a PR plan whose own playbook names none");
+  writeFileSync(join(root, '.agents/playbooks/plan.md'), playbook('page-lead: What other editors do\npage-pr: Native behavior and proof\n'));
+  const stray = pr();
+  assert.equal(stray.status, 1);
+  assert.match(stray.stderr, /lists Native behavior and proof on its page-pr line; the PR body shows only page-lead sections/);
+});
+
+test("plan-page --comment covers only the commits after the author's, without the clips the description already shows", () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', {
+    files: {
+      'docs/plans/pr.md': prPlan('', '\n## On top of the PR\n\n- Kept\n  - The title fix\n- Dropped\n  - The private scroll zone\n'),
+      'docs/plans/shots/after.png': 'png',
+      'description.md': 'The author demo: ![before](https://github.com/user-attachments/assets/v1)\n',
+    },
+  });
+  const git = (...args) => spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { cwd: root, encoding: 'utf8' });
+  git('remote', 'add', 'origin', 'https://github.com/o/r.git');
+  git('commit', '-q', '--allow-empty', '-m', 'author');
+  const author = git('rev-parse', 'HEAD').stdout.trim();
+  git('commit', '-q', '--allow-empty', '-m', 'mine');
+  const head = git('rev-parse', 'HEAD').stdout.trim();
+  const comment = (...extra) => run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/pr.md', ...extra], root);
+  const result = comment('--comment', author, '--against', 'description.md');
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(result.stdout.split('\n')[0].endsWith('/docs/plans/artifacts/pr.comment.md'), result.stdout);
+  const body = read(root, 'docs/plans/artifacts/pr.comment.md');
+  assert.ok(body.includes(`\n[My commits after yours](https://github.com/o/r/compare/${author}...${head})\n`), 'the compare link spans exactly the commits after the author');
+  assert.ok(body.includes('\n## On top of the PR\n\n- Kept\n  - The title fix\n- Dropped\n  - The private scroll zone\n'));
+  assert.ok(body.indexOf('## How it works') < body.indexOf('## On top of the PR') && body.indexOf('## On top of the PR') < body.indexOf('## Demo'));
+  assert.match(body, /\n## Demo\n\n1\. Open the page\.\n/);
+  assert.doesNotMatch(body, /Scroll down|assets\/v1/, 'a step whose clips the description shows stays out');
+  assert.match(comment('--comment', 'deadbeef').stderr, /--comment names deadbeef, which is not a commit in this checkout/);
+  git('checkout', '-q', '--orphan', 'other');
+  git('commit', '-q', '--allow-empty', '-m', 'unrelated');
+  assert.match(comment('--comment', author).stderr, new RegExp(`--comment names ${author}, which this checkout's HEAD does not contain`));
+  assert.equal(comment('--pr', '--comment', author).status, 2, '--pr and --comment write different bodies');
+  assert.equal(comment('--against', 'description.md').status, 2, '--against needs --comment');
+});
+
+test('plan-page --pr links a plan the current commit holds and names an uncommitted one by path', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', {
+    files: {
+      'docs/plans/pr.md': prPlan('Plans: a.md'),
+      'docs/plans/shots/after.png': 'png',
+      'docs/plans/a.md': '# A\n\nStatus: executed\n\n## Steps\n\n- [x] One.\n',
+    },
+  });
+  const git = (...args) => spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { cwd: root, encoding: 'utf8' });
+  git('remote', 'add', 'origin', 'https://github.com/o/r.git');
+  git('add', 'docs/plans/pr.md');
+  git('commit', '-q', '-m', 'plan');
+  const sha = git('rev-parse', 'HEAD').stdout.trim();
+  assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/pr.md', '--pr'], root).status, 0);
+  assert.ok(read(root, 'docs/plans/artifacts/pr.pr.md').includes(`\n## Plans\n\n- [PR](https://github.com/o/r/blob/${sha}/docs/plans/pr.md)\n- A (\`docs/plans/a.md\`)\n`));
+});
+
+test('the page header counts each lead seat across rounds and carries the plans a PR plan lists', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', {
+    files: {
+      'docs/plans/pr.md': prPlan('Plans: a.md'),
+      'docs/plans/shots/after.png': 'png',
+      'docs/plans/a.md': '# A\n\nStatus: executed\nPlaybook: bug-fix\n\n## Steps\n\n- [x] One.\n- [x] Two.\n',
+      'docs/plans/pr.decisions.tsv': LOG_HEAD + logRow('lead', 'claude-opus-5-5 @xhigh') + logRow('panel', 'seats claude-opus-5-5 @high, codex:gpt-6.1-sol @xhigh missing') + logRow('build', 'built it') + logRow('panel', 'seats #12 round 3: claude-opus-5-5 @high, codex:gpt-6.1-sol @xhigh (round 2, delta only) missing'),
+      'docs/plans/a.decisions.tsv': LOG_HEAD + logRow('lead', 'gpt-6.1-sol @xhigh') + logRow('panel', 'seats gpt-6-astra @xhigh'),
+    },
+  });
+  assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/pr.md'], root).status, 0);
+  const html = read(root, 'docs/plans/artifacts/pr.html');
+  const meta = html.match(/<div class="meta">(.*?)<\/div>/)[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').replace(/ Updated .*$/, '').trim();
+  assert.equal(meta, 'Plans A Lead claude-opus-5-5 xhigh Reviews claude-opus-5-5 high ×2 gpt-6.1-sol xhigh missing ×2 Lead gpt-6.1-sol xhigh Reviews gpt-6-astra xhigh', 'a label or note around a seat stays out of its name');
+  assert.match(html, /Build<span class="fs-meta">3\/3<\/span>/, "the rail counts the carried plan's steps");
+  assert.match(html, /<li class="fs done"[^>]*>Plan review<span class="fs-meta">×2<\/span>/, 'review rounds from both plans add up');
+});
+
+test('a finished page shows its Verification, then its Open work last', () => {
+  const { dir, run } = sandbox();
+  const tail = '\n## Open work\n\n- Push it.\n\n## Verification\n\n- Rendered every plan.\n\n## Design\n\nInternal only.\n';
+  const root = project(dir, 'app', { files: { 'docs/plans/pr.md': prPlan('', tail), 'docs/plans/shots/after.png': 'png' } });
+  const order = () => {
+    assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/pr.md'], root).status, 0);
+    return [...read(root, 'docs/plans/artifacts/pr.html').matchAll(/<h2>([^<]+)<\/h2>/g)].map(([, title]) => title).filter((title) => ['Main changes', 'Design', 'Verification', 'Open work'].includes(title));
+  };
+  assert.deepEqual(order(), ['Main changes', 'Design', 'Verification', 'Open work']);
+  writeFileSync(join(root, 'docs/plans/pr.md'), prPlan('', tail).replace('Status: executed', 'Status: building: step two'));
+  assert.deepEqual(order(), ['Main changes', 'Design', 'Open work'], 'proof stays in the plan file while work runs');
+});
+
+const levelsRun = (args, { claude = '', codex = '', agents = '' } = {}) => {
+  const dir = mkdtempSync(join(tmpdir(), 'levels-'));
+  mkdirSync(join(dir, 'home/.claude'), { recursive: true });
+  mkdirSync(join(dir, 'codex'));
+  writeFileSync(join(dir, 'home/.claude/pstack-models.md'), claude);
+  writeFileSync(join(dir, 'codex/pstack-models.md'), codex);
+  writeFileSync(join(dir, 'AGENTS.md'), agents);
+  const env = { ...process.env, HOME: join(dir, 'home'), CODEX_HOME: join(dir, 'codex') };
+  return { dir, run: (more = []) => spawnSync(process.execPath, [join(HELPERS, 'levels.mjs'), ...args, ...more], { cwd: dir, encoding: 'utf8', env }) };
+};
+
+const LEVELS_LOG = [
+  'ts\tphase\tdecision\twhy\tevidence\tresult',
+  'T\tplan\tWrite the plan\tw\te\trecorded',
+  'T\tlead\tclaude-opus-5-5 @high\tw\te\trecorded',
+  'T\tbuild\tBuild step one\tw\te\tbuilt',
+  'T\tpanel\tseats claude-opus-5-5 @high, gpt-6-astra @xhigh, gpt-6.1-sol @xhigh\tw\te\trecorded',
+  'T\tlead\tclaude-opus-5-5 @xhigh\tw\te\trecorded',
+  'T\tpanel\tseats #12 round 3: claude-opus-5-5 @high, codex:gpt-6-astra @high, codex:gpt-6.1-sol @xhigh (round 2, delta only)\tw\te\trecorded',
+  "T\tpanel\tseats opus @high, codex:gpt-6-astra @xhigh missing, codex:gpt-6.1-sol @xhigh missing, opus same-family in astra's place\tw\te\tpartial",
+  'T\tarchitect\trunners answered: opus @high, gpt-6-astra @xhigh and gpt-6.1-sol @xhigh each returned a design\tw\te\trecorded',
+  'T\tlead\tgpt-6.1-sol @xhigh\tw\te\trecorded',
+  'T\tbuild\tBuild step two\tw\te\tbuilt',
+  '',
+].join('\n');
+
+const LEVELS_SHEET = [
+  'interrogate reviewers: opus, codex:gpt-6-astra @high, codex:gpt-6.1-sol @xhigh',
+  'architect runners: opus, codex:gpt-6-astra @high, codex:gpt-6.1-sol @xhigh',
+  'default effort: high',
+].join('\n');
+
+test('levels lists each lead stretch and seat round below this session or the configured seats', () => {
+  const agents = [
+    '<!-- pstack:begin (rendered) -->',
+    '- A seat such as `codex:gpt-6.1-sol @max` inside the block raises nothing.',
+    '<!-- pstack:end -->',
+    '- **Astra effort.** Seat `codex:gpt-6-astra @xhigh` instead of the sheet\'s `@high`.',
+  ].join('\n');
+  const { dir, run } = levelsRun(['--lead', 'claude-opus-5-5 @xhigh', 'log.tsv'], { claude: LEVELS_SHEET, agents });
+  writeFileSync(join(dir, 'log.tsv'), LEVELS_LOG);
+  const result = run();
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    result.stdout,
+    [
+      'target: lead claude-opus-5-5 @xhigh; seats opus @high, gpt-6-astra @xhigh, gpt-6.1-sol @xhigh',
+      'log.tsv',
+      '  below line 2: lead unknown (no lead row names its level)',
+      '  below lines 4-5: lead claude-opus-5-5 @high (@high is below @xhigh)',
+      '  at line 5: panel opus @high, gpt-6-astra @xhigh, gpt-6.1-sol @xhigh',
+      '  at lines 7-9: lead claude-opus-5-5 @xhigh',
+      '  below line 7: panel opus @high, gpt-6-astra @high, gpt-6.1-sol @xhigh (gpt-6-astra @high is below @xhigh)',
+      '  below line 8: panel opus @high, gpt-6-astra @xhigh missing, gpt-6.1-sol @xhigh missing, opus same-family (gpt-6-astra missing; gpt-6.1-sol missing)',
+      '  at line 9: architect opus @high, gpt-6-astra @xhigh, gpt-6.1-sol @xhigh',
+      '  below line 11: lead gpt-6.1-sol @xhigh (led in Codex, and plans start in Claude Code)',
+      '5 of 8 units below target',
+      '',
+    ].join('\n'),
+  );
+});
+
+test('levels in a Codex session keeps Claude-led stretches and takes the session effort for a seat with none', () => {
+  const codex = 'interrogate reviewers: opus, codex:gpt-6-astra @high, codex:gpt-6.1-sol @xhigh\narchitect runners: opus @high, codex:gpt-6-astra @high, codex:gpt-6.1-sol @xhigh\ndefault effort: session';
+  const { dir, run } = levelsRun(['--lead', 'gpt-6.1-sol @xhigh', 'log.tsv'], { codex });
+  writeFileSync(join(dir, 'log.tsv'), LEVELS_LOG);
+  const result = run();
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^target: lead gpt-6\.1-sol @xhigh; seats opus @xhigh, gpt-6-astra @high, gpt-6\.1-sol @xhigh$/mu);
+  assert.match(result.stdout, /^ {2}at lines 4-5: lead claude-opus-5-5 @high$/mu);
+  assert.match(result.stdout, /^ {2}below line 5: panel .*\(opus @high is below @xhigh\)$/mu);
+  assert.match(result.stdout, /^ {2}at line 11: lead gpt-6\.1-sol @xhigh$/mu);
+});
+
+test('levels refuses a missing log, a flag with no value, and a round the models sheet has no line for', () => {
+  const { dir, run } = levelsRun([], { claude: 'interrogate reviewers: opus @high\ndefault effort: high' });
+  writeFileSync(join(dir, 'log.tsv'), LEVELS_LOG);
+  const usage = run();
+  assert.equal(usage.status, 1);
+  assert.match(usage.stderr, /^usage: levels\.mjs/u);
+  assert.match(run(['--lead']).stderr, /^usage:/u);
+  assert.match(run(['--lead', 'claude-opus-5-5 @xhigh', '--bogus', 'log.tsv']).stderr, /^usage:/u);
+  assert.match(run(['--lead', 'claude-opus-5-5 @xhigh', 'gone.tsv']).stderr, /^gone\.tsv does not exist/u);
+  const noLine = run(['--lead', 'claude-opus-5-5 @xhigh', 'log.tsv']);
+  assert.equal(noLine.status, 1);
+  assert.match(noLine.stderr, /no "architect runners:" line, so line 9 cannot be judged; pass --seats/u);
+  const seats = run(['--lead', 'claude-opus-5-5 @xhigh', '--seats', 'opus @high, codex:gpt-6-astra @high, codex:gpt-6.1-sol @xhigh', 'log.tsv']);
+  assert.equal(seats.status, 0, seats.stderr);
+  assert.match(seats.stdout, /^ {2}at line 7: panel /mu);
 });

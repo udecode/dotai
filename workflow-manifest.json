@@ -17,7 +17,7 @@
     {
       "name": "plan-page",
       "distribution": "bundled",
-      "description": "Write, check, repair and publish a plan page: a project's plans and subject files under its plans directory, rendered by .agents/pstack/plan-page.mjs and rendered as one local HTML page per subject with a local index of every subject, and published to claude.ai at each hand-back for comments and feedback. The page is how work hands back to the user. Use before writing or changing a plan, a subject file in <plans>/topics or its page; at every stop that hands work back, such as a review verdict other than a review-only panel's, a next answer or a playbook's close; when a plan page or its claude.ai artifact looks wrong or refuses to render; to republish a page; or to change the page shape or a playbook's page sections.",
+      "description": "Write, check, repair and publish a plan page: a project's plans and subject files under its plans directory, rendered by .agents/pstack/plan-page.mjs and rendered as one local HTML page per subject with a local index of every subject, and published to claude.ai at each hand-back for comments and feedback. The page is how work hands back to the user. Use before writing or changing a plan, a subject file in <plans>/topics or its page; at every stop that hands work back, such as a review verdict other than a review-only panel's, a next answer or a playbook's close; before writing or updating a PR body, which renders from the PR's plan, or a comment about your commits on someone else's PR; when a plan page or its claude.ai artifact looks wrong or refuses to render; to republish a page; or to change the page shape or a playbook's page sections.",
       "category": "Communication",
       "dependencies": [],
       "capabilities": [
@@ -50,7 +50,7 @@
     {
       "name": "redo",
       "distribution": "bundled",
-      "description": "Redo a prior pstack run at the current session's higher effort or stronger model, treating its plan as a draft: rerun only the plan, design, subagent and seat lanes, code and review judgments that ran below the current level, and reuse the rest. Use for \\\"redo <plan, page or PR>\\\", \\\"run poteto again on it at this effort\\\", \\\"treat this plan as a draft\\\", or a teammate's run made at a lower effort.",
+      "description": "Redo a prior pstack run at the current session's higher effort or stronger model, treating its plan as a draft: rerun only the plan, design, subagent and seat lanes, code and review judgments that ran below the current level, and reuse the rest. Use for \\\"redo <plan, page or PR>\\\", \\\"run poteto again on it at this effort\\\", \\\"treat this plan as a draft\\\", a teammate's run made at a lower effort, or a Babysit whose levels check finds a unit below target.",
       "category": "Workflow",
       "dependencies": [],
       "capabilities": [],
@@ -105,7 +105,7 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "f179df558e9cc440817600fad55376f8d91f865d76075e8785ab7a90a7567d0a",
+      "sha256": "950a8b48665485338f3439e54bddf7ec31437106e7d5a6e675b11184ee95c5dd",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
@@ -137,11 +137,11 @@
       "mode": 420
     },
     "skills/plan-page/SKILL.md": {
-      "sha256": "08cf62ff733102881aeef9550efa07ed94765765673d49c564733e9eac1e6f66",
+      "sha256": "67db8d58093470f0830fc37a2393a7d62eda2406fbad2d9a3d68f0bd99d6552e",
       "mode": 420
     },
     "skills/plan-page/references/shape.md": {
-      "sha256": "8660f157d82178dce650fbd37a441479c25ed8f46e8629f349ab981afa8f49b3",
+      "sha256": "34b2ef902b47f0fa5c36b08b7ef8703b7e103684f5a7c58f06ac91f8b4a1474b",
       "mode": 420
     },
     "skills/pstack-pulse/SKILL.md": {
@@ -209,7 +209,7 @@
       "mode": 420
     },
     "skills/redo/SKILL.md": {
-      "sha256": "9a476cf29b38de0e3b2e31ce7c6ba979466830217013850bc99fe3e006d4d4c6",
+      "sha256": "d945349a719ea1081781d8406ea424016906fb79ce059f75d81f5e7f0337482b",
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
@@ -221,7 +221,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "cd30898ac93003d99d0d18b84999863ccbf21cab2ee784dc37fc15a8bb016548",
+      "sha256": "eadea1f19d4ec0839c6a4260a8a5ef20a0a55362c47fe79fcb938429d89df80f",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/codex-browser.mjs": {
@@ -252,6 +252,10 @@
       "sha256": "2beae3cdca46116818fb1f5b4f8ac4b78bc16ad0f0e94a9dbaadec1011861cf9",
       "mode": 420
     },
+    "skills/sync-pstack/assets/pstack/levels.mjs": {
+      "sha256": "41abf7f3d135d4bf13f1929a43221ca428ab6d59f5996ad435e5df1ca9ffc1ff",
+      "mode": 420
+    },
     "skills/sync-pstack/assets/pstack/mutate.mjs": {
       "sha256": "05c639f85020c067199699f167ac3920e2645971ccaa30a0aeebbc5f8316a317",
       "mode": 420
@@ -261,7 +265,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/plan-page.mjs": {
-      "sha256": "16f12de5bcafa5aea6bbd3a388c8ad64e113f08a443d3c6fb17cee12fe45287f",
+      "sha256": "92f271e5078a5ea5653fa56dfd6069e16ed2032752e3d9bb49f0f1e5e7085d64",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/proof.mjs": {
@@ -329,11 +333,11 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.mjs": {
-      "sha256": "e3002a63b994a7171250f4f9a88afc6f52cd28d653628234f1414ed4b07c2f21",
+      "sha256": "a5492e1e57d7e86f767bbd32305d6c8d7de67dacce1125f6883a4b41f9006854",
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "d31e7be45c78830b1a62559cf709bc21596851cde3f77a07339151c7040c6f5a",
+      "sha256": "19020712db609e24b3a9730a65574ec9155976e98a27900d0efd8a719c2a5652",
       "mode": 420
     },
     "skills/test-audit/LICENSE": {
