@@ -2329,7 +2329,51 @@ test('decisions-check closes a started task by landing or by a dismissal that fi
   assert.equal(offer(ledger, 'src/export').status, 0);
   assert.match(chip(ledger, 'dismissed stopped').stderr, /task_b2 is offered, so it cannot be dismissed stopped/, 'stopped for a task nobody started');
   assert.equal(chip(ledger, 'started').status, 0);
-  assert.equal(chip(ledger, 'dismissed superseded').status, 0, 'a started task whose target went away');
+  for (const reason of ['superseded', 'dup task_d4', 'done']) {
+    assert.match(chip(ledger, `dismissed ${reason}`).stderr, /task_b2 is started, so it cannot be dismissed/, `${reason} for a task whose session may still be writing`);
+  }
+  assert.equal(offer('task_e5 After: Add a CSV export (high)', 'src/export/csv.ts').status, 0);
+  assert.equal(chip('task_e5 After: Add a CSV export (high)', 'dismissed dup task_b2').status, 0, 'an offered task a started task covers');
+});
+
+test('decisions-check refuses a started row that adds a path another started task writes', () => {
+  const { chip, offer } = chipLedger();
+  const reader = 'task_a1 After: Fix the reader (high)';
+  const writer = 'task_b2 After: Fix the writer (high)';
+  assert.equal(offer(reader, 'src/a.ts').status, 0);
+  assert.equal(offer(writer, 'src/b.ts').status, 0);
+  assert.equal(chip(reader, 'started').status, 0);
+  assert.equal(chip(writer, 'started').status, 0);
+  assert.match(chip(writer, 'started', 'writes: src/a.ts').stderr, /task_b2 cannot add a path task_a1, also started, writes/, 'a widening into a running session');
+  assert.equal(chip(writer, 'started', 'writes: src/c.ts').status, 0, 'a widening onto a free path');
+});
+
+test('decisions-check keeps a replacement in the place of the task it replaces', () => {
+  const { batch, offer } = chipLedger();
+  const guide = 'task_a1 Now: Rewrite the guide (high)';
+  assert.equal(offer(guide, 'docs/guide').status, 0);
+  assert.equal(offer('task_c1 After: Fix the guide intro (high)', 'docs/guide/intro.md').status, 0);
+  const retitled = batch([['task_a2 Now: Rewrite the user guide (high)', 'offered', 'writes: docs/guide'], [guide, 'dismissed replaced task_a2']]);
+  assert.equal(retitled.status, 0, `a retitled Now task ahead of the After task waiting for it: ${retitled.stderr}`);
+});
+
+test('decisions-check refuses a write path that is a glob, quoted or ends in punctuation', () => {
+  const { offer } = chipLedger();
+  for (const path of ['packages/*/src', 'src/**', '`docs/x.md`', 'README.md.', '"docs/x.md"']) {
+    assert.match(offer('task_a1 Now: Fix the stale badge (high)', path).stderr, /no whitespace, glob, quote/, path);
+  }
+});
+
+test('decisions-check compares write paths through symlinks and across absolute and relative spellings', () => {
+  const { offer, root } = chipLedger();
+  mkdirSync(join(root, 'deep/dir'), { recursive: true });
+  writeFileSync(join(root, 'deep/x.txt'), 'deep');
+  writeFileSync(join(root, 'x.txt'), 'top');
+  symlinkSync(join(root, 'deep/dir'), join(root, 'link'));
+  assert.equal(offer('task_a1 Now: Fix the deep file (high)', 'deep/x.txt').status, 0);
+  assert.match(offer('task_b2 Now: Fix the linked file (high)', 'link/../x.txt').stderr, /task_b2 is Now, but task_a1/, 'a symlink followed by .. names deep/x.txt');
+  assert.equal(offer('task_c3 Now: Fix the top file (high)', 'x.txt').status, 0, 'the top-level file is another file');
+  assert.match(offer('task_d4 Now: Fix the whole tree (high)', dirname(root)).stderr, /task_d4 is Now, but task_a1/, 'an absolute ancestor of the project');
 });
 
 test('decisions-check compares write paths by where they point', () => {
@@ -2392,6 +2436,17 @@ test('decisions-check chips lists the suggested tasks still offered or started i
   const conflicted = chips(raced);
   assert.equal(conflicted.status, 1, 'two Now tasks on one path that append never checked together');
   assert.match(conflicted.stderr, /task_f2 is Now, but task_f1, still offered, writes an overlapping path/);
+  const checked = run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'docs/plans/suggested-tasks.decisions.tsv'], root);
+  assert.equal(checked.status, 0, checked.stderr);
+  writeFileSync(join(root, 'docs/plans/suggested-tasks.decisions.tsv'), readFileSync(join(root, raced), 'utf8'));
+  const whole = run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'docs/plans/suggested-tasks.decisions.tsv'], root);
+  assert.equal(whole.status, 1, 'the whole-log check on a ledger with two Now tasks on one path');
+  assert.match(whole.stderr, /task_f2 is Now, but task_f1/);
+  const both = 'docs/plans/both.decisions.tsv';
+  writeFileSync(join(root, both), `ts\tphase\tdecision\twhy\tevidence\tresult\n${[['task_g1 After: Fix the core (high)', 'writes: src/core', 'offered'], ['task_g2 After: Speed up the core (xhigh)', 'writes: src/core', 'offered'], ['task_g1 After: Fix the core (high)', 'evidence', 'started'], ['task_g2 After: Speed up the core (xhigh)', 'evidence', 'started']].map(([decision, evidence, result]) => ['2026-01-01T10:00:00Z', 'chip', decision, 'why', evidence, result].join('\t')).join('\n')}\n`);
+  const noted = chips(both);
+  assert.equal(noted.status, 0, 'two started tasks the owner runs on one path');
+  assert.match(noted.stderr, /task_g1 and task_g2 are both started on an overlapping path/);
 });
 
 test('decisions-check refuses a fourth panel round until a built: or another round: row', () => {
