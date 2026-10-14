@@ -7,7 +7,7 @@ This file says how the lead offers, records and cleans up suggested tasks. The p
   - **Title.** The title reads `<tag>: <imperative phrase> (<effort>)`, such as `Now: Fix the stale README badge (high)`.
     - The tag is `Now` only when three things hold. The lead can name the paths the task will write. None of them is a path the run changed since its intake or one its open steps name. The task needs no result the run has not produced yet. The owner can then start it while the run goes on. Its brief lists the run's paths and says not to edit them.
     - Every other task is `After`, which the owner starts once the run closes. When unsure, the lead picks `After`.
-    - At the close nothing is running, so a task offered then is `Now`. The lead does not retag open `After` tasks at the close, because the close reply frees them.
+    - At the close nothing is running, so a task offered then is `Now`. The lead does not retag open `After` tasks at the close, because the plan's Close frees them.
     - The effort is `xhigh` when the task runs a whole poteto playbook with design judgment, such as an architecture, API or plan choice, a bug whose cause is unknown or a performance diagnosis. It is `high` when the task says exactly what to do, such as a named fix, a doc update or a check. The brief's first line repeats the effort.
   - **Ledger.** Each offer and each later change gets a `chip` row in the run's decision log, which the lead queues and appends like any other row.
     - The decision is `<task id> <title>`.
@@ -25,4 +25,4 @@ This file says how the lead offers, records and cleans up suggested tasks. The p
     - When the run removed its target, the lead dismisses it with `superseded`.
     - When the run now writes the paths of a `Now` task, the lead dismisses it. When the tool withdrew it, the lead offers the same task as `After` and logs that offer before the old task's `retagged` row. When the tool reports the owner already started it, the lead logs `started`.
   - **Limits.** The tool cannot rename a task, so every retag is a dismissal followed by a new offer. The dismiss tool reaches only tasks the owner has not acted on. An offer's result lists every task still pending, so the lead checks that list against `chips` after each offer.
-  - **Close.** The close reply tells the owner that the run's `After` tasks are free to start.
+  - **Close.** The plan's `## Close` tells the owner that the run's `After` tasks are free to start, so the page carries it.
