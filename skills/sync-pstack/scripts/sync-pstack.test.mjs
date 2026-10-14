@@ -3208,12 +3208,13 @@ const LEVELS_SHEET = [
   'default effort: high',
 ].join('\n');
 
-test('levels lists each lead stretch and seat round below this session or the configured seats', () => {
+test('levels lists each lead stretch and seat round below this session or the configured seats, with project rules raising or lowering a seat', () => {
   const agents = [
     '<!-- pstack:begin (rendered) -->',
     '- A seat such as `codex:gpt-6.1-sol @max` inside the block raises nothing.',
     '<!-- pstack:end -->',
     '- **Astra effort.** Seat `codex:gpt-6-astra @xhigh` instead of the sheet\'s `@high`.',
+    '- **Sol effort.** No seat runs at xhigh here, so seat `codex:gpt-6.1-sol @high`.',
   ].join('\n');
   const { dir, run } = levelsRun(['--lead', 'claude-opus-5-5 @xhigh', 'log.tsv'], { claude: LEVELS_SHEET, agents });
   writeFileSync(join(dir, 'log.tsv'), LEVELS_LOG);
@@ -3222,7 +3223,7 @@ test('levels lists each lead stretch and seat round below this session or the co
   assert.equal(
     result.stdout,
     [
-      'target: lead claude-opus-5-5 @xhigh; seats opus @high, gpt-6-astra @xhigh, gpt-6.1-sol @xhigh',
+      'target: lead claude-opus-5-5 @xhigh; seats opus @high, gpt-6-astra @xhigh, gpt-6.1-sol @high',
       'log.tsv',
       '  below line 2: lead unknown (no lead row names its level)',
       '  below lines 4-5: lead claude-opus-5-5 @high (@high is below @xhigh)',

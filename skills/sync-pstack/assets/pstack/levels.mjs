@@ -2,9 +2,10 @@
 // Lists each stretch of a decision log that ran below this session's level or
 // the configured seats: a lead stretch on a lower effort, another model or a
 // Codex lead, and a panel, architect or arena round with a seat missing or on
-// a lower effort. The configured seats come from the runtime's models sheet,
-// raised by any `<seat> @<effort>` a project rule outside the pstack block
-// names. Installed by sync-pstack.
+// a lower effort. The configured seats come from the runtime's models sheet;
+// a `<seat> @<effort>` that a project rule outside the pstack block names
+// replaces that seat's effort, the highest one when it names several.
+// Installed by sync-pstack.
 // Usage: node .agents/pstack/levels.mjs [--lead '<model> @<effort>'] [--seats '<seat list>'] <decision log>...
 //        (--lead judges against that level instead of this session's;
 //        --seats replaces the configured seats of every round)
@@ -60,8 +61,9 @@ function targets(sheet, agents, defaultEffort, override) {
     ?.map((code) => seatOf(code.slice(1, -1)))
     .filter((seat) => seat?.effort) ?? [];
   const raised = (seat) => {
-    const effort = raises.filter((raise) => raise.name === seat.name).reduce((top, raise) => (rank(raise.effort) > rank(top) ? raise.effort : top), seat.effort);
-    return { ...seat, effort };
+    const named = raises.filter((raise) => raise.name === seat.name);
+    if (named.length === 0) return seat;
+    return { ...seat, effort: named.reduce((top, raise) => (rank(raise.effort) > rank(top) ? raise.effort : top), named[0].effort) };
   };
   return (role) => {
     if (override) return seatList(override).map((seat) => ({ ...seat, effort: seat.effort ?? defaultEffort }));
