@@ -90,7 +90,7 @@ const moveOf = (outcome) => (outcome[2] ? `dismissed ${outcome[2]}` : outcome[1]
 
 function chipProblems([, decision, , evidence, result], chips, where) {
   const [, id] = decision.match(CHIP) ?? [];
-  if (!id) return [`${where}: a chip row's decision is "<task id> Now: <title> (high)", with After: for a task that waits for something and (xhigh) for one that needs design judgment`];
+  if (!id) return [`${where}: a chip row's decision is "<task id> Now: <title> (high)", with After: for a task that waits for something and the effort the models sheet gives its role`];
   const outcome = result.match(CHIP_RESULT);
   if (!outcome) return [`${where}: a chip row's result is offered, started, landed, or dismissed with done, superseded, gone, stopped, dup <task id> or replaced <task id>`];
   const move = moveOf(outcome);

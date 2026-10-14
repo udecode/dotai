@@ -241,7 +241,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
-      "sha256": "4200b1233408861b7436cdc4adb30f3cdb55366d85286c908b97565226bfa41c",
+      "sha256": "665d3045b4538648feb97121a1d2f99fc43eb0bd47e7a18ddb9472f804afecb9",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/freeze.mjs": {
@@ -281,7 +281,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/chips.md": {
-      "sha256": "90b29fdafdd6f67ccfcf179724e621de488c3aa0cd05f124cd47c24d4ea76454",
+      "sha256": "c58b3dcd5daf22a8f2a579889d7265f4e639745b14c0cf70c43e444dc26f1228",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/close.md": {
