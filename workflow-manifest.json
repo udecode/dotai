@@ -209,7 +209,7 @@
       "mode": 420
     },
     "skills/redo/SKILL.md": {
-      "sha256": "d945349a719ea1081781d8406ea424016906fb79ce059f75d81f5e7f0337482b",
+      "sha256": "edfa654f396b6c26fa6f64c72a80e2bd726d836cf2250db684e4a4336597cb89",
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
@@ -221,7 +221,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "694de5540c0dd784705d99f745619f1535d4f2225b0a3a40fb906791bb7162f1",
+      "sha256": "e55be6fef84e4432e114817a1930388606b8ea60c51ac19124965f04b0ee05f7",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/codex-browser.mjs": {
