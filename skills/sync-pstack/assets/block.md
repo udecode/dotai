@@ -118,7 +118,7 @@
 <!-- # overrides poteto-mode/playbooks/babysit.md "Declare the mode and resolve the forge before any poll." -->
 - **Babysit levels.** Before Babysit's first step on a PR, unless the run only reviews it, run `node .agents/pstack/levels.mjs` on the decision log of each plan the PR links. It marks a lead stretch `below` when Codex led it or it ran below this session's model and effort. It marks a panel, architect or arena round `below` when a seat is missing or ran below the models sheet and this file's seat overrides. When it marks any unit `below`, or when an agent made a PR that links no log, such as one on a `codex/` branch, run the `redo` skill on the PR first. Redo's step 6 is this Babysit, and that Babysit skips this check. Otherwise Babysit runs as written.
 <!-- # adds -->
-- **Suggested tasks.** When the runtime has a tool that offers the owner a task to start in a new session, read `.agents/pstack/rules/chips.md` before the lead offers or dismisses one, and at each hand-back, after each compaction and at the close of a run whose log holds an open `chip` row; it holds the tags, the effort, the ledger and the sweep.
+- **Suggested tasks.** Before the lead suggests side work for the owner to start in a new session, or drops such a suggestion, and at each hand-back, after each compaction and at the close of a run that has one open, read `.agents/pstack/rules/chips.md`; it holds the tags, the effort, the ledger, the sweep and the fallback for a runtime without a suggest tool.
 <!-- end -->
 <!-- section fast -->
 <!-- # overrides poteto-mode/SKILL.md "Route bulk to subagents, keep summaries in the main thread." -->
