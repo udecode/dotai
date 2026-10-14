@@ -126,6 +126,7 @@ export const STATUSES = [
   'gap',
   'inconclusive',
   'kept',
+  'landed',
   'offered',
   'open',
   'partial',
