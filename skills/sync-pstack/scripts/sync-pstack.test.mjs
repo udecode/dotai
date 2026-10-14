@@ -2240,7 +2240,11 @@ const chipLedger = () => {
   const appendTo = (log, phase, decision, evidence, result) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', log, phase, decision, 'why', evidence, result], root);
   const chip = (decision, result, evidence = 'evidence') => appendTo(LEDGER, 'chip', decision, evidence, result);
   const offer = (decision, writes = 'README.md') => chip(decision, 'offered', `writes: ${writes}; brief in the run directory`);
-  return { LEDGER, appendTo, chip, offer, root, run };
+  const batch = (rows) => {
+    writeFileSync(join(root, 'batch.tsv'), rows.map(([decision, result, evidence = 'evidence']) => ['chip', decision, 'why', evidence, result].join('\t')).join('\n') + '\n');
+    return run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', LEDGER, '--from', 'batch.tsv'], root);
+  };
+  return { LEDGER, appendTo, batch, chip, offer, root, run };
 };
 
 test('decisions-check keeps chip rows in the project ledger, out of run logs', () => {
@@ -2249,6 +2253,18 @@ test('decisions-check keeps chip rows in the project ledger, out of run logs', (
   assert.equal(misplaced.status, 1, 'a chip row in a run log');
   assert.match(misplaced.stderr, /chip rows go in the project's ledger docs\/plans\/suggested-tasks\.decisions\.tsv/);
   assert.equal(offer('task_a1 Now: Fix the stale badge (high)').status, 0);
+});
+
+test('decisions-check leaves the chip rows an older run log holds to that log', () => {
+  const { root, run } = chipLedger();
+  const log = 'docs/plans/2026-01-01-fix.decisions.tsv';
+  const rows = [
+    ['chip', 'task_a1 Now: Fix the stale badge (high)', 'why', 'writes: the README badge', 'offered'],
+    ['chip', 'task_a1 Now: Fix the stale badge (high)', 'why', 'retitled as After', 'dismissed retagged task_b2'],
+  ];
+  writeFileSync(join(root, log), `ts\tphase\tdecision\twhy\tevidence\tresult\n${rows.map((row) => ['2026-01-01T10:00:00Z', ...row].join('\t')).join('\n')}\n`);
+  const checked = run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), log], root);
+  assert.equal(checked.status, 0, checked.stderr);
 });
 
 test('decisions-check takes a chip offer only with its tag, its effort and the paths it writes', () => {
@@ -2273,7 +2289,7 @@ test('decisions-check refuses a Now offer that writes a path an open Now task or
   assert.equal(offer('task_b2 After: Design the export ledger (xhigh)', 'src/export').status, 0);
   const clash = offer('task_c3 Now: Rewrite the install guide (high)', 'README.md, docs/install.md');
   assert.equal(clash.status, 1, 'a Now task that writes an open Now task\'s path');
-  assert.match(clash.stderr, /cannot write a path that task_a1, still offered, writes/);
+  assert.match(clash.stderr, /task_c3 is Now, but task_a1, still offered, writes an overlapping path/);
   assert.equal(offer('task_c3 After: Rewrite the install guide (high)', 'README.md, docs/install.md').status, 0, 'the same task waiting as After');
   assert.equal(chip('task_b2 After: Design the export ledger (xhigh)', 'started').status, 0);
   assert.match(offer('task_d4 Now: Add a CSV export (high)', 'src/export/csv.ts').stderr, /task_b2, still started/, 'a Now task inside a started task\'s directory');
@@ -2293,11 +2309,61 @@ test('decisions-check takes a later chip row only for a task in the state it lea
   assert.match(chip('task_a1 After: Fix the stale badge (high)', 'dismissed done').stderr, /every later row repeats that decision/, 'a later row that renames the task');
   assert.equal(chip('task_a1 Now: Fix the stale badge (high)', 'dismissed dup task_c3: the guide rewrite fixes the badge too').status, 0);
   assert.match(chip('task_a1 Now: Fix the stale badge (high)', 'started').stderr, /task_a1 is dismissed, so it cannot be started/, 'a closed task that starts');
-  assert.match(chip('task_c3 After: Rewrite the install guide (high)', 'dismissed dup task_a1').stderr, /task_a1 must be another task the log holds as offered or started/, 'a duplicate of a closed task');
+  assert.match(chip('task_c3 After: Rewrite the install guide (high)', 'dismissed dup task_a1').stderr, /task_a1 must be another task the ledger holds as offered or started/, 'a duplicate of a closed task');
   assert.equal(offer('task_e5 After: Add a CSV export (high)', 'src/export/csv.ts').status, 0);
   assert.equal(chip('task_e5 After: Add a CSV export (high)', 'started').status, 0);
   assert.equal(chip('task_c3 After: Rewrite the install guide (high)', 'dismissed replaced task_e5').status, 1, 'a replacement that already started');
   assert.equal(chip('task_c3 After: Rewrite the install guide (high)', 'dismissed gone.').status, 0, 'trailing punctuation');
+});
+
+test('decisions-check closes a started task by landing or by a dismissal that fits a started task', () => {
+  const { chip, offer } = chipLedger();
+  const badge = 'task_a1 Now: Fix the stale badge (high)';
+  assert.equal(offer(badge).status, 0);
+  assert.equal(chip(badge, 'started').status, 0);
+  assert.match(chip(badge, 'dismissed gone').stderr, /task_a1 is started, so it cannot be dismissed gone/, 'a queue dismissal for a task the owner started');
+  assert.equal(chip(badge, 'dismissed done').status, 1, 'done for a started task, which lands instead');
+  assert.equal(chip(badge, 'dismissed stopped: the owner closed the session').status, 0);
+  assert.equal(offer('task_d4 Now: Rewrite the README intro (high)').status, 0, 'the path is free once the started task stopped');
+  const ledger = 'task_b2 After: Design the export ledger (xhigh)';
+  assert.equal(offer(ledger, 'src/export').status, 0);
+  assert.match(chip(ledger, 'dismissed stopped').stderr, /task_b2 is offered, so it cannot be dismissed stopped/, 'stopped for a task nobody started');
+  assert.equal(chip(ledger, 'started').status, 0);
+  assert.equal(chip(ledger, 'dismissed superseded').status, 0, 'a started task whose target went away');
+});
+
+test('decisions-check compares write paths by where they point', () => {
+  const { offer, root } = chipLedger();
+  assert.equal(offer('task_a1 Now: Fix the stale badge (high)').status, 0);
+  for (const alias of ['./README.md', 'docs/../README.md', join(root, 'README.md'), 'readme.md', '.']) {
+    assert.match(offer('task_b2 Now: Rewrite the README intro (high)', alias).stderr, /task_b2 is Now, but task_a1/, alias);
+  }
+  assert.equal(offer('task_c3 Now: Fix the docs route (high)', 'apps/www/src/app/(app)/docs/page.tsx, apps/plite/[example]/page.tsx').status, 0, 'route folders with brackets and parentheses');
+  assert.equal(offer('task_d4 Now: Fix the shared rule (high)', '/elsewhere/dotai/README.md').status, 0, 'a path in another checkout');
+});
+
+test('decisions-check reads Now overlaps from the ledger after the whole batch', () => {
+  const { batch, chip, offer } = chipLedger();
+  const badge = 'task_a1 Now: Fix the stale badge (high)';
+  assert.equal(offer(badge).status, 0);
+  const retitled = batch([['task_a2 Now: Fix the stale README badge (high)', 'offered', 'writes: README.md'], [badge, 'dismissed replaced task_a2']]);
+  assert.equal(retitled.status, 0, `a Now task replaced by a Now task: ${retitled.stderr}`);
+  assert.equal(offer('task_b1 Now: Fix the parser (high)', 'src/x.ts').status, 0);
+  assert.equal(offer('task_b2 After: Fix the printer (high)', 'src/y.ts').status, 0);
+  const merged = batch([['task_b3 Now: Fix the parser and the printer (high)', 'offered', 'writes: src/x.ts, src/y.ts'], ['task_b1 Now: Fix the parser (high)', 'dismissed dup task_b3'], ['task_b2 After: Fix the printer (high)', 'dismissed dup task_b3']]);
+  assert.equal(merged.status, 0, `two tasks merged into one Now task: ${merged.stderr}`);
+  const guide = 'task_c1 Now: Rewrite the guide (high)';
+  assert.equal(offer(guide, 'docs/guide').status, 0);
+  const page = 'task_c2 After: Fix the guide intro (high)';
+  assert.equal(offer(page, 'docs/guide/intro.md').status, 0, 'an After task that waits for an earlier Now task');
+  assert.match(chip(page, 'started').stderr, /task_c1 is Now, but task_c2, still started/, 'the owner starts a task inside an open Now task\'s directory');
+  assert.equal(batch([[page, 'started'], ['task_c3 After: Rewrite the guide (high)', 'offered', 'writes: docs/guide'], [guide, 'dismissed replaced task_c3']]).status, 0, 'the started row with the Now task retagged After');
+  assert.equal(offer('task_d1 After: Split the lexer (high)', 'lib/a.ts').status, 0);
+  assert.match(offer('task_d2 Now: Rename the lexer (high)', 'lib/a.ts').stderr, /task_d2 is Now, but task_d1, still offered/, 'a Now task on an earlier After task\'s path');
+  const reader = 'task_e1 After: Fix the reader (high)';
+  assert.equal(offer(reader, 'src/e.ts').status, 0);
+  assert.equal(chip(reader, 'started', 'writes: src/f.ts; the session needs the writer too').status, 0, 'a started task that widens');
+  assert.match(offer('task_e2 Now: Fix the writer (high)', 'src/f.ts').stderr, /task_e2 is Now, but task_e1, still started/, 'a Now task on a path a started task added');
 });
 
 test('decisions-check chips lists the suggested tasks still offered or started in the ledger', () => {
@@ -2313,7 +2379,7 @@ test('decisions-check chips lists the suggested tasks still offered or started i
     ['chip', 'task_b2 After: Design the export ledger (xhigh)', 'why', 'the dismiss tool said the owner started it', 'started'],
   ];
   const chips = (...args) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'chips', ...args], root);
-  assert.match(chips().stderr, /No open suggested tasks/, 'a project with no ledger yet');
+  assert.match(chips().stderr, /No ledger at docs\/plans\/suggested-tasks\.decisions\.tsv yet/, 'a project with no ledger yet');
   writeFileSync(join(root, 'queue.tsv'), rows.map((row) => row.join('\t')).join('\n') + '\n');
   const appended = run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'docs/plans/suggested-tasks.decisions.tsv', '--from', 'queue.tsv'], root);
   assert.equal(appended.status, 0, appended.stderr);
@@ -2321,6 +2387,11 @@ test('decisions-check chips lists the suggested tasks still offered or started i
   assert.equal(listed.status, 0, listed.stderr);
   assert.equal(listed.stdout, 'started\ttask_b2 After: Design the export ledger (xhigh)\twrites: src/export\noffered\ttask_d4 After: Rename the probe flag (high)\twrites: tooling/probe.mjs\n');
   assert.equal(chips('docs/plans/missing.decisions.tsv').status, 2, 'a named ledger that does not exist');
+  const raced = 'docs/plans/raced.decisions.tsv';
+  writeFileSync(join(root, raced), `ts\tphase\tdecision\twhy\tevidence\tresult\n${[['task_f1 Now: Fix the badge (high)'], ['task_f2 Now: Fix the badge link (high)']].map(([decision]) => ['2026-01-01T10:00:00Z', 'chip', decision, 'why', 'writes: README.md', 'offered'].join('\t')).join('\n')}\n`);
+  const conflicted = chips(raced);
+  assert.equal(conflicted.status, 1, 'two Now tasks on one path that append never checked together');
+  assert.match(conflicted.stderr, /task_f2 is Now, but task_f1, still offered, writes an overlapping path/);
 });
 
 test('decisions-check refuses a fourth panel round until a built: or another round: row', () => {
