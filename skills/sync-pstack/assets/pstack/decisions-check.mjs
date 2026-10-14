@@ -21,6 +21,8 @@
 //        rows are exempt.
 //        node .agents/pstack/decisions-check.mjs rounds <log>
 //        (exits 1 when the log is at the cap of panel rounds before a build)
+//        node .agents/pstack/decisions-check.mjs chips <log>
+//        (prints each suggested task whose latest chip row is still offered)
 
 import { appendFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -43,6 +45,26 @@ const restartsRoundCount = (line) => {
 };
 const roundsSince = (lines) => lines.slice(lines.findLastIndex(restartsRoundCount) + 1).filter(opens).length;
 
+const CHIP = /^([\w-]+) (?:Now|After): \S.* \((?:high|xhigh)\)$/u;
+const CHIP_RESULT = /^(?:offered|started|dismissed (?:done|superseded|gone|dup ([\w-]+)|retagged ([\w-]+)))(?:[:;,]?\s.*)?$/u;
+const offeredChip = (cells) => (cells[0] === 'chip' && statusOf(cells[4]) === 'offered' ? cells[1].match(CHIP)?.[1] : undefined);
+
+function chipProblems([phase, decision, , evidence, result], offered, where) {
+  const status = statusOf(result);
+  if (phase !== 'chip') return ['offered', 'started'].includes(status) ? [`${where}: an ${status} result belongs only in a chip row`] : [];
+  const found = [];
+  const id = decision.match(CHIP)?.[1];
+  if (!id) found.push(`${where}: a chip row's decision is "<task id> Now: <title> (high)", with After: for a task that waits for the run to close and (xhigh) for one that needs design judgment`);
+  const outcome = result.match(CHIP_RESULT);
+  if (!outcome) return [...found, `${where}: a chip row's result is offered, started, or dismissed with done, superseded, gone, dup <task id> or retagged <task id>`];
+  if (status === 'offered') {
+    if (!/\bwrites:\s*\S/u.test(evidence)) found.push(`${where}: an offered chip row names the paths or areas the task will change as "writes:" in its evidence`);
+  } else if (id && !offered.has(id)) found.push(`${where}: ${id} has no offered chip row before this one`);
+  const replacement = outcome[1] ?? outcome[2];
+  if (replacement && !offered.has(replacement)) found.push(`${where}: ${replacement} has no offered chip row before this one; offer the replacement, then dismiss`);
+  return found;
+}
+
 function plansDir() {
   const config = '.agents/pstack.json';
   return (existsSync(config) && JSON.parse(readFileSync(config, 'utf8')).plans) || 'docs/plans';
@@ -63,7 +85,7 @@ function missingPaths(evidence, where) {
     .map((path) => `${where}: evidence cites ${path}, which does not exist; write it first or cite the path it was saved to`);
 }
 
-function rowProblems(line, where, opened) {
+function rowProblems(line, where, opened, offered) {
   const cells = line.split('\t');
   if (cells.length !== 6) return [`${where}: ${cells.length} cells, expected 6`];
   const found = [];
@@ -92,6 +114,7 @@ function rowProblems(line, where, opened) {
       found.push(`${where}: an open panel finding names its patch: and owner:`);
     }
   }
+  found.push(...chipProblems(rest, offered, where));
   const reviewerRow = rest[0].startsWith('review');
   return reviewerRow ? found : [...found, ...missingPaths(rest[3], where)];
 }
@@ -128,11 +151,13 @@ function problems(path) {
   if (lines[0] !== HEADER) return [`${path}:1: header must be "${HEADER.replaceAll('\t', ' ')}"`];
   const committed = committedLines(path);
   let opened = false;
+  const offered = new Set();
   return lines.flatMap((line, index) => {
     if (index === 0 || line === '') return [];
     const where = `${path}:${index + 1}`;
-    const found = committed.has(line) ? [] : [...rowProblems(line, where, opened), ...missingPlan(path, line, where)];
+    const found = committed.has(line) ? [] : [...rowProblems(line, where, opened, offered), ...missingPlan(path, line, where)];
     opened ||= opens(line);
+    offered.add(offeredChip(line.split('\t').slice(1)));
     return found;
   });
 }
@@ -156,6 +181,7 @@ function append(path, batch, run) {
   const isWriting = (line) => line.split('\t')[1] === 'writing';
   let written = isWriting(existing.findLast((line) => opens(line) || isWriting(line)) ?? '');
   let rounds = roundsSince(existing);
+  const offered = new Set(existing.slice(1).map((line) => offeredChip(line.split('\t').slice(1))));
   const rows = [];
   const found = [];
   for (const [index, cells] of batch.entries()) {
@@ -170,7 +196,7 @@ function append(path, batch, run) {
       continue;
     }
     const row = [stamp, ...cells].join('\t');
-    found.push(...rowProblems(row, where, opened), ...missingPlan(path, row, where), ...appendOnlyLabelProblems(path, row, [...existing.slice(1).filter(Boolean), ...rows], where));
+    found.push(...rowProblems(row, where, opened, offered), ...missingPlan(path, row, where), ...appendOnlyLabelProblems(path, row, [...existing.slice(1).filter(Boolean), ...rows], where));
     if (opens(row) && opened && !written) {
       found.push(`${where}: a later round's seats row needs a writing row after the previous seats row: log the round's writing passes under phase writing, or log a writing row that says why none ran`);
     }
@@ -183,6 +209,7 @@ function append(path, batch, run) {
       rounds += 1;
     } else if (isWriting(row)) written = true;
     opened ||= opens(row);
+    offered.add(offeredChip(cells));
     rows.push(row);
   }
   if (found.length > 0) return found;
@@ -212,6 +239,22 @@ if (args[0] === 'rounds') {
   const rounds = roundsSince(lines);
   console.info(`${rounds} panel round(s) since the last restart; the cap is ${MAX_ROUNDS}`);
   process.exit(rounds >= MAX_ROUNDS ? 1 : 0);
+}
+if (args[0] === 'chips') {
+  if (!args[1] || !existsSync(args[1])) {
+    console.error(args[1] ? `no log at ${args[1]}` : 'Usage: node .agents/pstack/decisions-check.mjs chips <log.decisions.tsv>');
+    process.exit(2);
+  }
+  const latest = new Map();
+  for (const line of readFileSync(args[1], 'utf8').split('\n').slice(1)) {
+    const [, phase, decision = '', , evidence = '', result = ''] = line.split('\t');
+    const id = phase === 'chip' && decision.match(CHIP)?.[1];
+    if (id) latest.set(id, { decision, evidence, result });
+  }
+  const open = [...latest.values()].filter((row) => statusOf(row.result) === 'offered');
+  for (const row of open) console.info(`${row.decision}\t${row.evidence}`);
+  if (open.length === 0) console.error(`No open suggestions in ${args[1]}.`);
+  process.exit(0);
 }
 if (args[0] === 'append') {
   const batch =

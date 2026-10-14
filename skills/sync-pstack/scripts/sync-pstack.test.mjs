@@ -2233,6 +2233,62 @@ test("decisions-check takes a later round's seats row only after a writing row",
   assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'old.decisions.tsv'], root).status, 0, 'a whole-log check leaves rounds already written alone');
 });
 
+test('decisions-check takes a chip row only with its tag, its effort and a result that follows the offer', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app');
+  const append = (phase, decision, evidence, result) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', phase, decision, 'why', evidence, result], root);
+  const offer = (decision, evidence = 'writes: README.md') => append('chip', decision, evidence, 'offered');
+  assert.equal(offer('task_a1 Fix the stale badge (high)').status, 1, 'a title with no tag');
+  assert.equal(offer('task_a1 Soon: Fix the stale badge (high)').status, 1, 'a tag other than Now or After');
+  assert.equal(offer('task_a1 Now: Fix the stale badge').status, 1, 'a title with no effort');
+  assert.equal(offer('task_a1 Now: Fix the stale badge (medium)').status, 1, 'an effort other than high or xhigh');
+  const unscoped = offer('task_a1 Now: Fix the stale badge (high)', 'the badge links a dead page');
+  assert.equal(unscoped.status, 1, 'an offer that names no write set');
+  assert.match(unscoped.stderr, /writes:/);
+  assert.equal(offer('task_a1 Now: Fix the stale badge (high)').status, 0);
+  assert.equal(offer('task_b2 After: Design the export ledger (xhigh)', 'writes: src/export').status, 0);
+  assert.equal(append('chip', 'task_a1 Now: Fix the stale badge (high)', 'evidence', 'dismissed').status, 1, 'a dismissal with no reason');
+  assert.equal(append('chip', 'task_a1 Now: Fix the stale badge (high)', 'evidence', 'dismissed later').status, 1, 'a reason outside the list');
+  const unoffered = append('chip', 'task_z9 Now: Fix the stale badge (high)', 'evidence', 'dismissed done');
+  assert.equal(unoffered.status, 1, 'a dismissal of a task never offered');
+  assert.match(unoffered.stderr, /task_z9 has no offered chip row/);
+  assert.equal(append('chip', 'task_a1 Now: Fix the stale badge (high)', 'evidence', 'dismissed dup task_q7').status, 1, 'a duplicate of a task never offered');
+  assert.equal(append('chip', 'task_a1 Now: Fix the stale badge (high)', 'evidence', 'dismissed dup task_b2: the ledger task fixes the badge too').status, 0);
+  assert.equal(append('chip', 'task_b2 After: Design the export ledger (xhigh)', 'evidence', 'started').status, 0);
+  assert.equal(offer('task_c3 After: Rename the probe flag (high)').status, 0);
+  assert.equal(append('chip', 'task_c3 After: Rename the probe flag (high)', 'evidence', 'dismissed gone: the tool said it already left the queue').status, 0);
+  assert.equal(append('chip', 'task_b2 After: Design the export ledger (xhigh)', 'evidence', 'recorded').status, 1, 'a chip result outside offered, started and dismissed');
+  const stray = append('build', 'ship the parser', 'scope: fixtures', 'offered');
+  assert.equal(stray.status, 1, 'an offered result outside a chip row');
+  assert.match(stray.stderr, /only in a chip row/);
+  assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'log.decisions.tsv'], root).status, 0);
+});
+
+test('decisions-check chips lists only the suggestions still open, so a retag replaces its old card', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app');
+  const rows = [
+    ['chip', 'task_a1 Now: Fix the stale badge (high)', 'why', 'writes: README.md', 'offered'],
+    ['chip', 'task_b2 After: Design the export ledger (xhigh)', 'why', 'writes: src/export', 'offered'],
+    ['chip', 'task_c3 Now: Rename the probe flag (high)', 'why', 'writes: tooling/probe.mjs', 'offered'],
+    ['chip', 'task_d4 After: Rename the probe flag (high)', 'why', 'writes: tooling/probe.mjs', 'offered'],
+    ['chip', 'task_c3 Now: Rename the probe flag (high)', 'why', 'the run now edits tooling/probe.mjs', 'dismissed retagged task_d4'],
+    ['chip', 'task_a1 Now: Fix the stale badge (high)', 'why', 'README.md already links the live page', 'dismissed done'],
+    ['chip', 'task_b2 After: Design the export ledger (xhigh)', 'why', 'the dismiss tool said the owner started it', 'started'],
+  ];
+  writeFileSync(join(root, 'queue.tsv'), rows.map((row) => row.join('\t')).join('\n') + '\n');
+  const appended = run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', '--from', 'queue.tsv'], root);
+  assert.equal(appended.status, 0, appended.stderr);
+  const listed = run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'chips', 'log.decisions.tsv'], root);
+  assert.equal(listed.status, 0, listed.stderr);
+  assert.equal(listed.stdout, 'task_d4 After: Rename the probe flag (high)\twrites: tooling/probe.mjs\n');
+  writeFileSync(join(root, 'empty.decisions.tsv'), 'ts\tphase\tdecision\twhy\tevidence\tresult\n');
+  const none = run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'chips', 'empty.decisions.tsv'], root);
+  assert.equal(none.status, 0);
+  assert.equal(none.stdout, '');
+  assert.match(none.stderr, /No open suggestions/);
+});
+
 test('decisions-check refuses a fourth panel round until a built: or another round: row', () => {
   const { dir, run } = sandbox();
   const root = project(dir, 'app');
