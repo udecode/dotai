@@ -24,5 +24,5 @@ This file says how the lead offers, records and cleans up suggested tasks. The p
     - When another task covers it, the lead offers one merged task, then dismisses both with `dup` and the merged task's id.
     - When the run removed its target, the lead dismisses it with `superseded`.
     - When the run now writes the paths of a `Now` task, the lead dismisses it. When the tool withdrew it, the lead offers the same task as `After` and logs that offer before the old task's `retagged` row. When the tool reports the owner already started it, the lead logs `started`.
-  - **Limits.** The tool cannot rename a task or report its state, so every retag is a dismissal followed by a new offer. The dismiss tool reaches only tasks the owner has not acted on.
+  - **Limits.** The tool cannot rename a task, so every retag is a dismissal followed by a new offer. The dismiss tool reaches only tasks the owner has not acted on. An offer's result lists every task still pending, so the lead checks that list against `chips` after each offer.
   - **Close.** The close reply tells the owner that the run's `After` tasks are free to start.
