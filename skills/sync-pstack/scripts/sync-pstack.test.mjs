@@ -4008,6 +4008,40 @@ test('reply copies the final assistant text of a finished subagent and never ove
   assert.equal(existsSync(join(dir, 'interim.md')) || existsSync(join(dir, 'limit.md')), false);
 });
 
+test('head points origin/HEAD at the working branch only when a protected branch differs', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-head-'));
+  const remote = join(dir, 'remote.git');
+  const clone = join(dir, 'clone');
+  const git = (cwd, ...args) => {
+    const run = spawnSync('git', args, { cwd, encoding: 'utf8' });
+    assert.equal(run.status, 0, run.stderr);
+    return run.stdout.trim();
+  };
+  git(dir, 'init', '--quiet', '--bare', '--initial-branch=main', remote);
+  git(dir, 'clone', '--quiet', remote, clone);
+  git(clone, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '--quiet', '--allow-empty', '-m', 'base');
+  git(clone, 'push', '--quiet', 'origin', 'HEAD:main', 'HEAD:next');
+  git(clone, 'remote', 'set-head', 'origin', 'main');
+  mkdirSync(join(clone, '.agents'));
+  const head = () => spawnSync(process.execPath, [join(HELPERS, 'head.mjs')], { cwd: clone, encoding: 'utf8' });
+  const origin = () => git(clone, 'symbolic-ref', 'refs/remotes/origin/HEAD');
+
+  writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify({ branch: 'main' }));
+  assert.equal(head().stdout, '', 'no protected branch, so the default branch is the working branch');
+  assert.equal(origin(), 'refs/remotes/origin/main');
+
+  writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify({ branch: 'gone', protected: 'main' }));
+  assert.equal(head().status, 0);
+  assert.equal(origin(), 'refs/remotes/origin/main', 'a working branch origin lacks moves nothing');
+
+  writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify({ branch: 'next', protected: 'main' }));
+  const moved = head();
+  assert.equal(moved.status, 0, moved.stderr);
+  assert.match(moved.stdout, /origin\/HEAD now points at origin\/next/);
+  assert.equal(origin(), 'refs/remotes/origin/next');
+  assert.equal(head().stdout, '', 'a second run finds origin/HEAD in place and prints nothing');
+});
+
 test('reread prints each changed sentence whole against its last snapshot', () => {
   const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-reread-'));
   const rules = 'Intro line.\n\n- **Delivery.** The user owns commits. Run the last check before handing back, and never push the protected branch without the owner asking for it in this request.\n- Keep plans in the repository.\n\nA repair edits the one owner, fixes every artifact that\nstill teaches the rejected shape, and regenerates\nand proves mirrors. Ask Dr. Smith before a release.\n';
