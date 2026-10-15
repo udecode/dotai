@@ -567,8 +567,8 @@ export function board(tasks, git, here = null) {
     .map((task) => ({
       kind: 'check',
       text: task.startedIn
-        ? `check session ${task.startedIn}, which started ${task.id}: when the session tool reports it archived, log landed when a commit holds its change or its last report says it delivered the change, and dismissed stopped when that report hands back no patch and the tree holds no uncommitted edit on its paths`
-        : `find the session that started ${task.id} with the session tool, such as a transcript search for its title with archived sessions included, and log started with session: <its id>; when the search finds none, ${task.id} stays started`,
+        ? `check session ${task.startedIn}, which started ${task.id}: when the session tool reports it archived, log landed when a commit holds its change or its last report says it delivered the change, and dismissed stopped when that report hands back no patch and neither this checkout nor its worktree holds an uncommitted edit on its paths`
+        : `find the session that started ${task.id} with the session tool, archived sessions included, as the one whose transcript opens with its card prompt, and log started with session: <its id>; when the search finds none, ${task.id} stays started`,
     }));
   const withdrawals = waiting
     .filter(({ task }) => task.card && !elsewhere(task))

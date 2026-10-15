@@ -26,7 +26,7 @@ pstack calls these modes too. Where a pstack step files a tracked issue, a follo
    - Withdrawal pass: call the dismiss tool on each card it names, then log the row the tool's report decides, as each item says.
    - Ledger pass: log each row it names.
    - Card pass: leave it to step 5.
-   - Check items: look each session up with the session tool. Log `uncarded` with a card item's `card:` when the tool reports its session archived or gone. For a started task whose rows name no session, find it as the item says and log `started` with its `session:`. When the tool reports a started task's session archived, read its last report with the tool, then log `landed` when a commit holds the change or that report says the session delivered it. Log `dismissed stopped` only when that report hands back no patch and the tree holds no uncommitted edit on the task's paths. Otherwise, or when the tool cannot find the session, the task stays started, and step 6 says why.
+   - Check items: look each session up with the session tool. Log `uncarded` with a card item's `card:` when the tool reports its session archived or gone. For a started task whose rows name no session, find it as the item says and log `started` with its `session:`. When the tool reports a started task's session archived, read its last report with the tool, then log `landed` when a commit holds the change or that report says the session delivered it. Log `dismissed stopped` only when that report hands back no patch and neither this checkout nor the session's own worktree holds an uncommitted edit on the task's paths. Otherwise, or when the tool cannot find the session, the task stays started, and step 6 says why.
 
    Run `chips --session <id>` again and repeat until the Do list shows only the card pass or nothing you can apply. When `append` refuses a batch, fix or drop the refused row as its message says and append the rest.
 3. Judge each task the stale report gives a fact, from its brief, those facts and the code, and append the rows in one batch:
@@ -38,7 +38,7 @@ pstack calls these modes too. Where a pstack step files a tracked issue, a follo
    - For a started task, log `landed` when a commit holds its change. Step 2's check item settles the rest from its session, so never ask the owner whether that session still runs.
 4. Repeat step 2 for what step 3 changed.
 5. Card pass: offer each card the Do list names with the prompt from `chips brief <id>` and the effort its first line shows, while the suggest tool's last result lists fewer than 20 pending cards, then log `carded` with `card:` and `session:`. A runtime with no suggest tool lists each Ready task in the plan's `## Open work` instead, as chips.md's Limits says.
-6. Report in plain words each row this sweep logged, one line each, then what can start and whether it has a card, what is started and why it stays open, and what waits and on what, grouped by the thing waited on. Name each task by id and title. The report asks the owner nothing. The owner reverses a dismissal by asking, and the lead offers the task again.
+6. Report in plain words each row this sweep logged, one line each, then what can start and whether it has a card, what is started, why it stays open and that "drop <id>" closes it, and what waits and on what, grouped by the thing waited on. Name each task by id and title. The report asks the owner nothing. The owner reverses a dismissal by asking, and the lead offers the task again.
 
 ## Offer
 
@@ -56,11 +56,12 @@ A session a card opened runs this before it writes anything, as chips.md's Sweep
 
 1. Run `chips brief <id>` and work from what it prints, not from the card's prompt.
 2. Run `chips`. When the task is neither Ready nor Started, tell the owner what it waits on and stop.
-3. Log `started` with `writes:` naming any path the brief lacks and `session:` naming this session's id from the session tool, then run `chips brief <id>` again, because the task could change until that row.
+3. Log `started` with `writes:` naming any path the brief lacks and `session:` naming this session's id where the runtime's session tool gives one, then run `chips brief <id>` again, because the task could change until that row.
 4. Before writing a path the task does not list, log another `started` row with it. When `append` refuses that row because another started task writes the path, leave the path alone and tell the owner.
 
 ## Drop
 
-1. When the task holds a card this session offered, call the dismiss tool on it. When the tool reports the owner started it, log `started` and tell the owner. Otherwise log `dismissed declined` with its `card:`, in place of `uncarded`, so no merge lands between the two.
-2. When another session holds its card, log `dismissed declined` with that `card:`.
-3. When it holds no card, log `dismissed declined`.
+1. When the task is started, log `dismissed stopped`.
+2. When the task holds a card this session offered, call the dismiss tool on it. When the tool reports the owner started it, log `started` and tell the owner. Otherwise log `dismissed declined` with its `card:`, in place of `uncarded`, so no merge lands between the two.
+3. When another session holds its card, log `dismissed declined` with that `card:`.
+4. When it holds no card, log `dismissed declined`.
