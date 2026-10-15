@@ -21,8 +21,8 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ask } from '../assets/pstack/cross.mjs';
 import { EFFORTS } from '../assets/pstack/lead.mjs';
 
@@ -347,9 +347,11 @@ function diff(before, after) {
   try {
     writeFileSync(join(dir, 'current'), `${before}\n`);
     writeFileSync(join(dir, 'rendered'), `${after}\n`);
-    const { stdout } = spawnSync('git', ['diff', '--no-index', '--no-color', '--', join(dir, 'current'), join(dir, 'rendered')], {
+    const { stdout, error } = spawnSync('git', ['diff', '--no-index', '--no-color', '--', join(dir, 'current'), join(dir, 'rendered')], {
       encoding: 'utf8',
+      maxBuffer: 256 * 1024 * 1024,
     });
+    if (error) throw error;
     return stdout
       .split('\n')
       .filter((line) => !/^(?:diff --git|index |--- |\+\+\+ )/u.test(line))
@@ -945,6 +947,45 @@ export function smoke(root, prompts, { timeout = 900 } = {}) {
   );
 }
 
+const corpusRuns = (session, ledger) => [
+  ['decisions-check.mjs', '--all'],
+  ['decisions-check.mjs', 'chips', ...(session ? ['--session', session] : []), ...(ledger ? [ledger] : [])],
+  ['decisions-check.mjs', 'chips', 'stale', ...(ledger ? [ledger] : [])],
+];
+
+const maskHelperUrls = (text, dir) =>
+  text.replaceAll(`${pathToFileURL(existsSync(dir) ? realpathSync(dir) : dir).href}/`, 'file://<helpers>/').replaceAll(`${pathToFileURL(dir).href}/`, 'file://<helpers>/');
+
+export function corpus(root, { session, installedDir = join(root, HELPER_DIR) } = {}) {
+  const wholeLogBase = git(root, 'rev-list', '--max-parents=0', 'HEAD')?.split('\n').at(-1);
+  const env = { ...process.env, PSTACK_BASE: wholeLogBase };
+  if (!wholeLogBase) delete env.PSTACK_BASE;
+  const clock = `data:text/javascript,Date.now=()=>${Date.now()}`;
+  const live = join(root, (existsSync(join(root, CONFIG)) && readJson(join(root, CONFIG)).plans) || 'docs/plans', 'suggested-tasks.decisions.tsv');
+  const scratch = mkdtempSync(join(tmpdir(), 'sync-pstack-corpus-'));
+  const snapshot = existsSync(live) ? join(scratch, 'suggested-tasks.decisions.tsv') : null;
+  if (snapshot) writeFileSync(snapshot, readFileSync(live));
+  const sides = { installed: installedDir, bundled: HELPERS };
+  const transcripts = { installed: [], bundled: [] };
+  const incomplete = [];
+  for (const [helper, ...args] of corpusRuns(session, snapshot)) {
+    const header = `--- ${helper} ${args.join(' ')}`;
+    for (const [side, dir] of Object.entries(sides)) {
+      if (!existsSync(join(dir, helper))) {
+        transcripts[side].push(`${header}\nabsent`);
+        continue;
+      }
+      const result = spawnSync(process.execPath, ['--import', clock, join(dir, helper), ...args], { cwd: root, env, encoding: 'utf8', timeout: 300_000, maxBuffer: 256 * 1024 * 1024 });
+      if (result.error) incomplete.push(`${side} ${helper} ${args.join(' ')}: ${result.error.code ?? result.error.message}`);
+      transcripts[side].push(maskHelperUrls(`${header}\n${result.stdout}${result.stderr}exit ${result.status ?? result.signal}`, dir));
+    }
+  }
+  rmSync(scratch, { recursive: true, force: true });
+  const installed = transcripts.installed.join('\n').replaceAll(scratch, '<snapshot>');
+  const bundled = transcripts.bundled.join('\n').replaceAll(scratch, '<snapshot>');
+  return { installed, bundled, incomplete, diff: diff(installed, bundled) };
+}
+
 export function* markdownFiles(dir) {
   if (!existsSync(dir)) return;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -1199,6 +1240,8 @@ const HELP = `Usage: node sync-pstack.mjs <command> [options]
                                    off its branch or with uncommitted edits to the files it writes.
   playbook <project> <name>        Print each pstack base of .agents/playbooks/<name>.md with its changes applied.
   smoke <project> <prompt>...      Run each prompt read-only in Claude Code and Codex from <project>; print the answers.
+  corpus [project...]              Run the project's installed ledger helpers and this skill's copies over its ledger
+                                   and decision logs; print the difference. Every managed project when none are named.
   user-pin --tag <tag>             Pin the user-scope Claude Code marketplace; print the refresh commands.
   latest                           Newest upstream ${REPO} tag.
 
@@ -1207,7 +1250,10 @@ const HELP = `Usage: node sync-pstack.mjs <command> [options]
   --force         apply and sync: overwrite a block or helper edited since the last sync, or render
                   from a source older than the project's last sync
   --allow-dirty   sync: write files that have uncommitted edits
-  --root <dir>    status and sync: also scan the repositories directly under <dir>
+  --root <dir>    status, sync and corpus: also scan the repositories directly under <dir>
+  --session <id>  corpus: pass this session's id to chips
+  --installed <dir>  corpus: read the old helpers from <dir>, such as a copy saved before an apply, for one project
+  --out <dir>     corpus: also write corpus-<project>-installed.txt and corpus-<project>-bundled.txt there
   --json          status: print JSON
   --offline       status: skip the upstream tag lookup`;
 
@@ -1219,6 +1265,9 @@ function main(argv) {
     const arg = rest[index];
     if (arg === '--tag') flags.tag = rest[++index];
     else if (arg === '--root') flags.roots.push(resolve(rest[++index]));
+    else if (arg === '--session') flags.session = rest[++index];
+    else if (arg === '--out') flags.out = resolve(rest[++index]);
+    else if (arg === '--installed') flags.installed = resolve(rest[++index]);
     else if (SWITCHES[arg]) flags[SWITCHES[arg]] = true;
     else if (arg.startsWith('--')) throw new Error(`Unknown option ${arg}`);
     else positional.push(arg);
@@ -1330,6 +1379,33 @@ function main(argv) {
         for (const answer of answers) console.info(`## ${answer.runtime}: ${answer.prompt.slice(0, 80)}\n${answer.text}\n`);
         return answers.every((answer) => answer.ok) ? 0 : 1;
       });
+    }
+    case 'corpus': {
+      const found = projects.length > 0 ? projects : candidates(flags.roots).filter((root) => existsSync(join(root, CONFIG)));
+      if (flags.installed && found.length !== 1) throw new Error('corpus --installed takes one project path');
+      const helpersAt = git(SKILL, 'log', '-1', '--format=%H', '--', 'assets');
+      const names = new Set();
+      if (flags.out) mkdirSync(flags.out, { recursive: true });
+      let incomplete = 0;
+      for (const root of found) {
+        const result = corpus(root, { session: flags.session, installedDir: flags.installed });
+        const lines = [root];
+        const syncedFrom = existsSync(join(root, CONFIG)) ? readJson(join(root, CONFIG)).synced?.source : null;
+        if (result.diff && !flags.installed && syncedFrom && helpersAt && syncedFrom !== helpersAt) {
+          lines.push(`  installed helpers come from ${syncedFrom.slice(0, 7)}, not ${helpersAt.slice(0, 7)}; the difference includes every helper change between them`);
+        }
+        for (const failure of result.incomplete) lines.push(`  incomplete: ${failure}`);
+        lines.push(result.diff ? result.diff.replace(/^/gmu, '  ') : '  no difference');
+        console.info(lines.join('\n'));
+        incomplete += result.incomplete.length;
+        if (flags.out) {
+          const name = names.has(basename(root)) ? `${basename(root)}-${sha(root).slice(0, 7)}` : basename(root);
+          names.add(name);
+          writeFileSync(join(flags.out, `corpus-${name}-installed.txt`), `${result.installed}\n`);
+          writeFileSync(join(flags.out, `corpus-${name}-bundled.txt`), `${result.bundled}\n`);
+        }
+      }
+      return incomplete > 0 ? 1 : 0;
     }
     case 'latest':
       console.info(latestTag() ?? 'no tags found');

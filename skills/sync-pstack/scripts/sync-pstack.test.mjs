@@ -736,6 +736,48 @@ test('smoke fails when a runtime exits cleanly with no answer', () => {
   assert.equal(result.status, 1, result.stdout);
 });
 
+test("corpus diffs the project's installed ledger helpers against this skill's copies over every managed project", () => {
+  const { dir, env, cli } = sandbox();
+  const ledger = [
+    'ts\tphase\tdecision\twhy\tevidence\tresult',
+    '2026-10-01T00:00:00Z\tchip\tt_0a1b2c3d Fix the corpus fixture\tA finding\twrites: src/a.ts; topic: corpus-fixture\toffered',
+    '',
+  ].join('\n');
+  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n', files: { 'docs/plans/suggested-tasks.decisions.tsv': ledger } });
+  project(dir, 'bare', { agents: '# Bare\n' });
+  assert.equal(cli('apply', root).status, 0);
+  spawnSync('git', ['-C', root, 'add', '-A']);
+  commit(root, 'app');
+  writeFileSync(join(root, 'docs/plans/2026-10-01-x.decisions.tsv'), 'ts\tphase\tdecision\twhy\tevidence\tresult\n2026-10-01T00:00:00Z\tbuild\tA decision\tA reason\tsome evidence\tmaybe\n');
+  spawnSync('git', ['-C', root, 'add', '-A']);
+  commit(root, 'log');
+  const installed = join(root, '.agents/pstack/decisions-check.mjs');
+  cpSync(join(root, '.agents/pstack'), join(dir, 'baseline'), { recursive: true });
+
+  const same = spawnSync(process.execPath, [SCRIPT, 'corpus', root, '--out', join(dir, 'same')], { encoding: 'utf8', env: { ...env, PSTACK_BASE: 'HEAD' } });
+  assert.equal(same.status, 0, same.stderr);
+  assert.match(same.stdout, /^\S+\/app\n {2}no difference$/m);
+  assert.match(read(join(dir, 'same'), 'corpus-app-bundled.txt'), /2026-10-01-x\.decisions\.tsv/);
+
+  writeFileSync(installed, "console.log('old', process.argv.slice(2).join(' '), process.cwd());\nif (process.argv[2] === '--all') throw new Error('boom');\n");
+  const out = join(dir, 'out');
+  const changed = cli('corpus', '--root', dir, '--session', 'local_1', '--out', out);
+  assert.equal(changed.status, 0, changed.stderr);
+  assert.doesNotMatch(changed.stdout, /bare/);
+  assert.match(changed.stdout, /^ {2}-old chips --session local_1 <snapshot>\/suggested-tasks\.decisions\.tsv \S+\/app$/m);
+  assert.match(changed.stdout, /^ {2}-old chips stale <snapshot>\/suggested-tasks\.decisions\.tsv \S+\/app$/m);
+  assert.match(changed.stdout, /^ {2}\+\s+t_0a1b2c3d {2}Fix the corpus fixture/m);
+  const old = read(out, 'corpus-app-installed.txt');
+  assert.match(old, /file:\/\/<helpers>\/decisions-check\.mjs:2/);
+  assert.equal(old.includes(installed), false);
+  assert.equal(read(out, 'corpus-app-bundled.txt').includes('\nold '), false);
+
+  assert.match(cli('corpus', root, '--installed', join(dir, 'baseline')).stdout, /^\S+\/app\n {2}no difference$/m);
+
+  rmSync(installed);
+  assert.match(cli('corpus', root).stdout, /^ {2}-absent$/m);
+});
+
 test('argument-hint modes are the literal words that open an alternative, outside placeholders', () => {
   assert.deepEqual(hintModes("argument-hint: '[<question | plan path to extend> | diagnose <report> | --deep]'"), ['diagnose']);
   assert.deepEqual(hintModes('argument-hint: [sync [package] | <path>]'), ['sync']);
