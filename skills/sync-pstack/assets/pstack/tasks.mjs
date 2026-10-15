@@ -112,19 +112,6 @@ const follow = (id, tasks) => {
   return task;
 };
 
-const mergeInto = (kept, task, tasks) => {
-  kept.findings.push(...task.findings);
-  kept.covers.push(`${task.id} ${task.title}`, ...task.covers);
-  kept.owns = joined(kept.owns, task.owns);
-  const outside = (wait) => follow(wait.match(WAIT)?.[2] ?? '', tasks) !== kept;
-  kept.waits = kept.waits.filter(outside);
-  if (sessionPicksPlan(kept)) return;
-  if (task.kind === 'decide') kept.kind = 'decide';
-  kept.writes = joined(kept.writes, task.writes);
-  kept.keys = kept.writes.map(writeKey);
-  kept.waits = joined(kept.waits, task.waits.filter(outside));
-};
-
 export function recordRow(tasks, cells) {
   const row = parseRow(cells);
   if (!row) return;
@@ -150,7 +137,6 @@ export function recordRow(tasks, cells) {
       card: given.card ?? null,
       session: given.card ? (given.session ?? null) : null,
       findings: [row.why],
-      covers: [],
     });
     return;
   }
@@ -189,9 +175,7 @@ export function recordRow(tasks, cells) {
     task.status = 'dismissed';
     task.reason = row.move.slice('dismissed '.length);
     task.target = row.target ?? null;
-    const kept = row.target && tasks.get(row.target);
-    takePlaceOf(kept, task);
-    if (row.move === 'dismissed dup' && kept && isOpen(kept)) mergeInto(kept, task, tasks);
+    takePlaceOf(row.target && tasks.get(row.target), task);
   }
 }
 
@@ -250,13 +234,12 @@ export function chipRowProblems(cells, before, where) {
   if (found.length > 0) return found;
   const after = afterRow(before, cells);
   const task = after.get(id);
-  const subject = move === 'dismissed dup' ? after.get(row.target) : task;
-  if (['offered', 'updated', 'reopened', 'dismissed dup'].includes(move) && subject.status === 'offered' && subject.kind === 'decide') {
-    const peers = [...after.values()].filter((peer) => peer.id !== subject.id && peer.kind === 'decide' && peer.topic === subject.topic);
+  if (['offered', 'updated', 'reopened'].includes(move) && task.status === 'offered' && task.kind === 'decide') {
+    const peers = [...after.values()].filter((peer) => peer.id !== id && peer.kind === 'decide' && peer.topic === task.topic);
     const rival = peers.find((peer) => peer.status === 'offered');
-    if (rival) found.push(`${where}: topic ${subject.topic} already has the open design question ${rival.id}; log this finding as a folded row on ${rival.id} instead`);
+    if (rival) found.push(`${where}: topic ${task.topic} already has the open design question ${rival.id}; log this finding as a folded row on ${rival.id} instead`);
     for (const running of peers.filter((peer) => peer.status === 'started')) {
-      if (!subject.waits.includes(`task:${running.id}`)) found.push(`${where}: topic ${subject.topic}'s design question ${running.id} is running; a new one waits on it with waits: task:${running.id}`);
+      if (!task.waits.includes(`task:${running.id}`)) found.push(`${where}: topic ${task.topic}'s design question ${running.id} is running; a new one waits on it with waits: task:${running.id}`);
     }
   }
   return found;
@@ -267,7 +250,7 @@ export function newChipRowProblems(cells, before, where, git) {
   const row = parseRow(cells);
   if (!row) return [];
   const { id, move } = row;
-  if (LEGACY_ONLY.includes(move)) return [`${where}: a task keeps its id for good: log uncarded when its card leaves the queue, updated when its waits or paths change, and dismissed dup <task id> to merge it into another task`];
+  if (LEGACY_ONLY.includes(move)) return [`${where}: a task keeps its id for good: log uncarded when its card leaves the queue, updated when its waits or paths change, and dismissed dup <task id> when another task covers it`];
   const { given, repeated } = fields(evidence);
   const found = repeated.map((key) => `${where}: a chip row names ${key}: once`);
   const takes = TAKES[move] ?? [];
@@ -450,7 +433,7 @@ export function board(tasks, git, here = null) {
     ...waiting.flatMap(({ task, stuck }) => stuck.map((blocker) => ({ kind: 'problem', text: `fix ${task.id}'s wait: ${blocker}; log updated with the waits it has now` }))),
     ...[...topics.values()]
       .filter((entry) => offeredDecides(entry).length > 1)
-      .map((entry) => ({ kind: 'problem', text: `fold topic ${entry.topic}: ${offeredDecides(entry).map((task) => task.id).join(' and ')} are both open design questions; keep one and log the others as dismissed dup <kept id>` })),
+      .map((entry) => ({ kind: 'problem', text: `fold topic ${entry.topic}: ${offeredDecides(entry).map((task) => task.id).join(' and ')} are both open design questions; keep one, log a folded row on it for each other one, then log that one dismissed dup <kept id>` })),
     ...unmigrated.map((task) => ({ kind: 'migrate', text: `migrate ${task.id}: log updated with topic: and the waits: it has` })),
     ...lost.map((task) => ({ kind: 'migrate', text: `reopen ${task.id} or close it: a dropped card closed it as gone; log reopened, then updated with topic: and waits:, or dismissed done or superseded` })),
   ];
@@ -488,7 +471,6 @@ export function brief(task, ledger) {
     `Topic: ${task.topic ?? 'none'}. Kind: ${task.kind}.`,
     'Findings:',
     ...task.findings.map((finding) => `- ${finding}`),
-    ...(task.covers.length ? ['Also covers:', ...task.covers.map((title) => `- ${title}`)] : []),
     `Writes: ${task.writes.join(', ')}`,
     `Waited on: ${task.waits.length ? task.waits.join(', ') : 'nothing'}`,
     ...(task.kind === 'decide' ? ['', "This task settles a design question first. Route it through the project playbook that gives a design verdict, or pstack's Investigation playbook where the project has none, then plan any fix."] : []),
