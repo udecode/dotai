@@ -435,7 +435,7 @@ export function board(tasks, git, here = null) {
   const offeredDecides = (entry) => entry.decides.filter((task) => task.status === 'offered');
   const elsewhere = (task) => here !== null && task.session !== here;
   const todo = [
-    ...ready.filter((task) => !task.card).map((task) => ({ kind: 'card', text: `card ${task.id}: it can start and has no card; offer it with the prompt from chips brief ${task.id}, then log carded` })),
+    ...ready.filter((task) => !task.card).map((task) => ({ kind: 'card', text: `card ${task.id}: it can start and has no card; offer it with the prompt from chips brief ${task.id} and log carded, or list it in Open work where the runtime has no suggest tool` })),
     ...offered
       .filter((task) => task.card && elsewhere(task))
       .map((task) => {
@@ -446,7 +446,7 @@ export function board(tasks, git, here = null) {
           text: task.session ? `check session ${task.session}, which holds ${holds}: when the session tool reports it archived or gone, log uncarded` : `check ${holds}, which names no session: when the owner says it is gone, log uncarded`,
         };
       }),
-    ...waiting.filter(({ task }) => task.card && !elsewhere(task)).map(({ task, blockers }) => ({ kind: 'problem', text: `withdraw ${task.id}'s card ${task.card}: ${blockers[0]}; log uncarded` })),
+    ...waiting.filter(({ task }) => task.card && !elsewhere(task)).map(({ task, blockers }) => ({ kind: 'problem', text: `withdraw ${task.id}'s card ${task.card}: ${blockers[0]}; log uncarded once it is withdrawn or its session has ended` })),
     ...waiting.flatMap(({ task, stuck }) => stuck.map((blocker) => ({ kind: 'problem', text: `fix ${task.id}'s wait: ${blocker}; log updated with the waits it has now` }))),
     ...[...topics.values()]
       .filter((entry) => offeredDecides(entry).length > 1)
