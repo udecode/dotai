@@ -2849,12 +2849,12 @@ test('an empty waits: is refused', () => {
 test('a declined card that predates a dup into its task leaves the task open until a new card', () => {
   const { chip, chips, offer } = chipLedger();
   assert.equal(offer('task_k1 Fix k', 'src/k.ts', 'topic: card; card: c1; session: s2').status, 0);
-  assert.equal(offer('task_d1 Diagnose d (xhigh)', 'src/d.ts', 'topic: card; owns: ci:d').status, 0);
-  assert.equal(chip('task_d1 Diagnose d (xhigh)', 'dismissed dup task_k1').status, 0, 'a dup into a task with a card');
+  assert.equal(offer('task_d1 Fix d', 'src/d.ts', 'topic: card; owns: ci:d').status, 0);
+  assert.equal(chip('task_d1 Fix d', 'dismissed dup task_k1').status, 0, 'a dup into a task with a card');
   assert.match(chip('task_k1 Fix k', 'dismissed declined').stderr, /task_k1 changed after card c1 was offered, so the owner declined a card that did not show all of it; log uncarded and, once chips lists it as Ready, card it again with the prompt from chips brief task_k1/, 'a card the owner could decline without seeing the merged work');
   assert.equal(chip('task_k1 Fix k', 'uncarded').status, 0, 'the route the refusal names');
   assert.equal(chip('task_k1 Fix k', 'carded', 'card: c2; session: s2').status, 0);
-  assert.match(chips('brief', 'task_k1').stdout, /^Fix k \(xhigh\)\n[\s\S]*Also covers:\n- task_d1 Diagnose d \(xhigh\)\n[\s\S]*Owns: ci:d\n/);
+  assert.match(chips('brief', 'task_k1').stdout, /^Fix k\n[\s\S]*Also covers:\n- task_d1 Fix d\n[\s\S]*Owns: ci:d\n/);
   assert.equal(chip('task_k1 Fix k', 'dismissed declined').status, 0, 'the owner declines the card that shows the merged work');
 });
 
@@ -2943,6 +2943,42 @@ test('chips reports a wait loop between tasks that have no topic', () => {
   const board = chips();
   assert.equal(board.status, 1, 'a loop an older helper let through');
   assert.match(board.stdout, /fix task_o1's wait: task:task_o2 waits back on task_o1/);
+});
+
+test('the owner drops a task by word after a fold once its card is withdrawn', () => {
+  const { chip, offer } = chipLedger();
+  assert.equal(offer('task_k1 Fix k', 'src/k.ts', 'topic: card; card: c1; session: s2').status, 0);
+  assert.equal(chip('task_k1 Fix k', 'folded', 'writes: src/d.ts').status, 0);
+  assert.match(chip('task_k1 Fix k', 'dismissed declined').stderr, /when the owner said to drop the task itself with its current brief in view, log uncarded, then dismissed declined/, 'the route for a decision made with the whole task in view');
+  assert.equal(chip('task_k1 Fix k', 'uncarded').status, 0);
+  assert.equal(chip('task_k1 Fix k', 'dismissed declined').status, 0, 'the route the refusal names');
+});
+
+test('two design questions with no topic are not one topic', () => {
+  const { helper, offer, root, LEDGER } = chipLedger();
+  assert.equal(offer('task_a1 Fix a', 'src/a.ts', 'topic: other').status, 0);
+  const rows = [
+    ['task_o1 Decide the export format (xhigh)', 'writes: src/e.ts; kind: decide', 'offered'],
+    ['task_o2 Decide the render order (xhigh)', 'writes: src/r.ts; kind: decide', 'offered'],
+  ];
+  writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + rows.map(([decision, evidence, result]) => ['2026-01-01T10:00:00Z', 'chip', decision, 'why', evidence, result].join('\t')).join('\n') + '\n');
+  const whole = helper(LEDGER);
+  assert.equal(whole.status, 0, 'two older design questions that name no topic: ' + whole.stderr);
+});
+
+test('chips reports a dangling wait on a task with no topic', () => {
+  const { chips, offer, root, LEDGER } = chipLedger();
+  assert.equal(offer('task_a1 Fix a', 'src/a.ts', 'topic: other').status, 0);
+  writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', 'task_o1 Fix o1', 'why', 'writes: src/o1.ts; waits: task:task_zz', 'offered'].join('\t') + '\n');
+  const board = chips();
+  assert.equal(board.status, 1, 'a typed wait that can never clear');
+  assert.match(board.stdout, /fix task_o1's wait: task:task_zz dangling, no such task/);
+});
+
+test('a card prompt asks to load the brief again after the started row', () => {
+  const { chips, offer } = chipLedger();
+  assert.equal(offer('task_a1 Fix the parser', 'src/p.ts', 'topic: parser').status, 0);
+  assert.match(chips('brief', 'task_a1').stdout, /log a started row for it[^\n]*, then run node \.agents\/pstack\/decisions-check\.mjs chips brief task_a1 again and work from what it prints, because the task can gain work until your started row\./, 'a merge between reading the brief and the started row');
 });
 
 test('a chain of dups carries every title and drops each wait that now leads back to the kept task', () => {

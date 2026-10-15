@@ -268,7 +268,7 @@ export function chipRowProblems(cells, before, where) {
   const subject = dup ? after.get(row.target) : after.get(id);
   const madeDecide = !['dismissed dup', 'folded'].includes(move) || before.get(subject.id).kind !== 'decide';
   if (['offered', 'updated', 'reopened', 'folded', 'dismissed dup'].includes(move) && subject.status === 'offered' && subject.kind === 'decide' && madeDecide) {
-    const peers = [...after.values()].filter((peer) => peer.id !== subject.id && peer.kind === 'decide' && peer.topic === subject.topic);
+    const peers = [...after.values()].filter((peer) => peer.id !== subject.id && peer.kind === 'decide' && peer.topic !== null && peer.topic === subject.topic);
     const rival = peers.find((peer) => peer.status === 'offered');
     if (rival) {
       const moved = move === 'updated' && given.topic !== undefined;
@@ -329,7 +329,7 @@ export function newChipRowProblems(cells, before, where, git) {
   const own = before.get(id);
   const keeper = row.target && before.get(row.target);
   if (move === 'dismissed dup' && keeper?.status === 'started') found.push(`${where}: ${keeper.id} is started, and a dup moves work only into an offered task; keep ${id} open, log updated with its waits plus task:${keeper.id}, and log dismissed done once ${keeper.id} lands with the fix`);
-  if (move === 'dismissed declined' && own?.card && (own.addedAfterCard || displayTitle(own) !== own.cardTitle)) found.push(`${where}: ${id} changed after card ${own.card} was offered, so the owner declined a card that did not show all of it; log uncarded and, once chips lists it as Ready, card it again with the prompt from chips brief ${id}`);
+  if (move === 'dismissed declined' && own?.card && (own.addedAfterCard || displayTitle(own) !== own.cardTitle)) found.push(`${where}: ${id} changed after card ${own.card} was offered, so the owner declined a card that did not show all of it; log uncarded and, once chips lists it as Ready, card it again with the prompt from chips brief ${id}; when the owner said to drop the task itself with its current brief in view, log uncarded, then dismissed declined`);
   if (move === 'dismissed dup' && own && keeper) {
     if (own.topic === null) found.push(unmigrated(own));
     else if (keeper.topic === null) found.push(unmigrated(keeper));
@@ -432,8 +432,8 @@ function waitBlocker(wait, origin, tasks, git) {
   if (taskId) {
     const task = follow(taskId, tasks);
     if (!task) return { text: `task:${taskId} dangling, no such task`, stuck: true };
-    if (task.id === origin.id) return { text: `task:${taskId} is this task`, stuck: true, loop: true };
-    if (isOpen(task)) return task.status === 'offered' && loopsBack(task, origin, tasks) ? { text: `task:${taskId} waits back on ${origin.id}`, stuck: true, loop: true } : { text: `task:${taskId} ${task.status}` };
+    if (task.id === origin.id) return { text: `task:${taskId} is this task`, stuck: true };
+    if (isOpen(task)) return task.status === 'offered' && loopsBack(task, origin, tasks) ? { text: `task:${taskId} waits back on ${origin.id}`, stuck: true } : { text: `task:${taskId} ${task.status}` };
     if (task.status === 'landed' || task.reason === 'done') return null;
     return { text: `task:${taskId} closed as dismissed ${task.reason} without its result`, stuck: true };
   }
@@ -444,7 +444,7 @@ function waitBlocker(wait, origin, tasks, git) {
     const state = stateOf(status);
     return state === 'done' ? { text: `run:${plan} closed without its result`, stuck: true } : { text: `run:${plan} ${state ?? 'without a Status line'}` };
   }
-  return { text: `${wait} malformed`, stuck: true };
+  return { text: `${wait} malformed`, stuck: true, malformed: true };
 }
 
 function blockersOf(task, tasks, git) {
@@ -514,7 +514,7 @@ export function board(tasks, git, here = null) {
     ...[...topics.values()]
       .filter((entry) => offeredDecides(entry).length > 1)
       .map((entry) => ({ kind: 'problem', text: `fold topic ${entry.topic}: ${offeredDecides(entry).map((task) => task.id).join(' and ')} are both open design questions; keep one and log the others as dismissed dup <kept id>` })),
-    ...unmigrated.flatMap((task) => blockersOf(task, tasks, git).filter((blocker) => blocker.loop).map((blocker) => ({ kind: 'problem', text: `fix ${task.id}'s wait: ${blocker.text}; log updated with the waits it has now` }))),
+    ...unmigrated.flatMap((task) => blockersOf(task, tasks, git).filter((blocker) => blocker.stuck && !blocker.malformed).map((blocker) => ({ kind: 'problem', text: `fix ${task.id}'s wait: ${blocker.text}; log updated with the waits it has now` }))),
     ...unmigrated.map((task) => ({ kind: 'migrate', text: `migrate ${task.id}: log updated with topic: and the waits: it has, as waits: none when it has none` })),
     ...lost.map((task) => ({ kind: 'migrate', text: `reopen ${task.id} or close it: a dropped card closed it as gone; log reopened, then updated with topic: and waits:, or dismissed done or superseded` })),
   ];
@@ -562,7 +562,7 @@ function brief(task, ledger) {
   return [
     displayTitle(task),
     '',
-    `Suggested task ${task.id} in ${ledger}. This prompt can be older than the task, so first run node .agents/pstack/decisions-check.mjs chips brief ${task.id} and work from what it prints. Then run node .agents/pstack/decisions-check.mjs chips; when it lists this task as neither Ready nor Started, tell the owner what it waits on. Started means the lead already logged your start. Before you write any file, log a started row for it, with writes: naming any path the list below lacks, as .agents/pstack/rules/chips.md says.`,
+    `Suggested task ${task.id} in ${ledger}. This prompt can be older than the task, so first run node .agents/pstack/decisions-check.mjs chips brief ${task.id} and work from what it prints. Then run node .agents/pstack/decisions-check.mjs chips; when it lists this task as neither Ready nor Started, tell the owner what it waits on. Started means the lead already logged your start. Before you write any file, log a started row for it, with writes: naming any path the list below lacks, as .agents/pstack/rules/chips.md says, then run node .agents/pstack/decisions-check.mjs chips brief ${task.id} again and work from what it prints, because the task can gain work until your started row.`,
     '',
     `Topic: ${task.topic ?? 'none'}. Kind: ${task.kind}.`,
     'Findings:',
