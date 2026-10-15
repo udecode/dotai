@@ -2778,6 +2778,14 @@ test('a carded task takes no fold, update or dup until its card is withdrawn, an
   assert.equal(chip('task_k1 Fix k', 'folded', 'writes: src/m.ts').status, 0, 'a fold once the card is withdrawn');
 });
 
+test("a carded task's writes: can narrow to paths inside them, and only narrow", () => {
+  const { chip, offer } = chipLedger();
+  assert.equal(offer('task_k1 Fix k', 'src/k, test', 'topic: card; card: c1; session: s1').status, 0);
+  assert.equal(chip('task_k1 Fix k', 'updated', 'writes: src/k/a.ts, test/k.test.ts').status, 0, 'a narrowing to paths inside the listed ones');
+  assert.match(chip('task_k1 Fix k', 'updated', 'writes: src/k/a.ts, test').stderr, /task_k1 holds card c1, which cannot change; withdraw the card first/, 'a widening back to a directory');
+  assert.match(chip('task_k1 Fix k', 'updated', 'writes: src/k/a.ts; owns: ci:k').stderr, /task_k1 holds card c1, which cannot change/, 'a narrowing beside another token');
+});
+
 test("uncarded and dismissed declined name the task's current card", () => {
   const { chip, offer } = chipLedger();
   assert.equal(offer('task_k1 Fix k', 'src/k.ts', 'topic: card; card: c1; session: s1').status, 0);
