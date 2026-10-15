@@ -2631,8 +2631,8 @@ test('a dup that would leave two tasks waiting on each other is refused, and mer
   assert.equal(offer('task_d1 Fix d', 'src/d.ts', 'topic: chain').status, 0);
   assert.equal(offer('task_m1 Fix m', 'src/m.ts', 'topic: chain; waits: task:task_d1').status, 0);
   assert.equal(offer('task_k1 Fix k', 'src/k.ts', 'topic: chain; waits: task:task_m1').status, 0);
-  assert.match(chip('task_d1 Fix d', 'dismissed dup task_k1').stderr, /this row leaves task_m1 and task_k1 waiting on each other; log task_m1 dismissed dup task_k1 first, or keep task_d1 open/, 'a wait on the duplicate that now leads to the kept task');
-  assert.equal(chip('task_m1 Fix m', 'dismissed dup task_k1').status, 0, 'the route the refusal names');
+  assert.match(chip('task_d1 Fix d', 'dismissed dup task_k1').stderr, /this row leaves task_m1 and task_k1 waiting on each other; keep task_d1 open, or log updated on task_k1 without the wait that closes the loop/, 'a wait on the duplicate that now leads to the kept task');
+  assert.equal(chip('task_k1 Fix k', 'updated', 'waits: none').status, 0, 'the route the refusal names');
   assert.equal(chip('task_d1 Fix d', 'dismissed dup task_k1').status, 0);
   const board = chips();
   assert.equal(board.status, 0, board.stdout);
@@ -2644,7 +2644,7 @@ test('a dup that hands the kept task a wait back on itself is refused', () => {
   assert.equal(offer('task_k1 Fix k', 'src/k.ts', 'topic: chain').status, 0);
   assert.equal(offer('task_c1 Fix c', 'src/c.ts', 'topic: chain; waits: task:task_k1').status, 0);
   assert.equal(offer('task_d1 Fix d', 'src/d.ts', 'topic: chain; waits: task:task_c1').status, 0);
-  assert.match(chip('task_d1 Fix d', 'dismissed dup task_k1').stderr, /this row leaves task_k1 and task_c1 waiting on each other; log task_c1 dismissed dup task_k1 first, or keep task_d1 open/);
+  assert.match(chip('task_d1 Fix d', 'dismissed dup task_k1').stderr, /this row leaves task_k1 and task_c1 waiting on each other; keep task_d1 open, or log updated on task_k1 without the wait that closes the loop/);
 });
 
 test('an updated row that closes a wait loop is refused', () => {
@@ -2740,7 +2740,7 @@ test('chips asks to re-card a task this session carded once the title its card s
   assert.equal(chip('task_l1 Fix the lexer', 'folded', 'effort: xhigh').status, 0);
   const here = chips('--session', 's1');
   assert.equal(here.status, 0, here.stdout);
-  assert.match(here.stdout, /re-card task_l1: its title is now "Fix the lexer \(xhigh\)", not the "Fix the lexer" card c1 shows; withdraw that card and log uncarded, or started or dismissed declined when the dismiss tool reports the owner started or dismissed it, then card it again with the prompt from chips brief task_l1/);
+  assert.match(here.stdout, /re-card task_l1: its title is now "Fix the lexer \(xhigh\)", not the "Fix the lexer" card c1 shows; withdraw that card; log started or dismissed declined when the dismiss tool reports the owner started or dismissed it, and otherwise log uncarded and card it again with the prompt from chips brief task_l1/);
   assert.doesNotMatch(chips('--session', 's2').stdout, /re-card/, 'another session\'s card');
   assert.doesNotMatch(chips().stdout, /re-card/, 'a board read that names no session');
   assert.equal(chip('task_l1 Fix the lexer', 'uncarded').status, 0);
@@ -2754,16 +2754,23 @@ test('the board tells a session a card started to work from its current brief', 
   assert.match(chips().stdout, /\nA session a card started works from chips brief <its task id>, because its task can change after the card\.\n/, 'a card whose prompt predates chips brief');
 });
 
-test('the whole-log check refuses a dup into a started task', () => {
+test('an older dup into a started task passes the whole-log check', () => {
   const { chip, helper, offer, root, LEDGER } = chipLedger();
-  const raw = (decision, evidence, result) => writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', decision, 'why', evidence, result].join('\t') + '\n');
   assert.equal(offer('task_a1 Fix a', 'src/a.ts', 'topic: whole').status, 0);
-  assert.equal(offer('task_b1 Fix b', 'src/b.ts', 'topic: whole').status, 0);
   assert.equal(chip('task_a1 Fix a', 'started').status, 0);
-  raw('task_b1 Fix b', 'evidence', 'dismissed dup task_a1');
-  const dup = helper(LEDGER);
-  assert.equal(dup.status, 1);
-  assert.match(dup.stderr, /task_a1 is started, and a dup moves work only into an offered task/);
+  assert.equal(offer('task_b1 Fix b', 'src/b.ts', 'topic: whole; owns: ci:b').status, 0);
+  writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', 'task_b1 Fix b', 'why', 'evidence', 'dismissed dup task_a1'].join('\t') + '\n');
+  const whole = helper(LEDGER);
+  assert.equal(whole.status, 0, `a dup the previous helper accepted: ${whole.stderr}`);
+});
+
+test('an older dup into a started task keeps the covers and owned checks it moved', () => {
+  const { chip, chips, offer, root, LEDGER } = chipLedger();
+  assert.equal(offer('task_a1 Fix a', 'src/a.ts', 'topic: whole').status, 0);
+  assert.equal(chip('task_a1 Fix a', 'started').status, 0);
+  assert.equal(offer('task_b1 Fix b', 'src/b.ts', 'topic: whole; owns: ci:b').status, 0);
+  writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', 'task_b1 Fix b', 'why', 'evidence', 'dismissed dup task_a1'].join('\t') + '\n');
+  assert.match(chips('brief', 'task_a1').stdout, /Also covers:\n- task_b1 Fix b\n[\s\S]*Owns: ci:b\n/, 'what the previous helper moved into the started task');
 });
 
 test('the whole-log check refuses a folded row with kind: fix', () => {
@@ -2837,6 +2844,63 @@ test('an empty waits: is refused', () => {
   writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', 'task_o1 After: Fix the parser docs (high)', 'waits for: PR 12 to merge', 'writes: docs/p.md', 'offered'].join('\t') + '\n');
   assert.match(chip('task_o1 After: Fix the parser docs (high)', 'updated', 'topic: parser; waits:').stderr, /waits: takes pr:<number>, task:<id> or run:<plan path ending in \.md>, comma-separated, or none/, 'a migration that would drop its prose wait');
   assert.equal(chip('task_o1 After: Fix the parser docs (high)', 'updated', 'topic: parser; waits: none').status, 0);
+});
+
+test('append refuses a dup into a task with a card until the card is withdrawn', () => {
+  const { chip, chips, offer } = chipLedger();
+  assert.equal(offer('task_k1 Fix k', 'src/k.ts', 'topic: card; card: c1; session: s2').status, 0);
+  assert.equal(offer('task_d1 Diagnose d (xhigh)', 'src/d.ts', 'topic: card; owns: ci:d').status, 0);
+  assert.match(chip('task_d1 Diagnose d (xhigh)', 'dismissed dup task_k1').stderr, /task_k1 has card c1, which would not show what this dup moves into it; withdraw that card and log uncarded first, or keep task_d1 open while another session holds it/, 'a card the owner could decline without seeing the merged work');
+  assert.equal(chip('task_k1 Fix k', 'uncarded').status, 0);
+  assert.equal(chip('task_d1 Diagnose d (xhigh)', 'dismissed dup task_k1').status, 0, 'once the card is gone');
+  assert.match(chips('brief', 'task_k1').stdout, /^Fix k \(xhigh\)\n[\s\S]*Also covers:\n- task_d1 Diagnose d \(xhigh\)\n[\s\S]*Owns: ci:d\n/);
+});
+
+test('a legacy row with an empty waits: replays as no waits', () => {
+  const { chips, offer, root, LEDGER } = chipLedger();
+  assert.equal(offer('task_a1 Fix a', 'src/a.ts', 'topic: blank; waits: pr:5').status, 0);
+  writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', 'task_a1 Fix a', 'why', 'waits:', 'updated'].join('\t') + '\n');
+  const board = chips();
+  assert.equal(board.status, 0, board.stdout);
+  assert.match(board.stdout, /Ready \(1\)\n {2}task_a1 {2}Fix a {2}\[blank\] {2}no card\n/, 'a row the previous helper read as clearing the waits');
+});
+
+test('chips brief on a replaced task prints its replacement\'s brief', () => {
+  const { chips, offer, root, LEDGER } = chipLedger();
+  assert.equal(offer('task_n1 Fix the badge', 'README.md', 'topic: badge').status, 0);
+  const rows = [
+    ['task_o1 Now: Fix the badge', 'writes: README.md', 'offered'],
+    ['task_o1 Now: Fix the badge', 'retitled', 'dismissed replaced task_n1'],
+  ];
+  writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + rows.map(([decision, evidence, result]) => ['2026-01-01T10:00:00Z', 'chip', decision, 'why', evidence, result].join('\t')).join('\n') + '\n');
+  const brief = chips('brief', 'task_o1');
+  assert.equal(brief.status, 0, brief.stderr);
+  assert.match(brief.stdout, /^task_o1 was replaced by task_n1; work from its brief\.\n\nFix the badge\n/, 'an old card whose task an older helper replaced');
+});
+
+test('a design question merged from another topic still guards that topic', () => {
+  const { chip, offer } = chipLedger();
+  assert.equal(offer('task_k1 Decide the export format (xhigh)', 'src/e.ts', 'topic: export; kind: decide').status, 0);
+  assert.equal(offer('task_d1 Decide the file format (xhigh)', 'src/f.ts', 'topic: format; kind: decide').status, 0);
+  assert.equal(chip('task_d1 Decide the file format (xhigh)', 'dismissed dup task_k1').status, 0);
+  assert.match(offer('task_n1 Decide the format version (xhigh)', 'src/n.ts', 'topic: format; kind: decide').stderr, /topic format already has the open design question task_k1/, 'a new design question in the topic the merge moved');
+  assert.equal(chip('task_k1 Decide the export format (xhigh)', 'started').status, 0);
+  assert.match(offer('task_n1 Decide the format version (xhigh)', 'src/n.ts', 'topic: format; kind: decide').stderr, /topic format's design question task_k1 is running; a new one waits on it with waits: task:task_k1/);
+  assert.equal(offer('task_n1 Decide the format version (xhigh)', 'src/n.ts', 'topic: format; kind: decide; waits: task:task_k1').status, 0);
+});
+
+test('chips reports a wait loop between tasks that have no topic', () => {
+  const { chips, offer, root, LEDGER } = chipLedger();
+  assert.equal(offer('task_a1 Fix a', 'src/a.ts', 'topic: other').status, 0);
+  const rows = [
+    ['task_o1 Fix o1', 'writes: src/o1.ts', 'offered'],
+    ['task_o2 Fix o2', 'writes: src/o2.ts; waits: task:task_o1', 'offered'],
+    ['task_o1 Fix o1', 'waits: task:task_o2', 'updated'],
+  ];
+  writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + rows.map(([decision, evidence, result]) => ['2026-01-01T10:00:00Z', 'chip', decision, 'why', evidence, result].join('\t')).join('\n') + '\n');
+  const board = chips();
+  assert.equal(board.status, 1, 'a loop an older helper let through');
+  assert.match(board.stdout, /fix task_o1's wait: task:task_o2 waits back on task_o1/);
 });
 
 test('a chain of dups carries every title and drops each wait that now leads back to the kept task', () => {

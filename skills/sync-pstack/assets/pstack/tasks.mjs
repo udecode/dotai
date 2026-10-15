@@ -99,9 +99,9 @@ const fields = (evidence) => {
     if (found.length > 1) repeated.push(key);
     if (found.length > 0) given[key] = found[0];
   }
-  if (given.waits?.length === 0) given.waits = [''];
+  const blankWaits = given.waits?.length === 0;
   if (given.waits) given.waits = given.waits.filter((wait) => wait !== 'none');
-  return { given, repeated };
+  return { given, repeated, blankWaits };
 };
 
 const follow = (id, tasks) => {
@@ -117,6 +117,8 @@ const follow = (id, tasks) => {
 const mergeInto = (kept, task, tasks) => {
   kept.covers.push({ id: task.id, title: displayTitle(task), findings: task.findings }, ...task.covers);
   kept.owns = joined(kept.owns, task.owns);
+  if (kept.status !== 'offered') return;
+  kept.aliases = joined(kept.aliases, [task.topic, ...task.aliases].filter((topic) => topic && topic !== kept.topic));
   const outside = (wait) => {
     const target = wait.match(WAIT)?.[2];
     return !target || follow(target, tasks) !== kept;
@@ -153,6 +155,7 @@ export function recordRow(tasks, cells) {
       card: given.card ?? null,
       session: given.card ? (given.session ?? null) : null,
       effort: null,
+      aliases: [],
       findings: [row.why],
       covers: [],
     };
@@ -200,7 +203,7 @@ export function recordRow(tasks, cells) {
     task.target = row.target ?? null;
     const kept = row.target && tasks.get(row.target);
     takePlaceOf(kept, task);
-    if (row.move === 'dismissed dup' && kept?.status === 'offered') mergeInto(kept, task, tasks);
+    if (row.move === 'dismissed dup' && kept && isOpen(kept)) mergeInto(kept, task, tasks);
   }
 }
 
@@ -254,13 +257,7 @@ export function chipRowProblems(cells, before, where) {
     found.push(`${where}: ${id} is started, so an updated row on it takes only owns:; the session adds paths with another started row`);
   }
   const kept = row.target && before.get(row.target);
-  if (move === 'dismissed dup' && (row.target === id || kept?.status !== 'offered')) {
-    found.push(
-      kept?.status === 'started'
-        ? `${where}: ${row.target} is started, and a dup moves work only into an offered task; keep ${id} open, log updated with its waits plus task:${row.target}, and log dismissed done once ${row.target} lands with the fix`
-        : `${where}: ${row.target} must be another task the ledger holds as offered; offer the task it merges into before this row`,
-    );
-  }
+  if (move === 'dismissed dup' && (row.target === id || !isOpen(kept ?? {}))) found.push(`${where}: ${row.target} must be another task the ledger holds as offered; offer the task it merges into before this row`);
   if (move === 'folded' && given.kind === 'fix') found.push(`${where}: a folded row takes kind: decide only, when its finding is a design question; it never turns a design question back into a fix`);
   if (found.length > 0) return found;
   const after = afterRow(before, cells);
@@ -268,7 +265,8 @@ export function chipRowProblems(cells, before, where) {
   const subject = dup ? after.get(row.target) : after.get(id);
   const madeDecide = !['dismissed dup', 'folded'].includes(move) || before.get(subject.id).kind !== 'decide';
   if (['offered', 'updated', 'reopened', 'folded', 'dismissed dup'].includes(move) && subject.status === 'offered' && subject.kind === 'decide' && madeDecide) {
-    const peers = [...after.values()].filter((peer) => peer.id !== subject.id && peer.kind === 'decide' && peer.topic === subject.topic);
+    const askedIn = (task) => [task.topic, ...task.aliases].filter(Boolean);
+    const peers = [...after.values()].filter((peer) => peer.id !== subject.id && peer.kind === 'decide' && askedIn(peer).some((topic) => askedIn(subject).includes(topic)));
     const rival = peers.find((peer) => peer.status === 'offered');
     if (rival) {
       const moved = move === 'updated' && given.topic !== undefined;
@@ -298,8 +296,9 @@ export function newChipRowProblems(cells, before, where, git) {
   if (!row) return [];
   const { id, move } = row;
   if (LEGACY_ONLY.includes(move)) return [`${where}: a task keeps its id for good: log uncarded when its card leaves the queue, updated when its waits or paths change, and dismissed dup <task id> to merge it into another task`];
-  const { given, repeated } = fields(evidence);
+  const { given, repeated, blankWaits } = fields(evidence);
   const found = repeated.map((key) => `${where}: a chip row names ${key}: once`);
+  if (blankWaits) found.push(`${where}: waits: takes pr:<number>, task:<id> or run:<plan path ending in .md>, comma-separated, or none; an empty waits: is none of them`);
   const takes = TAKES[move] ?? [];
   for (const key of Object.keys(given)) {
     if (!takes.includes(key)) found.push(`${where}: ${article(move)} ${move} row does not take ${key}:, so it would be ignored; ${takes.length ? `it takes ${takes.map((each) => `${each}:`).join(', ')}` : 'it takes none'}`);
@@ -314,8 +313,7 @@ export function newChipRowProblems(cells, before, where, git) {
   const loops = [...new Set(added.flat())];
   if (self) found.push(`${where}: ${self[0]} cannot wait on itself`);
   else if (loops.length > 0) {
-    const others = loops.filter((each) => each !== row.target);
-    const route = move !== 'dismissed dup' ? 'drop the wait that closes the loop' : others.length ? `log ${others.join(' and ')} dismissed dup ${row.target} first, or keep ${id} open` : `keep ${id} open`;
+    const route = move !== 'dismissed dup' ? 'drop the wait that closes the loop' : `keep ${id} open, or log updated on ${row.target} without the wait that closes the loop`;
     found.push(`${where}: this row leaves ${loops.join(' and ')} waiting on each other; ${route}`);
   }
   if (move === 'started') {
@@ -328,6 +326,8 @@ export function newChipRowProblems(cells, before, where, git) {
   const unmigrated = (task) => `${where}: ${task.id} has no topic, so its waits may still be prose; migrate it first: log updated with topic: and the waits: it has, as waits: none when it has none`;
   const own = before.get(id);
   const keeper = row.target && before.get(row.target);
+  if (move === 'dismissed dup' && keeper?.status === 'started') found.push(`${where}: ${keeper.id} is started, and a dup moves work only into an offered task; keep ${id} open, log updated with its waits plus task:${keeper.id}, and log dismissed done once ${keeper.id} lands with the fix`);
+  if (move === 'dismissed dup' && keeper?.status === 'offered' && keeper.card) found.push(`${where}: ${keeper.id} has card ${keeper.card}, which would not show what this dup moves into it; withdraw that card and log uncarded first, or keep ${id} open while another session holds it`);
   if (move === 'dismissed dup' && own && keeper) {
     if (own.topic === null) found.push(unmigrated(own));
     else if (keeper.topic === null) found.push(unmigrated(keeper));
@@ -489,6 +489,12 @@ export function board(tasks, git, here = null) {
     entry.tasks.push(task);
     if (task.kind === 'decide') entry.decides.push(task);
     topics.set(task.topic, entry);
+    for (const alias of task.kind === 'decide' ? task.aliases : []) {
+      const other = topics.get(alias) ?? { topic: alias, tasks: [], decides: [] };
+      other.tasks.push(task);
+      other.decides.push(task);
+      topics.set(alias, other);
+    }
   }
   const offeredDecides = (entry) => entry.decides.filter((task) => task.status === 'offered');
   const elsewhere = (task) => here !== null && task.session !== here;
@@ -506,12 +512,13 @@ export function board(tasks, git, here = null) {
       }),
     ...ready
       .filter((task) => task.card && here !== null && task.session === here && displayTitle(task) !== task.cardTitle)
-      .map((task) => ({ kind: 'card', text: `re-card ${task.id}: its title is now "${displayTitle(task)}", not the "${task.cardTitle}" card ${task.card} shows; withdraw that card and log uncarded, or started or dismissed declined when the dismiss tool reports the owner started or dismissed it, then card it again with the prompt from chips brief ${task.id}` })),
+      .map((task) => ({ kind: 'card', text: `re-card ${task.id}: its title is now "${displayTitle(task)}", not the "${task.cardTitle}" card ${task.card} shows; withdraw that card; log started or dismissed declined when the dismiss tool reports the owner started or dismissed it, and otherwise log uncarded and card it again with the prompt from chips brief ${task.id}` })),
     ...waiting.filter(({ task }) => task.card && !elsewhere(task)).map(({ task, blockers }) => ({ kind: 'problem', text: `withdraw ${task.id}'s card ${task.card}: ${blockers[0]}; log uncarded once it is withdrawn or its session has ended` })),
     ...waiting.flatMap(({ task, stuck }) => stuck.map((blocker) => ({ kind: 'problem', text: `fix ${task.id}'s wait: ${blocker}; log updated with the waits it has now` }))),
     ...[...topics.values()]
       .filter((entry) => offeredDecides(entry).length > 1)
       .map((entry) => ({ kind: 'problem', text: `fold topic ${entry.topic}: ${offeredDecides(entry).map((task) => task.id).join(' and ')} are both open design questions; keep one and log the others as dismissed dup <kept id>` })),
+    ...unmigrated.flatMap((task) => blockersOf(task, tasks, git).filter((blocker) => blocker.stuck).map((blocker) => ({ kind: 'problem', text: `fix ${task.id}'s wait: ${blocker.text}; log updated with the waits it has now` }))),
     ...unmigrated.map((task) => ({ kind: 'migrate', text: `migrate ${task.id}: log updated with topic: and the waits: it has, as waits: none when it has none` })),
     ...lost.map((task) => ({ kind: 'migrate', text: `reopen ${task.id} or close it: a dropped card closed it as gone; log reopened, then updated with topic: and waits:, or dismissed done or superseded` })),
   ];
@@ -546,10 +553,11 @@ const displayTitle = (task) => (!task.title.endsWith(XHIGH) && (task.kind === 'd
 export function briefOf(tasks, id, ledger) {
   const task = tasks.get(id);
   const live = follow(id, tasks);
-  if (task.reason === 'dup' && live && live !== task) {
-    if (live.status === 'offered' && !live.card) return { ok: true, text: `${id} was merged into ${live.id}; work from its brief.\n\n${brief(live, ledger)}` };
+  if (['dup', 'replaced'].includes(task.reason) && live && live !== task) {
+    const moved = task.reason === 'dup' ? 'merged into' : 'replaced by';
+    if (live.status === 'offered' && !live.card) return { ok: true, text: `${id} was ${moved} ${live.id}; work from its brief.\n\n${brief(live, ledger)}` };
     const held = live.status === 'offered' ? `has card ${live.card}` : `is ${taskState(live)}`;
-    return { ok: false, text: `${id} was merged into ${live.id}, which ${held}, so there is nothing to start; tell the owner.` };
+    return { ok: false, text: `${id} was ${moved} ${live.id}, which ${held}, so there is nothing to start; tell the owner.` };
   }
   return isOpen(task) ? { ok: true, text: brief(task, ledger) } : { ok: false, text: `${id} is ${taskState(task)}, so there is nothing to start; tell the owner.` };
 }
