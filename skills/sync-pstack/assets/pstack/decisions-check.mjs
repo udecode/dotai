@@ -23,9 +23,10 @@
 //        (exits 1 when the log is at the cap of panel rounds before a build)
 //        node .agents/pstack/decisions-check.mjs chips [--fetch] [--session <id>] [<ledger>]
 //        (prints every open suggested task as ready, started, waiting or unmigrated,
-//        its topic and a Do list, and exits 1 when the Do list holds a problem: a card
-//        on a task that cannot start, a wait that can never clear or two open design
-//        questions in one topic; <ledger> defaults to <plans>/suggested-tasks.decisions.tsv,
+//        its topic and a Do list of one pass, withdrawals, then ledger rows, then cards,
+//        and exits 1 when any pass holds a problem: a card on a task that cannot start,
+//        a wait that can never clear or two open design questions in one topic;
+//        <ledger> defaults to <plans>/suggested-tasks.decisions.tsv,
 //        --fetch refreshes the remote branches that PR waits read, and --session names
 //        this session, so each card it does not hold gets a check item instead of a
 //        withdraw problem)
@@ -285,7 +286,7 @@ if (args[0] === 'chips') {
   const view = board(tasks, gitMerges({ fetch, branch: projectConfig().branch }), here);
   console.info(renderBoard(view, ledger));
   for (const note of startedOverlaps(tasks)) console.error(note);
-  process.exit(view.todo.some((item) => item.kind === 'problem') ? 1 : 0);
+  process.exit(view.problem ? 1 : 0);
 }
 if (args[0] === 'append') {
   const batch =
