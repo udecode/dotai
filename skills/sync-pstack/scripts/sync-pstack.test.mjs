@@ -3238,7 +3238,7 @@ test('a started row names the session that started the task, and a sweep checks 
   assert.equal(chip(parser, 'started', 'session: s2').status, 0);
   const here = chips('--session', 's1');
   assert.match(here.stdout, /Started \(1\)\n {2}task_a1 {2}Fix the parser {2}\[parser\] {2}session s2\n/);
-  assert.match(here.stdout, /check session s2, which started task_a1: when the session tool reports it archived, log landed when a commit holds its change or its last report says it delivered the change, and dismissed stopped otherwise/);
+  assert.match(here.stdout, /check session s2, which started task_a1: when the session tool reports it archived, log landed when a commit holds its change or its last report says it delivered the change, and dismissed stopped when that report hands back no patch and the tree holds no uncommitted edit on its paths/);
   assert.doesNotMatch(chips('--session', 's2').stdout, /started task_a1/, "the session's own task");
   assert.doesNotMatch(chips().stdout, /started task_a1/, 'a board read without a session');
   assert.match(chips('stale').stdout, /task_a1 {2}Fix the parser {2}\[parser\] {2}age 0d; started in session s2;/);
