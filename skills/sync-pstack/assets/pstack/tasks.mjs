@@ -25,6 +25,7 @@ const FROM = {
   'dismissed replaced': ['offered'],
 };
 const TARGETED = ['dup', 'replaced'];
+const WITHDRAWN = 'log started or dismissed declined when the dismiss tool reports the owner started or dismissed it, and otherwise log uncarded';
 const REASONS = Object.keys(FROM)
   .filter((move) => move.startsWith('dismissed '))
   .map((move) => move.slice('dismissed '.length))
@@ -502,8 +503,8 @@ export function board(tasks, git, here = null) {
       }),
     ...ready
       .filter((task) => task.card && here !== null && task.session === here && displayTitle(task) !== task.cardTitle)
-      .map((task) => ({ kind: 'card', text: `re-card ${task.id}: its title is now "${displayTitle(task)}", not the "${task.cardTitle}" card ${task.card} shows; withdraw that card; log started or dismissed declined when the dismiss tool reports the owner started or dismissed it, and otherwise log uncarded and, once chips lists it as Ready, card it again with the prompt from chips brief ${task.id}` })),
-    ...waiting.filter(({ task }) => task.card && !elsewhere(task)).map(({ task, blockers }) => ({ kind: 'problem', text: `withdraw ${task.id}'s card ${task.card}: ${blockers[0]}; log uncarded once it is withdrawn or its session has ended` })),
+      .map((task) => ({ kind: 'card', text: `re-card ${task.id}: its title is now "${displayTitle(task)}", not the "${task.cardTitle}" card ${task.card} shows; withdraw that card; ${WITHDRAWN} and, once chips lists it as Ready, card it again with the prompt from chips brief ${task.id}` })),
+    ...waiting.filter(({ task }) => task.card && !elsewhere(task)).map(({ task, blockers }) => ({ kind: 'problem', text: `withdraw ${task.id}'s card ${task.card}: ${blockers[0]}; ${WITHDRAWN} once it is withdrawn or its session has ended` })),
     ...waiting.flatMap(({ task, stuck }) => stuck.map((blocker) => ({ kind: 'problem', text: `fix ${task.id}'s wait: ${blocker}; log updated with the waits it has now` }))),
     ...[...topics.values()]
       .filter((entry) => offeredDecides(entry).length > 1)

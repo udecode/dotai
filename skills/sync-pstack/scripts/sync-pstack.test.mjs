@@ -2555,7 +2555,7 @@ test('a base-red row and a carded row stay valid after the state they were judge
   const ledgerChecked = helper(LEDGER);
   assert.equal(ledgerChecked.status, 0, `a later start leaves the earlier card row valid: ${ledgerChecked.stderr}`);
   const board = chips();
-  assert.match(board.stdout, /withdraw task_c1's card c1: started task_c2 writes its paths; log uncarded/, 'the board still asks for the card to go');
+  assert.match(board.stdout, /withdraw task_c1's card c1: started task_c2 writes its paths; log started or dismissed declined when the dismiss tool reports the owner started or dismissed it, and otherwise log uncarded once it is withdrawn or its session has ended\n/, 'the board still asks for the card to go, with each route a withdrawal can take');
   assert.equal(board.status, 1);
 });
 
@@ -2846,8 +2846,8 @@ test('an empty waits: is refused', () => {
   assert.equal(chip('task_o1 After: Fix the parser docs (high)', 'updated', 'topic: parser; waits: none').status, 0);
 });
 
-test('a dup into a task with a card goes in and leaves the card', () => {
-  const { chip, chips, offer } = chipLedger();
+test('a dup into a task with a card keeps the card, and a decline of that card closes the merged work', () => {
+  const { appendTo, chip, chips, offer } = chipLedger();
   assert.equal(offer('task_k1 Fix k', 'src/k.ts', 'topic: card; card: c1; session: s2').status, 0);
   assert.equal(offer('task_d1 Fix d', 'src/d.ts', 'topic: card; owns: ci:d').status, 0);
   assert.equal(chip('task_d1 Fix d', 'dismissed dup task_k1').status, 0, 'a dup into a task with a card');
@@ -2857,6 +2857,22 @@ test('a dup into a task with a card goes in and leaves the card', () => {
   assert.doesNotMatch(here.stdout, /re-card/);
   assert.equal(chip('task_k1 Fix k', 'dismissed declined').status, 0);
   assert.doesNotMatch(chips().stdout, /task_[kd]1/, 'a decline closes the task with the merged work');
+  const blamed = appendTo('docs/plans/2026-01-01-fix.decisions.tsv', 'verify', 'read CI', 'base-red: ci:d; proof: none', 'gap: fails on next too');
+  assert.match(blamed.stderr, /base-red: ci:d has no open suggested task that owns it; offer one with "owns: ci:d"/, 'the check the declined work owned asks for a new owner the next time a run blames it');
+});
+
+test('a decline after a fold, an owned check or a kind change closes the task', () => {
+  for (const [title, change, more] of [
+    ['task_k1 Fix k', 'folded', 'writes: src/d.ts; owns: ci:d'],
+    ['task_k1 Fix k', 'updated', 'owns: ci:check'],
+    ['task_k1 Repair paste landing (xhigh)', 'updated', 'kind: decide'],
+  ]) {
+    const { chip, chips, offer } = chipLedger();
+    assert.equal(offer(title, 'src/k.ts', 'topic: card; card: c1; session: s2').status, 0);
+    assert.equal(chip(title, change, more).status, 0);
+    assert.equal(chip(title, 'dismissed declined').status, 0, `a decline after ${change} ${more}`);
+    assert.match(chips().stdout, /^No open suggested tasks/, `the decline closes the task after ${change} ${more}`);
+  }
 });
 
 test('a legacy row with an empty waits: replays as no waits', () => {
