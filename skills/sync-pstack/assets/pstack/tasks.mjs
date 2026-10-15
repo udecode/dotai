@@ -118,7 +118,6 @@ const mergeInto = (kept, task, tasks) => {
   kept.covers.push({ id: task.id, title: displayTitle(task), findings: task.findings }, ...task.covers);
   kept.owns = joined(kept.owns, task.owns);
   if (kept.status !== 'offered') return;
-  if (kept.card) kept.addedAfterCard = true;
   const outside = (wait) => {
     const target = wait.match(WAIT)?.[2];
     return !target || follow(target, tasks) !== kept;
@@ -155,7 +154,6 @@ export function recordRow(tasks, cells) {
       card: given.card ?? null,
       session: given.card ? (given.session ?? null) : null,
       effort: null,
-      addedAfterCard: false,
       findings: [row.why],
       covers: [],
     };
@@ -174,7 +172,6 @@ export function recordRow(tasks, cells) {
     task.waits = joined(task.waits, given.waits ?? []);
     task.owns = joined(task.owns, given.owns ?? []);
     task.findings.push(row.why);
-    if (task.card) task.addedAfterCard = true;
   }
   if (row.move === 'started') task.status = 'started';
   if (row.move === 'landed') task.status = 'landed';
@@ -182,7 +179,6 @@ export function recordRow(tasks, cells) {
     task.card = given.card ?? null;
     task.session = given.session ?? null;
     task.cardTitle = displayTitle(task);
-    task.addedAfterCard = false;
   }
   if (row.move === 'uncarded' || row.move === 'reopened' || row.move.startsWith('dismissed')) {
     task.card = null;
@@ -198,7 +194,6 @@ export function recordRow(tasks, cells) {
       task.keys = given.writes.map(writeKey);
     }
     for (const key of ['topic', 'kind', 'waits', 'owns']) if (given[key] !== undefined) task[key] = given[key];
-    if (task.card && (given.writes || given.owns)) task.addedAfterCard = true;
   }
   if (row.move.startsWith('dismissed')) {
     task.status = 'dismissed';
@@ -329,7 +324,6 @@ export function newChipRowProblems(cells, before, where, git) {
   const own = before.get(id);
   const keeper = row.target && before.get(row.target);
   if (move === 'dismissed dup' && keeper?.status === 'started') found.push(`${where}: ${keeper.id} is started, and a dup moves work only into an offered task; keep ${id} open, log updated with its waits plus task:${keeper.id}, and log dismissed done once ${keeper.id} lands with the fix`);
-  if (move === 'dismissed declined' && own?.card && (own.addedAfterCard || displayTitle(own) !== own.cardTitle)) found.push(`${where}: ${id} changed after card ${own.card} was offered, so the owner declined a card that did not show all of it; log uncarded and, once chips lists it as Ready, card it again with the prompt from chips brief ${id}; when the owner said to drop the task itself with its current brief in view, log uncarded, then dismissed declined`);
   if (move === 'dismissed dup' && own && keeper) {
     if (own.topic === null) found.push(unmigrated(own));
     else if (keeper.topic === null) found.push(unmigrated(keeper));
@@ -508,7 +502,7 @@ export function board(tasks, git, here = null) {
       }),
     ...ready
       .filter((task) => task.card && here !== null && task.session === here && displayTitle(task) !== task.cardTitle)
-      .map((task) => ({ kind: 'card', text: `re-card ${task.id}: its title is now "${displayTitle(task)}", not the "${task.cardTitle}" card ${task.card} shows; withdraw that card; log started when the dismiss tool reports the owner started it, and otherwise log uncarded and, once chips lists it as Ready, card it again with the prompt from chips brief ${task.id}` })),
+      .map((task) => ({ kind: 'card', text: `re-card ${task.id}: its title is now "${displayTitle(task)}", not the "${task.cardTitle}" card ${task.card} shows; withdraw that card; log started or dismissed declined when the dismiss tool reports the owner started or dismissed it, and otherwise log uncarded and, once chips lists it as Ready, card it again with the prompt from chips brief ${task.id}` })),
     ...waiting.filter(({ task }) => task.card && !elsewhere(task)).map(({ task, blockers }) => ({ kind: 'problem', text: `withdraw ${task.id}'s card ${task.card}: ${blockers[0]}; log uncarded once it is withdrawn or its session has ended` })),
     ...waiting.flatMap(({ task, stuck }) => stuck.map((blocker) => ({ kind: 'problem', text: `fix ${task.id}'s wait: ${blocker}; log updated with the waits it has now` }))),
     ...[...topics.values()]
