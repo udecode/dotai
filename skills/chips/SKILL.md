@@ -26,7 +26,7 @@ pstack calls these modes too. Where a pstack step files a tracked issue, a follo
    - Withdrawal pass: call the dismiss tool on each card it names, then log the row the tool's report decides, as each item says.
    - Ledger pass: log each row it names.
    - Card pass: leave it to step 5.
-   - Check items: look each session up with the session tool. Log `uncarded` with a card item's `card:` when the tool reports its session archived or gone. For a started task whose rows name no session, find it as the item says and log `started` with its `session:`. When the tool reports a started task's session archived, read its last report with the tool, then log `landed` when a commit holds the change or that report says the session finished it in the project's checkout, and `dismissed stopped` otherwise. When the tool cannot find the session, the task stays started.
+   - Check items: look each session up with the session tool. Log `uncarded` with a card item's `card:` when the tool reports its session archived or gone. For a started task whose rows name no session, find it as the item says and log `started` with its `session:`. When the tool reports a started task's session archived, read its last report with the tool, then log `landed` when a commit holds the change or that report says the session delivered it, and `dismissed stopped` otherwise. When the tool cannot find the session, the task stays started.
 
    Run `chips --session <id>` again and repeat until the Do list shows only the card pass or nothing you can apply. When `append` refuses a batch, fix or drop the refused row as its message says and append the rest.
 3. Judge each task the stale report gives a fact, from its brief, those facts and the code, and append the rows in one batch:
