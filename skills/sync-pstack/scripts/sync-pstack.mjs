@@ -1066,6 +1066,9 @@ function usesPstack(root) {
   return existsSync(settings) && readFileSync(settings, 'utf8').includes(PLUGIN);
 }
 
+// A linked worktree's .git is a file.
+const isMainCheckout = (path) => statSync(join(path, '.git'), { throwIfNoEntry: false })?.isDirectory() ?? false;
+
 function candidates(roots) {
   const configured = [];
   const configPath = join(homedir(), '.agents/config.json');
@@ -1077,7 +1080,7 @@ function candidates(roots) {
     if (!existsSync(dir)) continue;
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const path = join(dir, entry.name);
-      if (entry.isDirectory() && existsSync(join(path, '.git')) && usesPstack(path)) found.add(path);
+      if (entry.isDirectory() && isMainCheckout(path) && usesPstack(path)) found.add(path);
     }
   }
   return [...found].sort();

@@ -830,6 +830,10 @@ test('status finds managed, pinned and vendored pstack projects under a root', (
   const pinned = project(repos, 'pinned', { settings: { enabledPlugins: { 'pstack@pstack-claude': true } } });
   const vendored = project(repos, 'vendored', { files: { '.agents/skills/poteto-mode/SKILL.md': '---\nname: poteto-mode\n---\n' } });
   project(repos, 'plain', { agents: '# Plain\n' });
+  spawnSync('git', ['-C', managed, 'add', '-A']);
+  commit(managed, 'managed');
+  spawnSync('git', ['-C', managed, 'worktree', 'add', '-q', '--detach', join(repos, 'managed-proof')]);
+  assert.ok(existsSync(join(repos, 'managed-proof/.agents/pstack.json')));
   const status = cli('status', '--root', repos, '--json', '--offline');
   assert.equal(status.status, 0, status.stderr);
   assert.deepEqual(
