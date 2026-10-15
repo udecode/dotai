@@ -2548,7 +2548,7 @@ test('decisions-check holds one open design question per topic and folds the nex
   assert.equal(offer('task_a3 Fix the drop indicator', 'src/ui', 'topic: landing').status, 0, 'a plain fix in the same topic');
   assert.equal(offer('task_b1 Decide the export format (xhigh)', 'src/export', 'topic: export; kind: decide').status, 0, 'a design question in another topic');
   assert.equal(chip(landing, 'folded', 'writes: src/drop').status, 0);
-  assert.match(chips('brief', 'task_a1').stdout, /^Decide where pasted content lands \(xhigh\)\n\nSuggested task task_a1 in docs\/plans\/suggested-tasks\.decisions\.tsv of the project checkout [^\n]*\.[\s\S]*Findings:\n- why\n- why\nWrites: src\/core, src\/drop[\s\S]*settles a design question first/);
+  assert.match(chips('brief', 'task_a1').stdout, /^Decide where pasted content lands \(xhigh\)\n\nTopic: landing\.[\s\S]*Findings:\n- why\n- why\nWrites: src\/core, src\/drop[\s\S]*settles a design question first[\s\S]*\n\nSuggested task task_a1 in docs\/plans\/suggested-tasks\.decisions\.tsv of the project checkout [^\n]*\n?$/);
   assert.match(chips('id').stdout, /^t_[0-9a-f]{8}\n$/u);
   assert.match(chips('--fetch', 'id').stdout, /^t_[0-9a-f]{8}\n$/u, 'a flag before the id command');
   const raced = 'docs/plans/raced.decisions.tsv';
@@ -2667,13 +2667,14 @@ test('a dup moves the duplicate\'s title, findings, paths, waits and owned check
   assert.match(chips().stdout, /task_a1 {2}Fix the parser {2}\[parser\] {2}owns ci:docs {2}waits on pr:99 not merged; started task_w1 writes its paths outside this checkout\n/, 'a started task on an outside path the duplicate brought');
 });
 
-test('a card prompt starts by loading the current brief from the project checkout, and ends with how its session lands', () => {
+test('a card prompt leads with the task, then how its session lands, and ends by loading the current brief from the project checkout', () => {
   const { chips, offer, root } = chipLedger();
   assert.equal(offer('task_a1 Fix the parser', 'src/p.ts', 'topic: parser').status, 0);
   const checkout = realpathSync(root);
   const brief = chips('brief', 'task_a1').stdout;
   const quoted = (text) => text.replace(/[.*+?^${}()|[\]\\/]/gu, '\\$&');
-  assert.match(brief, new RegExp(`^Fix the parser\\n\\nSuggested task task_a1 in docs/plans/suggested-tasks\\.decisions\\.tsv of the project checkout ${quoted(checkout)}\\. This prompt can be older than the task, so first run cd ${quoted(checkout)} && node \\.agents/pstack/decisions-check\\.mjs chips brief task_a1 and work from what it prints\\. Run every ledger command from ${quoted(checkout)} that way, even when your session opened in its own worktree`), 'a card made before a later fold or dup, run from a worktree whose ledger copy is stale');
+  assert.match(brief, /^Fix the parser\n\nTopic: parser\. Kind: fix\. Effort: high\.\nFindings:\n/, 'the card shows the task before any bookkeeping');
+  assert.match(brief, new RegExp(`\\n\\nSuggested task task_a1 in docs/plans/suggested-tasks\\.decisions\\.tsv of the project checkout ${quoted(checkout)}\\. This prompt can be older than the task, so before anything else run cd ${quoted(checkout)} && node \\.agents/pstack/decisions-check\\.mjs chips brief task_a1 and work from what it prints\\. Run every ledger command from ${quoted(checkout)} that way, even when your session opened in its own worktree[^\\n]*\\n?$`), 'a card made before a later fold or dup, run from a worktree whose ledger copy is stale');
   const patch = join(checkout, 'docs/plans/artifacts/chips/task_a1.patch');
   assert.match(brief, new RegExp(`save git diff --cached HEAD, which holds new files too, as ${quoted(patch)}, run git -C ${quoted(checkout)} apply --check --whitespace=error-all ${quoted(patch)}, then git -C ${quoted(checkout)} apply ${quoted(patch)}, which changes only the checkout's working tree and leaves its index alone\\.[^\\n]*Then log landed with patch: ${quoted(patch)}\\.`), 'a session that lands its own work');
 });
@@ -2758,7 +2759,7 @@ test('chips brief on a merged task prints the task it merged into, and a closed 
   assert.equal(chip('task_b1 Fix b', 'dismissed dup task_a1').status, 0);
   const merged = chips('brief', 'task_b1');
   assert.equal(merged.status, 0, merged.stderr);
-  assert.match(merged.stdout, /^task_b1 was merged into task_a1; work from its brief\.\n\nFix a\n\nSuggested task task_a1 /, 'a card on the duplicate that another session still holds');
+  assert.match(merged.stdout, /^task_b1 was merged into task_a1; work from its brief\.\n\nFix a\n\nTopic: brief\.[\s\S]*\n\nSuggested task task_a1 [^\n]*\n?$/, 'a card on the duplicate that another session still holds');
   assert.equal(chip('task_a1 Fix a', 'started').status, 0);
   assert.equal(chip('task_a1 Fix a', 'landed').status, 0);
   const landed = chips('brief', 'task_b1');
