@@ -2823,7 +2823,7 @@ test('folding an unknown-cause diagnosis into a plain fix raises its brief and b
   assert.equal(chip('task_p1 Fix the parser', 'folded', 'effort: xhigh; writes: src/q.ts').status, 0, 'a hang nobody has explained yet');
   assert.match(chips('brief', 'task_p1').stdout, /^Fix the parser \(xhigh\)\n[\s\S]*Kind: fix\./);
   assert.match(chips().stdout, /task_p1 {2}Fix the parser \(xhigh\) {2}\[parser\]/, 'the board shows the effort the card passes');
-  assert.match(chip('task_p1 Fix the parser', 'folded', 'effort: high').stderr, /effort: takes only xhigh/);
+  assert.match(chip('task_p1 Fix the parser', 'folded', 'effort: high').stderr, /a folded row takes effort: xhigh only/);
 });
 
 test("a card's effort is its title's, capped at the project's maxEffort, in the brief and on the board", () => {
@@ -3430,7 +3430,7 @@ test('chips wait exits once a task lands or turns ready, and at its timeout', as
   assert.match(out, /Landed: task_a1\. Ready with no card: task_b1\. Run the chips sweep\./);
   const idle = spawnSync(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'chips', 'wait', '--every', '0.1', '--timeout', '0.01'], { cwd: root, env, encoding: 'utf8' });
   assert.equal(idle.status, 0, idle.stderr);
-  assert.match(idle.stdout, /No task landed or turned ready before the timeout/);
+  assert.match(idle.stdout, /No task landed, started or turned ready before the timeout/);
 });
 
 test('a fast mark shows on a plain fix, refuses design judgment, and drops when a fold or dup raises the task', () => {
@@ -4526,4 +4526,79 @@ test('levels refuses a missing log, a flag with no value, and a round the models
   const seats = run(['--lead', 'claude-opus-5-5 @xhigh', '--seats', 'opus @high, codex:gpt-6-astra @high, codex:gpt-6.1-sol @xhigh', 'log.tsv']);
   assert.equal(seats.status, 0, seats.stderr);
   assert.match(seats.stdout, /^ {2}at line 7: panel /mu);
+});
+
+test('an effort: high row lowers a stored (xhigh) title, and a design question stays at xhigh', () => {
+  const { chip, chips, offer } = chipLedger();
+  const parser = 'task_e1 Fix the parser (xhigh)';
+  assert.equal(offer(parser, 'src/p.ts', 'topic: parser').status, 0);
+  assert.match(chips('brief', 'task_e1').stdout, /^Fix the parser \(xhigh\)\n[\s\S]*Effort: xhigh\./);
+  assert.equal(chip(parser, 'updated', 'effort: high').status, 0);
+  assert.match(chips().stdout, /task_e1 {2}Fix the parser {2}\[parser\]/);
+  assert.match(chips('brief', 'task_e1').stdout, /^Fix the parser\n[\s\S]*Effort: high\./);
+  assert.equal(chip(parser, 'updated', 'effort: xhigh').status, 0);
+  assert.match(chips('brief', 'task_e1').stdout, /Effort: xhigh\./, 'an updated row raises it again');
+  assert.match(chip(parser, 'updated', 'effort: max').stderr, /effort: is high or xhigh/);
+  const design = 'task_e2 Decide the parser shape';
+  assert.equal(offer(design, 'src/q.ts', 'topic: parser-shape; kind: decide').status, 0);
+  assert.equal(chip(design, 'updated', 'effort: high').status, 0);
+  assert.match(chips('brief', 'task_e2').stdout, /^Decide the parser shape \(xhigh\)\n[\s\S]*Effort: xhigh\./, 'a design question stays at xhigh');
+});
+
+test('a fold only raises a task, and a dup of an xhigh task raises a task lowered to high', () => {
+  const { chip, chips, offer } = chipLedger();
+  const kept = 'task_k1 Fix the footer (xhigh)';
+  assert.equal(offer(kept, 'docs/f.md', 'topic: footer').status, 0);
+  assert.equal(chip(kept, 'updated', 'effort: high').status, 0);
+  assert.match(chip(kept, 'folded', 'effort: high').stderr, /a folded row takes effort: xhigh only/);
+  assert.equal(offer('task_d1 Rework the footer layout (xhigh)', 'docs/f.md', 'topic: footer').status, 0);
+  assert.equal(chip('task_d1 Rework the footer layout (xhigh)', 'dismissed dup task_k1').status, 0);
+  assert.match(chips('brief', 'task_k1').stdout, /^Fix the footer \(xhigh\)\n[\s\S]*Effort: xhigh\./);
+});
+
+test('a task that holds a card takes an updated row that only changes its effort', () => {
+  const { chip, offer } = chipLedger();
+  const parser = 'task_c1 Fix the parser (xhigh)';
+  assert.equal(offer(parser, 'src/p.ts', 'topic: parser; card: c1; session: s1').status, 0);
+  assert.equal(chip(parser, 'updated', 'effort: high').status, 0, 'effort changes no work');
+  assert.match(chip(parser, 'updated', 'effort: xhigh; writes: src/p.ts, src/q.ts').stderr, /task_c1 holds card c1, which cannot change/);
+});
+
+test("chips wait names a card session this session offered once it starts, with its card's effort and its brief's", async () => {
+  const { chip, env, offer, root } = chipLedger();
+  const parser = 'task_s1 Fix the parser (xhigh)';
+  assert.equal(offer(parser, 'src/p.ts', 'topic: parser; card: c1; session: s1').status, 0);
+  assert.equal(chip(parser, 'updated', 'effort: high').status, 0, 'the card keeps the xhigh it was offered at');
+  assert.equal(offer('task_s2 Fix the lexer', 'src/l.ts', 'topic: lexer; card: c2; session: s9').status, 0);
+  const waiter = spawn(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'chips', 'wait', '--session', 's1', '--every', '0.1', '--timeout', '1'], { cwd: root, env });
+  let out = '';
+  waiter.stdout.on('data', (chunk) => {
+    out += chunk;
+  });
+  const exited = new Promise((done) => waiter.on('exit', done));
+  await new Promise((done) => setTimeout(done, 500));
+  assert.equal(chip('task_s2 Fix the lexer', 'started', 'session: s3').status, 0);
+  await new Promise((done) => setTimeout(done, 400));
+  assert.equal(out, '', "another session's card starting wakes nobody here");
+  assert.equal(chip(parser, 'started', 'session: s2').status, 0);
+  assert.equal(await exited, 0);
+  assert.match(out, /^Started: task_s1 in session s2, carded at xhigh, brief at high\. Lower to its brief's effort, with the session tool, each started session above it that still runs at its card's effort, or at yours when the suggest tool took no effort; a session at any other effort is the owner's choice\. Then run the chips sweep\.$/m);
+});
+
+test("chips wait gives a carded row's card the effort its task had when the card landed", async () => {
+  const { chip, env, offer, root } = chipLedger();
+  const parser = 'task_s1 Fix the parser';
+  assert.equal(offer(parser, 'src/p.ts', 'topic: parser').status, 0);
+  assert.equal(chip(parser, 'carded', 'card: c1; session: s1').status, 0);
+  assert.equal(chip(parser, 'updated', 'effort: xhigh').status, 0);
+  const waiter = spawn(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'chips', 'wait', '--session', 's1', '--every', '0.1', '--timeout', '1'], { cwd: root, env });
+  let out = '';
+  waiter.stdout.on('data', (chunk) => {
+    out += chunk;
+  });
+  const exited = new Promise((done) => waiter.on('exit', done));
+  await new Promise((done) => setTimeout(done, 500));
+  assert.equal(chip(parser, 'started', 'session: s2').status, 0);
+  assert.equal(await exited, 0);
+  assert.match(out, /^Started: task_s1 in session s2, carded at high, brief at xhigh\./m, 'a raise after the card leaves the session at its card effort, below the brief');
 });
