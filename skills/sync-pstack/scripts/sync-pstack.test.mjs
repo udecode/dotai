@@ -2297,7 +2297,8 @@ test('decisions-check takes later rows for a task offered under an old-form titl
   const { LEDGER, chip, root } = chipLedger();
   const old = 'task_a1 After: Fix the stale badge (high)';
   writeFileSync(join(root, LEDGER), `ts\tphase\tdecision\twhy\tevidence\tresult\n${['2026-01-01T10:00:00Z', 'chip', old, 'why', 'writes: README.md', 'offered'].join('\t')}\n`);
-  assert.equal(chip(old, 'updated', 'topic: docs').status, 0, 'a migration row');
+  assert.match(chip(old, 'updated', 'topic: docs').stderr, /task_a1 has no topic yet, so this row migrates it/, 'a migration row without its waits');
+  assert.equal(chip(old, 'updated', 'topic: docs; waits: none').status, 0, 'a migration row');
   const started = chip(old, 'started');
   assert.equal(started.status, 0, started.stderr);
   assert.equal(chip(old, 'landed').status, 0);
@@ -2338,7 +2339,7 @@ test('decisions-check takes a later chip row only for a task in the state it lea
   assert.match(chip('task_a1 Fix the stale badge', 'updated', 'because').stderr, /names what changes/, 'an update that changes nothing');
   assert.equal(chip('task_a1 Fix the stale badge', 'dismissed dup task_c3: the guide rewrite fixes the badge too').status, 0);
   assert.match(chip('task_a1 Fix the stale badge', 'started').stderr, /task_a1 is dismissed dup, so it cannot be started/, 'a closed task that starts');
-  assert.match(chip('task_c3 Rewrite the install guide', 'dismissed dup task_a1').stderr, /task_a1 must be another task the ledger holds as offered or started/, 'a duplicate of a closed task');
+  assert.match(chip('task_c3 Rewrite the install guide', 'dismissed dup task_a1').stderr, /task_a1 must be another task the ledger holds as offered;/, 'a duplicate of a closed task');
 });
 
 test('decisions-check closes a started task by landing or by a dismissal that fits a started task', () => {
@@ -2357,7 +2358,8 @@ test('decisions-check closes a started task by landing or by a dismissal that fi
     assert.match(chip(ledger, `dismissed ${reason}`).stderr, /task_b2 is started, so it cannot be dismissed/, `${reason} for a task whose session may still be writing`);
   }
   assert.equal(offer('task_e5 Add a CSV export', 'src/export/csv.ts').status, 0);
-  assert.equal(chip('task_e5 Add a CSV export', 'dismissed dup task_b2').status, 0, 'an offered task a started task covers');
+  assert.match(chip('task_e5 Add a CSV export', 'dismissed dup task_b2').stderr, /task_b2 is started, and a dup moves work only into an offered task; keep task_e5 open, log updated with its waits plus task:task_b2, and log dismissed done once task_b2 lands with the fix/, 'an offered task a started task covers');
+  assert.equal(chip('task_e5 Add a CSV export', 'updated', 'waits: task:task_b2').status, 0, 'the route the refusal names');
 });
 
 test('decisions-check refuses a started row that adds a path another started task writes', () => {
@@ -2557,6 +2559,319 @@ test('a base-red row and a carded row stay valid after the state they were judge
   assert.equal(board.status, 1);
 });
 
+test('a dup moves the duplicate\'s title, findings, paths, waits and owned checks into an offered task it keeps', () => {
+  const { appendTo, chip, chips, offer } = chipLedger();
+  const parser = 'task_a1 Fix the parser';
+  const docs = 'task_b1 Fix the parser docs';
+  assert.equal(offer(parser, 'src/p.ts', 'topic: parser').status, 0);
+  assert.equal(offer(docs, 'docs/p.md', 'topic: parser; waits: pr:99, task:task_a1; owns: ci:docs').status, 0);
+  const merged = chip(docs, 'dismissed dup task_a1');
+  assert.equal(merged.status, 0, merged.stderr);
+  assert.match(chips().stdout, /task_a1 {2}Fix the parser {2}\[parser\] {2}owns ci:docs {2}waits on pr:99 not merged\n/, 'the wait on the kept task itself is dropped');
+  assert.match(chips('brief', 'task_a1').stdout, /Findings:\n- why\nAlso covers:\n- task_b1 Fix the parser docs\n {2}- why\nWrites: src\/p\.ts, docs\/p\.md\nOwns: ci:docs\nWaited on: pr:99\n/, 'the brief names the duplicate\'s work by its title');
+  assert.equal(appendTo('docs/plans/2026-01-01-fix.decisions.tsv', 'verify', 'read CI', 'base-red: ci:docs; proof: none', 'gap: fails on next too').status, 0, 'the kept task owns the check');
+  assert.equal(offer('task_w1 Rewrite the docs index', 'docs/p.md', 'topic: index').status, 0);
+  assert.equal(chip('task_w1 Rewrite the docs index', 'started').status, 0);
+  assert.match(chips().stdout, /task_a1 {2}Fix the parser {2}\[parser\] {2}owns ci:docs {2}waits on pr:99 not merged; started task_w1 writes its paths\n/, 'a started task on a path the duplicate brought');
+});
+
+test('a card prompt starts by loading the current brief', () => {
+  const { chips, offer } = chipLedger();
+  assert.equal(offer('task_a1 Fix the parser', 'src/p.ts', 'topic: parser').status, 0);
+  assert.match(chips('brief', 'task_a1').stdout, /^Fix the parser\n\nSuggested task task_a1 in docs\/plans\/suggested-tasks\.decisions\.tsv\. This prompt can be older than the task, so first run node \.agents\/pstack\/decisions-check\.mjs chips brief task_a1 and work from what it prints\./, 'a card made before a later fold or dup');
+});
+
+test('a merge or a folded design question keeps the effort the task\'s work needs', () => {
+  const { chip, chips, offer } = chipLedger();
+  assert.equal(offer('task_a1 Fix the parser', 'src/p.ts', 'topic: parser').status, 0);
+  assert.equal(offer('task_b1 Find why the parser hangs (xhigh)', 'src/q.ts', 'topic: parser').status, 0);
+  assert.equal(chip('task_b1 Find why the parser hangs (xhigh)', 'dismissed dup task_a1').status, 0);
+  assert.match(chips('brief', 'task_a1').stdout, /^Fix the parser \(xhigh\)\n/, 'a diagnosis merged into a plain fix');
+  assert.equal(offer('task_c1 Fix the printer', 'src/r.ts', 'topic: printer').status, 0);
+  assert.equal(chip('task_c1 Fix the printer', 'folded', 'kind: decide; writes: src/r2.ts').status, 0, 'a design question found later');
+  assert.match(chips('brief', 'task_c1').stdout, /^Fix the printer \(xhigh\)\n[\s\S]*Kind: decide\.[\s\S]*settles a design question first/);
+});
+
+test('folding a design finding into an offered fix makes it a design question', () => {
+  const { chip, chips, offer } = chipLedger();
+  assert.equal(offer('task_f1 Fix the export button', 'src/b.ts', 'topic: export').status, 0);
+  assert.equal(chip('task_f1 Fix the export button', 'folded', 'kind: decide; writes: src/c.ts').status, 0, 'a design finding on the same question');
+  assert.match(chips('brief', 'task_f1').stdout, /Kind: decide\.[\s\S]*settles a design question first/, 'the card routes to a verdict');
+});
+
+test('a folded design question promotes its task and joins the one-question-per-topic check', () => {
+  const { chip, offer } = chipLedger();
+  assert.equal(offer('task_d1 Decide the export format (xhigh)', 'src/e.ts', 'topic: export; kind: decide').status, 0);
+  assert.equal(offer('task_k1 Fix the export button', 'src/b.ts', 'topic: export').status, 0);
+  assert.match(chip('task_k1 Fix the export button', 'folded', 'kind: decide; writes: src/c.ts').stderr, /topic export already has the open design question task_d1; log this finding as a folded row on task_d1 instead/, 'a second design question in one topic');
+  assert.match(chip('task_d1 Decide the export format (xhigh)', 'folded', 'kind: fix').stderr, /a folded row takes kind: decide only/);
+  assert.equal(chip('task_d1 Decide the export format (xhigh)', 'folded', 'kind: decide; writes: src/f.ts').status, 0, 'a folded design question on the topic\'s own design task');
+});
+
+test('append refuses a dup of a task with no topic until it is migrated', () => {
+  const { chip, root, LEDGER, offer } = chipLedger();
+  assert.equal(offer('task_a1 Fix the parser', 'src/p.ts', 'topic: parser').status, 0);
+  writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', 'task_o1 After: Fix the parser docs (high)', 'waits for: PR 12 to merge', 'writes: docs/p.md', 'offered'].join('\t') + '\n');
+  assert.match(chip('task_o1 After: Fix the parser docs (high)', 'dismissed dup task_a1').stderr, /task_o1 has no topic, so its waits may still be prose; migrate it first: log updated with topic: and the waits: it has/);
+  assert.equal(chip('task_o1 After: Fix the parser docs (high)', 'updated', 'topic: parser; waits: pr:12').status, 0);
+  assert.equal(chip('task_o1 After: Fix the parser docs (high)', 'dismissed dup task_a1').status, 0, 'once it has a topic');
+});
+
+test('append refuses a second card on a task that has one', () => {
+  const { chip, offer } = chipLedger();
+  assert.equal(offer('task_l1 Fix the lexer', 'src/l.ts', 'topic: lexer').status, 0);
+  assert.equal(chip('task_l1 Fix the lexer', 'carded', 'card: c1; session: s1').status, 0);
+  assert.match(chip('task_l1 Fix the lexer', 'carded', 'card: c2; session: s2').stderr, /task_l1 already has card c1; log uncarded once that card is withdrawn or its session has ended, then card it again/);
+  assert.equal(chip('task_l1 Fix the lexer', 'uncarded').status, 0);
+  assert.equal(chip('task_l1 Fix the lexer', 'carded', 'card: c2; session: s2').status, 0);
+});
+
+test('a dup that would leave two tasks waiting on each other is refused, and merging the chain works', () => {
+  const { chip, chips, offer } = chipLedger();
+  assert.equal(offer('task_d1 Fix d', 'src/d.ts', 'topic: chain').status, 0);
+  assert.equal(offer('task_m1 Fix m', 'src/m.ts', 'topic: chain; waits: task:task_d1').status, 0);
+  assert.equal(offer('task_k1 Fix k', 'src/k.ts', 'topic: chain; waits: task:task_m1').status, 0);
+  assert.match(chip('task_d1 Fix d', 'dismissed dup task_k1').stderr, /this row leaves task_m1 and task_k1 waiting on each other; log task_m1 dismissed dup task_k1 first, or keep task_d1 open/, 'a wait on the duplicate that now leads to the kept task');
+  assert.equal(chip('task_m1 Fix m', 'dismissed dup task_k1').status, 0, 'the route the refusal names');
+  assert.equal(chip('task_d1 Fix d', 'dismissed dup task_k1').status, 0);
+  const board = chips();
+  assert.equal(board.status, 0, board.stdout);
+  assert.match(board.stdout, /Ready \(1\)\n {2}task_k1 {2}Fix k {2}\[chain\] {2}no card\n/);
+});
+
+test('a dup that hands the kept task a wait back on itself is refused', () => {
+  const { chip, offer } = chipLedger();
+  assert.equal(offer('task_k1 Fix k', 'src/k.ts', 'topic: chain').status, 0);
+  assert.equal(offer('task_c1 Fix c', 'src/c.ts', 'topic: chain; waits: task:task_k1').status, 0);
+  assert.equal(offer('task_d1 Fix d', 'src/d.ts', 'topic: chain; waits: task:task_c1').status, 0);
+  assert.match(chip('task_d1 Fix d', 'dismissed dup task_k1').stderr, /this row leaves task_k1 and task_c1 waiting on each other; log task_c1 dismissed dup task_k1 first, or keep task_d1 open/);
+});
+
+test('an updated row that closes a wait loop is refused', () => {
+  const { chip, offer } = chipLedger();
+  assert.equal(offer('task_a1 Fix a', 'src/a.ts', 'topic: loop').status, 0);
+  assert.equal(offer('task_b1 Fix b', 'src/b.ts', 'topic: loop; waits: task:task_a1').status, 0);
+  assert.match(chip('task_a1 Fix a', 'updated', 'waits: task:task_b1').stderr, /this row leaves task_a1 and task_b1 waiting on each other; drop the wait that closes the loop/);
+  assert.equal(chip('task_b1 Fix b', 'started').status, 0);
+  assert.equal(chip('task_a1 Fix a', 'updated', 'waits: task:task_b1').status, 0, 'a wait on a started task never loops');
+});
+
+test('chips brief on a merged task prints the task it merged into, and a closed task has nothing to start', () => {
+  const { chip, chips, offer } = chipLedger();
+  assert.equal(offer('task_a1 Fix a', 'src/a.ts', 'topic: brief').status, 0);
+  assert.equal(offer('task_b1 Fix b', 'src/b.ts', 'topic: brief').status, 0);
+  assert.equal(chip('task_b1 Fix b', 'dismissed dup task_a1').status, 0);
+  const merged = chips('brief', 'task_b1');
+  assert.equal(merged.status, 0, merged.stderr);
+  assert.match(merged.stdout, /^task_b1 was merged into task_a1; work from its brief\.\n\nFix a\n\nSuggested task task_a1 /, 'a card on the duplicate that another session still holds');
+  assert.equal(chip('task_a1 Fix a', 'started').status, 0);
+  assert.equal(chip('task_a1 Fix a', 'landed').status, 0);
+  const landed = chips('brief', 'task_b1');
+  assert.equal(landed.status, 1);
+  assert.match(landed.stderr, /task_b1 was merged into task_a1, which is landed, so there is nothing to start; tell the owner/);
+  assert.equal(offer('task_c1 Fix c', 'src/c.ts', 'topic: brief').status, 0);
+  assert.equal(chip('task_c1 Fix c', 'dismissed done').status, 0);
+  assert.match(chips('brief', 'task_c1').stderr, /task_c1 is dismissed done, so there is nothing to start; tell the owner/);
+});
+
+test('append refuses a dup across topics until the duplicate moves into the kept task\'s topic', () => {
+  const { chip, offer } = chipLedger();
+  assert.equal(offer('task_a1 Fix the export', 'src/e.ts', 'topic: export').status, 0);
+  assert.equal(offer('task_b1 Fix the export format', 'src/f.ts', 'topic: format').status, 0);
+  assert.match(chip('task_b1 Fix the export format', 'dismissed dup task_a1').stderr, /task_b1 is in topic format and task_a1 in export, and a dup joins tasks on one question; when task_b1 answers task_a1's question, log updated with topic: export on task_b1 first/);
+  assert.equal(chip('task_b1 Fix the export format', 'updated', 'topic: export').status, 0);
+  assert.equal(chip('task_b1 Fix the export format', 'dismissed dup task_a1').status, 0);
+});
+
+test('append refuses a dup into a task with no topic until it is migrated', () => {
+  const { chip, root, LEDGER, offer } = chipLedger();
+  assert.equal(offer('task_b1 Fix the parser docs', 'docs/p.md', 'topic: parser; waits: pr:12').status, 0);
+  writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', 'task_o1 Now: Fix the parser', 'why', 'writes: src/p.ts', 'offered'].join('\t') + '\n');
+  assert.match(chip('task_b1 Fix the parser docs', 'dismissed dup task_o1').stderr, /task_o1 has no topic, so its waits may still be prose; migrate it first/);
+  assert.equal(chip('task_o1 Now: Fix the parser', 'updated', 'topic: parser; waits: none').status, 0);
+  assert.equal(chip('task_b1 Fix the parser docs', 'dismissed dup task_o1').status, 0);
+});
+
+test('a migration names the task\'s waits along with its topic', () => {
+  const { chip, root, LEDGER, offer } = chipLedger();
+  assert.equal(offer('task_a1 Fix the parser', 'src/p.ts', 'topic: parser').status, 0);
+  writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', 'task_o1 After: Fix the parser docs (high)', 'waits for: PR 12 to merge', 'writes: docs/p.md', 'offered'].join('\t') + '\n');
+  assert.match(chip('task_o1 After: Fix the parser docs (high)', 'updated', 'topic: parser').stderr, /task_o1 has no topic yet, so this row migrates it; name its waits too, as waits: none when it has none/);
+  assert.equal(chip('task_o1 After: Fix the parser docs (high)', 'updated', 'topic: parser; waits: pr:12').status, 0);
+});
+
+test('a dup that makes a design question beside a running one names the updated route', () => {
+  const { chip, offer, root, LEDGER } = chipLedger();
+  assert.equal(offer('task_s1 Decide where content lands (xhigh)', 'src/l.ts', 'topic: land; kind: decide').status, 0);
+  assert.equal(chip('task_s1 Decide where content lands (xhigh)', 'started').status, 0);
+  assert.equal(offer('task_k1 Fix the drop target', 'src/k.ts', 'topic: land').status, 0);
+  writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', 'task_d1 Decide where drops land (xhigh)', 'why', 'writes: src/d.ts; topic: land; kind: decide', 'offered'].join('\t') + '\n');
+  assert.match(chip('task_d1 Decide where drops land (xhigh)', 'dismissed dup task_k1').stderr, /topic land's design question task_s1 is running; log updated on task_k1 with its waits plus task:task_s1 before this row/);
+  assert.equal(chip('task_k1 Fix the drop target', 'updated', 'waits: task:task_s1').status, 0);
+  assert.equal(chip('task_d1 Decide where drops land (xhigh)', 'dismissed dup task_k1').status, 0);
+});
+
+test('a folded design question accepts a wait through a duplicate of the running one', () => {
+  const { chip, offer } = chipLedger();
+  assert.equal(offer('task_r1 Decide the format (xhigh)', 'src/r.ts', 'topic: format; kind: decide').status, 0);
+  assert.equal(offer('task_a1 Fix the format docs', 'docs/r.md', 'topic: format').status, 0);
+  assert.equal(chip('task_a1 Fix the format docs', 'dismissed dup task_r1').status, 0);
+  assert.equal(chip('task_r1 Decide the format (xhigh)', 'started').status, 0);
+  assert.equal(offer('task_k1 Fix the format button', 'src/k.ts', 'topic: format; waits: task:task_a1').status, 0);
+  const folded = chip('task_k1 Fix the format button', 'folded', 'kind: decide');
+  assert.equal(folded.status, 0, folded.stderr);
+});
+
+test('folding an unknown-cause diagnosis into a plain fix raises its brief and board line to xhigh', () => {
+  const { chip, chips, offer } = chipLedger();
+  assert.equal(offer('task_p1 Fix the parser', 'src/p.ts', 'topic: parser').status, 0);
+  assert.equal(chip('task_p1 Fix the parser', 'folded', 'effort: xhigh; writes: src/q.ts').status, 0, 'a hang nobody has explained yet');
+  assert.match(chips('brief', 'task_p1').stdout, /^Fix the parser \(xhigh\)\n[\s\S]*Kind: fix\./);
+  assert.match(chips().stdout, /task_p1 {2}Fix the parser \(xhigh\) {2}\[parser\]/, 'the board shows the effort the card passes');
+  assert.match(chip('task_p1 Fix the parser', 'folded', 'effort: high').stderr, /effort: takes only xhigh/);
+});
+
+test('chips asks to re-card a task this session carded once the title its card shows changes', () => {
+  const { chip, chips, offer } = chipLedger();
+  assert.equal(offer('task_l1 Fix the lexer', 'src/l.ts', 'topic: lexer').status, 0);
+  assert.equal(chip('task_l1 Fix the lexer', 'carded', 'card: c1; session: s1').status, 0);
+  assert.equal(chip('task_l1 Fix the lexer', 'folded', 'writes: src/m.ts').status, 0);
+  assert.doesNotMatch(chips('--session', 's1').stdout, /re-card/, 'a fold that keeps the title, which the card\'s session reads from chips brief');
+  assert.equal(chip('task_l1 Fix the lexer', 'folded', 'effort: xhigh').status, 0);
+  const here = chips('--session', 's1');
+  assert.equal(here.status, 0, here.stdout);
+  assert.match(here.stdout, /re-card task_l1: its title is now "Fix the lexer \(xhigh\)", not the "Fix the lexer" card c1 shows; withdraw that card and log uncarded, or started or dismissed declined when the dismiss tool reports the owner started or dismissed it, then card it again with the prompt from chips brief task_l1/);
+  assert.doesNotMatch(chips('--session', 's2').stdout, /re-card/, 'another session\'s card');
+  assert.doesNotMatch(chips().stdout, /re-card/, 'a board read that names no session');
+  assert.equal(chip('task_l1 Fix the lexer', 'uncarded').status, 0);
+  assert.equal(chip('task_l1 Fix the lexer', 'carded', 'card: c2; session: s1').status, 0);
+  assert.doesNotMatch(chips('--session', 's1').stdout, /re-card/, 'a card made after the change');
+});
+
+test('the board tells a session a card started to work from its current brief', () => {
+  const { chips, offer } = chipLedger();
+  assert.equal(offer('task_a1 Fix the parser', 'src/p.ts', 'topic: parser').status, 0);
+  assert.match(chips().stdout, /\nA session a card started works from chips brief <its task id>, because its task can change after the card\.\n/, 'a card whose prompt predates chips brief');
+});
+
+test('the whole-log check refuses a dup into a started task', () => {
+  const { chip, helper, offer, root, LEDGER } = chipLedger();
+  const raw = (decision, evidence, result) => writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', decision, 'why', evidence, result].join('\t') + '\n');
+  assert.equal(offer('task_a1 Fix a', 'src/a.ts', 'topic: whole').status, 0);
+  assert.equal(offer('task_b1 Fix b', 'src/b.ts', 'topic: whole').status, 0);
+  assert.equal(chip('task_a1 Fix a', 'started').status, 0);
+  raw('task_b1 Fix b', 'evidence', 'dismissed dup task_a1');
+  const dup = helper(LEDGER);
+  assert.equal(dup.status, 1);
+  assert.match(dup.stderr, /task_a1 is started, and a dup moves work only into an offered task/);
+});
+
+test('the whole-log check refuses a folded row with kind: fix', () => {
+  const { helper, offer, root, LEDGER } = chipLedger();
+  assert.equal(offer('task_d1 Decide the format (xhigh)', 'src/d.ts', 'topic: whole; kind: decide').status, 0);
+  writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', 'task_d1 Decide the format (xhigh)', 'why', 'kind: fix', 'folded'].join('\t') + '\n');
+  const fold = helper(LEDGER);
+  assert.equal(fold.status, 1);
+  assert.match(fold.stderr, /a folded row takes kind: decide only/);
+});
+
+test('a duplicate\'s card has nothing to start once the task it merged into is started', () => {
+  const { chip, chips, offer } = chipLedger();
+  assert.equal(offer('task_a1 Fix a', 'src/a.ts', 'topic: alias').status, 0);
+  assert.equal(offer('task_b1 Fix b', 'src/b.ts', 'topic: alias').status, 0);
+  assert.equal(chip('task_b1 Fix b', 'dismissed dup task_a1').status, 0);
+  assert.equal(chip('task_a1 Fix a', 'started').status, 0);
+  const brief = chips('brief', 'task_b1');
+  assert.equal(brief.status, 1, 'a card on the duplicate that another session still holds');
+  assert.match(brief.stderr, /task_b1 was merged into task_a1, which is started, so there is nothing to start; tell the owner/);
+});
+
+test('a duplicate\'s card has nothing to start while the task it merged into has its own card', () => {
+  const { chip, chips, offer } = chipLedger();
+  assert.equal(offer('task_a1 Fix a', 'src/a.ts', 'topic: alias').status, 0);
+  assert.equal(offer('task_b1 Fix b', 'src/b.ts', 'topic: alias').status, 0);
+  assert.equal(chip('task_b1 Fix b', 'dismissed dup task_a1').status, 0);
+  assert.equal(chip('task_a1 Fix a', 'carded', 'card: c1; session: s1').status, 0);
+  const brief = chips('brief', 'task_b1');
+  assert.equal(brief.status, 1, 'two cards that would lead to one task');
+  assert.match(brief.stderr, /task_b1 was merged into task_a1, which has card c1, so there is nothing to start; tell the owner/);
+});
+
+test('two design questions in different topics merge into one', () => {
+  const { chip, chips, offer } = chipLedger();
+  assert.equal(offer('task_k1 Decide the export format (xhigh)', 'src/e.ts', 'topic: export; kind: decide').status, 0);
+  assert.equal(offer('task_d1 Decide the file format (xhigh)', 'src/f.ts', 'topic: format; kind: decide').status, 0);
+  const merged = chip('task_d1 Decide the file format (xhigh)', 'dismissed dup task_k1');
+  assert.equal(merged.status, 0, merged.stderr);
+  assert.match(chips('brief', 'task_k1').stdout, /Also covers:\n- task_d1 Decide the file format \(xhigh\)\n/);
+});
+
+test('moving a design question into a topic that has one names the dup', () => {
+  const { chip, offer } = chipLedger();
+  assert.equal(offer('task_k1 Decide the export format (xhigh)', 'src/e.ts', 'topic: export; kind: decide').status, 0);
+  assert.equal(offer('task_d1 Decide the file format (xhigh)', 'src/f.ts', 'topic: format; kind: decide').status, 0);
+  assert.match(chip('task_d1 Decide the file format (xhigh)', 'updated', 'topic: export').stderr, /topic export already has the open design question task_k1; log task_d1 dismissed dup task_k1 instead/, 'the topic move the cross-topic refusal names for two fixes');
+});
+
+test('a covered task keeps its effort in the kept task\'s brief', () => {
+  const { chip, chips, offer } = chipLedger();
+  assert.equal(offer('task_a1 Fix the parser', 'src/p.ts', 'topic: parser').status, 0);
+  assert.equal(offer('task_b1 Find the parser hang', 'src/q.ts', 'topic: parser').status, 0);
+  assert.equal(chip('task_b1 Find the parser hang', 'folded', 'effort: xhigh').status, 0);
+  assert.equal(chip('task_b1 Find the parser hang', 'dismissed dup task_a1').status, 0);
+  assert.match(chips('brief', 'task_a1').stdout, /Also covers:\n- task_b1 Find the parser hang \(xhigh\)\n/);
+});
+
+test('append refuses a new self-wait on a task already in a loop', () => {
+  const { chip, offer, root, LEDGER } = chipLedger();
+  assert.equal(offer('task_a1 Fix a', 'src/a.ts', 'topic: loop').status, 0);
+  assert.equal(offer('task_b1 Fix b', 'src/b.ts', 'topic: loop; waits: task:task_a1').status, 0);
+  writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', 'task_a1 Fix a', 'why', 'waits: task:task_b1', 'updated'].join('\t') + '\n');
+  assert.match(chip('task_a1 Fix a', 'updated', 'waits: task:task_b1, task:task_a1').stderr, /task_a1 cannot wait on itself/, 'a self-wait added to a task an older row left in a loop');
+  assert.equal(chip('task_a1 Fix a', 'updated', 'waits: task:task_b1, pr:7').status, 0, 'a wait outside the loop');
+});
+
+test('an empty waits: is refused', () => {
+  const { chip, offer, root, LEDGER } = chipLedger();
+  assert.equal(offer('task_a1 Fix the parser', 'src/p.ts', 'topic: parser').status, 0);
+  writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', 'task_o1 After: Fix the parser docs (high)', 'waits for: PR 12 to merge', 'writes: docs/p.md', 'offered'].join('\t') + '\n');
+  assert.match(chip('task_o1 After: Fix the parser docs (high)', 'updated', 'topic: parser; waits:').stderr, /waits: takes pr:<number>, task:<id> or run:<plan path ending in \.md>, comma-separated, or none/, 'a migration that would drop its prose wait');
+  assert.equal(chip('task_o1 After: Fix the parser docs (high)', 'updated', 'topic: parser; waits: none').status, 0);
+});
+
+test('a chain of dups carries every title and drops each wait that now leads back to the kept task', () => {
+  const { chip, chips, offer } = chipLedger();
+  assert.equal(offer('task_a1 Fix a', 'src/a.ts', 'topic: alias').status, 0);
+  assert.equal(offer('task_b1 Fix b', 'src/b.ts', 'topic: alias').status, 0);
+  assert.equal(offer('task_c1 Fix c', 'src/c.ts', 'topic: alias').status, 0);
+  assert.equal(chip('task_c1 Fix c', 'dismissed dup task_b1').status, 0);
+  assert.equal(chip('task_a1 Fix a', 'updated', 'waits: task:task_c1').status, 0);
+  assert.equal(chip('task_b1 Fix b', 'dismissed dup task_a1').status, 0);
+  assert.match(chips().stdout, /Ready \(1\)\n {2}task_a1 {2}Fix a {2}\[alias\] {2}no card\n/, 'a wait on a task merged earlier into the one now merged');
+  assert.match(chips('brief', 'task_a1').stdout, /Also covers:\n- task_b1 Fix b\n {2}- why\n- task_c1 Fix c\n {2}- why\n/, 'titles merged earlier come along');
+  assert.match(chip('task_a1 Fix a', 'updated', 'waits: task:task_c1').stderr, /task_a1 cannot wait on itself/, 'a wait on a task merged into this one');
+});
+
+test('a dup keeps a design question a design question, and is refused only when it makes a second one', () => {
+  const { chip, chips, offer, root, LEDGER } = chipLedger();
+  const legacy = (decision, evidence) => writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', decision, 'why', evidence, 'offered'].join('\t') + '\n');
+  assert.equal(offer('task_k1 Fix the export', 'src/e.ts', 'topic: export').status, 0);
+  assert.equal(offer('task_d1 Decide the export format (xhigh)', 'src/f.ts', 'topic: export; kind: decide').status, 0);
+  assert.equal(chip('task_d1 Decide the export format (xhigh)', 'dismissed dup task_k1').status, 0);
+  assert.match(chips().stdout, /task_k1 {2}Fix the export \(xhigh\) {2}\[export, decide\]/, 'the kept task takes the design question');
+  assert.match(chips('brief', 'task_k1').stdout, /settles a design question first/);
+  assert.equal(offer('task_e1 Decide the import format (xhigh)', 'src/g.ts', 'topic: import; kind: decide').status, 0);
+  legacy('task_e2 Decide the import shape (xhigh)', 'writes: src/h.ts; topic: import; kind: decide');
+  assert.equal(offer('task_e3 Fix the importer', 'src/i.ts', 'topic: import').status, 0);
+  assert.match(chip('task_e2 Decide the import shape (xhigh)', 'dismissed dup task_e3').stderr, /topic import already has the open design question task_e1; log task_e2 dismissed dup task_e1 instead/, 'a dup that makes a second design question in one topic');
+  const rows = ['task_f1 Decide the badge', 'task_f2 Decide the badge link', 'task_f3 Decide the badge color'].map((decision) => ['2026-01-01T10:00:00Z', 'chip', decision, 'why', 'writes: README.md; topic: badge; kind: decide', 'offered'].join('\t'));
+  writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + rows.join('\n') + '\n');
+  assert.match(chips().stdout, /fold topic badge: task_f1 and task_f2 and task_f3 are both open design questions/);
+  assert.equal(chip('task_f2 Decide the badge link', 'dismissed dup task_f1').status, 0, 'a dup between design questions while a third stays');
+  assert.equal(chip('task_f3 Decide the badge color', 'dismissed dup task_f1').status, 0);
+  assert.doesNotMatch(chips().stdout, /fold topic badge/);
+});
+
 test('chips reads a PR merge only from a commit subject on the project branch', () => {
   const { chips, offer, root } = chipLedger();
   const git = (...args) => spawnSync('git', ['-C', root, '-c', 'user.email=t@t', '-c', 'user.name=t', ...args]);
@@ -2629,17 +2944,21 @@ test('a card goes only to a task that is ready before the card, and names the se
 });
 
 test('chips reports a wait that loops back as one that can never clear', () => {
-  const { chip, chips, offer } = chipLedger();
+  const { chip, chips, offer, root, LEDGER } = chipLedger();
   assert.match(offer('task_a1 Fix a', 'src/a.ts', 'topic: loop; waits: task:task_a1').stderr, /task_a1 cannot wait on itself/);
   assert.equal(offer('task_a1 Fix a', 'src/a.ts', 'topic: loop').status, 0);
   assert.equal(offer('task_b1 Fix b', 'src/b.ts', 'topic: loop; waits: task:task_a1').status, 0);
-  assert.equal(chip('task_a1 Fix a', 'updated', 'waits: task:task_b1').status, 0);
+  writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', 'task_a1 Fix a', 'why', 'waits: task:task_b1', 'updated'].join('\t') + '\n');
+  assert.equal(offer('task_c1 Fix c', 'src/c.ts', 'topic: merge; waits: task:task_d1').status, 0);
+  assert.equal(offer('task_d1 Fix d', 'src/d.ts', 'topic: merge').status, 0);
+  assert.equal(chip('task_d1 Fix d', 'dismissed dup task_c1').status, 0);
   assert.equal(offer('task_e1 Fix e', 'src/e.ts', 'topic: stale').status, 0);
   assert.equal(offer('task_e2 Fix e2', 'src/e2.ts', 'topic: stale; waits: task:task_e1').status, 0);
   assert.equal(chip('task_e2 Fix e2', 'started').status, 0);
   assert.equal(chip('task_e1 Fix e', 'updated', 'waits: task:task_e2').status, 0);
   const board = chips();
   assert.match(board.stdout, /fix task_a1's wait: task:task_b1 waits back on task_a1/, 'two tasks that wait on each other');
+  assert.match(board.stdout, /Ready \([0-9]+\)\n(?: {2}.*\n)* {2}task_c1 {2}Fix c {2}\[merge\] {2}no card\n/, 'a merge drops the kept task\'s wait on the task it absorbed');
   assert.match(board.stdout, /task_e1 {2}Fix e {2}\[stale\] {2}waits on task:task_e2 started\n/, 'a started task\'s old waits never loop');
   assert.doesNotMatch(board.stdout, /task_e2 waits back/);
   assert.equal(board.status, 1);

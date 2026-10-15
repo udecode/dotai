@@ -37,7 +37,7 @@
 import { appendFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { currentLead, leadLabel } from './lead.mjs';
-import { board, brief, CHIP_STATES, chipRowProblems, baseRedProblems, gitMerges, LEDGER, newChipRowProblems, newId, readTasks, recordRow, renderBoard, SESSION, startedOverlaps } from './tasks.mjs';
+import { board, briefOf, CHIP_STATES, chipRowProblems, baseRedProblems, gitMerges, LEDGER, newChipRowProblems, newId, readTasks, recordRow, renderBoard, SESSION, startedOverlaps } from './tasks.mjs';
 import { acceptedWord, committedLines, defaultsWords, isAcceptingWord, NOT_PASSED, proofLabels, proofStates, PROVEN, runPaths, SEATS, SEVERITIES, stageOfRow, STATUSES, statusOf } from './status.mjs';
 
 const HEADER = 'ts\tphase\tdecision\twhy\tevidence\tresult';
@@ -278,8 +278,9 @@ if (args[0] === 'chips') {
       console.error(`${id ?? '(no id)'} is not a task in ${ledger}`);
       process.exit(2);
     }
-    console.info(brief(task, ledger));
-    process.exit(0);
+    const { ok, text } = briefOf(tasks, id, ledger);
+    (ok ? console.info : console.error)(text);
+    process.exit(ok ? 0 : 1);
   }
   const view = board(tasks, gitMerges({ fetch, branch: projectConfig().branch }), here);
   console.info(renderBoard(view, ledger));
