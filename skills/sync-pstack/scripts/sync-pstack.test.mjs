@@ -3228,6 +3228,24 @@ test('a card goes only to a task that is ready before the card, and names the se
   assert.match(missing.stderr, /--session takes this session's id/);
 });
 
+test('a started row names the session that started the task, and a sweep checks that session', () => {
+  const { chip, chips, offer } = chipLedger();
+  const parser = 'task_a1 Fix the parser';
+  assert.equal(offer(parser, 'src/p.ts', 'topic: parser').status, 0);
+  assert.equal(chip(parser, 'started').status, 0, 'a start the dismiss tool reported, which names no session');
+  assert.match(chips('--session', 's1').stdout, /find the session that started task_a1 with the session tool, [^\n]*log started with session: <its id>; when the search finds none, task_a1 stays started/);
+  assert.match(chip(parser, 'started', 'session: two words').stderr, /session: names the session id as one token/);
+  assert.equal(chip(parser, 'started', 'session: s2').status, 0);
+  const here = chips('--session', 's1');
+  assert.match(here.stdout, /Started \(1\)\n {2}task_a1 {2}Fix the parser {2}\[parser\] {2}session s2\n/);
+  assert.match(here.stdout, /check session s2, which started task_a1: when the session tool reports it archived or gone, log landed when a commit holds its change or the session reported it done, and dismissed stopped otherwise/);
+  assert.doesNotMatch(chips('--session', 's2').stdout, /started task_a1/, "the session's own task");
+  assert.doesNotMatch(chips().stdout, /started task_a1/, 'a board read without a session');
+  assert.match(chips('stale').stdout, /task_a1 {2}Fix the parser {2}\[parser\] {2}age 0d; started in session s2;/);
+  assert.equal(chip(parser, 'dismissed stopped').status, 0);
+  assert.doesNotMatch(chips('--session', 's1').stdout, /task_a1/);
+});
+
 test('chips reports a wait that loops back as one that can never clear', () => {
   const { chip, chips, offer, root, LEDGER } = chipLedger();
   assert.match(offer('task_a1 Fix a', 'src/a.ts', 'topic: loop; waits: task:task_a1').stderr, /task_a1 cannot wait on itself/);
