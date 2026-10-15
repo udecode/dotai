@@ -257,7 +257,7 @@ export function chipRowProblems(cells, before, where) {
     found.push(`${where}: ${id} is started, so an updated row on it takes only owns:; the session adds paths with another started row`);
   }
   const kept = row.target && before.get(row.target);
-  if (move === 'dismissed dup' && (row.target === id || !isOpen(kept ?? {}))) found.push(`${where}: ${row.target} must be another task the ledger holds as offered; offer the task it merges into before this row`);
+  if (move === 'dismissed dup' && (row.target === id || !kept || !isOpen(kept))) found.push(`${where}: ${row.target} must be another task the ledger holds as offered; offer the task it merges into before this row`);
   if (move === 'folded' && given.kind === 'fix') found.push(`${where}: a folded row takes kind: decide only, when its finding is a design question; it never turns a design question back into a fix`);
   if (found.length > 0) return found;
   const after = afterRow(before, cells);
