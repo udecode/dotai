@@ -118,7 +118,7 @@ const mergeInto = (kept, task, tasks) => {
   kept.covers.push({ id: task.id, title: displayTitle(task), findings: task.findings }, ...task.covers);
   kept.owns = joined(kept.owns, task.owns);
   if (kept.status !== 'offered') return;
-  kept.aliases = joined(kept.aliases, [task.topic, ...task.aliases].filter((topic) => topic && topic !== kept.topic));
+  if (kept.card) kept.addedAfterCard = true;
   const outside = (wait) => {
     const target = wait.match(WAIT)?.[2];
     return !target || follow(target, tasks) !== kept;
@@ -155,7 +155,7 @@ export function recordRow(tasks, cells) {
       card: given.card ?? null,
       session: given.card ? (given.session ?? null) : null,
       effort: null,
-      aliases: [],
+      addedAfterCard: false,
       findings: [row.why],
       covers: [],
     };
@@ -174,6 +174,7 @@ export function recordRow(tasks, cells) {
     task.waits = joined(task.waits, given.waits ?? []);
     task.owns = joined(task.owns, given.owns ?? []);
     task.findings.push(row.why);
+    if (task.card) task.addedAfterCard = true;
   }
   if (row.move === 'started') task.status = 'started';
   if (row.move === 'landed') task.status = 'landed';
@@ -181,6 +182,7 @@ export function recordRow(tasks, cells) {
     task.card = given.card ?? null;
     task.session = given.session ?? null;
     task.cardTitle = displayTitle(task);
+    task.addedAfterCard = false;
   }
   if (row.move === 'uncarded' || row.move === 'reopened' || row.move.startsWith('dismissed')) {
     task.card = null;
@@ -196,6 +198,7 @@ export function recordRow(tasks, cells) {
       task.keys = given.writes.map(writeKey);
     }
     for (const key of ['topic', 'kind', 'waits', 'owns']) if (given[key] !== undefined) task[key] = given[key];
+    if (task.card && (given.writes || given.owns)) task.addedAfterCard = true;
   }
   if (row.move.startsWith('dismissed')) {
     task.status = 'dismissed';
@@ -265,8 +268,7 @@ export function chipRowProblems(cells, before, where) {
   const subject = dup ? after.get(row.target) : after.get(id);
   const madeDecide = !['dismissed dup', 'folded'].includes(move) || before.get(subject.id).kind !== 'decide';
   if (['offered', 'updated', 'reopened', 'folded', 'dismissed dup'].includes(move) && subject.status === 'offered' && subject.kind === 'decide' && madeDecide) {
-    const askedIn = (task) => [task.topic, ...task.aliases].filter(Boolean);
-    const peers = [...after.values()].filter((peer) => peer.id !== subject.id && peer.kind === 'decide' && askedIn(peer).some((topic) => askedIn(subject).includes(topic)));
+    const peers = [...after.values()].filter((peer) => peer.id !== subject.id && peer.kind === 'decide' && peer.topic === subject.topic);
     const rival = peers.find((peer) => peer.status === 'offered');
     if (rival) {
       const moved = move === 'updated' && given.topic !== undefined;
@@ -313,7 +315,7 @@ export function newChipRowProblems(cells, before, where, git) {
   const loops = [...new Set(added.flat())];
   if (self) found.push(`${where}: ${self[0]} cannot wait on itself`);
   else if (loops.length > 0) {
-    const route = move !== 'dismissed dup' ? 'drop the wait that closes the loop' : `keep ${id} open, or log updated on ${row.target} without the wait that closes the loop`;
+    const route = move !== 'dismissed dup' ? 'drop the wait that closes the loop' : `keep ${id} open`;
     found.push(`${where}: this row leaves ${loops.join(' and ')} waiting on each other; ${route}`);
   }
   if (move === 'started') {
@@ -327,7 +329,7 @@ export function newChipRowProblems(cells, before, where, git) {
   const own = before.get(id);
   const keeper = row.target && before.get(row.target);
   if (move === 'dismissed dup' && keeper?.status === 'started') found.push(`${where}: ${keeper.id} is started, and a dup moves work only into an offered task; keep ${id} open, log updated with its waits plus task:${keeper.id}, and log dismissed done once ${keeper.id} lands with the fix`);
-  if (move === 'dismissed dup' && keeper?.status === 'offered' && keeper.card) found.push(`${where}: ${keeper.id} has card ${keeper.card}, which would not show what this dup moves into it; withdraw that card and log uncarded first, or keep ${id} open while another session holds it`);
+  if (move === 'dismissed declined' && own?.card && (own.addedAfterCard || displayTitle(own) !== own.cardTitle)) found.push(`${where}: ${id} changed after card ${own.card} was offered, so the owner declined a card that did not show all of it; log uncarded and, once chips lists it as Ready, card it again with the prompt from chips brief ${id}`);
   if (move === 'dismissed dup' && own && keeper) {
     if (own.topic === null) found.push(unmigrated(own));
     else if (keeper.topic === null) found.push(unmigrated(keeper));
@@ -430,8 +432,8 @@ function waitBlocker(wait, origin, tasks, git) {
   if (taskId) {
     const task = follow(taskId, tasks);
     if (!task) return { text: `task:${taskId} dangling, no such task`, stuck: true };
-    if (task.id === origin.id) return { text: `task:${taskId} is this task`, stuck: true };
-    if (isOpen(task)) return task.status === 'offered' && loopsBack(task, origin, tasks) ? { text: `task:${taskId} waits back on ${origin.id}`, stuck: true } : { text: `task:${taskId} ${task.status}` };
+    if (task.id === origin.id) return { text: `task:${taskId} is this task`, stuck: true, loop: true };
+    if (isOpen(task)) return task.status === 'offered' && loopsBack(task, origin, tasks) ? { text: `task:${taskId} waits back on ${origin.id}`, stuck: true, loop: true } : { text: `task:${taskId} ${task.status}` };
     if (task.status === 'landed' || task.reason === 'done') return null;
     return { text: `task:${taskId} closed as dismissed ${task.reason} without its result`, stuck: true };
   }
@@ -489,12 +491,6 @@ export function board(tasks, git, here = null) {
     entry.tasks.push(task);
     if (task.kind === 'decide') entry.decides.push(task);
     topics.set(task.topic, entry);
-    for (const alias of task.kind === 'decide' ? task.aliases : []) {
-      const other = topics.get(alias) ?? { topic: alias, tasks: [], decides: [] };
-      other.tasks.push(task);
-      other.decides.push(task);
-      topics.set(alias, other);
-    }
   }
   const offeredDecides = (entry) => entry.decides.filter((task) => task.status === 'offered');
   const elsewhere = (task) => here !== null && task.session !== here;
@@ -512,13 +508,13 @@ export function board(tasks, git, here = null) {
       }),
     ...ready
       .filter((task) => task.card && here !== null && task.session === here && displayTitle(task) !== task.cardTitle)
-      .map((task) => ({ kind: 'card', text: `re-card ${task.id}: its title is now "${displayTitle(task)}", not the "${task.cardTitle}" card ${task.card} shows; withdraw that card; log started or dismissed declined when the dismiss tool reports the owner started or dismissed it, and otherwise log uncarded and card it again with the prompt from chips brief ${task.id}` })),
+      .map((task) => ({ kind: 'card', text: `re-card ${task.id}: its title is now "${displayTitle(task)}", not the "${task.cardTitle}" card ${task.card} shows; withdraw that card; log started when the dismiss tool reports the owner started it, and otherwise log uncarded and, once chips lists it as Ready, card it again with the prompt from chips brief ${task.id}` })),
     ...waiting.filter(({ task }) => task.card && !elsewhere(task)).map(({ task, blockers }) => ({ kind: 'problem', text: `withdraw ${task.id}'s card ${task.card}: ${blockers[0]}; log uncarded once it is withdrawn or its session has ended` })),
     ...waiting.flatMap(({ task, stuck }) => stuck.map((blocker) => ({ kind: 'problem', text: `fix ${task.id}'s wait: ${blocker}; log updated with the waits it has now` }))),
     ...[...topics.values()]
       .filter((entry) => offeredDecides(entry).length > 1)
       .map((entry) => ({ kind: 'problem', text: `fold topic ${entry.topic}: ${offeredDecides(entry).map((task) => task.id).join(' and ')} are both open design questions; keep one and log the others as dismissed dup <kept id>` })),
-    ...unmigrated.flatMap((task) => blockersOf(task, tasks, git).filter((blocker) => blocker.stuck).map((blocker) => ({ kind: 'problem', text: `fix ${task.id}'s wait: ${blocker.text}; log updated with the waits it has now` }))),
+    ...unmigrated.flatMap((task) => blockersOf(task, tasks, git).filter((blocker) => blocker.loop).map((blocker) => ({ kind: 'problem', text: `fix ${task.id}'s wait: ${blocker.text}; log updated with the waits it has now` }))),
     ...unmigrated.map((task) => ({ kind: 'migrate', text: `migrate ${task.id}: log updated with topic: and the waits: it has, as waits: none when it has none` })),
     ...lost.map((task) => ({ kind: 'migrate', text: `reopen ${task.id} or close it: a dropped card closed it as gone; log reopened, then updated with topic: and waits:, or dismissed done or superseded` })),
   ];

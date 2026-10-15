@@ -2626,17 +2626,15 @@ test('append refuses a second card on a task that has one', () => {
   assert.equal(chip('task_l1 Fix the lexer', 'carded', 'card: c2; session: s2').status, 0);
 });
 
-test('a dup that would leave two tasks waiting on each other is refused, and merging the chain works', () => {
+test('a dup that would leave two tasks waiting on each other is refused, and the duplicate stays open', () => {
   const { chip, chips, offer } = chipLedger();
   assert.equal(offer('task_d1 Fix d', 'src/d.ts', 'topic: chain').status, 0);
   assert.equal(offer('task_m1 Fix m', 'src/m.ts', 'topic: chain; waits: task:task_d1').status, 0);
   assert.equal(offer('task_k1 Fix k', 'src/k.ts', 'topic: chain; waits: task:task_m1').status, 0);
-  assert.match(chip('task_d1 Fix d', 'dismissed dup task_k1').stderr, /this row leaves task_m1 and task_k1 waiting on each other; keep task_d1 open, or log updated on task_k1 without the wait that closes the loop/, 'a wait on the duplicate that now leads to the kept task');
-  assert.equal(chip('task_k1 Fix k', 'updated', 'waits: none').status, 0, 'the route the refusal names');
-  assert.equal(chip('task_d1 Fix d', 'dismissed dup task_k1').status, 0);
+  assert.match(chip('task_d1 Fix d', 'dismissed dup task_k1').stderr, /this row leaves task_m1 and task_k1 waiting on each other; keep task_d1 open$/m, 'a wait on the duplicate that now leads to the kept task');
   const board = chips();
   assert.equal(board.status, 0, board.stdout);
-  assert.match(board.stdout, /Ready \(1\)\n {2}task_k1 {2}Fix k {2}\[chain\] {2}no card\n/);
+  assert.match(board.stdout, /Ready \(1\)\n {2}task_d1 {2}Fix d {2}\[chain\] {2}no card\n/, 'the route the refusal names keeps every task and wait');
 });
 
 test('a dup that hands the kept task a wait back on itself is refused', () => {
@@ -2644,7 +2642,7 @@ test('a dup that hands the kept task a wait back on itself is refused', () => {
   assert.equal(offer('task_k1 Fix k', 'src/k.ts', 'topic: chain').status, 0);
   assert.equal(offer('task_c1 Fix c', 'src/c.ts', 'topic: chain; waits: task:task_k1').status, 0);
   assert.equal(offer('task_d1 Fix d', 'src/d.ts', 'topic: chain; waits: task:task_c1').status, 0);
-  assert.match(chip('task_d1 Fix d', 'dismissed dup task_k1').stderr, /this row leaves task_k1 and task_c1 waiting on each other; keep task_d1 open, or log updated on task_k1 without the wait that closes the loop/);
+  assert.match(chip('task_d1 Fix d', 'dismissed dup task_k1').stderr, /this row leaves task_k1 and task_c1 waiting on each other; keep task_d1 open$/m, 'a loop whose closing wait the duplicate would bring');
 });
 
 test('an updated row that closes a wait loop is refused', () => {
@@ -2740,7 +2738,7 @@ test('chips asks to re-card a task this session carded once the title its card s
   assert.equal(chip('task_l1 Fix the lexer', 'folded', 'effort: xhigh').status, 0);
   const here = chips('--session', 's1');
   assert.equal(here.status, 0, here.stdout);
-  assert.match(here.stdout, /re-card task_l1: its title is now "Fix the lexer \(xhigh\)", not the "Fix the lexer" card c1 shows; withdraw that card; log started or dismissed declined when the dismiss tool reports the owner started or dismissed it, and otherwise log uncarded and card it again with the prompt from chips brief task_l1/);
+  assert.match(here.stdout, /re-card task_l1: its title is now "Fix the lexer \(xhigh\)", not the "Fix the lexer" card c1 shows; withdraw that card; log started when the dismiss tool reports the owner started it, and otherwise log uncarded and, once chips lists it as Ready, card it again with the prompt from chips brief task_l1/);
   assert.doesNotMatch(chips('--session', 's2').stdout, /re-card/, 'another session\'s card');
   assert.doesNotMatch(chips().stdout, /re-card/, 'a board read that names no session');
   assert.equal(chip('task_l1 Fix the lexer', 'uncarded').status, 0);
@@ -2768,9 +2766,11 @@ test('an older dup into a started task keeps the covers and owned checks it move
   const { chip, chips, offer, root, LEDGER } = chipLedger();
   assert.equal(offer('task_a1 Fix a', 'src/a.ts', 'topic: whole').status, 0);
   assert.equal(chip('task_a1 Fix a', 'started').status, 0);
-  assert.equal(offer('task_b1 Fix b', 'src/b.ts', 'topic: whole; owns: ci:b').status, 0);
+  assert.equal(offer('task_b1 Fix b', 'src/b.ts', 'topic: whole; owns: ci:b; waits: pr:7').status, 0);
   writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', 'task_b1 Fix b', 'why', 'evidence', 'dismissed dup task_a1'].join('\t') + '\n');
-  assert.match(chips('brief', 'task_a1').stdout, /Also covers:\n- task_b1 Fix b\n[\s\S]*Owns: ci:b\n/, 'what the previous helper moved into the started task');
+  const brief = chips('brief', 'task_a1').stdout;
+  assert.match(brief, /Also covers:\n- task_b1 Fix b\n[\s\S]*Owns: ci:b\n/, 'what the previous helper moved into the started task');
+  assert.match(brief, /Writes: src\/a\.ts\nOwns: ci:b\nWaited on: nothing\n/, 'the paths and waits stay the started task\'s own');
 });
 
 test('the whole-log check refuses a folded row with kind: fix', () => {
@@ -2846,14 +2846,37 @@ test('an empty waits: is refused', () => {
   assert.equal(chip('task_o1 After: Fix the parser docs (high)', 'updated', 'topic: parser; waits: none').status, 0);
 });
 
-test('append refuses a dup into a task with a card until the card is withdrawn', () => {
+test('a declined card that predates a dup into its task leaves the task open until a new card', () => {
   const { chip, chips, offer } = chipLedger();
   assert.equal(offer('task_k1 Fix k', 'src/k.ts', 'topic: card; card: c1; session: s2').status, 0);
   assert.equal(offer('task_d1 Diagnose d (xhigh)', 'src/d.ts', 'topic: card; owns: ci:d').status, 0);
-  assert.match(chip('task_d1 Diagnose d (xhigh)', 'dismissed dup task_k1').stderr, /task_k1 has card c1, which would not show what this dup moves into it; withdraw that card and log uncarded first, or keep task_d1 open while another session holds it/, 'a card the owner could decline without seeing the merged work');
-  assert.equal(chip('task_k1 Fix k', 'uncarded').status, 0);
-  assert.equal(chip('task_d1 Diagnose d (xhigh)', 'dismissed dup task_k1').status, 0, 'once the card is gone');
+  assert.equal(chip('task_d1 Diagnose d (xhigh)', 'dismissed dup task_k1').status, 0, 'a dup into a task with a card');
+  assert.match(chip('task_k1 Fix k', 'dismissed declined').stderr, /task_k1 changed after card c1 was offered, so the owner declined a card that did not show all of it; log uncarded and, once chips lists it as Ready, card it again with the prompt from chips brief task_k1/, 'a card the owner could decline without seeing the merged work');
+  assert.equal(chip('task_k1 Fix k', 'uncarded').status, 0, 'the route the refusal names');
+  assert.equal(chip('task_k1 Fix k', 'carded', 'card: c2; session: s2').status, 0);
   assert.match(chips('brief', 'task_k1').stdout, /^Fix k \(xhigh\)\n[\s\S]*Also covers:\n- task_d1 Diagnose d \(xhigh\)\n[\s\S]*Owns: ci:d\n/);
+  assert.equal(chip('task_k1 Fix k', 'dismissed declined').status, 0, 'the owner declines the card that shows the merged work');
+});
+
+test('a declined card that predates a fold into its task leaves the task open until a new card', () => {
+  const { chip, offer } = chipLedger();
+  assert.equal(offer('task_k1 Fix k', 'src/k.ts', 'topic: card; card: c1; session: s2').status, 0);
+  assert.equal(chip('task_k1 Fix k', 'folded', 'writes: src/d.ts; owns: ci:d').status, 0);
+  assert.match(chip('task_k1 Fix k', 'dismissed declined').stderr, /task_k1 changed after card c1 was offered/, 'a fold the declined card never showed');
+});
+
+test('a declined card that predates an owned check leaves the task open until a new card', () => {
+  const { chip, offer } = chipLedger();
+  assert.equal(offer('task_k1 Make next green (xhigh)', '.github/workflows', 'topic: next-green; card: c1; session: s2').status, 0);
+  assert.equal(chip('task_k1 Make next green (xhigh)', 'updated', 'owns: ci:check').status, 0);
+  assert.match(chip('task_k1 Make next green (xhigh)', 'dismissed declined').stderr, /task_k1 changed after card c1 was offered/, 'an owned check the declined card never showed');
+});
+
+test('the owner declines a card that shows its whole task', () => {
+  const { chip, offer } = chipLedger();
+  assert.equal(offer('task_k1 Fix k', 'src/k.ts', 'topic: card; card: c1; session: s2').status, 0);
+  assert.equal(chip('task_k1 Fix k', 'updated', 'waits: none').status, 0, 'a change that adds no work');
+  assert.equal(chip('task_k1 Fix k', 'dismissed declined').status, 0, 'a card that still shows all of its task');
 });
 
 test('a legacy row with an empty waits: replays as no waits', () => {
@@ -2878,15 +2901,34 @@ test('chips brief on a replaced task prints its replacement\'s brief', () => {
   assert.match(brief.stdout, /^task_o1 was replaced by task_n1; work from its brief\.\n\nFix the badge\n/, 'an old card whose task an older helper replaced');
 });
 
-test('a design question merged from another topic still guards that topic', () => {
-  const { chip, offer } = chipLedger();
+test('a design question moved into the topic of a design question it absorbed counts once', () => {
+  const { chip, chips, offer } = chipLedger();
   assert.equal(offer('task_k1 Decide the export format (xhigh)', 'src/e.ts', 'topic: export; kind: decide').status, 0);
   assert.equal(offer('task_d1 Decide the file format (xhigh)', 'src/f.ts', 'topic: format; kind: decide').status, 0);
   assert.equal(chip('task_d1 Decide the file format (xhigh)', 'dismissed dup task_k1').status, 0);
-  assert.match(offer('task_n1 Decide the format version (xhigh)', 'src/n.ts', 'topic: format; kind: decide').stderr, /topic format already has the open design question task_k1/, 'a new design question in the topic the merge moved');
+  assert.equal(chip('task_k1 Decide the export format (xhigh)', 'updated', 'topic: format').status, 0);
+  const board = chips();
+  assert.equal(board.status, 0, 'a task that is not its own rival: ' + board.stdout);
+});
+
+test('a design question in a topic a merge left is judged by that topic alone', () => {
+  const { chip, helper, offer, LEDGER } = chipLedger();
+  assert.equal(offer('task_k1 Decide the export format (xhigh)', 'src/e.ts', 'topic: export; kind: decide').status, 0);
+  assert.equal(offer('task_d1 Decide the file format (xhigh)', 'src/f.ts', 'topic: format; kind: decide').status, 0);
+  assert.equal(chip('task_d1 Decide the file format (xhigh)', 'dismissed dup task_k1').status, 0);
   assert.equal(chip('task_k1 Decide the export format (xhigh)', 'started').status, 0);
-  assert.match(offer('task_n1 Decide the format version (xhigh)', 'src/n.ts', 'topic: format; kind: decide').stderr, /topic format's design question task_k1 is running; a new one waits on it with waits: task:task_k1/);
-  assert.equal(offer('task_n1 Decide the format version (xhigh)', 'src/n.ts', 'topic: format; kind: decide; waits: task:task_k1').status, 0);
+  assert.equal(offer('task_n1 Decide the format version (xhigh)', 'src/n.ts', 'topic: format; kind: decide').status, 0, 'a design question an older helper accepted after the merge');
+  const whole = helper(LEDGER);
+  assert.equal(whole.status, 0, whole.stderr);
+});
+
+test('chips leaves a prose wait on a task with no topic to its migration', () => {
+  const { chips, offer, root, LEDGER } = chipLedger();
+  assert.equal(offer('task_a1 Fix a', 'src/a.ts', 'topic: other').status, 0);
+  writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', 'task_o1 Fix o1', 'why', 'writes: src/o1.ts; waits: the parser PR', 'offered'].join('\t') + '\n');
+  const board = chips();
+  assert.equal(board.status, 0, 'the prose wait the migration states again: ' + board.stdout);
+  assert.match(board.stdout, /migrate task_o1: log updated with topic: and the waits: it has/);
 });
 
 test('chips reports a wait loop between tasks that have no topic', () => {
