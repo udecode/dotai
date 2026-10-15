@@ -3994,17 +3994,18 @@ test('reread prints each changed sentence whole against its last snapshot', () =
   assert.match(after, /--dir docs\/plans\/artifacts\/reread\/s-startup/);
 });
 
-test('reread --hook names on a reload line each skill a compacted session loaded, and only after a compaction', () => {
+test('reread --hook names on a reload line each loaded skill the compaction restore cut short, and only after a compaction', () => {
   const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-reread-reload-'));
   writeFileSync(join(dir, 'AGENTS.md'), 'Rules.\n');
   const typed = (uuid, name) => ({ type: 'user', uuid, message: { role: 'user', content: `<command-message>${name}</command-message>\n<command-name>/${name}</command-name>\n<command-args>go</command-args>` } });
   const launched = (uuid, name) => ({ type: 'user', uuid, message: { role: 'user', content: [{ type: 'tool_result', content: `Launching skill: ${name}` }] }, toolUseResult: { success: true, commandName: name } });
   const loaded = (parentUuid, text) => ({ type: 'user', isMeta: true, parentUuid, uuid: `${parentUuid}-text`, message: { role: 'user', content: [{ type: 'text', text }] } });
+  const long = 'x'.repeat(20_001);
   const transcript = [
     typed('t1', 'best-api-review'),
-    loaded('t1', 'Base directory for this skill: /x/best-api-review'),
+    loaded('t1', `Base directory for this skill: /x/best-api-review\n${long}`),
     launched('t2', 'pstack:poteto-mode'),
-    loaded('t2', 'Base directory for this skill: /x/poteto-mode'),
+    loaded('t2', `Base directory for this skill: /x/poteto-mode\n${long}`),
     typed('t3', 'compact'),
     { type: 'user', parentUuid: 't3', uuid: 't3-out', message: { role: 'user', content: '<local-command-stdout>Compacted</local-command-stdout>' } },
     launched('t4', 'plan-page'),
@@ -4020,7 +4021,9 @@ test('reread --hook names on a reload line each skill a compacted session loaded
 
   const compacted = hook({ source: 'compact', transcript_path: join(dir, 'transcript.jsonl') });
   assert.equal(compacted.status, 0, compacted.stderr);
-  assert.match(compacted.stdout, /^reload: best-api-review, pstack:poteto-mode, plan-page\. These skills loaded before the compaction; as the Long runs rule says, reload through the Skill tool each one whose mode you are running before your next step\.$/mu);
+  assert.match(compacted.stdout, /^reload: best-api-review, pstack:poteto-mode\. The compaction restored only the first 20,000 characters of these skills; as the Long runs rule says, reload through the Skill tool each one whose mode you are running before your next step\.$/mu, 'plan-page fits the restore, so it is not reloaded');
+  writeFileSync(join(dir, 'short.jsonl'), `${transcript.slice(5, 9).map((record) => JSON.stringify(record)).join('\n')}\n`);
+  assert.doesNotMatch(hook({ source: 'compact', transcript_path: join(dir, 'short.jsonl') }).stdout, /reload:/, 'a session whose skills all fit the restore reloads none');
   assert.match(compacted.stdout, /^Instruction snapshots: /mu, 'the reload line comes with the snapshot lines, not instead of them');
   for (const source of ['startup', 'resume', 'clear']) {
     assert.doesNotMatch(hook({ source, transcript_path: join(dir, 'transcript.jsonl') }).stdout, /reload:/, `${source} prints no reload line`);
