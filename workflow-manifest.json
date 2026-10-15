@@ -4,6 +4,17 @@
   "skillsCliVersion": "1.5.25",
   "skills": [
     {
+      "name": "chips",
+      "distribution": "bundled",
+      "description": "Run the project's suggested-task ledger, the chips: show the board, offer a finding, sweep the Do list, review stale and split tasks, start a carded task or drop one. Use for /chips, /chips offer, sweep, review, start or drop, \\\"what chips are open\\\", \\\"suggest a task for X\\\", \\\"clean up the chips\\\", \\\"which chips are stale\\\", and whenever pstack would file a tracked issue, a follow-up, a reflect Backlog item or an out-of-band PR.",
+      "category": "Workflow",
+      "dependencies": [],
+      "capabilities": [
+        "Node.js 22+ and Git; the ledger helpers and chips.md rule that sync-pstack installs in .agents/pstack; a suggest tool for cards, with the fallback chips.md gives without one"
+      ],
+      "provenance": null
+    },
+    {
       "name": "passwords",
       "distribution": "bundled",
       "description": "Set up unattended 1Password access on a Mac or sign in to websites and apps without repeated human approvals. Use for new-device setup, passwords, authenticator codes, email or SMS verification, passkey alternatives, and blocked logins.",
@@ -105,16 +116,20 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "950a8b48665485338f3439e54bddf7ec31437106e7d5a6e675b11184ee95c5dd",
+      "sha256": "0b0b461d2561fad7ef018a5ad67d362cc0fb7386d9655cb17d3dcb1801e7db61",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
-      "sha256": "5960054542b9b750dda7b592c3adf9d7a93ffeed844993edb8b6788e1062e599",
+      "sha256": "929df2eb430f1d44800e3ea31e2ac2c3a7048f62842be412076e2d6c7c896686",
       "mode": 420
     },
     "scripts/validate-skills": {
       "sha256": "a3590ae37cc4f403fbdc06712e3609d1c03ffbf6c980df3ac15c3ecdff54c149",
       "mode": 493
+    },
+    "skills/chips/SKILL.md": {
+      "sha256": "578bb0ce81fe8718c7e9bcfaff6c9c7c937953b8cd931be5c67f0b99f07355a6",
+      "mode": 420
     },
     "skills/passwords/SKILL.md": {
       "sha256": "8d1f916ac69b86aa274fd31d214d2f6891c4b83afa706c4b6fcbfaa69aa1a333",
@@ -221,7 +236,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "b2693af92b99014105e3bf72d3309a71592dee0208c05b26cdce03fa30112fe4",
+      "sha256": "9cbbfafac7afd8db4532452cd28fee21bfb14e149133ee3d84a6bb1ba220d474",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/codex-browser.mjs": {
@@ -241,7 +256,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
-      "sha256": "35005fe7ba305162b8011a1d66cbeaf591072f50c673216a435b2d49f4feb2e7",
+      "sha256": "8eec3d8bb73aecb20f1c8baaaa82afb31b7ed4665532ca7173e22d4470d05ee6",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/freeze.mjs": {
@@ -325,7 +340,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/tasks.mjs": {
-      "sha256": "4872214b7a87480918ed6a00a8fe03472450e861bcae6ca218c9c78a3daa3350",
+      "sha256": "2d6d34296c8f6daa6d08b78473a780ac5d6168429dbc6f4a621bd9dffd7785b6",
       "mode": 420
     },
     "skills/sync-pstack/references/adapt.md": {
@@ -349,7 +364,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "26f7586d23848fc688bab597c02fe3947f130eeae5129b6dc8d5d1cfc28f4512",
+      "sha256": "99ac03698dd0a441ce08d2f06537329eebafcebd09b48b84ab01b36729ca01e9",
       "mode": 420
     },
     "skills/test-audit/LICENSE": {

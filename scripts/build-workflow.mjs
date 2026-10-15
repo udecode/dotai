@@ -13,13 +13,14 @@ const upstream = JSON.parse(readFileSync(join(root, 'upstream-skills.json'), 'ut
 const groups = {
   'Review': ['test-audit'],
   'Communication': ['walkthrough', 'video-transcripts', 'plan-page'],
-  'Workflow': ['passwords', 'redo'],
+  'Workflow': ['chips', 'passwords', 'redo'],
   'Maintenance': ['sync-pstack'],
   'Monitoring': ['pstack-pulse', 'rca'],
 };
 const explicitDependencies = {};
 const requirements = {
   passwords: ['macOS login Keychain, 1Password CLI and an account with service-account access; authorized browser or native-app controls that can consume credentials without exposing them'],
+  chips: ['Node.js 22+ and Git; the ledger helpers and chips.md rule that sync-pstack installs in .agents/pstack; a suggest tool for cards, with the fallback chips.md gives without one'],
   'plan-page': ['Node.js 22+ and Git; the renderer that sync-pstack installs in .agents/pstack; the Artifact tool to publish'],
   'pstack-pulse': ['macOS with launchd and the Keychain, Node.js 22+ and sqlite3; an ActivitySmith account and key; Tailscale Funnel for the session list'],
   rca: ['A Code session in the Claude desktop app, which alone has its session tools'],
