@@ -1146,6 +1146,22 @@ test('plan-open reads a checkbox nested in a numbered step', () => {
   assert.match(result.stderr, /^1 open item\(s\):\nplan\.md:4: 2\. - \[ \] \*\*Ship\.\*\*$/m);
 });
 
+test('plan-open reads past a comment opener inside a code span', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', { files: { 'plan.md': '# Plan\n\nA note opens with `<!--` and ``a `<!--` b``.\n\n- [ ] ship it\n' } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-open.mjs'), 'plan.md'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /^1 open item\(s\):\nplan\.md:5: - \[ \] ship it$/m);
+});
+
+test('plan-open treats a fence inside a comment as part of the comment', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', { files: { 'plan.md': '# Plan\n\n<!--\n```\n- [ ] example\n-->\n\n- [ ] ship it\n' } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-open.mjs'), 'plan.md'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /^1 open item\(s\):\nplan\.md:8: - \[ \] ship it$/m);
+});
+
 const BRIEF_ANSWERS = [
   ['What will change?', 'It opens with a brief.'],
   ['What could go wrong?', 'Old plans need a brief.'],
