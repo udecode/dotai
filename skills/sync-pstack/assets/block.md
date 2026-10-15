@@ -131,7 +131,11 @@
 <!-- # overrides poteto-mode/playbooks/babysit.md "Declare the mode and resolve the forge before any poll." -->
 - **Babysit levels.** Before Babysit's first step on a PR, unless the run only reviews it, run `node .agents/pstack/levels.mjs` on the decision log of each plan the PR links. It marks a lead stretch `below` when Codex led it or it ran below this session's model and effort. It marks a panel, architect or arena round `below` when a seat is missing or ran below the models sheet and this file's seat overrides. When it marks any unit `below`, or when an agent made a PR that links no log, such as one on a `codex/` branch, run the `redo` skill on the PR first. Redo's step 6 is this Babysit, and that Babysit skips this check. Otherwise Babysit runs as written.
 <!-- # adds -->
-- **Suggested tasks.** Before the lead suggests side work for the owner to start in a new session, or drops such a suggestion, and at each hand-back, after each compaction and at the close of a run that has one open, read `.agents/pstack/rules/chips.md`; it holds the ledger, the waits and topics, the cards, the effort, the sweep, the base-branch check and the fallback for a runtime without a suggest tool.
+<!-- # overrides poteto-mode/SKILL.md "A correctness or data gap gets a tracked issue" -->
+<!-- # overrides poteto-mode/playbooks/autonomous-run.md "Put out-of-band fixes in their own PR." -->
+<!-- # overrides poteto-mode/playbooks/orchestrate.md "Everything else parks in follow-ups." -->
+<!-- # overrides reflect/SKILL.md "File each Backlog item to your team's devex or backlog tracker without waiting." -->
+- **Suggested tasks.** Before the lead suggests side work for the owner to start in a new session, or drops such a suggestion, and at each hand-back, after each compaction and at the close of a run that has one open, read `.agents/pstack/rules/chips.md`; it holds the ledger, the waits and topics, the cards, the effort, the sweep, the base-branch check and the fallback for a runtime without a suggest tool. The ledger is the project's tracker. Where pstack files a tracked issue, a follow-up or a reflect Backlog item, or puts an out-of-band fix in its own PR, the lead offers a suggested task instead. The lead fixes in the run a discovery that blocks it, and a skill, rule or helper in the way, as the Improve the workflow mid-task rule says.
 <!-- end -->
 <!-- section fast -->
 <!-- # overrides poteto-mode/SKILL.md "Route bulk to subagents, keep summaries in the main thread." -->
