@@ -483,7 +483,7 @@ export function brief(task, ledger) {
   return [
     task.title,
     '',
-    `Suggested task ${task.id} in ${ledger}. First run node .agents/pstack/decisions-check.mjs chips; when it no longer lists this task as Ready, tell the owner what it waits on. Before you write any file, log a started row for it, with writes: naming any path the list below lacks, as .agents/pstack/rules/chips.md says.`,
+    `Suggested task ${task.id} in ${ledger}. First run node .agents/pstack/decisions-check.mjs chips; when it lists this task as neither Ready nor Started, tell the owner what it waits on. Started means the lead already logged your start. Before you write any file, log a started row for it, with writes: naming any path the list below lacks, as .agents/pstack/rules/chips.md says.`,
     '',
     `Topic: ${task.topic ?? 'none'}. Kind: ${task.kind}.`,
     'Findings:',
