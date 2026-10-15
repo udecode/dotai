@@ -24,6 +24,7 @@ import { homedir, tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ask } from '../assets/pstack/cross.mjs';
+import { EFFORTS } from '../assets/pstack/lead.mjs';
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const TEMPLATE = join(SKILL, 'assets/block.md');
@@ -308,6 +309,7 @@ function validate(config) {
   if (orphans.length > 0) throw new Error(`RULE_FILES names sections no template holds: ${orphans.join(', ')}`);
   if (config.pushBranches !== undefined && typeof config.pushBranches !== 'boolean') throw new Error('pushBranches must be true or false');
   if (config.pushBranches && config.delivery !== 'user') throw new Error('pushBranches applies only to user delivery');
+  if (config.maxEffort !== undefined && !EFFORTS.includes(config.maxEffort)) throw new Error(`maxEffort must be one of ${EFFORTS.join(', ')}`);
 }
 
 export function locateBlock(text) {

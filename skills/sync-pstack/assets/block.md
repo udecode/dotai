@@ -12,6 +12,10 @@
 <!-- if codexLanes -->
   So is a read-only fan-out reader the lead starts over files on disk, as the same rule says.
 <!-- end -->
+<!-- if maxEffort -->
+<!-- # adds -->
+- **Effort cap.** No role, seat or suggested-task card runs above `{{maxEffort}}`, the `maxEffort` in `.agents/pstack.json`. A role or seat that the models sheet or a project rule sets higher runs at `{{maxEffort}}`. `cross.mjs` caps every run it starts, `chips brief` prints each card's capped effort, and `levels.mjs` judges against the capped levels.
+<!-- end -->
 <!-- if glossary -->
 - Use the words in `{{glossary}}`.
 <!-- end -->

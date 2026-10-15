@@ -158,6 +158,7 @@ test('apply refuses a skip entry that no template holds and a pushBranches that 
     ['typo', { ...CONFIG, skip: ['test'] }, /skip names unknown sections: test/],
     ['string', { ...CONFIG, delivery: 'user', pushBranches: 'false' }, /pushBranches must be true or false/],
     ['push', { ...CONFIG, pushBranches: true }, /pushBranches applies only to user delivery/],
+    ['effort', { ...CONFIG, maxEffort: 'extreme' }, /maxEffort must be one of low, medium, high, xhigh, max/],
   ]) {
     const result = cli('apply', project(dir, name, { config, agents: '# App\n' }));
     assert.notEqual(result.status, 0, name);
@@ -418,6 +419,26 @@ test('cross runs a Codex seat read-only on the model and effort it names', () =>
   });
   assert.equal(seat.status, 0, seat.stderr);
   assert.match(seat.stdout, /^exec --ignore-user-config --ignore-rules .* -m gpt-6-astra -c model_reasoning_effort=high --disable hooks --sandbox read-only /);
+});
+
+test("cross caps a seat's effort at the project's maxEffort, and runs a seat with no effort at the cap", () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'codex'), '#!/bin/sh\nargs="$*"\nwhile [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; *) shift ;; esac; done\necho "$args" > "$out"\n', { mode: 0o755 });
+  const seat = (...args) =>
+    spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', '--model', 'gpt-6.1-sol', ...args, 'review it'], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '' },
+    });
+  assert.match(seat('--effort', 'xhigh').stdout, /-c model_reasoning_effort=xhigh /, 'a project with no cap');
+  assert.doesNotMatch(seat().stdout, /model_reasoning_effort/, 'no cap and no effort leaves the runtime default');
+  mkdirSync(join(dir, '.agents'));
+  writeFileSync(join(dir, '.agents/pstack.json'), JSON.stringify({ maxEffort: 'high' }));
+  assert.match(seat('--effort', 'xhigh').stdout, /-c model_reasoning_effort=high /);
+  assert.match(seat('--effort', 'medium').stdout, /-c model_reasoning_effort=medium /, 'an effort under the cap stays');
+  assert.match(seat().stdout, /-c model_reasoning_effort=high /);
 });
 
 test('cross --bypass runs a Codex worker on the owner config with hooks and no sandbox, and refuses any other runtime or lane', () => {
@@ -2729,6 +2750,21 @@ test('folding an unknown-cause diagnosis into a plain fix raises its brief and b
   assert.match(chip('task_p1 Fix the parser', 'folded', 'effort: high').stderr, /effort: takes only xhigh/);
 });
 
+test("a card's effort is its title's, capped at the project's maxEffort, in the brief and on the board", () => {
+  const { chips, offer, root } = chipLedger();
+  assert.equal(offer('task_p1 Fix the parser', 'src/p.ts', 'topic: parser').status, 0);
+  assert.equal(offer('task_d1 Design the export ledger (xhigh)', 'src/export', 'topic: export; kind: decide').status, 0);
+  assert.equal(offer('task_w1 Fix the export core', 'src/export/core.ts', 'topic: core; waits: task:task_d1').status, 0);
+  assert.match(chips('brief', 'task_p1').stdout, /Kind: fix\. Effort: high\./);
+  assert.match(chips('brief', 'task_d1').stdout, /Kind: decide\. Effort: xhigh\./);
+  assert.match(chips().stdout, /task_d1 {2}Design the export ledger \(xhigh\) {2}\[export, decide\] {2}no card/, 'an uncapped line leaves the effort to its title');
+  writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ branch: 'next', maxEffort: 'high' }));
+  assert.match(chips('brief', 'task_d1').stdout, /^Design the export ledger \(xhigh\)\n[\s\S]*Kind: decide\. Effort: high\./, 'the title keeps its recommendation');
+  const board = chips().stdout;
+  assert.match(board, /task_d1 {2}Design the export ledger \(xhigh\) {2}\[export, decide\] {2}effort high {2}no card/);
+  assert.match(board, /task_w1 {2}Fix the export core {2}\[core\] {2}waits on /, 'a plain title is already at the cap');
+});
+
 test('a carded task takes no fold, update or dup until its card is withdrawn, and each refusal names its route', () => {
   const { chip, offer } = chipLedger();
   assert.equal(offer('task_k1 Fix k', 'src/k.ts', 'topic: card; card: c1; session: s1').status, 0);
@@ -4201,6 +4237,20 @@ test('levels in a Codex session keeps Claude-led stretches and takes the session
   assert.match(result.stdout, /^ {2}at lines 4-5: lead claude-opus-5-5 @high$/mu);
   assert.match(result.stdout, /^ {2}below line 5: panel .*\(opus @high is below @xhigh\)$/mu);
   assert.match(result.stdout, /^ {2}at line 11: lead gpt-6\.1-sol @xhigh$/mu);
+});
+
+test("levels caps the lead and every seat target at the project's maxEffort", () => {
+  const { dir, run } = levelsRun(['--lead', 'claude-opus-5-5 @xhigh', 'log.tsv'], { claude: LEVELS_SHEET });
+  writeFileSync(join(dir, 'log.tsv'), LEVELS_LOG);
+  mkdirSync(join(dir, '.agents'));
+  writeFileSync(join(dir, '.agents/pstack.json'), JSON.stringify({ maxEffort: 'high' }));
+  const result = run();
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^target: lead claude-opus-5-5 @high; seats opus @high, gpt-6-astra @high, gpt-6\.1-sol @high; maxEffort high$/mu);
+  assert.match(result.stdout, /^ {2}at lines 4-5: lead claude-opus-5-5 @high$/mu, 'a stretch at the cap');
+  assert.match(result.stdout, /^ {2}at line 7: panel /mu, 'seats at the cap');
+  writeFileSync(join(dir, '.agents/pstack.json'), JSON.stringify({ maxEffort: 'huge' }));
+  assert.match(run().stderr, /maxEffort is "huge", not one of low, medium, high, xhigh, max/);
 });
 
 test('levels refuses a missing log, a flag with no value, and a round the models sheet has no line for', () => {
