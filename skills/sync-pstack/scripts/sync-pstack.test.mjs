@@ -2989,17 +2989,19 @@ test('chips shows one pass at a time: withdrawals, then ledger rows, then cards'
   assert.match(chips().stdout, /Do, card pass \(2\)\n {2}card task_a1:[^\n]*\n {2}card task_o1:/);
 });
 
-test('chips stale lists each open task with the paths it writes that are gone and the commits on its paths since its offer', () => {
+test('chips stale lists each open task with the paths it writes that were deleted since its offer or are missing, and the commits on its paths since its offer', () => {
   const { chip, chips, offer, root } = chipLedger();
   writeFileSync(join(root, 'kept.md'), 'old\n');
-  spawnSync('git', ['-C', root, 'add', 'kept.md']);
+  writeFileSync(join(root, 'gone.md'), 'old\n');
+  spawnSync('git', ['-C', root, 'add', 'kept.md', 'gone.md']);
   const earlier = new Date(Date.now() - 86_400_000).toISOString();
   spawnSync('git', ['-C', root, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'add kept'], { env: { ...process.env, GIT_AUTHOR_DATE: earlier, GIT_COMMITTER_DATE: earlier } });
-  assert.equal(offer('task_a1 Fix a', 'kept.md, gone.md', 'topic: stale').status, 0);
+  assert.equal(offer('task_a1 Fix a', 'kept.md, gone.md, new.md', 'topic: stale').status, 0);
   assert.equal(offer('task_b1 Fix b', 'docs/plans', 'topic: fresh; card: c1; session: s1').status, 0);
   assert.equal(offer('task_c1 Fix c', 'src/c.ts', 'topic: closed').status, 0);
   assert.equal(chip('task_c1 Fix c', 'dismissed done').status, 0);
   writeFileSync(join(root, 'kept.md'), 'new\n');
+  spawnSync('git', ['-C', root, 'rm', '-q', 'gone.md']);
   const later = new Date(Date.now() + 86_400_000).toISOString();
   spawnSync('git', ['-C', root, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qam', 'fix kept'], { env: { ...process.env, GIT_AUTHOR_DATE: later, GIT_COMMITTER_DATE: later } });
   const stale = chips('stale');
@@ -3007,7 +3009,7 @@ test('chips stale lists each open task with the paths it writes that are gone an
   assert.equal(
     stale.stdout,
     '2 open suggested tasks in docs/plans/suggested-tasks.decisions.tsv, the likeliest stale first:\n' +
-      '  task_a1  Fix a  [stale]  age 0d; gone: gone.md; 1 commit on its paths since its offer, last "fix kept"\n' +
+      '  task_a1  Fix a  [stale]  age 0d; deleted since its offer: gone.md; missing: new.md; 1 commit on its paths since its offer, last "fix kept"\n' +
       '  task_b1  Fix b  [fresh]  age 0d; card c1 in session s1\n',
   );
 });

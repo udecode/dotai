@@ -485,7 +485,9 @@ export function staleReport(tasks, at, probe) {
     .sort(byOrder)
     .map((task) => {
       const since = at.get(task.id);
-      const gone = task.writes.filter((path) => !probe.exists(path));
+      const absent = task.writes.filter((path) => !probe.exists(path));
+      const deleted = since ? absent.filter((path) => probe.deletedSince(since, path)) : [];
+      const missing = absent.filter((path) => !deleted.includes(path));
       const commits = since ? probe.commitsSince(since, task.writes.filter((path) => probe.exists(path))) : [];
       const closed = task.waits.flatMap((wait) => {
         const pr = wait.match(WAIT)?.[1];
@@ -495,12 +497,13 @@ export function staleReport(tasks, at, probe) {
       const facts = [
         since ? `age ${Math.floor((probe.now - Date.parse(since)) / 86_400_000)}d` : 'age unknown',
         ...(task.status === 'started' ? ['started'] : []),
-        ...(gone.length ? [`gone: ${gone.join(', ')}`] : []),
+        ...(deleted.length ? [`deleted since its offer: ${deleted.join(', ')}`] : []),
+        ...(missing.length ? [`missing: ${missing.join(', ')}`] : []),
         ...(commits.length ? [`${commits.length} ${commits.length === 1 ? 'commit' : 'commits'} on its paths since its offer, last "${commits[0]}"`] : []),
         ...closed,
         ...(task.card ? [`card ${task.card}${task.session ? ` in session ${task.session}` : ''}`] : []),
       ];
-      return { task, facts, weight: 2 * (gone.length > 0) + 2 * (closed.length > 0) + (commits.length > 0) };
+      return { task, facts, weight: 3 * (deleted.length > 0) + 3 * (closed.length > 0) + (missing.length > 0) + (commits.length > 0) };
     })
     .sort((a, b) => b.weight - a.weight || byOrder(a.task, b.task));
   return rows.map(({ task, facts }) => line(task, `  ${facts.join('; ')}`));

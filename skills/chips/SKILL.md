@@ -1,7 +1,7 @@
 ---
 name: chips
-description: "Run the project's suggested-task ledger, the chips: show the board, offer a finding, sweep the Do list, review stale and split tasks, start a carded task or drop one. Use for /chips, /chips offer, sweep, review, start or drop, \"what chips are open\", \"suggest a task for X\", \"clean up the chips\", \"which chips are stale\", and whenever pstack would file a tracked issue, a follow-up, a reflect Backlog item or an out-of-band PR."
-argument-hint: '[offer <finding> | sweep | review | start <id> | drop <id>]'
+description: "Run the project's suggested-task ledger, the chips. /chips alone brings every open task up to date: it applies what the ledger helper says, settles stale and split tasks, cards what can start and reports the board. Use for /chips, /chips offer, start or drop, \"what chips are open\", \"suggest a task for X\", \"update the chips\", \"clean up the chips\", \"which chips are stale\", and whenever pstack would file a tracked issue, a follow-up, a reflect Backlog item or an out-of-band PR."
+argument-hint: '[offer <finding> | start <id> | drop <id>]'
 ---
 
 # Chips
@@ -12,55 +12,43 @@ Every command below is `node .agents/pstack/decisions-check.mjs <command>`, run 
 
 | Mode | Use it to |
 | --- | --- |
-| [Board](#board) | see what can start, what runs, what waits and on what, and the next Do pass; writes nothing |
+| [Sweep](#sweep), `/chips` with no argument | bring every open task up to date, card what can start and report the board |
 | [Offer](#offer) | add a finding, the one way new work enters the ledger |
-| [Sweep](#sweep) | apply the Do list pass by pass and card what can start |
-| [Review](#review) | find stale tasks and one question split across topics, and propose the rows that settle them |
 | [Start](#start) | begin a task a card opened, in the card's session |
 | [Drop](#drop) | record the owner's word to drop a task |
 
-pstack calls these modes too. Where a pstack step files a tracked issue, a follow-up or a reflect Backlog item, or puts an out-of-band fix in its own PR, the lead runs Offer instead. At each hand-back, after each compaction and at the close, it runs Sweep. A "what's next" over side work runs the Board.
+pstack calls these modes too. Where a pstack step files a tracked issue, a follow-up or a reflect Backlog item, or puts an out-of-band fix in its own PR, the lead runs Offer instead. At each hand-back, after each compaction and at the close, it runs a quick sweep, which skips step 3. A question about open chips, such as "what's next" over side work, runs steps 1 and 6 and writes nothing.
 
-## Board
+## Sweep
 
-1. Run `chips --session <id>`.
-2. Tell the owner in plain words what can start now and whether it has a card, what is started, what waits and on what, grouped by the thing waited on, and the Do list's pass. Name each task by id and title.
+1. Run `chips --session <id>` and `chips stale`. The stale report lists each open task with its age, the paths it writes that were deleted since its offer or are missing, the commits on its paths since its offer, its closed PR waits and its card, the likeliest stale first.
+2. Apply the pass the Do list shows, together with the run's own rows that chips.md's Sweep lists, in one `append --from <file>` batch:
+   - Withdrawal pass: call the dismiss tool on each card it names, then log the row the tool's report decides, as each item says.
+   - Ledger pass: log each row it names.
+   - Card pass: leave it to step 5.
+   - Check items: look the named session up with the session tool, and log `uncarded` with the item's `card:` when the tool reports it archived or gone.
+
+   Run `chips --session <id>` again and repeat until the Do list shows only the card pass or nothing you can apply. When `append` refuses a batch, fix or drop the refused row as its message says and append the rest.
+3. Judge each task the stale report gives a fact, from its brief, those facts and the code, and append the rows in one batch:
+   - When the tree already holds its fix, log `dismissed done`, citing the commit.
+   - When its target was deleted since its offer, log `dismissed superseded`. When a path only moved, log `updated` with the new `writes:`.
+   - A missing path is one the offer named wrongly or one the task will create. Find the real path with `git ls-files` and log `updated` with it, or leave a path the task creates. A carded task's `updated` only drops paths, so its session names the real one in its `started` row.
+   - When a PR it waits on closed without merging, log `updated` with the waits it has now.
+   - When two open tasks answer one question, log the topic move and `dismissed dup` that chips.md's Sweep gives. When the keeper holds a card or is started, log `waits: task:<keeper>` on the other instead.
+   - For a started task, write nothing. Ask the owner whether its session still runs, and log `dismissed stopped` only on their word.
+4. Repeat step 2 for what step 3 changed.
+5. Card pass: offer each card the Do list names with the prompt from `chips brief <id>` and the effort its first line shows, while the suggest tool's last result lists fewer than 20 pending cards, then log `carded` with `card:` and `session:`. A runtime with no suggest tool lists each Ready task in the plan's `## Open work` instead, as chips.md's Limits says.
+6. Report in plain words each row this sweep logged, one line each, then what can start and whether it has a card, what is started, and what waits and on what, grouped by the thing waited on. Name each task by id and title. End with each question step 3 left for the owner. The owner reverses a dismissal by asking, and the lead offers the task again.
 
 ## Offer
 
-1. Run the board first, and read the brief of each open task whose topic or title touches the finding with `chips brief <id>`.
+1. Run `chips --session <id>` first, and read the brief of each open task whose topic or title touches the finding with `chips brief <id>`.
 2. Pick the row as chips.md's Offer says:
    - When the finding belongs to an offered task's question and that task holds no card, log a `folded` row on it with what the finding adds.
    - When it belongs to the question of a started task or of one that holds a card, offer a new task in that topic with `waits: task:<id>`. `chips` merges it into a carded task once the card is withdrawn.
    - Otherwise offer a new task with an id from `chips id`, a plain imperative title, `(xhigh)` when it needs design judgment, and its `writes:`, `topic:`, `kind:`, `waits:` and `owns:`. Reuse a topic the board lists when the finding answers its question. A new topic names one owner question, never an area.
 3. Append it with `append <plans>/suggested-tasks.decisions.tsv chip "<id> <title>" "<finding>" "<tokens>" <result>`. When `append` refuses the row, its message names the route; follow it.
-4. Leave the card to Sweep's card pass.
-
-## Sweep
-
-1. Run `chips --session <id>`.
-2. Apply the pass the Do list shows, together with the run's own rows that chips.md's Sweep lists, in one `append --from <file>` batch:
-   - Withdrawal pass: call the dismiss tool on each card it names, then log the row the tool's report decides, as each item says.
-   - Ledger pass: log each row it names.
-   - Card pass: offer each card with the prompt from `chips brief <id>` and the effort its first line shows, while the suggest tool's last result lists fewer than 20 pending cards, then log `carded` with `card:` and `session:`.
-   - Check items: look the named session up with the session tool, and log `uncarded` with the item's `card:` when the tool reports it archived or gone.
-3. Run `chips --session <id>` again and repeat until the Do list holds no item you can apply. When `append` refuses a batch, fix or drop the refused row as its message says and append the rest.
-4. A runtime with no suggest tool lists each Ready task in the plan's `## Open work` instead, as chips.md's Limits says.
-
-## Review
-
-Review proposes and the owner decides. It writes rows only after the owner's "go".
-
-1. Run `chips stale`, which lists each open task with its age, the paths it writes that are gone, the commits on its paths since its offer, its closed PR waits and its card, the likeliest stale first. Run the board too.
-2. Judge each task from its brief, those facts and the code:
-   - When the tree already holds its fix, propose `dismissed done`, citing the commit.
-   - When its target is gone, propose `dismissed superseded`. When a path only moved, propose `updated` with the new `writes:`.
-   - When a PR it waits on closed without merging, propose `updated` with the waits it has now.
-   - For a started task, ask the owner whether its session still runs, and propose `dismissed stopped` only on their word.
-   - When two open tasks answer one question under different topics, propose moving the later one into the earlier one's topic with `updated topic:`, then `dismissed dup` into the earliest design question, or the earliest task when none is one. When the keeper holds a card or is started, propose `waits: task:<keeper>` on the other instead.
-   - When a card's session is gone, propose `uncarded` with its `card:`.
-3. Write the proposals to `<plans>/artifacts/chips-review-<date>.md` as one table: task, fact, proposed row and why. Show the owner the table.
-4. On the owner's "go", append the rows they accepted in one batch, then run Sweep.
+4. Leave the card to the next sweep.
 
 ## Start
 

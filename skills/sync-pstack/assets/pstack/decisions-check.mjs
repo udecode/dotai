@@ -31,8 +31,9 @@
 //        this session, so each card it does not hold gets a check item instead of a
 //        withdraw problem)
 //        node .agents/pstack/decisions-check.mjs chips stale [<ledger>]
-//        (prints each open task's age, the paths it writes that are gone, the commits on
-//        its paths since its offer, its closed PR waits and its card, likeliest stale first)
+//        (prints each open task's age, the paths it writes that were deleted since its offer
+//        or are missing, the commits on its paths since its offer, its closed PR waits and
+//        its card, likeliest stale first)
 //        node .agents/pstack/decisions-check.mjs chips id
 //        (prints a fresh id for a new task)
 //        node .agents/pstack/decisions-check.mjs chips brief <id> [<ledger>]
@@ -290,10 +291,18 @@ if (args[0] === 'chips') {
       }
       return states.get(pr);
     };
+    const repoOf = (path) => (!isAbsolute(path) ? '.' : existsSync(path) && statSync(path).isDirectory() ? path : dirname(path));
+    const deletedSince = (since, path) => {
+      try {
+        return execFileSync('git', ['-C', repoOf(path), 'log', '-1', '--no-renames', '--diff-filter=D', `--since=${since}`, '--format=%h', '--', path], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() !== '';
+      } catch {
+        return false;
+      }
+    };
     const commitsSince = (since, paths) => {
       const seen = new Map();
       for (const path of paths) {
-        const repo = !isAbsolute(path) ? '.' : statSync(path).isDirectory() ? path : dirname(path);
+        const repo = repoOf(path);
         try {
           for (const entry of execFileSync('git', ['-C', repo, 'log', '--no-merges', `--since=${since}`, '--format=%ct%x09%h%x09%s', '--', path], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).split('\n').filter(Boolean)) {
             const [time, hash, subject] = entry.split('\t');
@@ -303,7 +312,7 @@ if (args[0] === 'chips') {
       }
       return [...seen.values()].sort((a, b) => b.time - a.time).map((commit) => commit.subject);
     };
-    const rows = staleReport(tasks, offeredAt(lines), { exists: existsSync, commitsSince, prState, now: Date.now() });
+    const rows = staleReport(tasks, offeredAt(lines), { exists: existsSync, deletedSince, commitsSince, prState, now: Date.now() });
     console.info(rows.length ? `${rows.length} open suggested tasks in ${ledger}, the likeliest stale first:\n${rows.join('\n')}` : `No open suggested tasks in ${ledger}.`);
     process.exit(0);
   }
