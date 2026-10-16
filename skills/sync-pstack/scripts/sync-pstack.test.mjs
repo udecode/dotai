@@ -4412,21 +4412,25 @@ test('plan-open refuses a newly closed box that cites a not-passed proof until a
   assert.equal(check('hold').status, 0, 'a later labeled pass');
 });
 
-test('plan-open keeps refusing a closed pre-acceptance probe box on a not-passed proof whatever accepted row follows', () => {
+function acceptedTypingRun(log) {
   const { dir, run } = sandbox();
-  const log = 'docs/plans/artifacts/run/typing-a1.log';
   const plan = (box) => `# Plan\n\nStatus: building\n\n## Defaults\n\n| Decision | Pick | Alternative | Word |\n| --- | --- | --- | --- |\n| Typing timings | Hand them to a suggested task | Time them now | time typing now |\n\n## Steps\n\n${box}\n`;
-  const root = project(dir, 'app', { files: { 'plan.md': plan(`- [ ] 2.6 Pre-acceptance probe: \`${log}\``), [log]: '$ (.) probe\nexit=0\n' } });
+  const root = project(dir, 'app', { files: { 'plan.md': plan('- [ ] 2.6 Time typing'), [log]: '$ (.) probe\nexit=0\n' } });
   run('git', ['add', '-A'], root);
   run('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'plan'], root);
   const append = (evidence, result) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'plan.decisions.tsv', 'verify', 'typing lines', 'why', evidence, result], root);
+  assert.equal(append(`proof: ${log}`, 'inconclusive: the host was loaded').status, 0);
+  assert.equal(append(`proof: ${log}; word: time typing now`, 'accepted: the typing lines go to a suggested task').status, 0);
   const check = (box) => {
     writeFileSync(join(root, 'plan.md'), plan(box));
     return run(process.execPath, [join(HELPERS, 'plan-open.mjs'), 'plan.md'], root);
   };
+  return { append, check };
+}
 
-  assert.equal(append(`proof: ${log}`, 'inconclusive: the host was loaded').status, 0);
-  assert.equal(append(`proof: ${log}; word: time typing now`, 'accepted: the typing lines go to a suggested task').status, 0);
+test('plan-open keeps refusing a closed pre-acceptance probe box on a not-passed proof whatever accepted row follows', () => {
+  const log = 'docs/plans/artifacts/run/typing-a1.log';
+  const { append, check } = acceptedTypingRun(log);
   const refused = check(`- [x] 2.6 Pre-acceptance probe: \`${log}\``);
   assert.equal(refused.status, 1, 'the accepted row does not close a probe a design acceptance waits on');
   assert.match(refused.stderr, /typing-a1\.log, whose latest labeled verdict is not passed, and a pre-acceptance probe stays open/);
@@ -4434,6 +4438,18 @@ test('plan-open keeps refusing a closed pre-acceptance probe box on a not-passed
   assert.doesNotMatch(check(`- [ ] 2.6 Pre-acceptance probe: \`${log}\``).stderr, /stays open until it passes/, 'the reopened box');
   assert.equal(append(`proof: ${log}; scope: typing lines A1 and C on a quiet host, read 2026-10-16`, 'verified: the typing lines pass').status, 0);
   assert.equal(check(`- [x] 2.6 Pre-acceptance probe: \`${log}\``).status, 0, 'a later labeled pass');
+});
+
+test('plan-open reads the pre-acceptance mark from prose, not from a cited path', () => {
+  const log = 'docs/plans/artifacts/pre-acceptance-run/typing-a1.log';
+  const { check } = acceptedTypingRun(log);
+  assert.equal(check(`- [x] 2.7 Rerun step 2.6's probe on the final bytes.\n  Closed by: \`${log}\`, ${log}`).status, 0, 'a final rerun citing a path named pre-acceptance');
+});
+
+test('plan-open reads the pre-acceptance mark through Markdown emphasis', () => {
+  const log = 'docs/plans/artifacts/run/typing-a1.log';
+  const { check } = acceptedTypingRun(log);
+  assert.match(check(`- [x] 2.6 _Pre-acceptance_ probe: \`${log}\``).stderr, /a pre-acceptance probe stays open/);
 });
 
 const claudeCall = (marker, effort) =>
