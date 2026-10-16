@@ -2790,7 +2790,8 @@ test('append refuses a second card on a task that has one', () => {
   assert.equal(chip('task_l1 Fix the lexer', 'carded', 'card: c1; session: s1').status, 0);
   assert.match(chip('task_l1 Fix the lexer', 'carded', 'card: c2; session: s2').stderr, /task_l1 already has card c1; log uncarded with card: c1 once that card is withdrawn or its session has ended, then card it again/);
   assert.equal(chip('task_l1 Fix the lexer', 'uncarded', 'card: c1').status, 0);
-  assert.equal(chip('task_l1 Fix the lexer', 'carded', 'card: c2; session: s2').status, 0);
+  assert.match(chip('task_l1 Fix the lexer', 'carded', 'card: c2; session: s2').stderr, /task_l1 belongs to session s1/, 'the first session that carded an offer naming no session owns it');
+  assert.equal(chip('task_l1 Fix the lexer', 'carded', 'card: c2; session: s1').status, 0);
 });
 
 test('a dup that would leave two tasks waiting on each other is refused, and the duplicate stays open', () => {
@@ -3525,51 +3526,30 @@ test('a task that waits on a landed patch starts once a commit after the landing
   assert.match(chips().stdout, /Ready \(1\)\n {2}task_b1 {2}Use the parser/, "a later task's uncommitted edit on top of the committed parser does not hold the wait");
 });
 
-test('once a session leads the chips, another session cards only the tasks it offered and withdraws its other cards', () => {
-  const { LEDGER, appendTo, chip, chips, offer, root } = chipLedger();
-  assert.equal(offer('task_a1 Fix the parser', 'src/a.ts', 'topic: a; session: s2').status, 0);
-  assert.equal(offer('task_b1 Fix the badge', 'src/b.ts', 'topic: b').status, 0);
-  assert.equal(chip('task_b1 Fix the badge', 'carded', 'card: c1; session: s2').status, 0);
-  assert.match(chips('--session', 's2').stdout, /Do, card pass \(1\)\n {2}card task_a1:/, 'before any lead, every session cards');
-  const claimed = chips('lead', '--session', 's1');
-  assert.equal(claimed.status, 0, claimed.stderr);
-  assert.match(claimed.stdout, /^This session leads the chips now\.$/m);
-  assert.match(chips('lead', '--session', 's1').stdout, /^This session already leads the chips\.$/m);
-  assert.equal(readFileSync(join(root, LEDGER), 'utf8').split('\n').filter((line) => line.split('\t')[1] === 'chips-lead').length, 1, 'a second claim by the lead writes nothing');
-  const ceding = chips('--session', 's2').stdout;
-  assert.match(ceding, /Session s1 leads the chips, so this session cards only the tasks it offered and withdraws its cards on the rest\./);
-  assert.match(ceding, /Do, withdrawal pass \(1\)\n {2}withdraw task_b1's card c1: session s1 leads the chips now;/);
-  assert.equal(chip('task_b1 Fix the badge', 'uncarded', 'card: c1').status, 0);
-  const own = chips('--session', 's2').stdout;
-  assert.match(own, /Do, card pass \(1\)\n {2}card task_a1:/, 'a session still cards the task it offered');
-  assert.doesNotMatch(own, /card task_b1:/);
-  const leading = chips('--session', 's1').stdout;
-  assert.match(leading, /This session leads the chips, so it cards every task that can start\./);
-  assert.match(leading, /Do, card pass \(2\)\n {2}card task_a1:[^\n]*\n {2}card task_b1:/);
-  const refused = chip('task_b1 Fix the badge', 'carded', 'card: c2; session: s2');
+test('a session cards only the tasks it owns, and chips all takes the ones no live session owns', () => {
+  const { chip, chips, offer, root } = chipLedger();
+  assert.equal(offer('task_a1 Fix the parser', 'src/a.ts', 'topic: a; session: s1').status, 0);
+  assert.equal(offer('task_b1 Fix the badge', 'src/b.ts', 'topic: b; session: s2').status, 0);
+  assert.equal(offer('task_c1 Fix the clock', 'src/c.ts', 'topic: c').status, 0);
+  assert.equal(offer('task_d1 Fix the dial', 'src/d.ts', 'topic: d; session: s3').status, 0);
+  const own = chips('--session', 's1').stdout;
+  assert.match(own, /Do, card pass \(1\)\n {2}card task_a1:/, 'a session cards only the task it offered');
+  assert.match(own, /Other owners \(3\)\n {2}session s2 {2}1 open: task_b1\n {2}no owner {2}1 open: task_c1\n {2}session s3 {2}1 open: task_d1/);
+  assert.match(chips().stdout, /Do, card pass \(4\)/, 'a runtime with no session tool cards every task');
+  const refused = chip('task_b1 Fix the badge', 'carded', 'card: c1; session: s1');
   assert.equal(refused.status, 1);
-  assert.match(refused.stderr, /session s1 leads the chips, so only it or the session that offered task_b1 cards it/);
-  assert.equal(chip('task_a1 Fix the parser', 'carded', 'card: c3; session: s2').status, 0, 'the session that offered a task cards it');
-  assert.equal(chip('task_b1 Fix the badge', 'carded', 'card: c4; session: s1').status, 0, 'the lead cards it');
-  assert.match(appendTo('log.decisions.tsv', 'chips-lead', 's3', 'session: s3', 'recorded').stderr, /a chips-lead row goes in the project's ledger/);
-  assert.match(appendTo(LEDGER, 'chips-lead', 'two words', 'session: s3', 'recorded').stderr, /a chips-lead row's decision is the id of the session that leads/);
-  assert.equal(chips().status, 0);
-});
-
-test('chips wait stops once another session takes the chips lead', async () => {
-  const { chips, env, offer, root } = chipLedger();
-  assert.equal(offer('task_a1 Fix the parser', 'src/a.ts', 'topic: a').status, 0);
-  assert.equal(chips('lead', '--session', 's1').status, 0);
-  const waiter = spawn(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'chips', 'wait', '--session', 's1', '--every', '0.1', '--timeout', '1'], { cwd: root, env });
-  let out = '';
-  waiter.stdout.on('data', (chunk) => {
-    out += chunk;
-  });
-  const exited = new Promise((done) => waiter.on('exit', done));
-  await new Promise((done) => setTimeout(done, 500));
-  assert.equal(chips('lead', '--session', 's2').status, 0);
-  assert.equal(await exited, 0);
-  assert.match(out, /Session s2 leads the chips now\. Run the chips sweep, which lists the cards this session withdraws, and stop waiting\./);
+  assert.match(refused.stderr, /task_b1 belongs to session s2, so only that session cards it/);
+  const unlisted = chips('all', '--session', 's1').stdout;
+  assert.match(unlisted, /Do, card pass \(2\)\n {2}card task_a1:[^\n]*\n {2}card task_c1:/, 'chips all cards a task no session owns');
+  assert.doesNotMatch(unlisted, /take task_d1/, 'with no session list, no owner counts as gone');
+  writeFileSync(join(root, 'sessions.json'), JSON.stringify([{ sessionId: 's1', isArchived: false }, { sessionId: 's2', isArchived: false }, { sessionId: 's3', isArchived: true }]));
+  assert.match(chips('all', '--session', 's1', '--sessions', 'sessions.json').stdout, /Do, ledger pass \(1\)\n {2}take task_d1: its owner session s3 is archived or gone; log updated with session: s1/);
+  assert.equal(chip('task_d1 Fix the dial', 'updated', 'session: s1').status, 0);
+  assert.equal(chip('task_c1 Fix the clock', 'carded', 'card: c2; session: s1').status, 0, 'carding a task no session owns takes it');
+  assert.match(chips('--session', 's1').stdout, /Do, card pass \(2\)\n {2}card task_a1:[^\n]*\n {2}card task_d1:/, 'a taken task is this session\'s own');
+  assert.match(chips('--session', 's2').stdout, /session s1 {2}3 open: task_a1, task_c1, task_d1/);
+  assert.match(chip('task_a1 Fix the parser', 'updated', 'transcript: t1').stderr, /transcript: goes beside session:/);
+  assert.equal(chips('all').status, 2, 'chips all needs the session that takes the tasks');
 });
 
 test('chips wait exits once a task lands or turns ready, and at its timeout', async () => {
