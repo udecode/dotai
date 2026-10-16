@@ -258,6 +258,7 @@ test('delete removes the safe set and leaves every other folder', () => {
   assert.ok(![f.archived, f.landed, f.unlanded].some((path) => listed.includes(path)), 'git no longer lists the removed worktrees');
   const patchOf = (path) => removed.find((item) => item.path === path).patch;
   assert.equal(patchOf(f.archived), null, 'a clean worktree saves no patch');
+  assert.equal(patchOf(f.landed), null, 'a worktree whose changes the checkout holds saves no patch');
   assert.match(readFileSync(patchOf(f.unlanded), 'utf8'), /^\+three$/mu, 'the uncommitted change is saved before the worktree goes');
   git(f.main, 'checkout', '-q', '--', 'a.txt');
   git(f.main, 'apply', '--check', patchOf(f.unlanded));

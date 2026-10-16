@@ -13,15 +13,16 @@
 // transcript keeps a worktree; uncommitted changes do not, because a card
 // session lands them in the checkout as a patch. --delete measures each safe item,
 // judges it again, checks the running processes once more, saves a worktree's
-// uncommitted changes as a patch under the git folder's cleanup/ and removes it.
+// uncommitted changes the checkout lacks as a patch under the git folder's
+// cleanup/ and removes it.
 // --brief prints one line, or nothing, counting the unlocked agent worktrees and
 // the checkout caches cleanup could remove that show no git or cache writes for
 // three days. --landed exits 0 only when every change and ignored file of one
 // worktree is committed, recreated by an install or build, or in the checkout,
 // where a tracked edit also counts once the checkout's copy holds its hunks.
 // --remove takes worktrees whose work the caller knows landed and judges none of
-// them: it stops each process working in one, saves its uncommitted changes as a
-// patch as --delete does and removes it. It keeps a worktree git does not list, a
+// them: it stops each process working in one, saves the uncommitted changes the
+// checkout lacks as a patch as --delete does and removes it. It keeps a worktree git does not list, a
 // locked one, one outside the folders agents make worktrees in, one holding another
 // worktree, the one it runs in, one whose processes lsof cannot list and one git
 // refuses to remove, and exits 1 when it keeps any.
@@ -406,8 +407,10 @@ function savePatch(main, path) {
   }
 }
 
+// A card's landing patch already holds what the checkout matches, so only a
+// worktree with changes the checkout lacks gets a patch.
 function removeFolder(main, item) {
-  if (item.kind === 'worktree' && existsSync(item.path)) item.patch = savePatch(main, item.path);
+  if (item.kind === 'worktree' && existsSync(item.path)) item.patch = compareWithCheckout(main, item.path, new Map()).unlanded > 0 ? savePatch(main, item.path) : null;
   if (item.kind === 'worktree') {
     try {
       git(main, ['worktree', 'remove', '--force', item.path]);

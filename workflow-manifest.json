@@ -143,11 +143,11 @@
       "mode": 420
     },
     "skills/cleanup/SKILL.md": {
-      "sha256": "9abdb6213786676f9bd5f35d56b50862e951c494eb2ada2e50f878abe1e482d2",
+      "sha256": "2b9b0946af5bdbd9422ef77018d7a5cc295786452e40d2b36c9b61ccd55899b3",
       "mode": 420
     },
     "skills/cleanup/scripts/scan.mjs": {
-      "sha256": "4f3809ff6d45634d360455fccfee30022ce9148712d9c28b0a243dd0bb9521a2",
+      "sha256": "312ef2301aaab52f620e03160fd3b0a039a2197b0a00cada709372e138702fc9",
       "mode": 420
     },
     "skills/cleanup/scripts/scan.test.mjs": {
