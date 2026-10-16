@@ -4,7 +4,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { hintModes, overrideAnchors, render, sharedTemplates, unmarkedRules } from './sync-pstack.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -648,6 +648,26 @@ test('cross refuses the retired write, events and resume flags before launching 
   }
   assert.equal(run([]).status, 0, 'the same call without a retired flag launches');
   assert.equal(existsSync(launched), true);
+});
+
+test('cross refuses a --timeout over the hour time budget before launching, unless --stress', () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  const launched = join(dir, 'launched');
+  writeFileSync(join(bin, 'codex'), `#!/bin/sh\ntouch ${launched}\nwhile [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; *) shift ;; esac; done\necho ok > "$out"\n`, { mode: 0o755 });
+  const run = (...flags) =>
+    spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', ...flags, 'build it'], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1' },
+    });
+  const refused = run('--timeout', '3601');
+  assert.equal(refused.status, 2);
+  assert.match(refused.stderr, /--timeout 3601 is over the 3600-second time budget/);
+  assert.equal(existsSync(launched), false, 'a refused run launched Codex');
+  assert.equal(run('--timeout', '3600').status, 0, 'a run at the budget launches');
+  assert.equal(run('--timeout', '3601', '--stress').status, 0, 'a stress run past the budget launches');
 });
 
 test('a stopped cross run stops the runtime it launched', async () => {
@@ -3492,6 +3512,15 @@ test('chips wait exits once a task lands or turns ready, and at its timeout', as
   assert.match(idle.stdout, /No task landed, started or turned ready before the timeout/);
 });
 
+test('chips wait refuses a timeout over the hour time budget', () => {
+  const { env, offer, root } = chipLedger();
+  assert.equal(offer('task_a1 Fix the parser', 'src/p.ts', 'topic: parser').status, 0);
+  const long = spawnSync(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'chips', 'wait', '--timeout', '61'], { cwd: root, env, encoding: 'utf8', timeout: 10_000 });
+
+  assert.equal(long.status, 2);
+  assert.match(long.stderr, /--timeout 61 is over the block's one-hour Time budget/);
+});
+
 test('a fast mark shows on a plain fix, refuses design judgment, and drops when a fold or dup raises the task', () => {
   const { chip, chips, offer } = chipLedger();
   const link = 'task_f1 Fix the badge link';
@@ -3963,6 +3992,73 @@ test('proof writes each run to the next attempt log with its command and exit st
   assert.equal(read(dir, 'run/lint-a1.log'), `$ (${realpathSync(dir)}) echo found 2 problems; false | cat\nfound 2 problems\nexit=1\n`);
   assert.match(read(dir, 'run/lint-a2.log'), /^\$ \(.*\) .*-e 'console\.log\("clean"\)'\nclean\nexit=0\n$/);
   assert.match(prove("echo 'héllo—x'").stdout, /^héllo—x\n/u, 'a command line with multibyte text stays out of the output');
+});
+
+test('proof refuses a --timeout over the hour time budget unless --stress, and writes no log for a refused run', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-proof-budget-'));
+  const prove = (flags) => spawnSync(process.execPath, [join(HELPERS, 'proof.mjs'), '--dir', join(dir, 'run'), '--name', 'slow', ...flags, '--', 'true'], { cwd: dir, encoding: 'utf8' });
+
+  const refused = prove(['--timeout', '3601']);
+  assert.equal(refused.status, 2);
+  assert.match(refused.stderr, /--timeout 3601 is over the 3600-second time budget/);
+  assert.equal(existsSync(join(dir, 'run/slow-a1.log')), false, 'a refused proof writes no log');
+  assert.equal(prove(['--timeout', '3601', '--stress']).status, 0, 'a stress proof past the budget runs');
+});
+
+const proveWithTimeout = (dir, name, command) =>
+  spawnSync(process.execPath, [join(HELPERS, 'proof.mjs'), '--dir', join(dir, 'run'), '--name', name, '--timeout', '1', '--', command], { cwd: dir, encoding: 'utf8' });
+
+test('proof stops every process a timed-out command started, so none writes to its log afterwards', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-proof-late-'));
+
+  assert.equal(proveWithTimeout(dir, 'late', 'sh -c "sleep 2; echo late-write"; true').status, 1);
+  spawnSync('sleep', ['3']);
+  assert.equal(read(dir, 'run/late-a1.log'), `$ (${realpathSync(dir)}) sh -c "sleep 2; echo late-write"; true\ntimed out after 1 seconds\nexit=ETIMEDOUT\n`, 'a process the command started wrote after the timeout');
+});
+
+test('proof fails a timed-out command that exits 0 on its timeout signal', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-proof-graceful-'));
+  const graceful = proveWithTimeout(dir, 'graceful', "trap 'exit 0' TERM; sleep 20 & wait");
+
+  assert.match(graceful.stdout, /exit=ETIMEDOUT/, 'a timed-out command that exits 0 was logged as passing');
+  assert.equal(graceful.status, 1);
+});
+
+test('proof stops a timed-out command that ignores its timeout signal', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-proof-stubborn-'));
+  const started = Date.now();
+
+  assert.equal(proveWithTimeout(dir, 'stubborn', "trap '' TERM; sleep 20").status, 1);
+  assert.ok(Date.now() - started < 12_000, 'a command that ignores its timeout signal ran past the timeout and its grace');
+});
+
+test('prove refuses a timeout that is not a positive number before it writes a log', async () => {
+  const { prove } = await import(pathToFileURL(join(HELPERS, 'proof.mjs')));
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-prove-zero-'));
+
+  for (const timeout of [0, -5, Number.NaN]) {
+    assert.throws(() => prove({ dir, name: 'bad', command: ['true'], timeout }), /takes a positive number of seconds/, `prove accepted a timeout of ${timeout}`);
+  }
+  assert.deepEqual(readdirSync(dir), [], 'a refused proof wrote a log');
+});
+
+test('prove runs a command under the hour time budget by default and with no timeout under stress', async () => {
+  const { prove } = await import(pathToFileURL(join(HELPERS, 'proof.mjs')));
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-prove-default-'));
+  const supervisorArgs = (options) => prove({ dir, name: 'supervisor', command: ['ps -o args= -p $PPID'], ...options }).output;
+
+  assert.match(supervisorArgs({}), /--supervise-group 3600 bash/);
+  assert.match(supervisorArgs({ stress: true }), /--supervise-group 0 bash/);
+});
+
+test('mutate refuses a spec timeout over the hour time budget before exporting anything', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-mutate-budget-'));
+  writeFileSync(join(dir, 'spec.json'), JSON.stringify({ commit: 'HEAD', timeout: 5400, test: ['true'], mutations: [{ name: 'm', file: 'a.js', from: 'a', to: 'b', expect: 'x' }] }));
+  const result = spawnSync(process.execPath, [join(HELPERS, 'mutate.mjs'), '--dir', join(dir, 'run'), join(dir, 'spec.json')], { cwd: dir, encoding: 'utf8' });
+
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /within the 3600-second time budget, got 5400/);
+  assert.equal(existsSync(join(dir, 'run')), false, 'a refused spec exports nothing');
 });
 
 test('mutate links each workspace node_modules into its worktree', () => {
