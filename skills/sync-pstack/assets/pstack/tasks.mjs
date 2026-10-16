@@ -46,12 +46,12 @@ const TAKES = {
   folded: ['writes', 'kind', 'effort', 'waits', 'owns'],
   started: ['writes', 'session'],
   landed: ['patch'],
-  carded: ['card', 'session'],
+  carded: ['card', 'session', 'codex'],
   uncarded: ['card'],
   'dismissed declined': ['card'],
 };
 const LIST_KEYS = ['writes', 'waits', 'owns'];
-const SCALAR_KEYS = ['topic', 'kind', 'effort', 'fast', 'patch', 'card', 'session'];
+const SCALAR_KEYS = ['topic', 'kind', 'effort', 'fast', 'patch', 'card', 'session', 'codex'];
 const KINDS = ['fix', 'decide', 'review'];
 
 const CHIP = /^([\w-]+) (?:(?:Now|After): )?\S/u;
@@ -178,6 +178,7 @@ export function recordRow(tasks, cells, ts = null) {
       waits: given.waits ?? [],
       owns: given.owns ?? [],
       card: given.card ?? null,
+      codex: false,
       session: given.card ? (given.session ?? null) : null,
       offeredIn: given.session ?? null,
       startedIn: null,
@@ -217,11 +218,13 @@ export function recordRow(tasks, cells, ts = null) {
   if (row.move === 'reviewed') task.reviewed = true;
   if (row.move === 'carded') {
     task.card = given.card ?? null;
+    task.codex = given.codex === 'always';
     task.session = given.session ?? null;
     task.cardEffort = levelOf(task);
   }
   if (row.move === 'uncarded' || row.move === 'reopened' || row.move.startsWith('dismissed')) {
     task.card = null;
+    task.codex = false;
     task.session = null;
     task.cardEffort = null;
   }
@@ -267,6 +270,7 @@ const tokenProblems = (given, where) => {
   for (const wait of given.waits ?? []) if (!WAIT.test(wait)) found.push(`${where}: waits: takes pr:<number>, task:<id> or run:<plan path ending in .md>, comma-separated, or none; "${wait}" is none of them`);
   for (const check of given.owns ?? []) if (!CHECK.test(check)) found.push(`${where}: owns: names each check as one token, such as ci:check`);
   if (given.session !== undefined && !SESSION.test(given.session)) found.push(`${where}: session: names the session id as one token`);
+  if (given.codex !== undefined && given.codex !== 'always') found.push(`${where}: codex: is always, which forces the card session's Codex handoff`);
   return found;
 };
 
@@ -786,19 +790,20 @@ export const effortOf = (task, max) => capEffort(levelOf(task), max);
 // The level the task had when its card landed, which a later effort: row does not change.
 export const cardEffortOf = (task, max) => capEffort(task.cardEffort, max);
 
-export function briefOf(tasks, id, ledger, max = null) {
+// codex is the project's chips.codex setting; "always" forces the Codex handoff on every task.
+export function briefOf(tasks, id, ledger, max = null, codex = null) {
   const task = tasks.get(id);
   const live = follow(id, tasks);
   if (['dup', 'replaced'].includes(task.reason) && live && live !== task) {
     const moved = task.reason === 'dup' ? 'merged into' : 'replaced by';
-    if (live.status === 'offered' && !live.card) return { ok: true, text: `${id} was ${moved} ${live.id}; work from its brief.\n\n${brief(live, ledger, max, tasks)}` };
+    if (live.status === 'offered' && !live.card) return { ok: true, text: `${id} was ${moved} ${live.id}; work from its brief.\n\n${brief(live, ledger, max, tasks, codex)}` };
     const held = live.status === 'offered' ? `has card ${live.card}` : `is ${taskState(live)}`;
     return { ok: false, text: `${id} was ${moved} ${live.id}, which ${held}, so there is nothing to start; tell the owner.` };
   }
-  return isOpen(task) ? { ok: true, text: brief(task, ledger, max, tasks) } : { ok: false, text: `${id} is ${taskState(task)}, so there is nothing to start; tell the owner.` };
+  return isOpen(task) ? { ok: true, text: brief(task, ledger, max, tasks, codex) } : { ok: false, text: `${id} is ${taskState(task)}, so there is nothing to start; tell the owner.` };
 }
 
-function brief(task, ledger, max, tasks) {
+function brief(task, ledger, max, tasks, codex) {
   const root = process.cwd();
   const run = `cd ${root} && node .agents/pstack/decisions-check.mjs`;
   const patch = resolve(root, dirname(ledger), 'artifacts', 'chips', `${task.id}.patch`);
@@ -815,6 +820,7 @@ function brief(task, ledger, max, tasks) {
     ...(task.owns.length ? [`Owns: ${task.owns.join(', ')}`] : []),
     `Waited on: ${task.waits.length ? task.waits.join(', ') : 'nothing'}`,
     ...(task.kind === 'decide' ? ['', "This task settles a design question first. Route it through the project playbook that gives a design verdict, or pstack's Investigation playbook where the project has none, then plan any fix."] : []),
+    ...(task.codex || codex === 'always' ? ['', "This task forces the Codex handoff, as the Codex workers rule says: once you have found the cause, or settled the design of a design question, hand Codex the code and its tests whatever the size of the change, then review what it wrote."] : []),
     ...(fastOf(task) ? ['', "This task is marked fast: the owner's start of its card is the word fast for it, as the Fast rule says, so its run spawns no review subagent or seat. A review task in the ledger reviews its change once it lands, so land it with patch: as below."] : []),
     ...(task.kind === 'review'
       ? [

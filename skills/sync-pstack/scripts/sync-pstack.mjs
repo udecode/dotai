@@ -31,7 +31,7 @@ const TEMPLATE = join(SKILL, 'assets/block.md');
 const HELPERS = join(SKILL, 'assets/pstack');
 const CONFIG = '.agents/pstack.json';
 const HELPER_DIR = '.agents/pstack';
-const CORE_HELPERS = ['codex-browser.mjs', 'codex-isolation.mjs', 'cross.mjs', 'cua-steps.mjs', 'freeze.mjs', 'head.mjs', 'lead.mjs', 'mutate.mjs', 'proof.mjs', 'reply.mjs', 'reread.mjs'];
+const CORE_HELPERS = ['codex-browser.mjs', 'codex-build.md', 'codex-isolation.mjs', 'cross.mjs', 'cua-steps.mjs', 'freeze.mjs', 'head.mjs', 'lead.mjs', 'mutate.mjs', 'proof.mjs', 'reply.mjs', 'reread.mjs'];
 const SECTION_HELPERS = { plans: ['decisions-check.mjs', 'levels.mjs', 'plan-open.mjs', 'plan-page.mjs', 'status.mjs', 'tasks.mjs'] };
 const RULES = join(HELPERS, 'rules');
 export const RULE_FILES = { 'browser.md': 'browser', 'chips.md': 'plans', 'close.md': null, 'long-runs.md': 'long-runs', 'pages.md': 'plans', 'panel.md': null, 'reflect.md': null, 'tests.md': 'tests', 'title.md': null, 'trails.md': 'plans' };
@@ -513,7 +513,7 @@ export function apply(root, { tag, force = false, write = true } = {}) {
             diff: last === null ? `current helper against the shared one:\n${diff(present, source)}` : `the project's edit since the last sync:\n${diff(last, present)}`,
           });
         }
-        else changes.push({ path, text: source, executable: !rule });
+        else changes.push({ path, text: source, executable: name.endsWith('.mjs') });
       } else if (present !== null) {
         if (edited && !force) refusals.push({ path, reason: `the helper was edited, and its section "${section}" is now skipped` });
         else changes.push({ path, remove: true });

@@ -137,8 +137,17 @@ function rowProblems(line, where, opened, chips) {
   return reviewerRow ? found : [...found, ...missingPaths(rest[3], where)];
 }
 
+// A card session reads a finding's evidence from this checkout, never from the worktree that wrote it.
+function missingFindingPaths(cells, where) {
+  if (!['offered', 'folded'].includes(statusOf(cells[4]))) return [];
+  return runPaths(cells[2], plansDir())
+    .filter((path) => !existsSync(path) && !markedMissing(cells[2], path))
+    .map((path) => `${where}: the finding cites ${path}, which this checkout lacks; copy it here from the worktree that wrote it, or cite the path it was saved to`);
+}
+
 function newRowProblems(cells, where, chips, lead) {
   const found = [];
+  if (cells[0] === 'chip' && chips) found.push(...missingFindingPaths(cells, where));
   if (cells[0] === LEAD_PHASE && !chips) found.push(`${where}: a ${LEAD_PHASE} row goes in the project's ledger ${join(plansDir(), LEDGER)}; run chips lead --session <id> to write it`);
   if (cells[0] === LEAD_PHASE && !SESSION.test(cells[1])) found.push(`${where}: a ${LEAD_PHASE} row's decision is the id of the session that leads, the one the runtime's session tool gives it`);
   return [...found, ...(cells[0] === 'chip' && chips ? newChipRowProblems(cells, chips, where, git, lead) : []), ...baseRedProblems(cells[3], chips ?? currentLedger(), where)];
@@ -409,7 +418,7 @@ if (args[0] === 'chips') {
       console.error(`${id ?? '(no id)'} is not a task in ${ledger}`);
       process.exit(2);
     }
-    const { ok, text } = briefOf(tasks, id, ledger, maxEffort());
+    const { ok, text } = briefOf(tasks, id, ledger, maxEffort(), projectConfig().chips?.codex);
     (ok ? console.info : console.error)(text);
     process.exit(ok ? 0 : 1);
   }

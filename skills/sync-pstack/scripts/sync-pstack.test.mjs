@@ -668,6 +668,10 @@ test('cross refuses a --timeout over the hour time budget before launching, unle
   assert.equal(existsSync(launched), false, 'a refused run launched Codex');
   assert.equal(run('--timeout', '3600').status, 0, 'a run at the budget launches');
   assert.equal(run('--timeout', '3601', '--stress').status, 0, 'a stress run past the budget launches');
+  assert.equal(run('--bypass', '--timeout', '21600').status, 0, 'a coding run at its six-hour budget launches');
+  const long = run('--bypass', '--timeout', '21601');
+  assert.equal(long.status, 2);
+  assert.match(long.stderr, /--timeout 21601 is over the 21600-second budget of a --bypass coding run/);
 });
 
 test('a stopped cross run stops the runtime it launched', async () => {
@@ -2406,6 +2410,38 @@ test('decisions-check takes a chip offer only with a plain title, a topic and th
   assert.equal(offer('task_a1 Fix the stale badge', 'README.md', 'topic: docs; waits: pr:12, task:task_z9, run:docs/plans/x.md; kind: fix').status, 0);
   assert.match(offer('task_a1 Fix the stale badge').stderr, /already offered/, 'an id offered twice');
   assert.match(appendTo(LEDGER, 'build', 'ship the parser', 'scope: fixtures', 'offered').stderr, /only in a chip row/, 'an offered result outside a chip row');
+  assert.equal(helper(LEDGER).status, 0);
+});
+
+test('decisions-check takes a new chip finding only when this checkout holds the evidence it cites', () => {
+  const { LEDGER, helper, root } = chipLedger();
+  const log = 'docs/plans/artifacts/probe/base-a1.log';
+  const offerCiting = (finding) => helper('append', LEDGER, 'chip', 'task_a1 Fix the stale badge', finding, 'writes: README.md; topic: docs', 'offered');
+  const missing = offerCiting(`the badge links a dead page (${log})`);
+  assert.equal(missing.status, 1, 'an offer citing a log only another worktree holds');
+  assert.match(missing.stderr, /the finding cites docs\/plans\/artifacts\/probe\/base-a1\.log, which this checkout lacks/);
+  mkdirSync(join(root, 'docs/plans/artifacts/probe'), { recursive: true });
+  writeFileSync(join(root, log), 'exit=1\n');
+  assert.equal(offerCiting(`the badge links a dead page (${log})`).status, 0, 'an offer citing a log the checkout holds');
+  const fold = (finding) => helper('append', LEDGER, 'chip', 'task_a1 Fix the stale badge', finding, 'kind: decide; effort: xhigh', 'folded');
+  assert.match(fold('the footer badge fails too (docs/plans/artifacts/probe/footer-a1.log)').stderr, /cites docs\/plans\/artifacts\/probe\/footer-a1\.log, which this checkout lacks/, 'a folded finding citing a missing log');
+  assert.equal(fold('the footer badge fails too').status, 0, 'a folded finding that cites no file');
+  rmSync(join(root, log));
+  assert.equal(helper(LEDGER).status, 0, 'the whole-log check leaves an older offer whose evidence went missing');
+});
+
+test('chips brief forces the Codex handoff for a card carded with codex: always or a project that sets it', () => {
+  const { LEDGER, chip, helper, offer, root } = chipLedger();
+  const forced = /forces the Codex handoff/;
+  assert.equal(offer('task_a1 Fix the stale badge').status, 0);
+  assert.doesNotMatch(helper('chips', 'brief', 'task_a1').stdout, forced, 'a task with no card');
+  assert.match(chip('task_a1 Fix the stale badge', 'carded', 'card: task_c1; session: s1; codex: sometimes').stderr, /codex: is always/, 'a mark other than always');
+  assert.equal(chip('task_a1 Fix the stale badge', 'carded', 'card: task_c1; session: s1; codex: always').status, 0);
+  assert.match(helper('chips', 'brief', 'task_a1').stdout, forced, 'a card carded with codex: always');
+  assert.equal(chip('task_a1 Fix the stale badge', 'uncarded', 'card: task_c1').status, 0);
+  assert.doesNotMatch(helper('chips', 'brief', 'task_a1').stdout, forced, 'the mark leaves with its card');
+  writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ branch: 'next', chips: { codex: 'always' } }));
+  assert.match(helper('chips', 'brief', 'task_a1').stdout, forced, 'a project whose config sets chips.codex');
   assert.equal(helper(LEDGER).status, 0);
 });
 
