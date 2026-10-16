@@ -62,7 +62,7 @@ A session a card opened, or one the lead started on the owner's "start <id>", ru
 2. Run `chips`. When the task is neither Ready nor Started, tell the owner what it waits on and stop.
 3. Log `started` with `writes:` naming any path the brief lacks and `session:` naming this session's id where the runtime's session tool gives one, then run `chips brief <id>` again, because the task could change until that row. When the session tool shows this session above the brief's `Effort:`, say so to the owner in your first reply, because a session cannot lower its own effort.
 4. Before writing a path the task does not list, log another `started` row with it. When `append` refuses that row because another started task writes that path outside the checkout, leave the path alone and tell the owner.
-5. When the work is done, land it as the brief's paragraph on landing and chips.md's Landing say, and log `landed` with `patch:`. A review task's session first logs `reviewed` on each task it reviewed.
+5. When the work is done, land it as the brief's paragraph on landing and chips.md's Landing say, log `landed` with `patch:`, merge your run directory into the checkout without overwriting, and remove the worktree as the last command once the cleanup scan's `--landed` check passes. A review task's session first logs `reviewed` on each task it reviewed.
 
 ## Drop
 

@@ -15,6 +15,17 @@
       "provenance": null
     },
     {
+      "name": "cleanup",
+      "distribution": "bundled",
+      "description": "Free disk in a project by removing the git worktrees and Next.js cache folders nothing uses, keeping every worktree a session or process works in and every cache a running server holds. Use for /cleanup, \\\"clean up worktrees\\\", \\\"free disk space\\\", \\\"what's using my disk\\\", \\\"delete unused worktrees or builds\\\", or when a session-start hint counts old cleanup candidates.",
+      "category": "Maintenance",
+      "dependencies": [],
+      "capabilities": [
+        "Node.js 22+, Git and lsof; a session tool that lists sessions with their folders, or a one-day wait before a worktree counts as unused"
+      ],
+      "provenance": null
+    },
+    {
       "name": "passwords",
       "distribution": "bundled",
       "description": "Set up unattended 1Password access on a Mac or sign in to websites and apps without repeated human approvals. Use for new-device setup, passwords, authenticator codes, email or SMS verification, passkey alternatives, and blocked logins.",
@@ -116,11 +127,11 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "0c9b2af215c7b3d9713b0dcd3a37f928dc152345145538f87c6020149abad692",
+      "sha256": "99f21753237c0daa5d2f11f425798b3bdcf856b1b646ae2de5254acb988eb26a",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
-      "sha256": "929df2eb430f1d44800e3ea31e2ac2c3a7048f62842be412076e2d6c7c896686",
+      "sha256": "ba2e76d8765d01692fca78c94a11616d181d8e7218412cb304dd7ed6ad9f2b08",
       "mode": 420
     },
     "scripts/validate-skills": {
@@ -128,7 +139,19 @@
       "mode": 493
     },
     "skills/chips/SKILL.md": {
-      "sha256": "57660c13b805076eb96e9e06f2d56fdcce07f79f9bd42ab711a12b1bf895c106",
+      "sha256": "f29313361610d1d05c491b4f6bbf42bcb5d2b914bc06bda6e3b2164a4920d41e",
+      "mode": 420
+    },
+    "skills/cleanup/SKILL.md": {
+      "sha256": "16fcadbc395c0255123ad80b203722d57d0a4b81d64e4a2e9d8fcaea240db226",
+      "mode": 420
+    },
+    "skills/cleanup/scripts/scan.mjs": {
+      "sha256": "90855ff9f300ef2b0b78b3c54b50056148f37bb88f3a24a6cb83e366a78dbb96",
+      "mode": 420
+    },
+    "skills/cleanup/scripts/scan.test.mjs": {
+      "sha256": "cae17e31780a87301c85caf51ae2cbdd0a0200a9552ac7ece2e9216ff9bc1345",
       "mode": 420
     },
     "skills/passwords/SKILL.md": {
@@ -236,7 +259,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "ef3d2ef4d265791acab1276ceeb3321a49954d4428020d9a48aa45af7e20880d",
+      "sha256": "0fc24a38cba64112d16f5d7b9491e6488c881cfa24066c0f2c396cad560bbcf0",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/codex-browser.mjs": {
@@ -304,7 +327,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/chips.md": {
-      "sha256": "0b3ffb1d3669e5fcd5b38a29bd9ccf7f627f612956fe5dfa78254b5f43468640",
+      "sha256": "a009b20f1fd39fc21117c9e36394d13598f4a3dc28a983e1547b54da572968f5",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/close.md": {
@@ -344,7 +367,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/tasks.mjs": {
-      "sha256": "5d2cd4c51f9ee1f3115f6165c49696edf38918165fe3f37a4beb40f3d050b1e4",
+      "sha256": "fc599765a6c05be5a54fdc658b7fdc44aed3f1b3ebf130cbe6f2ca1b731b1cf9",
       "mode": 420
     },
     "skills/sync-pstack/references/adapt.md": {
@@ -368,7 +391,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "17b735b7085828ff6910bd5041421dec5d13bc31add9ebf763010b6c275d5496",
+      "sha256": "3505afc3e6ebafa26ea4a0f62eed0f6b4c1c952bf8870c1dbbfd8a3155109a1d",
       "mode": 420
     },
     "skills/test-audit/LICENSE": {
