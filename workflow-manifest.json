@@ -139,7 +139,7 @@
       "mode": 493
     },
     "skills/chips/SKILL.md": {
-      "sha256": "814f3d60f6d621654f15982edb341211f187dc9b80d5ae81ffbdae793012c11b",
+      "sha256": "90d491951a6293bd5a6fb87ba58c6bbd2e5f4271ca1b3cf05c2cbd2f2720b66b",
       "mode": 420
     },
     "skills/cleanup/SKILL.md": {
@@ -259,7 +259,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "969ab1216dc6e0e08b24fef78fe537776f3f0a2feba674274a3a11ddfbee9217",
+      "sha256": "a26eb06ae702b36b9b2ff6d007026ffe5f84e92216f8612c6b1c468e9d41bca2",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/codex-browser.mjs": {
@@ -283,7 +283,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
-      "sha256": "276f655ea09c9c2cc0d3ab07d04934d33fb4634d7f91e1fdf43a0883a3c8fdf9",
+      "sha256": "19d65b542ab8d18df95ac559d91bea90a2787ec4aef018975ac7a55043ef457a",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/freeze.mjs": {
@@ -331,7 +331,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/chips.md": {
-      "sha256": "c01071b3f0e770577ebe6731022aa2f0b465c4016b58e935f59a248820f929a0",
+      "sha256": "ef1b6c88124b68539ad04247fa66a1a66e2e685306d2023e9bea81cfead27957",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/close.md": {
@@ -371,7 +371,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/tasks.mjs": {
-      "sha256": "2a3be9d936e11cba0c6daf0a6a9b7c7c3700ddb5d903f6f53db2e1cf971c983e",
+      "sha256": "f309393e977b1df5cf61d4ee3b1c5f160b6ea37c0d78bd028090d62759430f8b",
       "mode": 420
     },
     "skills/sync-pstack/references/adapt.md": {
@@ -395,7 +395,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "857fd3005b48ba36fb9f06bc827fc1110a884bc4ab02d4a8771a58c6eda4e669",
+      "sha256": "1c85454972f7964fb348daf9bb5b31acffaf0a70c3eec3a1118989ab9d8e077b",
       "mode": 420
     },
     "skills/test-audit/LICENSE": {
