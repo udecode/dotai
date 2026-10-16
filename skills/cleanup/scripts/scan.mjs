@@ -7,9 +7,10 @@
 //   node scan.mjs --brief [--repo <checkout>]
 //   node scan.mjs --landed <worktree>
 //
-// --sessions takes a JSON array of sessions, each with cwd, isArchived and
-// title; without it no worktree is safe. --delete measures each safe item,
-// judges it again, checks the running processes once more and removes it.
+// --sessions takes a JSON array of sessions, each with cwd, isArchived,
+// pinned and title; without it no worktree is safe. --delete measures each
+// safe item, judges it again, checks the running processes once more and
+// removes it.
 // --brief prints one line, or nothing, counting the unlocked agent worktrees and
 // the checkout caches cleanup could remove that show no git or cache writes for
 // three days. --landed exits 0 only when every change and ignored file of one
@@ -79,7 +80,7 @@ function usageVerdict(facts) {
   if (facts.invoking) return ['keep', 'this scan runs in it'];
   if (facts.processes === null) return ['keep', 'lsof could not list the processes working in it'];
   if (facts.processes > 0) return ['keep', `${facts.processes} running processes work in it`];
-  if (facts.session?.open) return ['keep', `session "${facts.session.title}" is open`];
+  if (facts.session?.state) return ['keep', `session "${facts.session.title}" is ${facts.session.state}`];
   if (!facts.session && facts.hoursIdle < 24) return ['keep', 'no session claims it, and it changed in the last day'];
   if (!facts.agentMade) return ['ask', 'it sits outside the folders agents make worktrees in'];
   if (!facts.session) return ['ask', 'no session claims it, so the scan cannot tell whether one still uses it'];
@@ -250,9 +251,9 @@ function cacheFacts(path, now) {
 function sessionFor(path, sessions) {
   const matches = sessions.filter((session) => session.cwd && within(real(session.cwd), path));
   if (matches.length === 0) return null;
-  const open = matches.find((session) => !session.isArchived);
+  const open = matches.find((session) => !session.isArchived || session.pinned);
   const session = open ?? matches[0];
-  return { open: Boolean(open), title: session.title ?? session.sessionId ?? 'untitled' };
+  return { state: open ? (open.isArchived ? 'pinned' : 'open') : null, title: session.title ?? session.sessionId ?? 'untitled' };
 }
 
 const agentRoots = (main) =>

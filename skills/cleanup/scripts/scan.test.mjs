@@ -97,6 +97,8 @@ test('only folders nothing uses and whose changes are safe are marked safe', asy
     assert.equal(byPath[f.keptCache], 'safe', 'an unused cache inside a worktree the scan keeps');
     const later = verdicts(scan({ repo: f.main, sessions: f.sessions, sizes: false, now: now + 3 * DAY }).items);
     assert.equal(later[f.orphan], 'ask', 'a worktree no session claims is asked about once it is a day old');
+    const pinned = f.sessions.map((session) => (session.cwd === f.archived ? { ...session, pinned: true } : session));
+    assert.equal(verdicts(scan({ repo: f.main, sessions: pinned, sizes: false, now }).items)[f.archived], 'keep', 'an archived session the owner pinned keeps its worktree');
   } finally {
     server.kill();
   }
