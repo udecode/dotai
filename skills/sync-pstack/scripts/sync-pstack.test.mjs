@@ -476,7 +476,7 @@ test('cross --reach runs a Codex seat on the owner config with network, writing 
     });
   const seat = run(['--to', 'codex', '--reach', '--model', 'gpt-6-astra']);
   assert.equal(seat.status, 0, seat.stderr);
-  assert.match(seat.stdout, /^exec --ignore-rules --skip-git-repo-check -c web_search="live" -m gpt-6-astra --disable hooks --sandbox workspace-write -c sandbox_workspace_write\.network_access=true -o \S+ -- Your working directory is a scratch folder you may write\. The project is \S+: read it by absolute path and never write it\.\n\nreview it\n/u);
+  assert.match(seat.stdout, /^exec --ignore-rules --skip-git-repo-check -c web_search="live" -m gpt-6-astra --disable hooks --sandbox workspace-write -c sandbox_workspace_write\.network_access=true -o \S+ -- Your working directory is a scratch folder you may write\. The project is \S+: read it by absolute path and never write it\.\n\nreview it\n\nPut your whole answer in your final message\. Nobody reads the files you write in the scratch folder\.\n/u);
   assert.match(seat.stdout, /^cwd=\S*pstack-reach-\S+$/mu);
   assert.match(seat.stdout, /^profile=$/mu);
   const refused = run(['--to', 'codex', '--reach', '--bypass']);
@@ -714,11 +714,23 @@ test('cross prints its usage for --help and refuses an unknown flag, launching n
   const flagAsValue = cross(['--effort', '--modle', 'review it']);
   assert.equal(flagAsValue.status, 2);
   assert.match(flagAsValue.stderr, /^--effort needs a value\nUsage: node \.agents\/pstack\/cross\.mjs /u);
+  writeFileSync(join(dir, 'brief.md'), 'review it');
+  for (const args of [['--prompt', 'named', 'positional'], ['--prompt', 'named', '--prompt-file', 'brief.md'], ['positional', '--prompt-file', 'brief.md'], ['first', 'second']]) {
+    const conflict = cross(args);
+    assert.equal(conflict.status, 2, args.join(' '));
+    assert.match(conflict.stderr, /^give one prompt: a positional prompt, --prompt or --prompt-file\n/u, args.join(' '));
+  }
+  const twice = cross(['--prompt', 'a', '--prompt', 'b']);
+  assert.equal(twice.status, 2);
+  assert.match(twice.stderr, /^--prompt given twice\n/u);
   assert.equal(existsSync(launched), false, 'a help, unknown-flag or flag-as-value call launched a runtime');
 
   const prompted = cross(['review it']);
   assert.equal(prompted.status, 0, prompted.stderr);
   assert.equal(prompted.stdout.trim(), 'prompt=[review it]');
+  const named = cross(['--prompt', 'review it']);
+  assert.equal(named.status, 0, named.stderr);
+  assert.equal(named.stdout.trim(), 'prompt=[review it]');
   assert.equal(existsSync(launched), true);
 });
 
@@ -3277,7 +3289,8 @@ test('a card goes only to a task that is ready before the card, and names the se
   assert.match(here.stdout, /check session s2, which holds task_d1's card c4: when the session tool reports it archived or gone, log uncarded/);
   assert.doesNotMatch(here.stdout, /check session s1/, "this session's own cards");
   assert.doesNotMatch(chips().stdout, /check session/, 'a board read without a session');
-  assert.match(offer('task_f1 Fix the printer', 'src/p.ts', 'topic: printer; session: s1').stderr, /an offer names session: only beside card:/, 'a session with no card');
+  assert.equal(offer('task_f1 Fix the printer', 'src/p.ts', 'topic: printer; session: s1').status, 0, 'an offer names the session that offered it, with or without a card');
+  assert.doesNotMatch(chips('--session', 's1').stdout, /task_f1 {2}Fix the printer {2}\[printer\] {2}card/, 'the offering session holds no card until it cards the task');
   assert.equal(offer('task_g1 Fix the writer', 'src/w.ts', 'topic: writer; waits: pr:5; card: c5; session: s2').status, 1, 'a waiting task gets no card');
   assert.equal(offer('task_g2 Fix the reader', outside('r.md'), 'topic: reader; card: c6; session: s2').status, 0);
   assert.equal(offer('task_g3 Rewrite the reader', outside('r.md'), 'topic: reader-rewrite').status, 0);
@@ -3392,7 +3405,7 @@ test('chips stale marks a task whose every finding is a migration note as possib
   for (const id of ['task_r1', 'task_r2']) assert.doesNotMatch(stale, new RegExp(`${id} [^\\n]*possibly thin`), `${id} holds a real finding`);
 });
 
-test('a task that waits on a landed patch starts once the checkout commits the paths that patch touches', () => {
+test('a task that waits on a landed patch starts once a commit after the landing holds each path that patch touches', () => {
   const { chip, chips, offer, root } = chipLedger();
   const parser = 'task_a1 Add the parser';
   assert.equal(offer(parser, 'src/p.ts', 'topic: parser').status, 0);
@@ -3409,9 +3422,54 @@ test('a task that waits on a landed patch starts once the checkout commits the p
   spawnSync('git', ['-C', root, 'add', 'src/p.ts']);
   commit(root, 'parser');
   writeFileSync(join(root, 'src/p.ts'), 'export const parse = 2;\n');
-  assert.match(chips().stdout, /waiting for a commit of src\/p\.ts/, 'an edit on top of the commit is not committed');
-  commit(root, 'parser two');
-  assert.match(chips().stdout, /Ready \(1\)\n {2}task_b1 {2}Use the parser/);
+  assert.match(chips().stdout, /Ready \(1\)\n {2}task_b1 {2}Use the parser/, "a later task's uncommitted edit on top of the committed parser does not hold the wait");
+});
+
+test('once a session leads the chips, another session cards only the tasks it offered and withdraws its other cards', () => {
+  const { LEDGER, appendTo, chip, chips, offer, root } = chipLedger();
+  assert.equal(offer('task_a1 Fix the parser', 'src/a.ts', 'topic: a; session: s2').status, 0);
+  assert.equal(offer('task_b1 Fix the badge', 'src/b.ts', 'topic: b').status, 0);
+  assert.equal(chip('task_b1 Fix the badge', 'carded', 'card: c1; session: s2').status, 0);
+  assert.match(chips('--session', 's2').stdout, /Do, card pass \(1\)\n {2}card task_a1:/, 'before any lead, every session cards');
+  const claimed = chips('lead', '--session', 's1');
+  assert.equal(claimed.status, 0, claimed.stderr);
+  assert.match(claimed.stdout, /^This session leads the chips now\.$/m);
+  assert.match(chips('lead', '--session', 's1').stdout, /^This session already leads the chips\.$/m);
+  assert.equal(readFileSync(join(root, LEDGER), 'utf8').split('\n').filter((line) => line.split('\t')[1] === 'chips-lead').length, 1, 'a second claim by the lead writes nothing');
+  const ceding = chips('--session', 's2').stdout;
+  assert.match(ceding, /Session s1 leads the chips, so this session cards only the tasks it offered and withdraws its cards on the rest\./);
+  assert.match(ceding, /Do, withdrawal pass \(1\)\n {2}withdraw task_b1's card c1: session s1 leads the chips now;/);
+  assert.equal(chip('task_b1 Fix the badge', 'uncarded', 'card: c1').status, 0);
+  const own = chips('--session', 's2').stdout;
+  assert.match(own, /Do, card pass \(1\)\n {2}card task_a1:/, 'a session still cards the task it offered');
+  assert.doesNotMatch(own, /card task_b1:/);
+  const leading = chips('--session', 's1').stdout;
+  assert.match(leading, /This session leads the chips, so it cards every task that can start\./);
+  assert.match(leading, /Do, card pass \(2\)\n {2}card task_a1:[^\n]*\n {2}card task_b1:/);
+  const refused = chip('task_b1 Fix the badge', 'carded', 'card: c2; session: s2');
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /session s1 leads the chips, so only it or the session that offered task_b1 cards it/);
+  assert.equal(chip('task_a1 Fix the parser', 'carded', 'card: c3; session: s2').status, 0, 'the session that offered a task cards it');
+  assert.equal(chip('task_b1 Fix the badge', 'carded', 'card: c4; session: s1').status, 0, 'the lead cards it');
+  assert.match(appendTo('log.decisions.tsv', 'chips-lead', 's3', 'session: s3', 'recorded').stderr, /a chips-lead row goes in the project's ledger/);
+  assert.match(appendTo(LEDGER, 'chips-lead', 'two words', 'session: s3', 'recorded').stderr, /a chips-lead row's decision is the id of the session that leads/);
+  assert.equal(chips().status, 0);
+});
+
+test('chips wait stops once another session takes the chips lead', async () => {
+  const { chips, env, offer, root } = chipLedger();
+  assert.equal(offer('task_a1 Fix the parser', 'src/a.ts', 'topic: a').status, 0);
+  assert.equal(chips('lead', '--session', 's1').status, 0);
+  const waiter = spawn(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'chips', 'wait', '--session', 's1', '--every', '0.1', '--timeout', '1'], { cwd: root, env });
+  let out = '';
+  waiter.stdout.on('data', (chunk) => {
+    out += chunk;
+  });
+  const exited = new Promise((done) => waiter.on('exit', done));
+  await new Promise((done) => setTimeout(done, 500));
+  assert.equal(chips('lead', '--session', 's2').status, 0);
+  assert.equal(await exited, 0);
+  assert.match(out, /Session s2 leads the chips now\. Run the chips sweep, which lists the cards this session withdraws, and stop waiting\./);
 });
 
 test('chips wait exits once a task lands or turns ready, and at its timeout', async () => {
@@ -4062,13 +4120,15 @@ test('reread prints each changed sentence whole against its last snapshot', () =
   edit('Dr. Smith', 'Dr. Jones');
   assert.ok(reread('--dir', 'snap', 'AGENTS.md').stdout.includes('+ Ask Dr. Jones before a release.'), 'an abbreviation stays inside its sentence');
 
-  const hook = (source) => spawnSync(process.execPath, [join(HELPERS, 'reread.mjs'), '--hook', 'AGENTS.md', 'missing.md'], { cwd: dir, encoding: 'utf8', input: JSON.stringify({ session_id: `s-${source}`, source }) });
-  assert.doesNotMatch(hook('startup').stdout, /AGENTS\.md|missing/, 'a fresh start only seeds the snapshots');
+  const hook = (source) => spawnSync(process.execPath, [join(HELPERS, 'reread.mjs'), '--hook', 'AGENTS.md', 'missing.md', "it's spaced.md"], { cwd: dir, encoding: 'utf8', input: JSON.stringify({ session_id: `s-${source}`, source }) });
+  assert.doesNotMatch(hook('startup').stdout, /^(?:AGENTS|missing)\.md:/mu, 'a fresh start only seeds the snapshots');
   assert.match(hook('compact').stdout, /AGENTS\.md: first snapshot; read it in full/, 'a compacted session with no snapshot rereads');
   edit('Keep plans in the repository.', 'Keep plans in the repository. Never stash.');
   const after = hook('startup').stdout;
   assert.ok(after.includes('+ Never stash.'), after);
-  assert.match(after, /--dir docs\/plans\/artifacts\/reread\/s-startup/);
+  assert.ok(after.includes("run node .agents/pstack/reread.mjs --dir docs/plans/artifacts/reread/s-startup AGENTS.md missing.md 'it'\\''s spaced.md' before each gate"), after);
+  const bare = spawnSync(process.execPath, [join(HELPERS, 'reread.mjs'), '--hook'], { cwd: dir, encoding: 'utf8', input: JSON.stringify({ session_id: 's-bare', source: 'startup' }) });
+  assert.doesNotMatch(bare.stdout, /--dir/u, 'a hook given no files prints no command that would only print usage');
 });
 
 test('reread --hook names on a reload line each loaded skill the compaction restore cut short, and only after a compaction', () => {
