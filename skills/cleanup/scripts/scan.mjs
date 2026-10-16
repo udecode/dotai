@@ -8,16 +8,18 @@
 //   node scan.mjs --landed <worktree>
 //
 // --sessions takes a JSON array of sessions, each with cwd, isArchived,
-// pinned and title; without it no worktree is safe. --delete measures each
-// safe item, judges it again, checks the running processes once more and
-// removes it.
+// pinned and title. Uncommitted changes never keep a worktree, because a card
+// session lands them in the checkout as a patch; an open session, a running
+// process or a recent transcript does. --delete measures each safe item,
+// judges it again, checks the running processes once more, saves a worktree's
+// uncommitted changes as a patch under the git folder's cleanup/ and removes it.
 // --brief prints one line, or nothing, counting the unlocked agent worktrees and
 // the checkout caches cleanup could remove that show no git or cache writes for
 // three days. --landed exits 0 only when every change and ignored file of one
 // worktree is committed, recreated by an install or build, or in the checkout.
 import { execFileSync } from 'node:child_process';
-import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync, realpathSync, rmSync, statSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -31,6 +33,7 @@ const SKIP_DIRS = new Set(['node_modules', '.git', '.claude', '.turbo']);
 const RECREATED = new Set(['node_modules', '.turbo', '.DS_Store']);
 const PACKAGE_OUTPUT = new Set(['dist', 'build', 'out', 'coverage', '.cache', '.vite', '.vite-temp', '.swc']);
 const IGNORED_LIMIT = 20_000;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
 
 const git = (cwd, args) =>
   execFileSync('git', ['--no-optional-locks', ...args], {
@@ -76,19 +79,26 @@ function held(files) {
 
 function usageVerdict(facts) {
   if (facts.locked !== null) return ['keep', `locked: ${facts.locked || 'no reason given'}`];
-  if (facts.missing) return ['ask', 'its folder is gone but git still lists it'];
+  if (facts.missing) return ['safe', "its folder is gone, so only git's record of it goes"];
   if (facts.invoking) return ['keep', 'this scan runs in it'];
   if (facts.processes === null) return ['keep', 'lsof could not list the processes working in it'];
   if (facts.processes > 0) return ['keep', `${facts.processes} running processes work in it`];
   if (facts.session?.state) return ['keep', `session "${facts.session.title}" is ${facts.session.state}`];
-  if (!facts.session && facts.hoursIdle < 24) return ['keep', 'no session claims it, and it changed in the last day'];
+  if (!facts.session && facts.scratchHoursQuiet !== null && facts.scratchHoursQuiet < 24) return ['keep', 'the session whose scratch folder holds it wrote its transcript in the last day'];
+  if (!facts.session && facts.scratchHoursQuiet === null && facts.hoursIdle < 24) return ['keep', 'no session claims it, and it changed in the last day'];
   if (!facts.agentMade) return ['ask', 'it sits outside the folders agents make worktrees in'];
-  if (!facts.session) return ['ask', 'no session claims it, so the scan cannot tell whether one still uses it'];
   if (facts.nested) return ['ask', `another worktree lives inside it: ${facts.nested}`];
   return null;
 }
 
-function contentVerdict(facts) {
+function cleanupVerdict(facts) {
+  if (facts.heldCaches === null) return ['keep', 'lsof could not tell whether a server holds a cache inside it'];
+  if (facts.heldCaches > 0) return ['keep', 'a running server holds a cache inside it'];
+  if (facts.repos > 0) return ['ask', `${facts.repos} submodules or nested repositories inside it`];
+  return ['safe', facts.session ? 'every session that used it is archived' : 'no session has used it for a day'];
+}
+
+function landedVerdict(facts) {
   if (facts.heldCaches === null) return ['keep', 'lsof could not tell whether a server holds a cache inside it'];
   if (facts.heldCaches > 0) return ['keep', 'a running server holds a cache inside it'];
   if (facts.repos > 0) return ['ask', `${facts.repos} submodules or nested repositories inside it`];
@@ -100,7 +110,7 @@ function contentVerdict(facts) {
   return ['safe', facts.dirty > 0 ? 'the checkout holds its changes' : 'nothing uncommitted'];
 }
 
-export const classifyWorktree = (facts) => usageVerdict(facts) ?? contentVerdict(facts);
+export const classifyWorktree = (facts) => usageVerdict(facts) ?? cleanupVerdict(facts);
 
 export function classifyCache(facts) {
   const name = basename(facts.path);
@@ -182,9 +192,11 @@ function statusEntries(path) {
   return entries;
 }
 
+const nestedRepos = (path, entries) => entries.filter((entry) => existsSync(join(path, entry.file, '.git'))).length;
+
 function compareWithCheckout(main, path, listings) {
   const entries = statusEntries(path);
-  const repos = entries.filter((entry) => existsSync(join(path, entry.file, '.git'))).length;
+  const repos = nestedRepos(path, entries);
   const staged = entries.filter((entry) => !' ?'.includes(entry.x) && entry.y !== ' ').length;
   const unlanded = entries.filter(
     (entry) => !matchesCheckout(main, path, entry.file, listings) || (entry.from && !matchesCheckout(main, path, entry.from, listings))
@@ -256,6 +268,16 @@ function sessionFor(path, sessions) {
   return { state: open ? (open.isArchived ? 'pinned' : 'open') : null, title: session.title ?? session.sessionId ?? 'untitled' };
 }
 
+// A lead's proof worktree sits in its session's scratch folder, whose path
+// names that session; its transcript changes while the session runs.
+function scratchTranscriptMtime(path, projects) {
+  const id = path.split(sep).find((part) => UUID.test(part));
+  if (!id) return null;
+  const dirs = existsSync(projects) ? readdirSync(projects) : [];
+  const transcript = dirs.map((dir) => join(projects, dir, `${id}.jsonl`)).find(existsSync);
+  return transcript ? statSync(transcript).mtimeMs : 0;
+}
+
 const agentRoots = (main) =>
   [join(main, '.claude', 'worktrees'), join(main, 'docs', 'plans', 'artifacts'), tmpdir(), '/tmp', '/private/tmp'].map(real);
 
@@ -265,30 +287,38 @@ function usageFacts(main, entry, context) {
   const { path } = entry;
   const missing = !existsSync(path);
   const admin = missing ? null : adminDir(path);
+  const transcript = scratchTranscriptMtime(path, context.projects);
   return {
     locked: 'locked' in entry ? entry.locked : null,
     missing,
     invoking: context.here.some((dir) => within(dir, path)),
     processes: context.cwds === null ? null : context.cwds.filter((cwd) => within(cwd, path)).length,
     session: sessionFor(path, context.sessions),
+    scratchHoursQuiet: transcript === null ? null : (context.now - transcript) / HOUR,
     hoursIdle: (context.now - (admin ? adminMtime(admin) : newestMtime([path]))) / HOUR,
     agentMade: agentRoots(main).some((root) => within(path, root)),
     nested: nestedIn(path, context.worktrees),
   };
 }
 
+function heldCaches(path, worktrees) {
+  const caches = findCaches(path, Number.POSITIVE_INFINITY, worktrees).map((cache) => held(cacheLocks(cache)));
+  return caches.includes(null) ? null : caches.filter(Boolean).length;
+}
+
+const cleanupFacts = (entry, worktrees) => ({ heldCaches: heldCaches(entry.path, worktrees), repos: nestedRepos(entry.path, statusEntries(entry.path)) });
+
 function contentFacts(main, entry, worktrees) {
   const listings = new Map();
-  const caches = findCaches(entry.path, Number.POSITIVE_INFINITY, worktrees).map((cache) => held(cacheLocks(cache)));
   return {
     ...compareWithCheckout(main, entry.path, listings),
-    heldCaches: caches.includes(null) ? null : caches.filter(Boolean).length,
+    heldCaches: heldCaches(entry.path, worktrees),
     ignored: ignoredWork(main, entry.path, listings),
     reachable: Boolean(entry.branch) || git(main, ['for-each-ref', '--contains', entry.HEAD, '--count=1', '--format=%(refname)']) !== '',
   };
 }
 
-const judgeWorktree = (main, entry, context) => usageVerdict(usageFacts(main, entry, context)) ?? contentVerdict(contentFacts(main, entry, context.worktrees));
+const judgeWorktree = (main, entry, context) => usageVerdict(usageFacts(main, entry, context)) ?? cleanupVerdict(cleanupFacts(entry, context.worktrees));
 
 const sizeOf = (path) => {
   try {
@@ -299,7 +329,8 @@ const sizeOf = (path) => {
 };
 
 function contextFor(repo, main, sessions, now) {
-  return { cwds: processCwds(), here: [real(repo), real(process.cwd())], now, sessions, worktrees: listWorktrees(main) };
+  const projects = join(process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'), 'projects');
+  return { cwds: processCwds(), here: [real(repo), real(process.cwd())], now, projects, sessions, worktrees: listWorktrees(main) };
 }
 
 export function scan({ repo, sessions = [], sizes = true, now = Date.now() }) {
@@ -319,7 +350,28 @@ export function scan({ repo, sessions = [], sizes = true, now = Date.now() }) {
   return { main, items };
 }
 
+// A temporary index stages every untracked file without touching the
+// worktree's own index, in case its removal then fails.
+function savePatch(main, path) {
+  const dir = join(git(main, ['rev-parse', '--path-format=absolute', '--git-common-dir']), 'cleanup');
+  mkdirSync(dir, { recursive: true });
+  const name = join(dir, `${basename(path)}-${Date.now().toString(36)}`);
+  const env = { ...process.env, GIT_INDEX_FILE: `${name}.index` };
+  const run = (args) => execFileSync('git', ['--no-optional-locks', ...args], { cwd: path, encoding: 'utf8', env, maxBuffer: Number.POSITIVE_INFINITY, stdio: ['ignore', 'pipe', 'pipe'] });
+  try {
+    run(['read-tree', 'HEAD']);
+    run(['add', '-A']);
+    const patch = run(['diff', '--cached', '--binary', 'HEAD']);
+    if (!patch) return null;
+    writeFileSync(`${name}.patch`, patch);
+    return `${name}.patch`;
+  } finally {
+    rmSync(env.GIT_INDEX_FILE, { force: true });
+  }
+}
+
 function removeFolder(main, item) {
+  if (item.kind === 'worktree' && existsSync(item.path)) item.patch = savePatch(main, item.path);
   if (item.kind === 'worktree') {
     try {
       git(main, ['worktree', 'remove', '--force', item.path]);
@@ -372,7 +424,7 @@ export function landed({ worktree }) {
   if (!entry) return ['ask', 'git lists no such worktree of the checkout'];
   const nested = nestedIn(path, worktrees);
   if (nested) return ['ask', `another worktree lives inside it: ${nested}`];
-  return contentVerdict(contentFacts(main, entry, worktrees));
+  return landedVerdict(contentFacts(main, entry, worktrees));
 }
 
 export function brief({ repo, now = Date.now(), days = 3 }) {
@@ -406,6 +458,8 @@ function render({ items, removed }) {
   };
   lines.push('', `safe ${total('safe')}, ask ${total('ask')}, keep ${total('keep')}`);
   if (removed) lines.push(`removed ${removed.length} items, ${gib(removed.reduce((sum, item) => sum + (item.bytes ?? 0), 0))} by du, which counts shared hard links again`);
+  const patches = (removed ?? []).filter((item) => item.patch);
+  if (patches.length > 0) lines.push(`saved the uncommitted changes of ${patches.length} worktrees as patches in ${dirname(patches[0].patch)}`);
   return lines.join('\n');
 }
 
