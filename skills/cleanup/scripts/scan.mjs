@@ -6,17 +6,24 @@
 //   node scan.mjs [--repo <checkout>] [--sessions <file>] [--json] [--no-sizes] [--delete]
 //   node scan.mjs --brief [--repo <checkout>]
 //   node scan.mjs --landed <worktree>
+//   node scan.mjs [--repo <checkout>] --remove <worktree>...
 //
-// --sessions takes a JSON array of sessions, each with cwd, isArchived,
-// pinned and title. Uncommitted changes never keep a worktree, because a card
-// session lands them in the checkout as a patch; an open session, a running
-// process or a recent transcript does. --delete measures each safe item,
+// --sessions takes a JSON array of sessions, each with cwd, isRunning, pinned
+// and title. Only a running or pinned session, a running process or a recent
+// transcript keeps a worktree; uncommitted changes do not, because a card
+// session lands them in the checkout as a patch. --delete measures each safe item,
 // judges it again, checks the running processes once more, saves a worktree's
 // uncommitted changes as a patch under the git folder's cleanup/ and removes it.
 // --brief prints one line, or nothing, counting the unlocked agent worktrees and
 // the checkout caches cleanup could remove that show no git or cache writes for
 // three days. --landed exits 0 only when every change and ignored file of one
 // worktree is committed, recreated by an install or build, or in the checkout.
+// --remove takes worktrees whose work the caller knows landed and judges none of
+// them: it stops each process working in one, saves its uncommitted changes as a
+// patch as --delete does and removes it. It keeps a worktree git does not list, a
+// locked one, one outside the folders agents make worktrees in, one holding another
+// worktree, the one it runs in, one whose processes lsof cannot list and one git
+// refuses to remove, and exits 1 when it keeps any.
 import { execFileSync } from 'node:child_process';
 import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
@@ -55,13 +62,23 @@ const statOrNull = (path) => {
 const newestMtime = (paths) => Math.max(0, ...paths.map(statOrNull).filter(Boolean).map((stat) => stat.mtimeMs));
 const adminMtime = (admin) => newestMtime([join(admin, 'index'), join(admin, 'HEAD'), join(admin, 'logs', 'HEAD')]);
 
-export function processCwds() {
+function cwdProcesses() {
   try {
-    const out = execFileSync('lsof', ['-a', '-d', 'cwd', '-Fn'], { encoding: 'utf8', maxBuffer: Number.POSITIVE_INFINITY, stdio: ['ignore', 'pipe', 'ignore'] });
-    return out.split('\n').filter((line) => line.startsWith('n')).map((line) => line.slice(1));
+    const out = execFileSync('lsof', ['-a', '-d', 'cwd', '-Fpn'], { encoding: 'utf8', maxBuffer: Number.POSITIVE_INFINITY, stdio: ['ignore', 'pipe', 'ignore'] });
+    const found = [];
+    let pid = null;
+    for (const line of out.split('\n')) {
+      if (line.startsWith('p')) pid = Number(line.slice(1));
+      if (line.startsWith('n')) found.push({ pid, cwd: line.slice(1) });
+    }
+    return found;
   } catch {
     return null;
   }
+}
+
+export function processCwds() {
+  return cwdProcesses()?.map((each) => each.cwd) ?? null;
 }
 
 // lsof exits 1 with nothing on stderr when no process has the file open.
@@ -95,7 +112,7 @@ function cleanupVerdict(facts) {
   if (facts.heldCaches === null) return ['keep', 'lsof could not tell whether a server holds a cache inside it'];
   if (facts.heldCaches > 0) return ['keep', 'a running server holds a cache inside it'];
   if (facts.repos > 0) return ['ask', `${facts.repos} submodules or nested repositories inside it`];
-  return ['safe', facts.session ? 'every session that used it is archived' : 'no session has used it for a day'];
+  return ['safe', facts.session ? 'no session that used it is running' : 'no session has used it for a day'];
 }
 
 function landedVerdict(facts) {
@@ -263,9 +280,9 @@ function cacheFacts(path, now) {
 function sessionFor(path, sessions) {
   const matches = sessions.filter((session) => session.cwd && within(real(session.cwd), path));
   if (matches.length === 0) return null;
-  const open = matches.find((session) => !session.isArchived || session.pinned);
-  const session = open ?? matches[0];
-  return { state: open ? (open.isArchived ? 'pinned' : 'open') : null, title: session.title ?? session.sessionId ?? 'untitled' };
+  const live = matches.find((session) => session.isRunning || session.pinned);
+  const session = live ?? matches[0];
+  return { state: live ? (live.isRunning ? 'running' : 'pinned') : null, title: session.title ?? session.sessionId ?? 'untitled' };
 }
 
 // A lead's proof worktree sits in its session's scratch folder, whose path
@@ -416,6 +433,68 @@ export function deleteSafe({ repo, sessions = [], now = Date.now() }) {
   return { main, items, removed };
 }
 
+const TERM_GRACE_MS = 5000;
+const POLL_MS = 250;
+const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+const alive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+function processesIn(path) {
+  const found = cwdProcesses();
+  return found && [...new Set(found.filter((each) => each.pid !== process.pid && within(real(each.cwd), path)).map((each) => each.pid))];
+}
+
+function stopProcesses(pids) {
+  for (const pid of pids) {
+    try {
+      process.kill(pid, 'SIGTERM');
+    } catch {}
+  }
+  for (let waited = 0; waited < TERM_GRACE_MS && pids.some(alive); waited += POLL_MS) sleep(POLL_MS);
+  for (const pid of pids.filter(alive)) {
+    try {
+      process.kill(pid, 'SIGKILL');
+    } catch {}
+  }
+}
+
+function removalRefusal(main, listed, path) {
+  const entry = listed.find((each) => each.path === path);
+  if (!entry) return 'git does not list it as a linked worktree';
+  if ('locked' in entry) return `locked: ${entry.locked || 'no reason given'}`;
+  if (!agentRoots(main).some((root) => within(path, root))) return 'it sits outside the folders agents make worktrees in';
+  const nested = nestedIn(path, listed);
+  if (nested) return `another worktree lives inside it: ${nested}`;
+  if (within(real(process.cwd()), path)) return 'this command runs in it';
+  return null;
+}
+
+export function removeLanded({ repo, worktrees }) {
+  const main = checkoutOf(repo);
+  const listed = listWorktrees(main);
+  return worktrees.map((given) => {
+    const path = real(given);
+    const refusal = removalRefusal(main, listed, path);
+    if (refusal) return { path, removed: false, reason: refusal };
+    const pids = processesIn(path);
+    if (pids === null) return { path, removed: false, reason: 'lsof could not list the processes working in it' };
+    stopProcesses(pids);
+    const item = { kind: 'worktree', path };
+    try {
+      removeFolder(main, item);
+      return { path, removed: true, patch: item.patch ?? null, stopped: pids.length };
+    } catch (error) {
+      return { path, removed: false, reason: `git refused to remove it: ${String(error.stderr ?? error.message).trim()}`, stopped: pids.length };
+    }
+  });
+}
+
 export function landed({ worktree }) {
   const path = real(worktree);
   const main = checkoutOf(path);
@@ -474,6 +553,17 @@ function main(argv) {
     return verdict === 'safe' ? 0 : 1;
   }
   const repo = resolve(value('--repo') ?? process.cwd());
+  if (argv.includes('--remove')) {
+    const after = argv.slice(argv.indexOf('--remove') + 1);
+    const flag = after.findIndex((arg) => arg.startsWith('--'));
+    const paths = flag === -1 ? after : after.slice(0, flag);
+    const results = removeLanded({ repo, worktrees: paths });
+    for (const result of results) {
+      const stopped = result.stopped ? `  stopped ${result.stopped} process${result.stopped === 1 ? '' : 'es'}` : '';
+      console.log(result.removed ? `REMOVED  ${result.path}${result.patch ? `  patch ${result.patch}` : ''}${stopped}` : `KEPT  ${result.path}  ${result.reason}${stopped}`);
+    }
+    return results.every((result) => result.removed) ? 0 : 1;
+  }
   if (argv.includes('--brief')) {
     const line = brief({ repo });
     if (line) console.log(line);

@@ -2744,8 +2744,8 @@ test('a card prompt leads with the task, then how its session lands, and ends by
   assert.match(brief, /^Fix the parser\n\nTopic: parser\. Kind: fix\. Effort: high\.\nFindings:\n/, 'the card shows the task before any bookkeeping');
   assert.match(brief, new RegExp(`\\n\\nSuggested task task_a1 in docs/plans/suggested-tasks\\.decisions\\.tsv of the project checkout ${quoted(checkout)}\\. This prompt can be older than the task, so before anything else run cd ${quoted(checkout)} && node \\.agents/pstack/decisions-check\\.mjs chips brief task_a1 and work from what it prints\\. Run every ledger command from ${quoted(checkout)} that way, even when your session opened in its own worktree[^\\n]*\\n?$`), 'a card made before a later fold or dup, run from a worktree whose ledger copy is stale');
   const patch = join(checkout, 'docs/plans/artifacts/chips/task_a1.patch');
-  assert.match(brief, new RegExp(`save git diff --cached HEAD, which holds new files too, as ${quoted(patch)}, run git -C ${quoted(checkout)} apply --check --whitespace=error-all ${quoted(patch)}, then git -C ${quoted(checkout)} apply ${quoted(patch)}, which changes only the checkout's working tree and leaves its index alone\\.[^\\n]*Then log landed with patch: ${quoted(patch)}, and deliver the patch's paths from ${quoted(checkout)} as your project's Delivery rule says[^\\n]*where that rule commits, commit only those paths there`), 'a session that lands its own work and delivers it');
-  assert.match(brief, new RegExp(`leave them in the working tree\\. Last, stop each server you started\\. Merge each run directory you wrote under docs/plans/artifacts in your worktree into the same path in ${quoted(checkout)} without overwriting, with mkdir -p <that path> && cp -Rn <your run directory>/\\. <that path>/, because removing the worktree deletes ignored files and your logged rows cite them\\. Then run node ${quoted(checkout)}/\\.agents/skills/cleanup/scripts/scan\\.mjs --landed <your worktree's absolute path>\\. When it exits 0, every change and ignored file of yours is committed, recreated by an install or build, or in the checkout, so remove your worktree as your final command with git -C ${quoted(checkout)} worktree remove --force <your worktree's absolute path> && git -C ${quoted(checkout)} worktree list, and check that its list no longer names your worktree\\. `), 'a landed session deletes its own worktree only once the cleanup scan finds all its work in the checkout');
+  assert.match(brief, new RegExp(`save git diff --cached HEAD, which holds new files too, as ${quoted(patch)}, run git -C ${quoted(checkout)} apply --check --whitespace=error-all ${quoted(patch)}, then git -C ${quoted(checkout)} apply ${quoted(patch)}, which changes only the checkout's working tree and leaves its index alone\\.[^\\n]*Then deliver the patch's paths from ${quoted(checkout)} as your project's Delivery rule says[^\\n]*where that rule commits, commit only those paths there; where the owner owns commits, leave them in the working tree\\. Then log landed with patch: ${quoted(patch)}, adding commit: <hash>, <hash> for each commit you made`), 'a session that delivers its own work, then names its commits on landed');
+  assert.match(brief, new RegExp(`so the lead's report links them\\. Last, stop each server you started\\. Merge each run directory you wrote under docs/plans/artifacts in your worktree into the same path in ${quoted(checkout)} without overwriting, with mkdir -p <that path> && cp -Rn <your run directory>/\\. <that path>/, because removing the worktree deletes ignored files and your logged rows cite them\\. Then run node ${quoted(checkout)}/\\.agents/skills/cleanup/scripts/scan\\.mjs --landed <your worktree's absolute path>\\. When it exits 0, every change and ignored file of yours is committed, recreated by an install or build, or in the checkout, so remove your worktree as your final command with git -C ${quoted(checkout)} worktree remove --force <your worktree's absolute path> && git -C ${quoted(checkout)} worktree list, and check that its list no longer names your worktree\\. `), 'a landed session deletes its own worktree only once the cleanup scan finds all its work in the checkout');
 });
 
 test('a merge or a folded design question keeps the effort the task\'s work needs', () => {
@@ -3460,6 +3460,49 @@ test('chips stale marks a task whose every finding is a migration note as possib
   const stale = chips('stale').stdout;
   for (const id of ['task_m1', 'task_m2', 'task_m3', 'task_m4']) assert.match(stale, new RegExp(`${id} [^\\n]*possibly thin: every finding is a note an older migration wrote`), id);
   for (const id of ['task_r1', 'task_r2']) assert.doesNotMatch(stale, new RegExp(`${id} [^\\n]*possibly thin`), `${id} holds a real finding`);
+});
+
+test('a landed row names each commit that delivered the task, and append refuses a hash that is no commit', () => {
+  const { chip, offer, root } = chipLedger();
+  const parser = 'task_a1 Add the parser';
+  assert.equal(offer(parser, 'src/p.ts', 'topic: parser').status, 0);
+  assert.equal(chip(parser, 'started').status, 0);
+  assert.match(chip(parser, 'landed', 'commit: deadbeef1').stderr, /commit: deadbeef1 is not a commit in this checkout/);
+  spawnSync('git', ['-C', root, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'parser']);
+  const sha = spawnSync('git', ['-C', root, 'rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
+  assert.equal(chip(parser, 'landed', `commit: ${sha}`).status, 0);
+});
+
+test('chips cleanup lists the idle card sessions of landed tasks to archive and the worktrees of archived ones to remove, with commit links', () => {
+  const { chip, chips, offer, root } = chipLedger();
+  spawnSync('git', ['-C', root, 'remote', 'set-url', 'origin', 'https://github.com/acme/app.git']);
+  spawnSync('git', ['-C', root, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'fix']);
+  const sha = spawnSync('git', ['-C', root, 'rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
+  const card = (name) => {
+    const path = join(realpathSync(root), '.claude', 'worktrees', name);
+    mkdirSync(path, { recursive: true });
+    return path;
+  };
+  const sessions = [
+    { sessionId: 's1', title: 'idle card', cwd: card('a'), isArchived: false, isRunning: false },
+    { sessionId: 's2', title: 'archived card', cwd: card('b'), isArchived: true, isRunning: false },
+    { sessionId: 's3', title: 'working card', cwd: card('c'), isArchived: false, isRunning: true },
+    { sessionId: 's4', title: 'checkout session', cwd: realpathSync(root), isArchived: false, isRunning: false },
+    { sessionId: 's5', title: 'pinned card', cwd: card('e'), isArchived: false, isRunning: false, pinned: true },
+  ];
+  for (const [n, session] of sessions.entries()) {
+    const task = `task_${'abcde'[n]}1 Fix part ${n}`;
+    assert.equal(offer(task, `src/${n}.ts`, `topic: part-${n}`).status, 0);
+    assert.equal(chip(task, 'started', `session: ${session.sessionId}`).status, 0);
+    assert.equal(chip(task, 'landed', n === 0 ? `commit: ${sha}` : 'evidence').status, 0);
+  }
+  writeFileSync(join(root, 'sessions.json'), JSON.stringify(sessions));
+  const out = chips('cleanup', '--sessions', 'sessions.json').stdout;
+  assert.match(out, /^Archive \(1\)[^\n]*\n {2}s1 {2}idle card\n/u, 'only the idle, unpinned card session is archived');
+  assert.match(out, new RegExp(`Remove \\(1\\)[^\\n]*\\n {2}node \\.agents/skills/cleanup/scripts/scan\\.mjs --repo \\. --remove ${card('b').replace(/[.*+?^${}()|[\]\\/]/gu, '\\$&')}\\n`), 'the archived card worktree is removed');
+  assert.match(out, new RegExp(`task_a1 Fix part 0: https://github\\.com/acme/app/commit/${sha}`), 'the report links the named commit');
+  assert.match(out, /task_b1 Fix part 1: no commit named/);
+  assert.doesNotMatch(out, /task_[cde]1/, 'a working, checkout or pinned session is left alone');
 });
 
 test('a task that waits on a landed patch starts once a commit after the landing holds each path that patch touches', () => {
@@ -4367,6 +4410,30 @@ test('plan-open refuses a newly closed box that cites a not-passed proof until a
   assert.match(check('hold').stderr, /latest labeled verdict is not passed/, 'the owner reversed the Defaults row');
   assert.equal(append(`proof: ${log}; scope: the full type check, read 2026-10-07`, 'verified: the type check passes').status, 0);
   assert.equal(check('hold').status, 0, 'a later labeled pass');
+});
+
+test('plan-open keeps refusing a closed pre-acceptance probe box on a not-passed proof whatever accepted row follows', () => {
+  const { dir, run } = sandbox();
+  const log = 'docs/plans/artifacts/run/typing-a1.log';
+  const plan = (box) => `# Plan\n\nStatus: building\n\n## Defaults\n\n| Decision | Pick | Alternative | Word |\n| --- | --- | --- | --- |\n| Typing timings | Hand them to a suggested task | Time them now | time typing now |\n\n## Steps\n\n${box}\n`;
+  const root = project(dir, 'app', { files: { 'plan.md': plan(`- [ ] 2.6 Pre-acceptance probe: \`${log}\``), [log]: '$ (.) probe\nexit=0\n' } });
+  run('git', ['add', '-A'], root);
+  run('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'plan'], root);
+  const append = (evidence, result) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'plan.decisions.tsv', 'verify', 'typing lines', 'why', evidence, result], root);
+  const check = (box) => {
+    writeFileSync(join(root, 'plan.md'), plan(box));
+    return run(process.execPath, [join(HELPERS, 'plan-open.mjs'), 'plan.md'], root);
+  };
+
+  assert.equal(append(`proof: ${log}`, 'inconclusive: the host was loaded').status, 0);
+  assert.equal(append(`proof: ${log}; word: time typing now`, 'accepted: the typing lines go to a suggested task').status, 0);
+  const refused = check(`- [x] 2.6 Pre-acceptance probe: \`${log}\``);
+  assert.equal(refused.status, 1, 'the accepted row does not close a probe a design acceptance waits on');
+  assert.match(refused.stderr, /typing-a1\.log, whose latest labeled verdict is not passed, and a pre-acceptance probe stays open/);
+  assert.equal(check(`- [x] 2.7 Rerun step 2.6's probe on the final bytes: \`${log}\``).status, 0, 'a final rerun that names no pre-acceptance probe keeps the accepted route');
+  assert.doesNotMatch(check(`- [ ] 2.6 Pre-acceptance probe: \`${log}\``).stderr, /stays open until it passes/, 'the reopened box');
+  assert.equal(append(`proof: ${log}; scope: typing lines A1 and C on a quiet host, read 2026-10-16`, 'verified: the typing lines pass').status, 0);
+  assert.equal(check(`- [x] 2.6 Pre-acceptance probe: \`${log}\``).status, 0, 'a later labeled pass');
 });
 
 const claudeCall = (marker, effort) =>

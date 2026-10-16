@@ -45,12 +45,17 @@
 //        (polls the ledger and exits once a task lands, one this session may card turns
 //        ready, with --session a task that session carded starts or another session takes
 //        the lead from it, or at --timeout when given; with no --timeout it waits until one of those happens)
+//        node .agents/pstack/decisions-check.mjs chips cleanup --sessions <file> [--session <id>] [<ledger>]
+//        (reads the session tool's list of every session, archived ones included, saved as a
+//        JSON array, and prints the idle card sessions of landed tasks to archive, the worktrees
+//        of archived ones to remove, and a report line with each task's commits; --session
+//        names this session, whose own tasks it skips)
 
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { currentLead, leadLabel, maxEffort } from './lead.mjs';
-import { board, briefOf, cardEffortOf, CHIP_STATES, chipsLead, effortOf, chipRowProblems, baseRedProblems, gitMerges, LEAD_PHASE, LEDGER, newChipRowProblems, newId, offeredAt, readTasks, recordRow, renderBoard, SESSION, staleReport, startedOverlaps } from './tasks.mjs';
+import { board, briefOf, cardEffortOf, CHIP_STATES, chipsLead, cleanupOf, effortOf, chipRowProblems, baseRedProblems, gitMerges, LEAD_PHASE, LEDGER, newChipRowProblems, newId, offeredAt, readTasks, recordRow, renderBoard, SESSION, staleReport, startedOverlaps } from './tasks.mjs';
 import { acceptedWord, committedLines, defaultsWords, isAcceptingWord, NOT_PASSED, proofLabels, proofStates, PROVEN, runPaths, SEATS, SEVERITIES, stageOfRow, STATUSES, statusOf } from './status.mjs';
 
 const HEADER = 'ts\tphase\tdecision\twhy\tevidence\tresult';
@@ -298,14 +303,14 @@ if (args[0] === 'chips') {
     }
     return value;
   };
-  const valued = new Set(['--session', '--timeout', '--every'].flatMap((name) => (args.includes(name) ? [args.indexOf(name), args.indexOf(name) + 1] : [])));
+  const valued = new Set(['--session', '--timeout', '--every', '--sessions'].flatMap((name) => (args.includes(name) ? [args.indexOf(name), args.indexOf(name) + 1] : [])));
   const rest = args.filter((arg, index) => index > 0 && arg !== '--fetch' && !valued.has(index));
   if (rest[0] === 'id') {
     console.info(newId());
     process.exit(0);
   }
   const id = rest[0] === 'brief' ? rest[1] : null;
-  const named = rest[0] === 'brief' ? rest[2] : ['stale', 'wait', 'lead'].includes(rest[0]) ? rest[1] : rest[0];
+  const named = rest[0] === 'brief' ? rest[2] : ['stale', 'wait', 'lead', 'cleanup'].includes(rest[0]) ? rest[1] : rest[0];
   const ledger = named ?? join(plansDir(), LEDGER);
   if (!existsSync(ledger)) {
     console.error(named ? `no log at ${ledger}` : `No ledger at ${ledger} yet; run this from the project root.`);
@@ -329,6 +334,34 @@ if (args[0] === 'chips') {
       process.exit(1);
     }
     console.info(lead ? `This session leads the chips now. At its next sweep, session ${lead} withdraws its cards on tasks it did not offer.` : 'This session leads the chips now.');
+    process.exit(0);
+  }
+  if (rest[0] === 'cleanup') {
+    const file = args.includes('--sessions') ? args[args.indexOf('--sessions') + 1] : null;
+    if (!file || !existsSync(file)) {
+      console.error("chips cleanup takes --sessions <file>, the session tool's list of every session, archived ones included, saved as a JSON array");
+      process.exit(2);
+    }
+    let sessions;
+    try {
+      sessions = JSON.parse(readFileSync(file, 'utf8'));
+    } catch {
+      sessions = null;
+    }
+    if (!Array.isArray(sessions)) {
+      console.error(`${file} does not hold a JSON array of sessions`);
+      process.exit(2);
+    }
+    const { archive, remove, report } = cleanupOf(tasks, sessions, here);
+    if (!report.length) {
+      console.info('Nothing to clean up: no landed task has an idle card session or a worktree left.');
+      process.exit(0);
+    }
+    const out = [];
+    if (archive.length) out.push(`Archive (${archive.length}), with the session tool, each idle card session whose task landed, then save the session list again and rerun chips cleanup:`, ...archive.map((session) => `  ${session.sessionId}  ${session.title}`));
+    if (remove.length) out.push(`Remove (${remove.length}) the worktrees of landed tasks whose sessions are archived:`, `  node .agents/skills/cleanup/scripts/scan.mjs --repo . --remove ${remove.join(' ')}`);
+    out.push(`Report (${report.length}):`, ...report.map((line) => `  ${line}`));
+    console.info(out.join('\n'));
     process.exit(0);
   }
   if (rest[0] === 'stale') {
