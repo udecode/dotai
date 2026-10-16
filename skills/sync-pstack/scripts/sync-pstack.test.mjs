@@ -3513,13 +3513,14 @@ test('chips wait exits once a task lands or turns ready, and at its timeout', as
   assert.match(idle.stdout, /No task landed, started or turned ready before the timeout/);
 });
 
-test('chips wait refuses a timeout over the hour time budget', () => {
+test('chips wait takes a timeout over an hour, because a wake signal is not under the time budget', async () => {
   const { env, offer, root } = chipLedger();
   assert.equal(offer('task_a1 Fix the parser', 'src/p.ts', 'topic: parser').status, 0);
-  const long = spawnSync(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'chips', 'wait', '--timeout', '61'], { cwd: root, env, encoding: 'utf8', timeout: 10_000 });
-
-  assert.equal(long.status, 2);
-  assert.match(long.stderr, /--timeout 61 is over the block's one-hour Time budget/);
+  const waiter = spawn(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'chips', 'wait', '--every', '0.1', '--timeout', '120'], { cwd: root, env });
+  const exited = new Promise((done) => waiter.on('exit', (code) => done(code)));
+  const still = await Promise.race([exited, new Promise((done) => setTimeout(() => done('running'), 800))]);
+  waiter.kill();
+  assert.equal(still, 'running');
 });
 
 test('a fast mark shows on a plain fix, refuses design judgment, and drops when a fold or dup raises the task', () => {

@@ -44,7 +44,7 @@
 //        node .agents/pstack/decisions-check.mjs chips wait [--session <id>] [--timeout <minutes>] [--every <seconds>] [<ledger>]
 //        (polls the ledger and exits once a task lands, one this session may card turns
 //        ready, with --session a task that session carded starts or another session takes
-//        the lead from it, or at the timeout, 60 minutes by default; it refuses a longer --timeout)
+//        the lead from it, or at --timeout when given; with no --timeout it waits until one of those happens)
 
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -373,11 +373,7 @@ if (args[0] === 'chips') {
         started: new Map(started.map((task) => [task.id, `${task.id} in ${task.startedIn ? `session ${task.startedIn}` : 'a session its started row does not name'}, carded at ${cardEffortOf(task, maxEffort())}, brief at ${effortOf(task, maxEffort())}`])),
       };
     };
-    const minutes = option('--timeout', 60);
-    if (minutes > 60) {
-      console.error(`--timeout ${minutes} is over the block's one-hour Time budget; chips wait restarts after its hour instead`);
-      process.exit(2);
-    }
+    const minutes = option('--timeout', Infinity);
     const start = state();
     const deadline = Date.now() + minutes * 60_000;
     while (Date.now() < deadline) {
