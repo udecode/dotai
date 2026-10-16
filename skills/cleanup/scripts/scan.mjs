@@ -110,10 +110,14 @@ function usageVerdict(facts) {
   return null;
 }
 
+const unreachedReason = (count) =>
+  count === null ? 'git could not list the commits its HEAD history keeps' : `${count} ${count === 1 ? 'commit' : 'commits'} that no branch, tag or remote reaches, kept only by its HEAD history; save them with git branch <name> <sha>`;
+
 function cleanupVerdict(facts) {
   if (facts.heldCaches === null) return ['keep', 'lsof could not tell whether a server holds a cache inside it'];
   if (facts.heldCaches > 0) return ['keep', 'a running server holds a cache inside it'];
   if (facts.repos > 0) return ['ask', `${facts.repos} submodules or nested repositories inside it`];
+  if (facts.unreached !== 0) return ['ask', unreachedReason(facts.unreached)];
   return ['safe', facts.session ? 'no session that used it is running' : 'no session has used it for a day'];
 }
 
@@ -125,7 +129,7 @@ function landedVerdict(facts) {
   if (facts.unlanded > 0) return ['ask', `${facts.unlanded} uncommitted changes the checkout does not hold`];
   if (facts.ignored.overflow) return ['ask', `more than ${IGNORED_LIMIT} ignored files to compare with the checkout`];
   if (facts.ignored.unique.length > 0) return ['ask', `${facts.ignored.unique.length} ignored files the checkout lacks, such as ${facts.ignored.unique[0]}`];
-  if (!facts.reachable) return ['ask', 'its commit is on no branch'];
+  if (facts.unreached !== 0) return ['ask', unreachedReason(facts.unreached)];
   return ['safe', facts.dirty > 0 ? 'the checkout holds its changes' : 'nothing uncommitted'];
 }
 
