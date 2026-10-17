@@ -31,13 +31,51 @@ const TEMPLATE = join(SKILL, 'assets/block.md');
 const HELPERS = join(SKILL, 'assets/pstack');
 const CONFIG = '.agents/pstack.json';
 const HELPER_DIR = '.agents/pstack';
-const CORE_HELPERS = ['codex-browser.mjs', 'codex-build.md', 'codex-isolation.mjs', 'cross.mjs', 'cua-steps.mjs', 'freeze.mjs', 'head.mjs', 'lead.mjs', 'mutate.mjs', 'proof.mjs', 'reply.mjs', 'reread.mjs'];
-const SECTION_HELPERS = { plans: ['decisions-check.mjs', 'levels.mjs', 'plan-open.mjs', 'plan-page.mjs', 'status.mjs', 'tasks.mjs'] };
-// Installed only for that delivery, and removed when a project leaves it, like
-// a rule file whose RULE_FILES gate is `delivery=<mode>`.
-const DELIVERY_HELPERS = { trunk: ['guard.mjs', 'land.mjs', 'review.mjs', 'setup.mjs'] };
+// A gate is a section id, which holds unless `skip` lists it, or a template
+// condition such as `delivery!=trunk`. A file installs while all its gates
+// hold and is removed once one stops holding.
+// Key order is the order of each project's recorded `synced.files`.
+const HELPER_FILES = {
+  'codex-browser.mjs': [],
+  'codex-build.md': ['delivery!=trunk'],
+  'codex-isolation.mjs': [],
+  'cross.mjs': [],
+  'cua-steps.mjs': [],
+  'freeze.mjs': ['delivery!=trunk'],
+  'head.mjs': [],
+  'lead.mjs': [],
+  'mutate.mjs': ['delivery!=trunk'],
+  'proof.mjs': [],
+  'reply.mjs': ['delivery!=trunk'],
+  'reread.mjs': ['delivery!=trunk'],
+  'decisions-check.mjs': ['plans', 'delivery!=trunk'],
+  'levels.mjs': ['plans', 'delivery!=trunk'],
+  'plan-open.mjs': ['plans', 'delivery!=trunk'],
+  'plan-page.mjs': ['plans'],
+  'status.mjs': ['plans'],
+  'tasks.mjs': ['plans', 'delivery!=trunk'],
+  'guard.mjs': ['delivery=trunk'],
+  'land.mjs': ['delivery=trunk'],
+  'review.mjs': ['delivery=trunk'],
+  'setup.mjs': ['delivery=trunk'],
+};
 const RULES = join(HELPERS, 'rules');
-export const RULE_FILES = { 'browser.md': 'browser', 'chips.md': 'plans', 'close.md': null, 'codex.md': null, 'land.md': 'delivery=trunk', 'long-runs.md': 'long-runs', 'pages.md': 'plans', 'panel.md': null, 'reflect.md': null, 'tests.md': 'tests', 'time.md': null, 'title.md': null, 'trails.md': 'plans' };
+export const RULE_FILES = {
+  'browser.md': ['browser'],
+  'chips.md': ['plans', 'delivery!=trunk'],
+  'close.md': ['delivery!=trunk'],
+  'codex.md': ['delivery!=trunk'],
+  'land.md': ['delivery=trunk'],
+  'long-runs.md': ['long-runs', 'delivery!=trunk'],
+  'pages.md': ['plans'],
+  'panel.md': [],
+  'reflect.md': [],
+  'tests.md': ['tests'],
+  'time.md': [],
+  'title.md': ['delivery!=trunk'],
+  'trails.md': ['plans', 'delivery!=trunk'],
+};
+const isCondition = (gate) => gate.includes('=');
 const SECTION = /^<!-- section (\S+) -->$/u;
 const CONTINUATION = /^ {2}[^\s-]/u;
 const PLUGIN = 'pstack@pstack-claude';
@@ -46,7 +84,7 @@ const REPO = 'michael-denyer/pstack-claude';
 const BEGIN =
   '<!-- pstack:begin (rendered by the sync-pstack skill from udecode/dotai; edit that source, or add a rule outside this block) -->';
 const END = '<!-- pstack:end -->';
-const DELIVERIES = ['push', 'pr', 'user', 'trunk'];
+export const DELIVERIES = ['push', 'pr', 'user', 'trunk'];
 const REQUIRED = ['tag', 'branch', 'delivery', 'lintFix', 'check'];
 const DAY = 24 * 60 * 60 * 1000;
 const SWITCHES = { '--force': 'force', '--dry-run': 'dryRun', '--json': 'json', '--offline': 'offline', '--allow-dirty': 'allowDirty' };
@@ -308,7 +346,7 @@ function validate(config) {
   const sections = new Set(sharedTemplates().flatMap(sectionsOf));
   const unknown = (config.skip ?? []).filter((id) => !sections.has(id));
   if (unknown.length > 0) throw new Error(`skip names unknown sections: ${unknown.join(', ')} (sections: ${[...sections].join(', ')})`);
-  const orphans = Object.values(RULE_FILES).filter((id) => id !== null && !id.startsWith('delivery=') && !sections.has(id));
+  const orphans = Object.values(RULE_FILES).flat().filter((gate) => !isCondition(gate) && !sections.has(gate));
   if (orphans.length > 0) throw new Error(`RULE_FILES names sections no template holds: ${orphans.join(', ')}`);
   if (config.pushBranches !== undefined && typeof config.pushBranches !== 'boolean') throw new Error('pushBranches must be true or false');
   if (config.pushBranches && config.delivery !== 'user') throw new Error('pushBranches applies only to user delivery');
@@ -493,36 +531,34 @@ export function apply(root, { tag, force = false, write = true } = {}) {
   }
 
   const skipped = new Set(config.skip ?? []);
-  for (const delivery of DELIVERIES) if (delivery !== config.delivery) skipped.add(`delivery=${delivery}`);
-  const groups = [
-    [null, CORE_HELPERS, false],
-    ...Object.entries(SECTION_HELPERS).map(([section, names]) => [section, names, false]),
-    ...Object.entries(DELIVERY_HELPERS).map(([delivery, names]) => [`delivery=${delivery}`, names, false]),
-    ...Object.entries(RULE_FILES).map(([name, section]) => [section, [`rules/${name}`], true]),
+  const offGate = (gates) => gates.find((gate) => (isCondition(gate) ? !holds(gate, config) : skipped.has(gate)));
+  const files = [
+    ...Object.entries(HELPER_FILES).map(([name, gates]) => [name, gates, false]),
+    ...Object.entries(RULE_FILES).map(([name, gates]) => [`rules/${name}`, gates, true]),
   ];
-  for (const [section, names, rule] of groups) {
-    for (const name of names) {
-      const path = `${HELPER_DIR}/${name}`;
-      const present = existsSync(join(root, path)) ? readFileSync(join(root, path), 'utf8') : null;
-      const edited = present !== null && sha(present) !== stored.synced?.files?.[path];
-      const build = (text, settings) => (rule ? `${render(text, settings)}\n` : text);
-      if (!section || !skipped.has(section)) {
-        const source = build(readFileSync(join(HELPERS, name), 'utf8'), config);
-        synced.files[path] = sha(source);
-        if (present === source) continue;
-        if (edited && !force) {
-          const last = lastVersion(stored, `assets/pstack/${name}`, (text) => build(text, withDerived(root, stored)), stored.synced?.files?.[path]);
-          refusals.push({
-            path,
-            reason: 'the helper was edited since the last sync',
-            diff: last === null ? `current helper against the shared one:\n${diff(present, source)}` : `the project's edit since the last sync:\n${diff(last, present)}`,
-          });
-        }
-        else changes.push({ path, text: source, executable: name.endsWith('.mjs') });
-      } else if (present !== null) {
-        if (edited && !force) refusals.push({ path, reason: `the helper was edited, and its section "${section}" is now skipped` });
-        else changes.push({ path, remove: true });
+  for (const [name, gates, rule] of files) {
+    const path = `${HELPER_DIR}/${name}`;
+    const present = existsSync(join(root, path)) ? readFileSync(join(root, path), 'utf8') : null;
+    const edited = present !== null && sha(present) !== stored.synced?.files?.[path];
+    const build = (text, settings) => (rule ? `${render(text, settings)}\n` : text);
+    const off = offGate(gates);
+    if (off === undefined) {
+      const source = build(readFileSync(join(HELPERS, name), 'utf8'), config);
+      synced.files[path] = sha(source);
+      if (present === source) continue;
+      if (edited && !force) {
+        const last = lastVersion(stored, `assets/pstack/${name}`, (text) => build(text, withDerived(root, stored)), stored.synced?.files?.[path]);
+        refusals.push({
+          path,
+          reason: 'the helper was edited since the last sync',
+          diff: last === null ? `current helper against the shared one:\n${diff(present, source)}` : `the project's edit since the last sync:\n${diff(last, present)}`,
+        });
       }
+      else changes.push({ path, text: source, executable: name.endsWith('.mjs') });
+    } else if (present !== null) {
+      const gate = isCondition(off) ? `gate "${off}" no longer holds` : `section "${off}" is now skipped`;
+      if (edited && !force) refusals.push({ path, reason: `the helper was edited, and its ${gate}` });
+      else changes.push({ path, remove: true });
     }
   }
 

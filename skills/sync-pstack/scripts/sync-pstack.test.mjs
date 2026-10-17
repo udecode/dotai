@@ -193,6 +193,31 @@ test('apply installs every helper and rule file the rendered rules name, whichev
   for (const path of named) assert.ok(existsSync(join(root, path)), `${path} is named but not installed`);
 });
 
+test('switching delivery to trunk and back swaps the shared-checkout files for the landing ones, and every file the rules name stays installed', () => {
+  const { dir, cli } = sandbox();
+  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
+  const pstack = (name) => join(root, '.agents/pstack', name);
+  const sharedCheckout = ['codex-build.md', 'decisions-check.mjs', 'freeze.mjs', 'levels.mjs', 'mutate.mjs', 'plan-open.mjs', 'reply.mjs', 'reread.mjs', 'tasks.mjs', ...['chips', 'close', 'codex', 'long-runs', 'title', 'trails'].map((name) => `rules/${name}.md`)];
+  const landing = ['guard.mjs', 'land.mjs', 'review.mjs', 'setup.mjs', 'rules/land.md'];
+  const everywhere = ['cross.mjs', 'lead.mjs', 'plan-page.mjs', 'proof.mjs', 'status.mjs', 'rules/panel.md', 'rules/pages.md'];
+  const deliver = (delivery) => {
+    writeFileSync(join(root, '.agents/pstack.json'), `${JSON.stringify({ ...JSON.parse(read(root, '.agents/pstack.json')), delivery }, null, 2)}\n`);
+    assert.equal(cli('apply', root).status, 0);
+    const texts = [read(root, 'AGENTS.md'), ...readdirSync(pstack('rules')).map((name) => read(root, `.agents/pstack/rules/${name}`))];
+    for (const path of new Set(texts.flatMap((text) => text.match(/\.agents\/pstack\/(?:rules\/)?[\w-]+\.(?:mjs|md)/gu) ?? []))) {
+      assert.ok(existsSync(join(root, path)), `${delivery}: ${path} is named but not installed`);
+    }
+  };
+  deliver('push');
+  deliver('trunk');
+  for (const name of sharedCheckout) assert.ok(!existsSync(pstack(name)), `trunk keeps ${name}`);
+  for (const name of [...landing, ...everywhere]) assert.ok(existsSync(pstack(name)), `trunk lacks ${name}`);
+  assert.doesNotMatch(read(root, 'AGENTS.md'), /chips|decisions-check|levels\.mjs|freeze\.mjs/);
+  deliver('push');
+  for (const name of [...sharedCheckout, ...everywhere]) assert.ok(existsSync(pstack(name)), `push lacks ${name}`);
+  for (const name of landing) assert.ok(!existsSync(pstack(name)), `push keeps ${name}`);
+});
+
 test('apply renders each rule file with the project config and leaves out the file of a skipped section', () => {
   const { dir, cli } = sandbox();
   const root = project(dir, 'app', { config: { ...CONFIG, plans: 'notes/plans', skip: ['long-runs'] }, agents: '# App\n' });
