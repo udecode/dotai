@@ -1745,17 +1745,68 @@ test('plan-page shows the Demo, Teach and picks of an executed plan it renders o
   assert.deepEqual(missing, [], "the page shows the rendered plan's Demo, Teach and picks");
 });
 
-test('plan-page shows both Open questions sections of an open plan beside the plan it renders', () => {
-  const { dir, run } = sandbox();
+test('plan-page shows both Open questions sections of an open plan under Needs you on every page layout', () => {
   const topic = '# Workflow\n\n## Main changes\n\n- Pages follow subjects.\n';
   const second = MEMO.replace('### Build', '### Ship').replace('Build the memo now?', 'Ship the memo today?');
   const waiting = '# Waiting\n\nStatus: planning, waiting for Build now\nTopic: workflow\n\n## Open questions\n\n' + MEMO + brief() + '## Open questions\n\n' + second;
-  const built = '# Built\n\nStatus: executed\nTopic: workflow\n\n## Main changes\n\n- Moved the renderer.\n';
-  const root = project(dir, 'app', { files: { 'docs/plans/topics/workflow.md': topic, 'docs/plans/2026-01-01-waiting.md': waiting, 'docs/plans/2026-02-01-built.md': built } });
-  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-02-01-built.md'], root);
+  const built = (head) => `# Built\n\nStatus: executed\nTopic: workflow\n\n${head}## Main changes\n\n- Moved the renderer.\n`;
+  const cases = [
+    ['an executed plan without a brief', built(''), 'docs/plans/2026-02-01-built.md'],
+    ['an executed plan with a brief', built(brief()), 'docs/plans/2026-02-01-built.md'],
+    ['the open plan itself', built(''), 'docs/plans/2026-01-01-waiting.md'],
+  ];
+  const missing = cases.flatMap(([name, plan, rendered]) => {
+    const { dir, run } = sandbox();
+    const root = project(dir, 'app', { files: { 'docs/plans/topics/workflow.md': topic, 'docs/plans/2026-01-01-waiting.md': waiting, 'docs/plans/2026-02-01-built.md': plan } });
+    const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), rendered], root);
+    assert.equal(result.status, 0, `${name}: ${result.stderr}`);
+    const html = read(root, 'docs/plans/artifacts/topics/workflow.html');
+    const start = html.indexOf('<section class="needs"');
+    const needs = start < 0 ? '' : html.slice(start, html.indexOf('</section>', start)).replace(/<[^>]+>/gu, '');
+    return ['Build the memo now?', 'Ship the memo today?'].filter((question) => !needs.includes(question)).map((question) => `${name}: ${question}`);
+  });
+  assert.deepEqual(missing, [], 'Needs you shows each Open questions section');
+});
+
+test("plan-page refuses a malformed question in a plan's second Open questions section", () => {
+  const { dir, run } = sandbox();
+  const plan = '# Plan\n\nStatus: planning, waiting for Build now\n\n## Open questions\n\n' + MEMO + brief() + '## Open questions\n\n### Ship\n\nShip it?\n';
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /"Ship" in docs\/plans\/plan\.md needs/u);
+});
+
+test("plan-page keeps an unheaded question in a later Open questions section out of the memo above it", () => {
+  const { dir, run } = sandbox();
+  const legacy = 'Keep the backup?\n\n- **Retain** (recommended): Keep it. Cost: Disk space.\n- **Drop**: Delete it. Cost: No way back.\n';
+  const plan = '# Built\n\nStatus: executed\n\n## Main changes\n\n- Moved the renderer.\n\n## Open questions\n\n' + MEMO + '\n## Open questions\n\n' + legacy;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
   assert.equal(result.status, 0, result.stderr);
-  const text = read(root, 'docs/plans/artifacts/topics/workflow.html').replace(/<[^>]+>/gu, '');
-  assert.match(text, /Ship the memo today\?/u, "the open plan's second question stays on the page");
+  const html = read(root, 'docs/plans/artifacts/plan.html');
+  const cards = html.split('<article class="q"').slice(1);
+  assert.deepEqual(cards.filter((card) => card.includes('Build now') && card.includes('Retain')), [], "the backup's options stay out of the Build memo");
+  assert.match(html.replace(/<[^>]+>/gu, ''), /Keep the backup\?/u, 'the unheaded question still shows under Needs you');
+});
+
+test("plan-page refuses code in a plan's second Open questions section", () => {
+  const { dir, run } = sandbox();
+  const second = MEMO.replace('### Build', '### Ship').replace('Build the memo now?', 'Ship `main` now?');
+  const plan = '# Plan\n\nStatus: planning, waiting for Build now\n\n## Open questions\n\n' + MEMO + brief() + '## Open questions\n\n' + second;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /## Open questions in docs\/plans\/plan\.md holds code `main`/u);
+});
+
+test("plan-page refuses a plan's second Defaults section without its table", () => {
+  const { dir, run } = sandbox();
+  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Defaults\n\n| Decision | Pick | Alternative | Word |\n| --- | --- | --- | --- |\n| Page look | One line per choice. | The old table | keep table |\n\n## Defaults\n\n- Keep the old pages.\n`;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /## Defaults in docs\/plans\/plan\.md needs a table whose columns start with Decision/u);
 });
 
 test('plan-page --index leads a subject page with its older open plan over a newer executed one', () => {
@@ -1799,6 +1850,20 @@ test("plan-page refuses a hub's required section that only an open plan off the 
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-02-01-drop.md'], root);
   assert.equal(result.status, 1);
   assert.match(result.stderr, /needs ## What other editors do in docs\/plans\/topics\/dnd\.md or docs\/plans\/2026-02-01-drop\.md/u);
+});
+
+test("plan-page refuses a hub's required section that only an executed plan without a brief holds", () => {
+  const { dir, run } = sandbox();
+  const files = {
+    '.agents/playbooks/plan.md': playbook('page-lead: What other editors do\npage-require: What other editors do\n'),
+    'docs/hubs/dnd.md': '# Drag and drop\n',
+    'docs/plans/topics/dnd.md': '# Drag and drop\n\n## Main changes\n\n- One transfer action.\n',
+    'docs/plans/2026-02-01-built.md': '# Built\n\nStatus: executed\nTopic: dnd\nPlaybook: plan\n\n## Main changes\n\n- One transfer action.\n\n## What other editors do\n\n- Lexical keeps drag in the view.\n',
+  };
+  const root = project(dir, 'app', { config: { pageTopic: { hub: 'docs/hubs/{topic}.md' } }, files });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-02-01-built.md'], root);
+  assert.equal(result.status, 1, 'the page without a brief shows only the subject file');
+  assert.match(result.stderr, /needs ## What other editors do in docs\/plans\/topics\/dnd\.md, the sources its page shows/u);
 });
 
 test('plan-page lists a hand-off review row whose phase starts with a capital', () => {
@@ -3355,7 +3420,18 @@ test('chips reports a dangling wait on a task with no topic', () => {
 test('a card prompt asks to load the brief again after the started row', () => {
   const { chips, offer } = chipLedger();
   assert.equal(offer('task_a1 Fix the parser', 'src/p.ts', 'topic: parser').status, 0);
-  assert.match(chips('brief', 'task_a1').stdout, /log a started row for it[^\n]*, then run cd [^\n]* && node \.agents\/pstack\/decisions-check\.mjs chips brief task_a1 again and work from what it prints, because the task can gain work until your started row\./, 'a merge between reading the brief and the started row');
+  assert.match(chips('brief', 'task_a1').stdout, /log a started row [^\n]*, then run cd [^\n]* && node \.agents\/pstack\/decisions-check\.mjs chips brief task_a1 again and work from what it prints, because the task can gain work until your started row\./, 'a merge between reading the brief and the started row');
+});
+
+test('a card prompt names the stored decision, shell-quoted, so its started row appends', () => {
+  const { chip, chips, offer } = chipLedger();
+  const decision = 'task_a1 Fix the "$HOME" parser';
+  assert.equal(offer(decision, 'src/p.ts', 'topic: parser').status, 0);
+  const quoted = chips('brief', 'task_a1').stdout.match(/ chip ("(?:[^"\\]|\\.)*") "<why>" "<tokens>" <result>/u)?.[1];
+  assert.ok(quoted, 'the prompt shows the row command');
+  const parsed = spawnSync('sh', ['-c', `printf %s ${quoted}`], { encoding: 'utf8' }).stdout;
+  assert.equal(parsed, decision);
+  assert.equal(chip(parsed, 'started', 'session: s1').status, 0);
 });
 
 test('a chain of dups carries every title and drops each wait that now leads back to the kept task', () => {
@@ -4604,7 +4680,7 @@ test('decisions-check append names the stage a batch moves the log into', () => 
   const { dir, run } = sandbox();
   const root = project(dir, 'app');
   const append = (phase, decision, result = 'recorded') => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', phase, decision, 'why', 'evidence', result], root);
-  assert.match(append('architect', 'three runners').stdout, /Stage: Design\. Rename the session and publish the plan's page now/);
+  assert.match(append('architect', 'three runners').stdout, /Stage: Design\. Rename the session/);
   assert.doesNotMatch(append('architect', 'picked the base').stdout, /Stage:/, 'a row in the same stage');
   assert.match(append('build', 'built: the helper').stdout, /Stage: Build\./);
   assert.match(append('panel', 'seats opus').stdout, /Stage: Code review\./, 'a panel round after a build reviews the code');

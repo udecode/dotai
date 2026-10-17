@@ -71,6 +71,15 @@ for skill_dir in "${skill_dirs[@]}"; do
   fi
 done
 
+# Every session rereads the pstack block on each call, so its budget only goes down: lower it whenever the block shrinks.
+block="$SKILLS_DIR/sync-pstack/assets/block.md"
+block_budget=39500
+block_bytes="$(wc -c < "$block" | tr -d ' ')"
+if [ "$block_bytes" -gt "$block_budget" ]; then
+  echo "sync-pstack: assets/block.md is $block_bytes bytes, over its $block_budget-byte budget; move a rule's detail into a file under assets/pstack/rules/, register it in RULE_FILES and leave a bullet that says when to read it"
+  fail=1
+fi
+
 if [ "$fail" -ne 0 ]; then
   exit 1
 fi
