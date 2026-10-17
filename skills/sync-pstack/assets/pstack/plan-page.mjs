@@ -335,8 +335,8 @@ const sameText = (text) => text.replace(/\s+/g, ' ').trim().toLowerCase();
 const sameRow = (a, b) => a.length === b.length && a.every((cell, index) => sameText(cell) === sameText(b[index]));
 const sameContent = (text) => text.replace(/\s+/g, ' ').trim();
 const sameCells = (a, b) => a.length === b.length && a.every((cell, index) => sameContent(cell) === sameContent(b[index]));
-const sectionNamed = (doc, title) =>
-  doc.sections.find((section) => section.title.toLowerCase() === title.toLowerCase());
+const sectionsNamed = (doc, title) => doc.sections.filter((section) => section.title.toLowerCase() === title.toLowerCase());
+const sectionNamed = (doc, title) => sectionsNamed(doc, title)[0];
 
 function fencesOf(lines) {
   const fences = [];
@@ -473,16 +473,17 @@ const TIERS = new Map([
 const impactColumn = (head) => head.findIndex((cell) => headCell(cell) === 'impact');
 
 function assertDefaults(plan, where) {
-  const section = sectionNamed(plan, 'Defaults');
-  if (!section?.lines.some((line) => line.trim())) return;
-  const tables = tablesOf(section.lines).filter((table) => isDefaultsHead(table.head));
-  if (!tables.length) {
-    throw new Error(`## Defaults in ${where} needs a table whose columns start with Decision, Pick, Alternative and Word, one row per call made for the owner`);
-  }
-  for (const { head, rows } of tables) {
-    const impact = impactColumn(head);
-    const wrong = impact < 0 ? null : rows.find((row) => !TIERS.has(headCell(row[impact] ?? '')));
-    if (wrong) throw new Error(`## Defaults in ${where} gives "${wrong[0]}" the impact "${wrong[impact] ?? ''}"; write big, small or detail`);
+  for (const section of sectionsNamed(plan, 'Defaults')) {
+    if (!section.lines.some((line) => line.trim())) continue;
+    const tables = tablesOf(section.lines).filter((table) => isDefaultsHead(table.head));
+    if (!tables.length) {
+      throw new Error(`## Defaults in ${where} needs a table whose columns start with Decision, Pick, Alternative and Word, one row per call made for the owner`);
+    }
+    for (const { head, rows } of tables) {
+      const impact = impactColumn(head);
+      const wrong = impact < 0 ? null : rows.find((row) => !TIERS.has(headCell(row[impact] ?? '')));
+      if (wrong) throw new Error(`## Defaults in ${where} gives "${wrong[0]}" the impact "${wrong[impact] ?? ''}"; write big, small or detail`);
+    }
   }
 }
 
@@ -935,24 +936,20 @@ const splitCost = (text) => {
   return at < 0 ? [text.trim(), ''] : [text.slice(0, at).trim(), text.slice(at).replace(/^Cost:\s*/, '').trim()];
 };
 
-function questionGroups(lines, older = []) {
+function questionGroups(sections) {
   const intro = [];
   const groups = [];
   const notes = [];
-  for (const line of lines) {
-    const heading = line.match(/^###\s+(.*)$/);
-    if (heading) groups.push({ header: heading[1].trim(), lines: [], from: null });
-    else (groups.at(-1)?.lines ?? intro).push(line);
-  }
-  for (const { lines: olderLines, from } of older) {
+  for (const { lines, from = null } of sections) {
     const note = { from, lines: [] };
+    if (!from && intro.length) intro.push('');
     let own = null;
-    for (const line of olderLines) {
+    for (const line of lines) {
       const heading = line.match(/^###\s+(.*)$/);
       if (heading) groups.push((own = { header: heading[1].trim(), lines: [], from }));
-      else (own?.lines ?? note.lines).push(line);
+      else (own?.lines ?? (from ? note.lines : intro)).push(line);
     }
-    if (note.lines.some((line) => line.trim())) notes.push(note);
+    if (from && note.lines.some((line) => line.trim())) notes.push(note);
   }
   return { intro, groups, notes };
 }
@@ -1031,18 +1028,18 @@ const PAGE_PARTS = ['Brief', 'Teach', 'Open questions', 'Defaults'];
 
 function assertPlain(plan, where) {
   for (const title of PAGE_PARTS) {
-    const lines = sectionNamed(plan, title)?.lines ?? [];
-    const code = lines.find(isFence)?.trim() ?? lines.join('\n').match(/`[^`\n]+`/)?.[0];
-    if (code) throw new Error(`## ${title} in ${where} holds code ${code}; the page shows this section, so write it in plain words and keep code in the plan's other sections`);
+    for (const { lines } of sectionsNamed(plan, title)) {
+      const code = lines.find(isFence)?.trim() ?? lines.join('\n').match(/`[^`\n]+`/)?.[0];
+      if (code) throw new Error(`## ${title} in ${where} holds code ${code}; the page shows this section, so write it in plain words and keep code in the plan's other sections`);
+    }
   }
 }
 
 const listed = (items) => (items.length > 1 ? `${items.slice(0, -1).join(', ')} and ${items.at(-1)}` : items[0]);
 
 function assertAsks(plan, where) {
-  const section = sectionNamed(plan, 'Open questions');
-  if (!section) return;
-  for (const group of questionGroups(section.lines).groups) {
+  const { groups } = questionGroups(sectionsNamed(plan, 'Open questions'));
+  for (const group of groups) {
     const ask = askOf(group);
     const fix = "write it as the decision memo in the plan-page skill's references/shape.md";
     const missing = missingParts(ask);
@@ -1305,8 +1302,8 @@ const ANSWER_SCRIPT = `<script>
 })();
 </script>`;
 
-function needsSection(lines, older = []) {
-  const { intro, groups, notes } = questionGroups(lines, older);
+function needsSection(sections) {
+  const { intro, groups, notes } = questionGroups(sections);
   const loose = `${blocksHtml(intro)}${notes.map((note) => `<p class="from">from ${inline(note.from)}</p>${blocksHtml(note.lines)}`).join('')}`;
   if (groups.length === 0) return `<section class="needs"><div class="needs-head"><h2>Needs you</h2></div>${loose}</section>`;
   const asks = groups.map(askOf).sort((a, b) => LEVELS.indexOf(levelOf(a)) - LEVELS.indexOf(levelOf(b)));
@@ -1513,11 +1510,12 @@ function page(planPath, { folded = false } = {}) {
       .sort((a, b) => lead.indexOf(a.title.toLowerCase()) - lead.indexOf(b.title.toLowerCase()))
       .map((section) => sectionHtml(section, 'panel'))
       .join('\n  ');
-  const [needs] = byRole('needs', plan);
-  const otherNeeds = iterations
-    .filter((entry) => entry.path !== planPath)
-    .map((entry) => ({ lines: byRole('needs', entry.plan)[0]?.lines, from: entry.plan.title || basename(entry.path, '.md') }))
-    .filter((source) => source.lines);
+  const needs = [
+    ...byRole('needs', plan),
+    ...iterations
+      .filter((entry) => entry.path !== planPath)
+      .flatMap((entry) => byRole('needs', entry.plan).map((section) => ({ lines: section.lines, from: entry.plan.title || basename(entry.path, '.md') }))),
+  ];
   const [close] = byRole('close', plan);
   const iterationHtml = ({ path, plan: iteration }) => {
     const iterationStatus = iteration.meta.status ?? 'unknown';
@@ -1540,10 +1538,12 @@ function page(planPath, { folded = false } = {}) {
   const details = doc === plan ? byRole('details', plan) : [];
   const hubPath = subject && topic.hub ? topic.hub.replaceAll('{topic}', subject) : null;
   const hub = hubPath && existsSync(join(root, hubPath)) ? hubPath : null;
+  const brief = briefOf(plan);
   if (hub) {
+    const shown = brief ? [subjectPath, planPath] : [subjectPath];
     for (const required of require) {
-      if (![doc, plan].some((source) => source && hasContent(sectionNamed(source, required)))) {
-        throw new Error(`${subject} needs ## ${required} in ${relative(root, subjectPath)} or ${relative(root, planPath)}, the plan that leads its page, because its hub exists and that plan's playbook requires it`);
+      if (![doc, brief && plan].some((source) => source && hasContent(sectionNamed(source, required)))) {
+        throw new Error(`${subject} needs ## ${required} in ${shown.map((path) => relative(root, path)).join(' or ')}, the sources its page shows, because its hub exists and page-require names it`);
       }
     }
   }
@@ -1591,9 +1591,8 @@ function page(planPath, { folded = false } = {}) {
   const statusLine = sentence ? `<p class="status-line">${inline(sentence[0].toUpperCase() + sentence.slice(1))}</p>` : '';
   const title = escapeHtml(doc.title || basename(planPath, '.md'));
   const where = subjectPath ? relative(root, subjectPath) : repoPath;
-  const brief = briefOf(plan);
   const briefMain = () => {
-    const asking = needs || otherNeeds.length ? needsSection(needs?.lines ?? [], otherNeeds) : '';
+    const asking = needs.length ? needsSection(needs) : '';
     const answers = brief
       .map((answer) => ({ answer, index: BRIEF.findIndex((question) => sameText(question) === sameText(answer.question)) }))
       .filter(({ index }) => index >= 0)
@@ -1647,7 +1646,7 @@ ${withViewer(brief ? briefMain() : `<main>
     <div class="meta"><code>${escapeHtml(where)}</code>${planTag}${hub ? `<span>History <code>${escapeHtml(hub)}</code></span>` : ''}${carriedTag}${leadSeatsHtml(entries)}${reviewTag}<span>Updated ${updated} UTC</span></div>
   </header>
   ${byRole('demo', plan).map((section) => demoHtml(section, dirname(planPath))).join('')}
-  ${needs || otherNeeds.length ? needsSection(needs?.lines ?? [], otherNeeds) : ''}${close ? sectionHtml(close, 'panel') : ''}
+  ${needs.length ? needsSection(needs) : ''}${close ? sectionHtml(close, 'panel') : ''}
   ${byRole('teach', plan).map((section) => teachHtml(section, dirname(planPath))).join('')}
   ${changeHtml('api')}
   ${changeHtml('lead')}

@@ -473,7 +473,7 @@ if (args[0] === 'append') {
   console.info(batch.length > 1 ? `Appended ${batch.length} rows to ${args[1]}.` : `Appended a row to ${args[1]}.`);
   if (run) console.info(`Lead: ${leadLabel(run)}.`);
   const entered = stageMoves(args[1]).slice(before);
-  if (entered.length) console.info(`Stage: ${entered.join(', then ')}. Rename the session and publish the plan's page now, as .agents/pstack/rules/title.md and pages.md say.`);
+  if (entered.length) console.info(`Stage: ${entered.join(', then ')}. Rename the session now, as .agents/pstack/rules/title.md says.`);
   process.exit(0);
 }
 const paths =
