@@ -6,7 +6,6 @@ import { dirname, join, resolve } from 'node:path';
 export const HOME = join(homedir(), '.pstack-pulse');
 export const QUESTION_TOOLS = ['AskUserQuestion', 'ExitPlanMode'];
 const PLAN_SIGNALS = [/Appended (?:a row|\d+ rows) to (\S+?\.decisions\.tsv)/gu, /(\S+\/artifacts\/[^\s/]+\.html)\s*$/gmu];
-const PLAN_PAGE = /\/artifacts\/(?:topics\/)?[^/]+\.html$/u;
 const clip = (text, size) => (typeof text === 'string' ? text.slice(0, size) : null);
 // Claude Code reports its artifact page sockets as WebSocket monitors. They stay open across turns and never start a turn;
 // only their descriptions tell them from a WebSocket Monitor the model armed, which does wake the session.
@@ -63,8 +62,6 @@ export function eventOf(runtime, input, env, at = new Date().toISOString()) {
     plans: planSignals(cwd, response.stdout),
     push: event === 'PostToolUse' && cwd ? pushOf(response, cwd) : null,
     check: check && isCheckRun(command, check) ? { ok: event === 'PostToolUse' } : null,
-    published: event === 'PostToolUse' && tool === 'Artifact' && [undefined, 'publish'].includes(toolInput.action) && PLAN_PAGE.test(toolInput.file_path ?? ''),
-    lastMessage: event === 'Stop' ? clip(input.last_assistant_message, 150) : null,
     notification: event === 'Notification' ? clip(input.notification_type, 40) : null,
     message: event === 'Notification' ? clip(input.message, 120) : null,
     background: Array.isArray(input.background_tasks) ? input.background_tasks.filter((task) => !isArtifactSocket(task)).length : 0,

@@ -51,10 +51,8 @@ function newSession(observation) {
     needs: {},
     failure: null,
     check: null,
-    published: null,
     pushes: [],
     ships: [],
-    replies: [],
     cursor: null,
   };
 }
@@ -83,7 +81,6 @@ function applyHook(session, event, key) {
     session.check = null;
     if (session.failure?.kind === 'check') session.failure = null;
   } else if (event.check) session.check ??= { episode: event.at };
-  if (event.published && session.plan) session.published = session.turn;
   switch (event.event) {
     case 'SessionStart':
       session.life = 'live';
@@ -126,10 +123,6 @@ function applyHook(session, event, key) {
       session.active = event.background > 0;
       closeNeeds(session, (need) => need.kind === 'permission');
       if (session.active) break;
-      if (session.published === session.turn && !session.replies?.some(({ turn }) => turn === session.turn)) {
-        const summary = event.lastMessage?.split('\n').find((line) => line.trim())?.trim() ?? 'Plan page handed back';
-        (session.replies ??= []).push({ id: `reply:${key}:${session.turn}`, turn: session.turn, at: event.at, summary });
-      }
       if (session.check) session.failure = { kind: 'check', id: `${key}:check:${session.check.episode}`, summary: 'A required check is still failing' };
       break;
     case 'StopFailure':
@@ -211,7 +204,6 @@ function applyPush(session, result) {
 function applyClock(session, at) {
   const now = ms(at);
   session.ships = session.ships.filter((ship) => now - ms(ship.at) < SHIP_KEPT_MS);
-  session.replies = (session.replies ?? []).filter((reply) => now - ms(reply.at) < SHIP_KEPT_MS);
   if (session.life !== 'live') return;
   const quiet = now - Math.max(ms(session.lastHookAt), ms(session.lastAliveAt)) > STALE_MS;
   const livenessProbed = session.runtime === 'claude';
@@ -436,12 +428,8 @@ export function incidentsOf(views) {
     const page = openPlanPage(view);
     const link = view.appUrl ?? view.webUrl ?? page;
     if (session.life === 'live') for (const need of Object.values(session.needs)) add({ id: `need:${key}:${need.id}:${need.openedAt}`, kind: 'needs-you', at: need.openedAt, name: title, title: `${title} needs you`, message: String(need.question), link, page });
-    if (session.failure) add({ id: `fail:${session.failure.id}`, kind: 'failed', at: session.since, name: title, title: `${title} failed`, message: session.failure.summary, link, page });
-    // A push lands mid-run, so it buzzes once the turn ends, and a hand-back of that turn already says the work came back.
-    const ship = session.ships.at(-1);
-    if (ship && !session.active && !session.replies.some((reply) => reply.at >= ship.at)) add({ id: ship.id, kind: 'shipped', at: ship.at, name: title, title: `${title} shipped`, message: ship.summary, link, page });
-    // Starting the next turn means the owner saw the reply.
-    for (const reply of session.replies) if (reply.turn === session.turn) add({ id: reply.id, kind: 'replied', at: reply.at, name: title, title: `${title} replied`, message: reply.summary, link, page });
+    // A failing check is still the agent's to fix, so only a turn or process that died buzzes.
+    if (session.failure && session.failure.kind !== 'check') add({ id: `fail:${session.failure.id}`, kind: 'failed', at: session.since, name: title, title: `${title} failed`, message: session.failure.summary, link, page });
   }
   return incidents;
 }

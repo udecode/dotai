@@ -70,8 +70,6 @@ const FIELDS = {
   plans: (value) => Array.isArray(value) && value.every(isText),
   push: orNull((value) => isText(value.branch) && isText(value.sha) && isText(value.cwd)),
   check: orNull((value) => typeof value.ok === 'boolean'),
-  published: (value) => typeof value === 'boolean',
-  lastMessage: orNull(isText),
   notification: orNull(isText),
   message: orNull(isText),
   background: Number.isInteger,

@@ -32,11 +32,10 @@ const LOCK = `/tmp/pstack-pulse-${createHash('sha1').update(HOME).digest('hex').
 const log = (...parts) => console.error(new Date().toISOString(), ...parts);
 const launchctl = (...args) => spawnSync('launchctl', args, { encoding: 'utf8' });
 const DESK_IDLE_MS = 3 * 60_000;
-const DESK_HOLD_MS = 60_000;
-// While the owner uses the Mac, a push waits a minute so one they answer at the desk never reaches the phone.
-function deskHoldMs() {
+// While the owner uses the Mac, pushes wait, so one they answer at the desk never reaches the phone.
+function atDesk() {
   const idleNs = /"HIDIdleTime" = (\d+)/u.exec(spawnSync('ioreg', ['-c', 'IOHIDSystem', '-d', '4'], { encoding: 'utf8' }).stdout ?? '')?.[1];
-  return idleNs && Number(idleNs) / 1e6 < DESK_IDLE_MS ? DESK_HOLD_MS : 0;
+  return Boolean(idleNs) && Number(idleNs) / 1e6 < DESK_IDLE_MS;
 }
 
 let latestViews = [];
@@ -76,7 +75,7 @@ async function tick(state, config, client) {
   const context = { now, shippedToday: shippedToday(state.sessions, now), account: accountCache.value.desktop, listUrl: config.listUrl };
   latestMenu = menuBoardOf(views, context);
   const board = planBoard(views, state.phone, context);
-  problems.push(...(await deliver(state.phone, { cards: board.cards, badge: board.badge, incidents: incidentsOf(views), listUrl: config.listUrl, holdMs: deskHoldMs() }, { client, save: () => saveState(state) })));
+  problems.push(...(await deliver(state.phone, { cards: board.cards, badge: board.badge, incidents: incidentsOf(views), listUrl: config.listUrl, atDesk: atDesk() }, { client, save: () => saveState(state) })));
   saveState(state);
   const summary = problems.join('; ');
   if (summary && summary !== lastProblems) log(summary);

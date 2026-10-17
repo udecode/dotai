@@ -7,7 +7,7 @@ import test from 'node:test';
 import { eventOf } from './lib/event.mjs';
 import { codeHash, hookCommand, nextHeal, withHook, withoutHook } from './lib/install.mjs';
 import { projectOf, readRollout } from './lib/io.mjs';
-import { incidentsOf, keyOf, menuBoardOf, petOf, planBoard, reduce, SUMMARY_KEY, stepOf } from './lib/model.mjs';
+import { incidentsOf, keyOf, menuBoardOf, petOf, planBoard, reduce, shippedToday, SUMMARY_KEY, stepOf } from './lib/model.mjs';
 import { createClient, deliver, emptyPhone } from './lib/phone.mjs';
 
 const T0 = Date.parse('2026-10-06T10:00:00.000Z');
@@ -33,11 +33,11 @@ function fakeClient(script = {}) {
     replace: async (id, content) => (calls.push(`replace ${id} ${content.title} · ${content.message}`), answer('replace', id)),
   };
 }
-const send = (sessions, phone, client, seconds, holdMs = 0) => {
+const send = (sessions, phone, client, seconds, atDesk = false) => {
   const now = T0 + seconds * 1000;
   const views = viewsOf(sessions);
   const board = planBoard(views, phone, { now, shippedToday: 0 });
-  return deliver(phone, { cards: board.cards, badge: board.badge, incidents: incidentsOf(views), listUrl: null, holdMs }, { client, clock: () => now });
+  return deliver(phone, { cards: board.cards, badge: board.badge, incidents: incidentsOf(views), listUrl: null, atDesk }, { client, clock: () => now });
 };
 const pushes = (client) => client.calls.filter((call) => call.startsWith('push'));
 
@@ -281,24 +281,15 @@ const claudeHook = (session, event, seconds, input = {}) => ({ kind: 'hook', ...
 const prompted = (session, seconds) => claudeHook(session, 'Notification', seconds, { notification_type: 'permission_prompt', message: 'Claude needs your permission to use Bash' });
 const needsOf = (session) => Object.values(session.needs).map((need) => need.question);
 
-test('a push buzzes as shipped only once its turn ends, once for the newest push, and not when the turn hands back a page', () => {
+test('a git push and a turn that ends after it buzz nothing, while the push still counts as shipped', () => {
   const sessions = {};
-  const pushed = (id, seconds, sha) => {
-    reduce(sessions, hook(id, 'PostToolUse', seconds, { tool: 'Bash', toolUseId: `tu-${sha}`, push: { sha, branch: 'next' } }));
-    reduce(sessions, { kind: 'push', runtime: 'claude', session: id, at: at(seconds + 1), sha, branch: 'next', outcome: 'confirmed', repoId: 'repo', repoName: 'repo' });
-  };
-  const shipped = () => [...incidentsOf(viewsOf(sessions)).values()].filter(({ kind }) => kind === 'shipped').map(({ message }) => message);
-  reduce(sessions, hook('worker', 'UserPromptSubmit', 0));
-  pushed('worker', 1, 'aaaaaaaaaa');
-  pushed('worker', 3, 'bbbbbbbbbb');
-  assert.deepEqual(shipped(), []);
+  reduce(sessions, hook('worker', 'UserPromptSubmit', 0, { plans: ['docs/plans/x.decisions.tsv'] }));
+  reduce(sessions, hook('worker', 'PostToolUse', 1, { tool: 'Bash', toolUseId: 'tu-a', push: { sha: 'aaaaaaaaaa', branch: 'next' } }));
+  reduce(sessions, { kind: 'push', runtime: 'claude', session: 'worker', at: at(2), sha: 'aaaaaaaaaa', branch: 'next', outcome: 'confirmed', repoId: 'repo', repoName: 'repo' });
   reduce(sessions, hook('worker', 'Stop', 5));
-  assert.deepEqual(shipped(), ['repo next bbbbbbbbb']);
-  reduce(sessions, hook('pager', 'UserPromptSubmit', 0, { plans: ['docs/plans/x.decisions.tsv'] }));
-  pushed('pager', 1, 'cccccccccc');
-  reduce(sessions, hook('pager', 'PostToolUse', 3, { tool: 'Artifact', published: true }));
-  reduce(sessions, hook('pager', 'Stop', 5, { lastMessage: 'Here is the page' }));
-  assert.deepEqual(shipped(), ['repo next bbbbbbbbb']);
+  assert.equal(sessions['claude:worker'].state, 'idle');
+  assert.deepEqual([...incidentsOf(viewsOf(sessions)).values()], []);
+  assert.equal(shippedToday(sessions, T0 + 10_000), 1);
 });
 
 test('a question buzzes once, and not again after a restart', async () => {
@@ -532,7 +523,7 @@ test('a resumed session shows again, and a live unanswered one outlives the stal
   assert.deepEqual([sessions['claude:waiting'].life, sessions['claude:waiting'].state], ['live', 'needs-you']);
 });
 
-test('a required check buzzes once at a quiet stop while it still fails, and clears when it passes', () => {
+test('a required check still failing at a quiet stop marks the session failed without a push, and clears when it passes', () => {
   const sessions = {};
   reduce(sessions, hook('loop', 'SessionStart', 0));
   reduce(sessions, hook('loop', 'PostToolUseFailure', 1, { check: { ok: false } }));
@@ -542,7 +533,8 @@ test('a required check buzzes once at a quiet stop while it still fails, and cle
   reduce(sessions, hook('red', 'SessionStart', 0));
   reduce(sessions, hook('red', 'PostToolUseFailure', 1, { check: { ok: false } }));
   reduce(sessions, hook('red', 'Stop', 2, { background: 0 }));
-  assert.deepEqual([...incidentsOf(viewsOf(sessions)).values()].map(({ title }) => title), ['red failed']);
+  assert.deepEqual([sessions['claude:loop'].state, sessions['claude:red'].state], ['idle', 'failed']);
+  assert.deepEqual([...incidentsOf(viewsOf(sessions)).values()], []);
   reduce(sessions, hook('red', 'PostToolUse', 3, { check: { ok: true } }));
   assert.equal(sessions['claude:red'].state, 'working');
 });
@@ -598,38 +590,21 @@ test('a turn that ends with only artifact page sockets open goes idle, and one w
   assert.equal(sessions['claude:building'].state, 'working');
 });
 
-test('a turn that hands back a plan page pushes once that the session replied, without marking it as needing you', () => {
-  const sessions = {};
-  reduce(sessions, hook('pager', 'UserPromptSubmit', 0, { cwd: '/w/ellie', plans: ['/w/ellie/docs/plans/x.decisions.tsv'] }));
-  reduce(sessions, hook('pager', 'PostToolUse', 1, { cwd: '/w/ellie', tool: 'Artifact', published: true }));
-  reduce(sessions, hook('pager', 'Stop', 2, { cwd: '/w/ellie', lastMessage: 'Shipped the lean cards.\nDetails follow.' }));
-  assert.equal(sessions['claude:pager'].state, 'idle');
-  const incidents = [...incidentsOf(viewsOf(sessions)).values()];
-  assert.deepEqual(incidents.map(({ kind, title, message }) => ({ kind, title, message })), [{ kind: 'replied', title: 'pager replied', message: 'Shipped the lean cards.' }]);
-  reduce(sessions, hook('pager', 'UserPromptSubmit', 3, { cwd: '/w/ellie' }));
-  assert.deepEqual([...incidentsOf(viewsOf(sessions)).values()], []);
-});
-
-test('while you are at the Mac a push waits a minute and goes out only if it still stands, and away from it a push goes at once', async () => {
+test('while you are at the Mac no push goes out, and once you leave only what still stands does', async () => {
   const sessions = {};
   for (const id of ['held', 'answered']) {
     reduce(sessions, hook(id, 'SessionStart', 0));
     reduce(sessions, ask(id, 1));
   }
   const phone = emptyPhone();
-  const early = fakeClient();
-  await send(sessions, phone, early, 10, 60_000);
-  assert.deepEqual(pushes(early), []);
-  reduce(sessions, hook('answered', 'UserPromptSubmit', 20));
-  const late = fakeClient();
-  await send(sessions, phone, late, 62, 60_000);
-  await send(sessions, phone, late, 63, 60_000);
-  assert.deepEqual(pushes(late), ['push held needs you']);
-  reduce(sessions, hook('away', 'SessionStart', 70));
-  reduce(sessions, ask('away', 70));
+  const desk = fakeClient();
+  for (const seconds of [10, 300, 900]) await send(sessions, phone, desk, seconds, true);
+  assert.deepEqual(pushes(desk), []);
+  reduce(sessions, hook('answered', 'UserPromptSubmit', 950));
   const away = fakeClient();
-  await send(sessions, phone, away, 71);
-  assert.deepEqual(pushes(away), ['push away needs you']);
+  await send(sessions, phone, away, 1000);
+  await send(sessions, phone, away, 1001);
+  assert.deepEqual(pushes(away), ['push held needs you']);
 });
 
 test('the menubar opens a session in the desktop app by its host id, with its open plan page on a second row', () => {

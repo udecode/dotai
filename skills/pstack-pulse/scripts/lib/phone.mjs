@@ -5,9 +5,8 @@ const LIMITS = { push: { minute: 60, tick: 1 }, live: { minute: 300, tick: 8 }, 
 const CAPACITY_RETRY_MS = 10 * 60_000;
 const PAUSED_RETRY_MS = 60_000;
 const ACK_KEPT_MS = 7 * 24 * 3_600_000;
-const KIND_ORDER = { 'needs-you': 0, failed: 1, shipped: 2, replied: 3 };
-// What a sent push turns into once it no longer stands; a shipped push stays true, so it keeps its text.
-const CLEARED = { 'needs-you': 'No longer needs you', failed: 'Failure cleared', replied: 'Picked back up' };
+const KIND_ORDER = { 'needs-you': 0, failed: 1 };
+const CLEARED = { 'needs-you': 'No longer needs you', failed: 'Failure cleared' };
 
 export const emptyPhone = () => ({ streams: {}, rejected: {}, badge: null, acks: {}, budget: { push: [], live: [], badge: [] }, pausedUntil: { push: 0, live: 0, badge: 0 }, capacity: null });
 
@@ -127,7 +126,7 @@ export async function deliver(phone, desired, { client, clock = Date.now, save =
   }
 
   for (const id of desired.incidents.keys()) phone.acks[id] = { attempts: 0, ...phone.acks[id], liveAt: clock() };
-  const due = [...desired.incidents.values()].filter(({ id, at }) => !phone.acks[id].sentAt && clock() >= (phone.acks[id].retryAt ?? 0) && clock() - Date.parse(at) >= (desired.holdMs ?? 0)).sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || a.at.localeCompare(b.at));
+  const due = [...desired.incidents.values()].filter(({ id }) => !desired.atDesk && !phone.acks[id].sentAt && clock() >= (phone.acks[id].retryAt ?? 0)).sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || a.at.localeCompare(b.at));
   for (const incident of due) {
     if (!spend(phone, 'push', clock(), used)) break;
     const ack = phone.acks[incident.id];
