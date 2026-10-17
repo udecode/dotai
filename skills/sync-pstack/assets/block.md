@@ -35,6 +35,9 @@
 <!-- if delivery=pr -->
 - **Delivery.** A completed task runs its writing passes, then `{{lintFix}}` as its last check that edits code, then commits on a topic branch cut from `{{branch}}` in the current checkout and opens a PR into `{{branch}}` through pstack's Opening a PR playbook, whose worktree step never applies. Babysit and Shipping run when the user asks. Never push `{{branch}}` directly, merge or force-push unless the user asks. Record each commit SHA this run creates in its todo list or decision log as it lands.
 <!-- end -->
+<!-- if delivery=trunk -->
+- **Delivery.** Each task works in its own worktree cut from `origin/{{branch}}` and lands only through `node .agents/pstack/land.mjs`. Before the first edit, read `.agents/pstack/rules/land.md` in full.
+<!-- end -->
 <!-- if delivery=user -->
 <!-- if !pushBranches -->
 - **Delivery.** The user owns commits. A completed task runs its writing passes, then `{{lintFix}}` as its last check that edits code, and leaves its changes in the working tree. Commit, push or open a PR only when the user's own message asks for it. Approving an agent's plan is not commit authority, and no plan or step list proposes a commit.

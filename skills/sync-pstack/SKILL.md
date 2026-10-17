@@ -84,7 +84,7 @@ A change to the shared source syncs every managed project and installs each new 
    - **Error.** A config the template cannot render. Fix the config, then rerun that project.
 5. Run `user-pin --tag <tag>`, then the printed commands from the home directory. Codex asks to trust the pstack hook again when its file changed.
 6. Verify each synced project with `verify`, and smoke-test one project per delivery mode in use, judged as in Setup step 6. Smoke one plain prompt for each playbook whose `when` or steps changed, one for each cut entry point and one for each new or changed gate, not a fixed set. When `CHANGES.md` adds or changes a skill or principle, also run [Audit](#audit) on each synced project, which reads pstack at the new pin. Judge first the project and user-scope skills whose job that skill covers.
-7. Deliver each project on its branch by its own delivery answer, committing only the files the sync wrote. A `push` project commits and pushes the sync, a `user` project leaves the change for its owner, and a `pr` project opens a PR. Each commit body names the runtimes and committers that gain or lose what, as Setup step 7 says.
+7. Deliver each project on its branch by its own delivery answer, committing only the files the sync wrote. A `push` project commits and pushes the sync, a `user` project leaves the change for its owner, a `pr` project opens a PR, and a `trunk` project runs the sync in a worktree cut from `origin/<branch>` and lands it with `land.mjs`. Each commit body names the runtimes and committers that gain or lose what, as Setup step 7 says.
 
 ## Compare
 

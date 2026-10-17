@@ -15,6 +15,9 @@ This file says how a panel, `architect` or arena runs, and how a panel reviews a
 <!-- if delivery=user -->
   Review this task's own diff, never the whole working tree. Record the run's base commit at intake, because the owner can commit mid-run. The first round packages the task's own hunks since that base plus the full text of its untracked task files, leaving out other sessions' hunks in shared files; a later round sends only what changed since the last packet a seat reviewed, as this task's hunks of the diff between the two frozen commits. Check the newest commit before each round and each proof.
 <!-- end -->
+<!-- if delivery=trunk -->
+  Review the worktree's diff against `origin/{{branch}}`, with its uncommitted work, before land.mjs pushes it.
+<!-- end -->
 <!-- if delivery!=pr -->
   Review a PR's branch diff against its base.
 <!-- end -->

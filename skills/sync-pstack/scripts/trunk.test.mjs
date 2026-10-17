@@ -1,0 +1,259 @@
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+const HELPERS = join(dirname(fileURLToPath(import.meta.url)), '../assets/pstack');
+const ENV = {
+  ...process.env,
+  GIT_CONFIG_GLOBAL: '/dev/null',
+  GIT_CONFIG_NOSYSTEM: '1',
+  GIT_AUTHOR_NAME: 't',
+  GIT_AUTHOR_EMAIL: 't@t',
+  GIT_COMMITTER_NAME: 't',
+  GIT_COMMITTER_EMAIL: 't@t',
+  GIT_EDITOR: 'true',
+};
+const GOOD = 'feat(a): change a\n\nWhy a changes.\n\nBeyond the ask: none';
+
+const git = (cwd, ...args) => {
+  const run = spawnSync('git', args, { cwd, encoding: 'utf8', env: ENV });
+  assert.equal(run.status, 0, `git ${args.join(' ')}: ${run.stderr}`);
+  return run.stdout.trim();
+};
+const helper = (name, cwd, args = [], env = {}) =>
+  spawnSync(process.execPath, [join(HELPERS, name), ...args], { cwd, encoding: 'utf8', env: { ...ENV, ...env } });
+
+// A bare remote whose next and main hold one base commit, and a clone on a
+// task branch cut from origin/next, as a session's worktree would be. With
+// `lint`, the config's lintFix uppercases each file it is given.
+function trunk({ lint = false } = {}) {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-trunk-'));
+  const remote = join(dir, 'remote.git');
+  const clone = join(dir, 'clone');
+  git(dir, 'init', '--quiet', '--bare', '--initial-branch=main', remote);
+  git(dir, 'clone', '--quiet', remote, clone);
+  mkdirSync(join(clone, '.agents/pstack'), { recursive: true });
+  cpSync(join(HELPERS, 'guard.mjs'), join(clone, '.agents/pstack/guard.mjs'));
+  const fix = join(dir, 'fix.mjs');
+  writeFileSync(fix, "import { readFileSync, writeFileSync } from 'node:fs';\nfor (const file of process.argv.slice(2)) writeFileSync(file, readFileSync(file, 'utf8').toUpperCase());\n");
+  const config = { branch: 'next', protected: 'main', plans: 'docs/plans', ...(lint ? { lintFix: `node ${fix}` } : {}) };
+  writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify(config));
+  writeFileSync(join(clone, '.gitignore'), '.env\n.env.local\nnode_modules\n');
+  writeFileSync(join(clone, 'a.txt'), 'one\n');
+  writeFileSync(join(clone, 'b.txt'), 'one\n');
+  git(clone, 'add', '--all');
+  git(clone, 'commit', '--quiet', '-m', 'base');
+  git(clone, 'push', '--quiet', 'origin', 'HEAD:main', 'HEAD:next');
+  git(clone, 'fetch', '--quiet', 'origin');
+  git(clone, 'switch', '--quiet', '-c', 'task', 'origin/next');
+  const message = (text) => {
+    const file = join(dir, `message-${Math.random().toString(36).slice(2)}`);
+    writeFileSync(file, text);
+    return file;
+  };
+  // Lands a commit on origin/next from a second clone, as another session would.
+  const elsewhere = (path, text, subject) => {
+    const other = join(dir, `other-${Math.random().toString(36).slice(2)}`);
+    git(dir, 'clone', '--quiet', '--branch', 'next', remote, other);
+    writeFileSync(join(other, path), text);
+    git(other, 'add', '--all');
+    git(other, 'commit', '--quiet', '-m', subject);
+    return other;
+  };
+  return { dir, remote, clone, base: git(remote, 'rev-parse', 'next'), message, elsewhere };
+}
+
+test('land squashes the task, lints its changed files and pushes next as one commit in push mode', () => {
+  const { remote, clone, base, message } = trunk({ lint: true });
+  git(clone, 'config', 'pstack.delivery', 'push');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  git(clone, 'commit', '--quiet', '-am', 'wip one');
+  writeFileSync(join(clone, 'e.txt'), 'more\n');
+  git(clone, 'add', 'e.txt');
+  git(clone, 'commit', '--quiet', '-m', 'wip two');
+  writeFileSync(join(clone, 'c.txt'), 'new\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', 'test -f c.txt']);
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(git(remote, 'rev-list', '--count', `${base}..next`), '1', 'two commits and an untracked file land as one commit');
+  assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), GOOD);
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'TWO', 'the lint fix of a changed file lands in the commit');
+  assert.equal(git(remote, 'show', 'next:e.txt'), 'MORE');
+  assert.equal(git(remote, 'show', 'next:c.txt'), 'NEW');
+  assert.equal(git(remote, 'show', 'next:b.txt'), 'one', 'an unchanged file is not linted');
+  assert.equal(git(remote, 'rev-parse', 'main'), base, 'main never moves');
+  assert.equal(git(clone, 'status', '--porcelain'), '');
+});
+
+test('land rebases and pushes again when next moves while its checks run', () => {
+  const { remote, clone, message, elsewhere } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const other = elsewhere('d.txt', 'theirs\n', 'docs(d): land elsewhere');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', `git -C ${other} push --quiet origin HEAD:next`]);
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(run.stdout, /origin\/next moved; rebasing and pushing again \(retry 1 of 3\)/);
+  assert.deepEqual(git(remote, 'log', '--format=%s', 'main..next').split('\n'), ['feat(a): change a', 'docs(d): land elsewhere']);
+});
+
+test('land stops on a rebase conflict with the conflicting paths, and reruns without --message once it is resolved', () => {
+  const { remote, clone, message, elsewhere } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  git(elsewhere('a.txt', 'theirs\n', 'fix(a): land elsewhere'), 'push', '--quiet', 'origin', 'HEAD:next');
+  writeFileSync(join(clone, 'a.txt'), 'mine\n');
+
+  const stopped = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  assert.equal(stopped.status, 1);
+  assert.match(stopped.stderr, /conflicts in:\n {2}a\.txt\n/);
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'theirs');
+  assert.match(helper('land.mjs', clone).stderr, /a rebase or merge is in progress/);
+
+  writeFileSync(join(clone, 'a.txt'), 'both\n');
+  git(clone, 'add', 'a.txt');
+  git(clone, 'rebase', '--continue');
+  const landed = helper('land.mjs', clone);
+  assert.equal(landed.status, 0, landed.stderr);
+  assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), GOOD);
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'both');
+});
+
+test('land pushes a topic branch and opens a PR into next when the clone has no push setting', () => {
+  const { dir, remote, clone, base, message } = trunk();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'gh'), `#!/bin/sh\nprintf '%s\\n' "$@" > '${dir}/gh-args'\ncp "\${10}" '${dir}/gh-body'\necho https://example.test/pull/7\n`);
+  chmodSync(join(bin, 'gh'), 0o755);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD)], { PATH: `${bin}:${process.env.PATH}` });
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(git(remote, 'rev-parse', 'next'), base, 'next does not move in PR mode');
+  assert.equal(git(remote, 'log', '-1', '--format=%s', 'task'), 'feat(a): change a');
+  const args = readFileSync(join(dir, 'gh-args'), 'utf8').split('\n');
+  assert.deepEqual(args.slice(0, 9), ['pr', 'create', '--base', 'next', '--head', 'task', '--title', 'feat(a): change a', '--body-file']);
+  assert.equal(readFileSync(join(dir, 'gh-body'), 'utf8'), 'Why a changes.\n\nBeyond the ask: none\n');
+  assert.match(run.stdout, /https:\/\/example\.test\/pull\/7/);
+});
+
+test('land refuses a message without a Conventional subject or a Beyond the ask line and changes nothing', () => {
+  const { remote, clone, base, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  const head = git(clone, 'rev-parse', 'HEAD');
+
+  const noBeyond = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\nWhy a changes.\n')]);
+  assert.equal(noBeyond.status, 1);
+  assert.match(noBeyond.stderr, /the body has no `Beyond the ask:` line/);
+  const badSubject = helper('land.mjs', clone, ['--message', message('Change a.\n\nBeyond the ask: none\n')]);
+  assert.equal(badSubject.status, 1);
+  assert.match(badSubject.stderr, /is not one Conventional Commit/);
+  assert.equal(git(remote, 'rev-parse', 'next'), base);
+  assert.equal(git(clone, 'rev-parse', 'HEAD'), head);
+  assert.equal(git(clone, 'status', '--porcelain'), 'M a.txt');
+});
+
+test('review lists commits since the reviewed ref grouped by plan link, and --mark moves the ref', () => {
+  const { clone } = trunk();
+  assert.match(helper('review.mjs', clone, ['--mark']).stdout, /Marked origin\/next at \w+ as reviewed/);
+  const land = (file, subject, body) => {
+    writeFileSync(join(clone, file), `${subject}\n`);
+    git(clone, 'add', file);
+    git(clone, 'commit', '--quiet', '-m', subject, '-m', body);
+  };
+  land('one.txt', 'feat(a): one', 'Plan: docs/plans/2026-10-17-x.md\n\nBeyond the ask: none');
+  land('two.txt', 'fix(b): two', 'No plan here.\n\nBeyond the ask: renamed c');
+  land('three.txt', 'docs(a): three', 'See docs/plans/2026-10-17-x.md.\n\nBeyond the ask: none');
+  git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
+
+  const listed = helper('review.mjs', clone).stdout;
+  assert.match(listed, /^3 commit\(s\) on origin\/next since refs\/pstack\/reviewed/);
+  assert.match(
+    listed,
+    /\n\ndocs\/plans\/2026-10-17-x\.md\n {2}\w+ feat\(a\): one\n {4}Beyond the ask: none\n {2}\w+ docs\(a\): three\n {4}Beyond the ask: none\n\nNo plan link\n {2}\w+ fix\(b\): two\n {4}Beyond the ask: renamed c\n/
+  );
+  helper('review.mjs', clone, ['--mark']);
+  assert.match(helper('review.mjs', clone).stdout, /^No commits on origin\/next since refs\/pstack\/reviewed/);
+});
+
+test('guard denies an agent force-push or delete of next or main and passes every other command', () => {
+  const { clone } = trunk();
+  const guard = (command) => {
+    const run = spawnSync(process.execPath, [join(clone, '.agents/pstack/guard.mjs')], {
+      input: JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd: clone }),
+      encoding: 'utf8',
+      env: ENV,
+    });
+    assert.equal(run.status, 0, run.stderr);
+    return run.stdout ? JSON.parse(run.stdout).hookSpecificOutput : null;
+  };
+  const denied = [
+    'git push --force origin next',
+    'git push -f origin HEAD:main',
+    'git push --force-with-lease origin HEAD:refs/heads/next',
+    'git push origin +HEAD:next',
+    'git push -uf origin next',
+    'cd x && timeout 60 git -C . push origin next --force',
+    "bash -c 'git push -f origin main'",
+    'echo "$(git push -f origin next)"',
+    'git push origin --delete next',
+    'git push origin :main',
+  ];
+  for (const command of denied) {
+    const decision = guard(command);
+    assert.equal(decision?.permissionDecision, 'deny', command);
+    assert.ok(decision.permissionDecisionReason.includes(command), `the reason quotes the command for the owner: ${command}`);
+  }
+  const passed = [
+    'git push origin HEAD:next',
+    'git push -f origin task',
+    'git push --force origin HEAD',
+    "git commit -m 'never git push -f origin next'",
+    "cat <<'EOF'\ngit push -f origin next\nEOF",
+  ];
+  for (const command of passed) assert.equal(guard(command), null, command);
+  git(clone, 'switch', '--quiet', 'next');
+  assert.equal(guard('git push -f')?.permissionDecision, 'deny', 'a push with no refspec targets the current branch');
+});
+
+test('setup copies env files and installs dependencies in a new worktree, once', () => {
+  const { dir, clone } = trunk();
+  mkdirSync(join(clone, 'apps/web'), { recursive: true });
+  writeFileSync(join(clone, 'apps/web/keep.txt'), 'x\n');
+  git(clone, 'add', '--all');
+  git(clone, 'commit', '--quiet', '-m', 'app');
+  writeFileSync(join(clone, '.env'), 'A=1\n');
+  writeFileSync(join(clone, 'apps/web/.env.local'), 'B=2\n');
+  const tree = join(dir, 'tree');
+  git(clone, 'worktree', 'add', '--quiet', '--detach', tree);
+
+  const first = helper('setup.mjs', tree, ['--install', 'mkdir node_modules && touch node_modules/ok']);
+  assert.equal(first.status, 0, first.stderr);
+  assert.match(first.stdout, /copied \.env, apps\/web\/\.env\.local from /);
+  assert.equal(readFileSync(join(tree, 'apps/web/.env.local'), 'utf8'), 'B=2\n');
+  assert.ok(existsSync(join(tree, 'node_modules/ok')), 'the install command ran');
+  assert.equal(helper('setup.mjs', tree, ['--install', 'false']).stdout, '', 'a set-up worktree copies and installs nothing');
+});
+
+test('setup fast-forwards the main checkout only when no local edit touches an incoming path', () => {
+  const { clone, elsewhere } = trunk();
+  git(clone, 'switch', '--quiet', 'next');
+  git(elsewhere('a.txt', 'theirs\n', 'fix(a): land elsewhere'), 'push', '--quiet', 'origin', 'HEAD:next');
+  const head = git(clone, 'rev-parse', 'HEAD');
+  writeFileSync(join(clone, 'a.txt'), 'local\n');
+
+  assert.match(helper('setup.mjs', clone).stdout, /1 commit\(s\) on origin\/next not pulled, because local edits touch a\.txt/);
+  assert.equal(git(clone, 'rev-parse', 'HEAD'), head);
+
+  git(clone, 'checkout', '--', 'a.txt');
+  writeFileSync(join(clone, 'b.txt'), 'staged\n');
+  git(clone, 'add', 'b.txt');
+  writeFileSync(join(clone, 'z.txt'), 'untracked\n');
+  assert.match(helper('setup.mjs', clone).stdout, /fast-forwarded next by 1 commit/);
+  assert.equal(readFileSync(join(clone, 'a.txt'), 'utf8'), 'theirs\n');
+  assert.equal(git(clone, 'status', '--porcelain'), 'M  b.txt\n?? z.txt');
+});

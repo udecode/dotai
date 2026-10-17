@@ -33,8 +33,11 @@ const CONFIG = '.agents/pstack.json';
 const HELPER_DIR = '.agents/pstack';
 const CORE_HELPERS = ['codex-browser.mjs', 'codex-build.md', 'codex-isolation.mjs', 'cross.mjs', 'cua-steps.mjs', 'freeze.mjs', 'head.mjs', 'lead.mjs', 'mutate.mjs', 'proof.mjs', 'reply.mjs', 'reread.mjs'];
 const SECTION_HELPERS = { plans: ['decisions-check.mjs', 'levels.mjs', 'plan-open.mjs', 'plan-page.mjs', 'status.mjs', 'tasks.mjs'] };
+// Installed only for that delivery, and removed when a project leaves it, like
+// a rule file whose RULE_FILES gate is `delivery=<mode>`.
+const DELIVERY_HELPERS = { trunk: ['guard.mjs', 'land.mjs', 'review.mjs', 'setup.mjs'] };
 const RULES = join(HELPERS, 'rules');
-export const RULE_FILES = { 'browser.md': 'browser', 'chips.md': 'plans', 'close.md': null, 'codex.md': null, 'long-runs.md': 'long-runs', 'pages.md': 'plans', 'panel.md': null, 'reflect.md': null, 'tests.md': 'tests', 'time.md': null, 'title.md': null, 'trails.md': 'plans' };
+export const RULE_FILES = { 'browser.md': 'browser', 'chips.md': 'plans', 'close.md': null, 'codex.md': null, 'land.md': 'delivery=trunk', 'long-runs.md': 'long-runs', 'pages.md': 'plans', 'panel.md': null, 'reflect.md': null, 'tests.md': 'tests', 'time.md': null, 'title.md': null, 'trails.md': 'plans' };
 const SECTION = /^<!-- section (\S+) -->$/u;
 const CONTINUATION = /^ {2}[^\s-]/u;
 const PLUGIN = 'pstack@pstack-claude';
@@ -43,7 +46,7 @@ const REPO = 'michael-denyer/pstack-claude';
 const BEGIN =
   '<!-- pstack:begin (rendered by the sync-pstack skill from udecode/dotai; edit that source, or add a rule outside this block) -->';
 const END = '<!-- pstack:end -->';
-const DELIVERIES = ['push', 'pr', 'user'];
+const DELIVERIES = ['push', 'pr', 'user', 'trunk'];
 const REQUIRED = ['tag', 'branch', 'delivery', 'lintFix', 'check'];
 const DAY = 24 * 60 * 60 * 1000;
 const SWITCHES = { '--force': 'force', '--dry-run': 'dryRun', '--json': 'json', '--offline': 'offline', '--allow-dirty': 'allowDirty' };
@@ -305,7 +308,7 @@ function validate(config) {
   const sections = new Set(sharedTemplates().flatMap(sectionsOf));
   const unknown = (config.skip ?? []).filter((id) => !sections.has(id));
   if (unknown.length > 0) throw new Error(`skip names unknown sections: ${unknown.join(', ')} (sections: ${[...sections].join(', ')})`);
-  const orphans = Object.values(RULE_FILES).filter((id) => id !== null && !sections.has(id));
+  const orphans = Object.values(RULE_FILES).filter((id) => id !== null && !id.startsWith('delivery=') && !sections.has(id));
   if (orphans.length > 0) throw new Error(`RULE_FILES names sections no template holds: ${orphans.join(', ')}`);
   if (config.pushBranches !== undefined && typeof config.pushBranches !== 'boolean') throw new Error('pushBranches must be true or false');
   if (config.pushBranches && config.delivery !== 'user') throw new Error('pushBranches applies only to user delivery');
@@ -490,9 +493,11 @@ export function apply(root, { tag, force = false, write = true } = {}) {
   }
 
   const skipped = new Set(config.skip ?? []);
+  for (const delivery of DELIVERIES) if (delivery !== config.delivery) skipped.add(`delivery=${delivery}`);
   const groups = [
     [null, CORE_HELPERS, false],
     ...Object.entries(SECTION_HELPERS).map(([section, names]) => [section, names, false]),
+    ...Object.entries(DELIVERY_HELPERS).map(([delivery, names]) => [`delivery=${delivery}`, names, false]),
     ...Object.entries(RULE_FILES).map(([name, section]) => [section, [`rules/${name}`], true]),
   ];
   for (const [section, names, rule] of groups) {
@@ -1151,7 +1156,7 @@ function preflight(root, { allowDirty }) {
   const config = readJson(join(root, CONFIG));
   const refusals = [];
   const branch = git(root, 'branch', '--show-current');
-  if (config.delivery !== 'pr' && branch !== config.branch) {
+  if (!['pr', 'trunk'].includes(config.delivery) && branch !== config.branch) {
     refusals.push({ path: 'git', reason: `the checkout is on ${branch || 'a detached HEAD'}, not ${config.branch}` });
   }
   const dirty = allowDirty ? '' : gitRaw(root, 'status', '--porcelain', '--', 'AGENTS.md', CONFIG, HELPER_DIR, '.claude/settings.json');

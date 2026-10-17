@@ -29,7 +29,7 @@ The interview is the first step the user sees in a setup. Prepare it from eviden
 
 | # | Decision | Options, reference first | Evidence | Sets |
 | --- | --- | --- | --- | --- |
-| 1 | How finished work lands | Push `<branch>` after each task. A PR into `<branch>` per change, from a topic branch. The user commits, and the agent leaves changes in the working tree. | Commit and PR rules in `AGENTS.md`; Stop hooks that stage paths; `merges90d`; `authors90d` | `delivery`, `branch`, `protected` |
+| 1 | How finished work lands | Push `<branch>` after each task. A PR into `<branch>` per change, from a topic branch. The user commits, and the agent leaves changes in the working tree. Each session lands its task from its own worktree with `land.mjs`, which pushes `<branch>` in a clone whose `git config pstack.delivery` is `push` and opens a PR otherwise. | Commit and PR rules in `AGENTS.md`; Stop hooks that stage paths; `merges90d`; `authors90d` | `delivery`, `branch`, `protected` |
 | 2 | Who owns engineering intake, asked only when a local controller exists (a task-like rule that owns intake, implementation and proof, a standing goal controller, an orchestrator) | poteto-mode owns intake and the controller is retired. The controller stays as a typed entry point that hands work to poteto-mode. The controller stays the owner and pstack skills are methods it selects. | The routing table in `AGENTS.md`; `typed.counts` for the controller | Adaptation only |
 | 3 | Tests | The shared Tests rule: pstack's test-first bug fixes without redundant tests. Keep the project's test rule. | The project's test rule, quoted | `skip: ["tests"]` |
 | 4 | Review | The reviews list: the work that gets a panel, `architect` or an arena without asking, one row each, drafted from the codebase (a PR, high-risk code such as auth, data writes, migrations, payments or customer sends, a public API or architecture plan). Everything else waits for the user's "panel", "arena" or "full". An empty list: every panel waits for the user. | Existing review rules | `reviews`, `skip: ["review"]` |
@@ -87,7 +87,7 @@ Write `.agents/pstack.json`. The script adds `synced` on the first apply. This e
 | `tag` | The pstack-claude tag every pin uses. Required. |
 | `branch` | The branch agents work on and deliver to; in `pr` mode, the PR base. Required. |
 | `protected` | A branch agents never edit or push without a request, usually the default branch. It must differ from `branch`; leave it out when agents work on the default branch. |
-| `delivery` | `push`, `pr` or `user`. Required. |
+| `delivery` | `push`, `pr`, `user` or `trunk`. Required. `trunk` installs `land.mjs`, `review.mjs`, `guard.mjs`, `setup.mjs` and `rules/land.md`; the project wires `guard.mjs` as a Claude Code `PreToolUse` hook on `Bash` and `setup.mjs` as a `SessionStart` hook in its `.claude/settings.json`. |
 | `pushBranches` | `true` in `user` delivery to let the lead commit and push every branch except `branch` and `protected`, a PR head branch included. Optional; off by default. |
 | `lintFix` | The last check a completed task runs. Required. |
 | `check` | The broad check for a settled change, used by the Tests and Commit rules. Required. |
