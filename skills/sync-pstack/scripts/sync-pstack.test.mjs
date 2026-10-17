@@ -712,6 +712,20 @@ test('cross passes a prompt that starts with dashes as the prompt, and gives up 
   assert.ok(Date.now() - started < 15000, `took ${Date.now() - started} ms`);
 });
 
+test('cross reports why a runtime failed when it prints the reason on stdout', () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'claude'), "#!/bin/sh\necho \"You've hit your weekly limit\"\nexit 1\n", { mode: 0o755 });
+  const failed = spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'claude', 'review it'], {
+    cwd: dir,
+    encoding: 'utf8',
+    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '' },
+  });
+  assert.equal(failed.status, 1);
+  assert.match(failed.stderr, /^exit 1: You've hit your weekly limit$/mu);
+});
+
 test('cross prints its usage for --help and refuses an unknown flag, launching no runtime', () => {
   const { dir, home } = sandbox();
   const bin = join(dir, 'bin');
@@ -1717,6 +1731,36 @@ test("plan-page keeps another plan's unheaded question beside the rendered plan'
   assert.equal(result.status, 0, result.stderr);
   const text = read(root, 'docs/plans/artifacts/topics/workflow.html').replace(/<[^>]+>/gu, '');
   assert.match(text, /from Waiting[\s\S]*?Keep the old pages\?/u, "the newer plan's question shows under its name");
+});
+
+test("plan-page lists another plan's unheaded question after the rendered plan's question cards", () => {
+  const { dir, run } = sandbox();
+  const topic = '# Workflow\n\n## Main changes\n\n- Pages follow subjects.\n';
+  const built = '# Built\n\nStatus: executed\nTopic: workflow\n\n' + brief() + '## Open questions\n\n' + MEMO + '\n## Close\n\n- Landed the renderer move.\n';
+  const waiting = '# Waiting\n\nStatus: planning, waiting for the owner\nTopic: workflow\n\n## Open questions\n\n- Keep the old pages?\n';
+  const root = project(dir, 'app', { files: { 'docs/plans/topics/workflow.md': topic, 'docs/plans/2026-01-01-built.md': built, 'docs/plans/2026-02-01-waiting.md': waiting } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-built.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const text = read(root, 'docs/plans/artifacts/topics/workflow.html').replace(/<[^>]+>/gu, '');
+  assert.ok(text.indexOf('Build the memo now?') < text.indexOf('Keep the old pages?'), "the rendered plan's question comes before the other plan's");
+});
+
+test('plan-page shows the Status of another open plan that waits on the owner without an Open questions section', () => {
+  const { dir, run } = sandbox();
+  const topic = '# Workflow\n\n## Main changes\n\n- Pages follow subjects.\n';
+  const held = '# Held\n\nStatus: waiting: built, uncommitted until you say push\nTopic: workflow\n\n## Main changes\n\n- Moved the rail.\n';
+  const shipped = '# Shipped\n\nStatus: executed: waiting on your commit\nTopic: workflow\n\n## Main changes\n\n- Moved the index.\n';
+  const built = '# Built\n\nStatus: executed\nTopic: workflow\n\n' + brief() + '## Main changes\n\n- Moved the renderer.\n\n## Close\n\n- Landed the renderer move.\n';
+  const files = { 'docs/plans/topics/workflow.md': topic, 'docs/plans/2026-01-01-held.md': held, 'docs/plans/2026-01-15-shipped.md': shipped, 'docs/plans/2026-02-01-built.md': built };
+  const root = project(dir, 'app', { files });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-02-01-built.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const html = read(root, 'docs/plans/artifacts/topics/workflow.html');
+  const start = html.indexOf('<section class="needs"');
+  assert.ok(start >= 0, 'the page has a Needs you section');
+  const needs = html.slice(start, html.indexOf('</section>', start)).replace(/<[^>]+>/gu, '');
+  assert.match(needs, /from Held[\s\S]*?until you say push/u, "the held plan's Status shows under its name");
+  assert.ok(!needs.includes('waiting on your commit'), "a finished plan's Status stays off Needs you");
 });
 
 test("plan-page names the plan of another plan's unheaded question when no question on the page has a heading", () => {
