@@ -3733,36 +3733,6 @@ test('a session cards only the tasks it owns, and chips all takes the ones no li
   assert.equal(chips('all').status, 2, 'chips all needs the session that takes the tasks');
 });
 
-test('chips wait exits once a task lands or turns ready, and at its timeout', async () => {
-  const { chip, env, offer, root } = chipLedger();
-  assert.equal(offer('task_a1 Fix the parser', 'src/p.ts', 'topic: parser').status, 0);
-  assert.equal(offer('task_b1 Use the parser', 'src/q.ts', 'topic: parser-use; waits: task:task_a1').status, 0);
-  assert.equal(chip('task_a1 Fix the parser', 'started').status, 0);
-  const waiter = spawn(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'chips', 'wait', '--every', '0.1', '--timeout', '1'], { cwd: root, env });
-  let out = '';
-  waiter.stdout.on('data', (chunk) => {
-    out += chunk;
-  });
-  const exited = new Promise((done) => waiter.on('exit', done));
-  await new Promise((done) => setTimeout(done, 500));
-  assert.equal(chip('task_a1 Fix the parser', 'landed').status, 0);
-  assert.equal(await exited, 0);
-  assert.match(out, /Landed: task_a1\. Ready with no card: task_b1\. Run the chips sweep\./);
-  const idle = spawnSync(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'chips', 'wait', '--every', '0.1', '--timeout', '0.01'], { cwd: root, env, encoding: 'utf8' });
-  assert.equal(idle.status, 0, idle.stderr);
-  assert.match(idle.stdout, /No task landed, started or turned ready before the timeout/);
-});
-
-test('chips wait takes a timeout over an hour, because a wake signal is not under the time budget', async () => {
-  const { env, offer, root } = chipLedger();
-  assert.equal(offer('task_a1 Fix the parser', 'src/p.ts', 'topic: parser').status, 0);
-  const waiter = spawn(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'chips', 'wait', '--every', '0.1', '--timeout', '120'], { cwd: root, env });
-  const exited = new Promise((done) => waiter.on('exit', (code) => done(code)));
-  const still = await Promise.race([exited, new Promise((done) => setTimeout(() => done('running'), 800))]);
-  waiter.kill();
-  assert.equal(still, 'running');
-});
-
 test('a fast mark shows on a plain fix, refuses design judgment, and drops when a fold or dup raises the task', () => {
   const { chip, chips, offer } = chipLedger();
   const link = 'task_f1 Fix the badge link';
@@ -5056,41 +5026,16 @@ test('a task that holds a card takes an updated row that only changes its effort
   assert.match(chip(parser, 'updated', 'effort: xhigh; writes: src/p.ts, src/q.ts').stderr, /task_c1 holds card c1, which cannot change/);
 });
 
-test("chips wait names a card session this session offered once it starts, with its card's effort and its brief's", async () => {
-  const { chip, env, offer, root } = chipLedger();
-  const parser = 'task_s1 Fix the parser (xhigh)';
+test("an effort change on a carded task lists its card in the holder's withdrawal pass, then the card pass offers it again", () => {
+  const { chip, chips, offer } = chipLedger();
+  const parser = 'task_c1 Fix the parser (xhigh)';
   assert.equal(offer(parser, 'src/p.ts', 'topic: parser; card: c1; session: s1').status, 0);
-  assert.equal(chip(parser, 'updated', 'effort: high').status, 0, 'the card keeps the xhigh it was offered at');
-  assert.equal(offer('task_s2 Fix the lexer', 'src/l.ts', 'topic: lexer; card: c2; session: s9').status, 0);
-  const waiter = spawn(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'chips', 'wait', '--session', 's1', '--every', '0.1', '--timeout', '1'], { cwd: root, env });
-  let out = '';
-  waiter.stdout.on('data', (chunk) => {
-    out += chunk;
-  });
-  const exited = new Promise((done) => waiter.on('exit', done));
-  await new Promise((done) => setTimeout(done, 500));
-  assert.equal(chip('task_s2 Fix the lexer', 'started', 'session: s3').status, 0);
-  await new Promise((done) => setTimeout(done, 400));
-  assert.equal(out, '', "another session's card starting wakes nobody here");
-  assert.equal(chip(parser, 'started', 'session: s2').status, 0);
-  assert.equal(await exited, 0);
-  assert.match(out, /^Started: task_s1 in session s2, carded at xhigh, brief at high\. Lower to its brief's effort, with the session tool, each started session above it that still runs at its card's effort, or at yours when the suggest tool took no effort; a session at any other effort is the owner's choice\. Then run the chips sweep\.$/m);
+  assert.doesNotMatch(chips('--session', 's1').stdout, /withdraw task_c1/, 'a card at its task effort stays');
+  assert.equal(chip(parser, 'updated', 'effort: high').status, 0);
+  const holder = chips('--session', 's1').stdout;
+  assert.match(holder, /Do, withdrawal pass[\s\S]*withdraw task_c1's card c1: it was offered at xhigh and the task is at high now/);
+  assert.doesNotMatch(chips('--session', 's2').stdout, /withdraw task_c1/, 'only the session holding the card can withdraw it');
+  assert.equal(chip(parser, 'uncarded', 'card: c1').status, 0);
+  assert.match(chips('--session', 's1').stdout, /Do, card pass[\s\S]*card task_c1:/);
 });
 
-test("chips wait gives a carded row's card the effort its task had when the card landed", async () => {
-  const { chip, env, offer, root } = chipLedger();
-  const parser = 'task_s1 Fix the parser';
-  assert.equal(offer(parser, 'src/p.ts', 'topic: parser').status, 0);
-  assert.equal(chip(parser, 'carded', 'card: c1; session: s1').status, 0);
-  assert.equal(chip(parser, 'updated', 'effort: xhigh').status, 0);
-  const waiter = spawn(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'chips', 'wait', '--session', 's1', '--every', '0.1', '--timeout', '1'], { cwd: root, env });
-  let out = '';
-  waiter.stdout.on('data', (chunk) => {
-    out += chunk;
-  });
-  const exited = new Promise((done) => waiter.on('exit', done));
-  await new Promise((done) => setTimeout(done, 500));
-  assert.equal(chip(parser, 'started', 'session: s2').status, 0);
-  assert.equal(await exited, 0);
-  assert.match(out, /^Started: task_s1 in session s2, carded at high, brief at xhigh\./m, 'a raise after the card leaves the session at its card effort, below the brief');
-});
