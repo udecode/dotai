@@ -24,6 +24,7 @@ The interview is the first step the user sees in a setup. Prepare it from eviden
 - Recommend the reference setup (Ellie's answers, listed first in each row below) unless the project's evidence argues otherwise. Cite that evidence in the option description: the rule's own words, the hook, typed counts, merge counts.
 - Ask when the project's current rule conflicts with the recommendation, or when no evidence decides it and either answer costs something. Otherwise apply the recommendation and list it in the setup summary with the one word that reverses it.
 - Always ask about delivery. It changes the most text, and it is the question the owner cares about most. Name the working branch and the protected branch in it, so the answer confirms both. `discover` guesses the protected branch from the origin's default branch, which is wrong when the origin is another local checkout.
+- On a `trunk` answer, also ask whether this clone pushes `<branch>` directly, recommending no. Run `git config pstack.delivery push` in this clone only on yes. The setting lives in this clone's git config and never in the repository, so every other clone opens PRs, the default.
 
 ## Questions
 

@@ -5,7 +5,6 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import vm from 'node:vm';
 import { hintModes, overrideAnchors, render, sharedTemplates, unmarkedRules } from './sync-pstack.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -5051,9 +5050,6 @@ test('plan-page --pr links a plan the current commit holds and names an uncommit
   assert.ok(read(root, 'docs/plans/artifacts/pr.pr.md').includes(`\n## Plans\n\n- [PR](https://github.com/o/r/blob/${sha}/docs/plans/pr.md)\n- A (\`docs/plans/a.md\`)\n`));
 });
 
-const PAGE_STOP = join(HELPERS, 'page-stop.mjs');
-const helper = (name) => import(pathToFileURL(join(HELPERS, name)).href);
-const DATA_BLOCK = /<script type="application\/json" id="plan-page-data">([\s\S]*?)<\/script>/u;
 const STAGE_TOPIC = '# Stage\n\nPage: https://claude.ai/artifact/stage\n\n## Main changes\n\n- Pages go live.\n';
 const stagePlan = (title, status, extra = '') => `# ${title}\n\nStatus: ${status}\nTopic: stage\n\n## Main changes\n\n- ${title}.\n${brief()}${extra}`;
 const gitAt = (root) => (...args) => spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { cwd: root, encoding: 'utf8' });
@@ -5073,89 +5069,6 @@ const worktree = (git, dir, name) => {
   return realpathSync(join(dir, name));
 };
 
-const claudeEnv = (env) => {
-  const next = { ...env, CLAUDECODE: '1' };
-  delete next.CLAUDE_CODE_SESSION_ID;
-  delete next.CODEX_SESSION_ID;
-  return next;
-};
-const pageStop = (cwd, env, ...args) => spawnSync(process.execPath, [PAGE_STOP, ...args], { cwd, encoding: 'utf8', env });
-const sent = (result) =>
-  result.stdout
-    .split('\n')
-    .filter((line) => /^Artifact(?:Data)? \{/u.test(line))
-    .map((line) => JSON.parse(line.slice(line.indexOf(' ') + 1)));
-const batchOf = (result) => sent(result).find((call) => call.action === 'batch');
-const runsStore = () => {
-  const docs = new Map();
-  return {
-    docs,
-    apply: (batch) => {
-      for (const write of batch.writes) {
-        if (write.op === 'set') docs.set(write.doc_id, write.data);
-        else docs.delete(write.doc_id);
-      }
-    },
-    query: (dir, session) => {
-      mkdirSync(join(dir, 'runs'), { recursive: true });
-      for (const [id, data] of docs) if (data.session === session) writeFileSync(join(dir, 'runs', `${id}.json`), JSON.stringify(data));
-      return dir;
-    },
-  };
-};
-
-test("page-stop records a plan's memos, its look and answer picks, its blob, its committed history and whether origin holds it", () => {
-  const { dir, env } = sandbox();
-  const lanes = '### Lanes\n\nWhich lanes run?\n\nWhy it needs you: Each lane costs a seat.\n\n- **Browser** (recommended): Runs the browser. Cost: Ten minutes.\n- **Native** (recommended): Runs native. Cost: An hour.\n\nPick any.\n\nWhy I pick it: Both catch real bugs.\n\nAttention: answer\n';
-  const defaults = '\n## Defaults\n\n| Decision | Pick | Alternative | Word | Impact |\n| --- | --- | --- | --- | --- |\n| Line | Live line (look) | Republish | republish | big |\n| Link | Anchor (answer) | Bare | bare | small |\n| Pictures | Inline (safe) | Files | files | detail |\n';
-  const plan = (step) => stagePlan('Live', `building: step ${step}`, `\n## Open questions\n\n${MEMO}\n${lanes}${defaults}`);
-  const { root, git } = pushed(dir, 'app', { 'docs/plans/topics/stage.md': STAGE_TOPIC, 'docs/plans/live.md': plan(1) });
-  const blob = () => git('hash-object', 'docs/plans/live.md').stdout.trim();
-  const versions = [blob()];
-  for (const step of [2, 3]) {
-    writeFileSync(join(root, 'docs/plans/live.md'), plan(step));
-    git('commit', '-qam', `step ${step}`);
-    if (step === 2) git('push', '-q', 'origin', 'next');
-    versions.push(blob());
-  }
-  const record = (session) => {
-    const result = pageStop(root, claudeEnv(env), 'stop', 'docs/plans/live.md', '--own', join(dir, session), '--session', session);
-    assert.equal(result.status, 0, result.stderr);
-    return batchOf(result).writes.find((write) => write.op === 'set' && write.data.plan === 'docs/plans/live.md').data;
-  };
-  const local = record('first');
-  assert.deepEqual([local.blob, local.history, local.landed], [versions[2], [versions[1], versions[0]], false], 'the blob, the earlier committed versions, and a commit origin lacks');
-  assert.deepEqual(
-    local.asks.map(({ header, attention, multi, options }) => [header, attention, multi, options.filter((option) => option.recommended).map((option) => option.label)]),
-    [['Build', 'look', false, ['Build now']], ['Lanes', 'answer', true, ['Browser', 'Native']]]
-  );
-  const [build] = local.asks;
-  assert.deepEqual(
-    [build.question, build.why, build.facts, build.options[1], build.reason, build.go],
-    ['Build the memo now?', 'The renderer is shared by every project.', ['Another session changed it this morning.'], { label: 'Hold', recommended: false, does: 'Nothing changes.', cost: 'Needs you stays hard to read.' }, 'The prototype settled the design.', 'I build the memo renderer.']
-  );
-  assert.deepEqual(local.picks.map(({ decision, pick, level }) => [decision, pick, level]), [['Line', 'Live line', 'look'], ['Link', 'Anchor', 'answer']], 'safe picks stay out');
-  git('push', '-q', 'origin', 'next');
-  assert.equal(record('second').landed, true, 'a pushed copy is landed');
-});
-
-test('supersedes orders two copies of a plan by history, then by one session or a landed copy, and leaves diverged copies unordered', async () => {
-  const { supersedes } = await helper('page-live.mjs');
-  const copy = (blob, at, extra = {}) => ({ plan: 'docs/plans/a.md', blob, at: `2026-10-0${at}T00:00:00Z`, session: 's1', history: [], landed: false, ...extra });
-  const old = copy('b1', 3);
-  const next = copy('b2', 1, { session: 's2', history: ['b1'] });
-  assert.deepEqual([supersedes(next, old), supersedes(old, next)], [true, false], 'a history that holds the other wins over time');
-  const later = copy('b3', 4);
-  assert.deepEqual([supersedes(later, old), supersedes(old, later)], [true, false], 'one session orders by time');
-  const theirs = copy('b4', 3, { session: 's2' });
-  const landed = copy('b5', 5, { session: 's3', landed: true });
-  assert.deepEqual([supersedes(landed, theirs), supersedes(theirs, landed)], [true, false], 'a later landed copy wins');
-  assert.deepEqual([supersedes(theirs, old), supersedes(old, theirs)], [false, false], 'diverged copies stay unordered');
-  const back = copy('b6', 6, { session: 's2', history: ['b7'] });
-  const forth = copy('b7', 5, { session: 's3', history: ['b6'] });
-  assert.deepEqual([supersedes(back, forth), supersedes(forth, back)], [true, false], 'a both-ways history falls to the later time');
-});
-
 test("plan-page binds a checkout to its own Page: line while only it moved from the fork point's, else to origin's, and lists other worktrees' lines", () => {
   const { dir, run } = sandbox();
   const topic = (url) => STAGE_TOPIC.replace('https://claude.ai/artifact/stage', url);
@@ -5174,7 +5087,7 @@ test("plan-page binds a checkout to its own Page: line while only it moved from 
   const plain = render(behind);
   assert.equal(plain.status, 0, plain.stderr);
   const lines = plain.stdout.split('\n');
-  assert.ok(lines.includes('Page: https://claude.ai/artifact/c'), plain.stdout);
+  assert.ok(lines.includes('Page: https://claude.ai/artifact/c (publish through page-stop.mjs)'), plain.stdout);
   assert.ok(lines.includes(`Page in ${rebound}: https://claude.ai/artifact/b`), plain.stdout);
   assert.ok(!lines.some((line) => line.startsWith(`Page in ${realpathSync(root)}:`)), 'a worktree on the same line is not listed');
 });
@@ -5202,7 +5115,7 @@ test('apply refuses a helper that imports a file HELPER_FILES does not install',
   assert.ok(!existsSync(join(root, '.agents/pstack/head.mjs')), 'nothing installs');
 });
 
-test('plan-page embeds the data block, both deck mounts, the deck and the plan anchors, and keeps them out of the PR body and comment', () => {
+test('plan-page keeps the plan anchors on the local page, with no deck, mount or data block, and keeps the anchors out of the PR body and comment', () => {
   const { dir, run } = sandbox();
   const asking = '# Asking\n\nStatus: waiting for the owner\nTopic: stage\n\n## Main changes\n\n- Ask.\n\n## Open questions\n\n' + MEMO;
   const root = project(dir, 'app', {
@@ -5217,18 +5130,11 @@ test('plan-page embeds the data block, both deck mounts, the deck and the plan a
   const render = (...args) => run(process.execPath, [join(HELPERS, 'plan-page.mjs'), ...args], root);
   assert.equal(render('docs/plans/2026-02-01-live.md').status, 0);
   const html = read(root, 'docs/plans/artifacts/topics/stage.html');
-  const data = JSON.parse(html.match(DATA_BLOCK)[1]);
-  assert.equal(data.lead, 'docs/plans/2026-02-01-live.md');
-  assert.deepEqual(data.plans.map(({ plan }) => plan).sort(), ['docs/plans/2026-01-01-asking.md', 'docs/plans/2026-02-01-live.md']);
-  assert.ok(data.plans.every(({ blob }) => /^[0-9a-f]{40}$/u.test(blob)), 'each plan the body shows names its blob');
+  assert.doesNotMatch(html, /plan-page-(?:data|live|others|deck)|window\.claude/u, 'the local page has no deck, mount or database');
   assert.match(html, /<header id="run-2026-02-01-live"/u);
-  const at = (needle) => html.indexOf(needle);
-  assert.ok(at('</header>') < at('id="plan-page-live"') && at('id="plan-page-live"') < at('class="brief'), 'the live line sits under the header');
-  assert.ok(at('class="needs"') < at('id="plan-page-others"'), 'other runs follow Needs you');
   const items = [...html.matchAll(/<(?:article class="q"|p class="from")[^>]*>/gu)].map(([item]) => item);
   assert.ok(items.length >= 3 && items.every((item) => / data-plan="docs\/plans\/2026-0[12]-0\d-\w+\.md"/u.test(item)), items.join('\n'));
   assert.deepEqual(items.filter((item) => item.includes('id="run-')).map((item) => item.match(/id="(run-[^"]+)"/u)[1]), ['run-2026-01-01-asking'], "another plan's first item carries its anchor");
-  assert.match(html, /<script id="plan-page-deck">/u);
   const git = gitAt(root);
   git('add', '-A');
   git('commit', '-qm', 'author');
@@ -5236,385 +5142,8 @@ test('plan-page embeds the data block, both deck mounts, the deck and the plan a
   assert.equal(render('docs/plans/pr.md', '--pr').status, 0);
   assert.equal(render('docs/plans/pr.md', '--comment', author).status, 0);
   for (const body of ['pr.pr.md', 'pr.comment.md']) {
-    assert.doesNotMatch(read(root, `docs/plans/artifacts/${body}`), /plan-page-(?:data|live|others|deck)|data-plan|id="run-/u, body);
+    assert.doesNotMatch(read(root, `docs/plans/artifacts/${body}`), /data-plan|id="run-/u, body);
   }
-});
-
-test('the data block round-trips a title holding a closing script tag and a line separator', () => {
-  const { dir, run } = sandbox();
-  const title = 'Ship </script><!-- now\u2028then';
-  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': `# ${title}\n\nStatus: building\n\n## Main changes\n\n- Ship.\n${brief()}` } });
-  assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root).status, 0);
-  const block = read(root, 'docs/plans/artifacts/plan.html').match(DATA_BLOCK)[1];
-  assert.doesNotMatch(block, /<\/script|<!--|\u2028/u);
-  assert.equal(JSON.parse(block).plans[0].title, title);
-});
-
-test('deckModel shows each copy that no newer copy or the body covers, marks a body plan with a newer note, and ages lines and finished cards', async () => {
-  const { deckModel } = await helper('page-live.mjs');
-  const DAY = 86_400_000;
-  const now = Date.parse('2026-10-20T00:00:00Z');
-  const ago = (days) => new Date(now - days * DAY).toISOString();
-  const note = (slug, blob, days, extra = {}) => ({ kind: 'handback', v: 1, plan: `docs/plans/${slug}.md`, slug, title: slug, session: 's1', at: ago(days), stage: 'Build', state: 'working', blob, history: [], landed: false, status: 'building', brief: null, asks: [], picks: [], ...extra });
-  const shown = (slug, blob, extra = {}) => ({ plan: `docs/plans/${slug}.md`, slug, title: slug, blob, history: [], landed: false, at: ago(0), shows: 'asks', done: false, ...extra });
-  const asks = [{ header: 'Build', question: 'Build it?' }];
-  const data = { v: 1, lead: 'docs/plans/lead.md', session: 's9', at: ago(0), plans: [shown('lead', 'L1', { shows: 'all', session: 's9' }), shown('shown', 'S2', { history: ['S1'] }), shown('stale', 'T1'), shown('closed', 'C1', { done: true }), shown('fixed', 'F2', { landed: true })] };
-  const docs = [
-    note('only', 'O1', 1, { stop: 'd1' }),
-    note('shown', 'S1', 1, { session: 's2' }),
-    note('stale', 'T2', 1, { session: 's2', history: ['T1'] }),
-    note('fork', 'K1', 1, { session: 's2' }),
-    note('fork', 'K2', 1, { session: 's3' }),
-    note('wait', 'W1', 2, { state: 'waiting', asks }),
-    note('old', 'D1', 4, { state: 'done' }),
-    note('recent', 'R1', 1, { state: 'done' }),
-    note('closed', 'C0', 1, { state: 'done', session: 's2' }),
-    note('asks', 'A1', 30, { state: 'waiting', asks }),
-    note('fixed', 'F1', 2, { state: 'waiting', asks, session: 's4' }),
-    note('idle', 'I1', 8),
-    { kind: 'handback', v: 1, plan: 'docs/plans/torn.md', slug: 'torn', at: ago(1), session: 's7' },
-    { kind: 'beacon', v: 1, plan: 'docs/plans/quiet.md', slug: 'quiet', title: 'quiet', session: 's5', stage: 'Build', state: 'working', at: ago(2) },
-    { kind: 'beacon', v: 1, plan: 'docs/plans/gone.md', slug: 'gone', title: 'gone', session: 's6', stage: 'Build', state: 'working', at: ago(8) },
-  ];
-  const model = deckModel(docs, data, now);
-  assert.deepEqual(model.cards.map(({ slug }) => slug), ['wait', 'asks', 'only', 'stale', 'fork', 'fork', 'recent', 'closed'], 'a working card that asks nothing leaves after a week, and a torn note draws nothing');
-  assert.deepEqual(model.changed, ['docs/plans/stale.md']);
-  const line = (slug) => model.lines.find((each) => each.slug === slug);
-  assert.deepEqual([line('quiet')?.quiet, line('only')?.quiet, line('gone')], [true, false, undefined], 'a line is marked quiet after a day and hidden after seven');
-});
-
-test("deckModel keeps the card of a plan the body shows only by its questions, without those questions, and draws one card per copy", async () => {
-  const { deckModel } = await helper('page-live.mjs');
-  const now = Date.parse('2026-10-20T00:00:00Z');
-  const at = new Date(now - 86_400_000).toISOString();
-  const asks = [{ header: 'Ship', question: 'Ship it?' }];
-  const picks = [{ decision: 'Line', pick: 'Live line', alternative: 'Republish', word: 'republish', level: 'look' }];
-  const handback = (session, extra = {}) => ({ kind: 'handback', v: 1, plan: 'docs/plans/a.md', slug: 'a', title: 'A', session, at, stage: 'Build', state: 'working', blob: 'A1', history: [], landed: false, status: 'building', brief: { changes: 'It moves.', risks: 'None.' }, asks, picks, ...extra });
-  const body = (shows) => ({ v: 1, lead: 'docs/plans/b.md', plans: [{ plan: 'docs/plans/b.md', slug: 'b', title: 'B', blob: 'B1', history: [], landed: false, shows: 'all', session: 's9', at }, { plan: 'docs/plans/a.md', slug: 'a', title: 'A', blob: 'A1', history: [], landed: false, shows, done: false }] });
-  const [card, ...more] = deckModel([handback('s1', { stop: 'd1' }), handback('s2')], body('asks'), now).cards;
-  assert.deepEqual([card?.brief?.changes, card?.picks.length, card?.asks.length, more.length], ['It moves.', 1, 0, 0], 'the brief and picks stay, the questions Needs you shows leave, and two sessions saving one copy draw one card');
-  assert.deepEqual(deckModel([handback('s1')], body('all'), now).cards, [], 'a body that shows the plan whole covers its card');
-});
-
-function deckPage(html) {
-  const scrolled = [];
-  class Element {
-    constructor(tag) {
-      Object.assign(this, { tag, id: '', className: '', hidden: false, text: '', children: [], attributes: {}, parent: null });
-    }
-    get textContent() {
-      return this.text + this.children.map((child) => child.textContent).join('');
-    }
-    set textContent(text) {
-      this.children = [];
-      this.text = String(text);
-    }
-    set innerHTML(_) {
-      throw new Error('the deck wrote innerHTML');
-    }
-    append(...nodes) {
-      for (const node of nodes) {
-        node.remove();
-        node.parent = this;
-        this.children.push(node);
-      }
-    }
-    prepend(...nodes) {
-      for (const node of nodes.reverse()) {
-        node.remove();
-        node.parent = this;
-        this.children.unshift(node);
-      }
-    }
-    replaceChildren(...nodes) {
-      for (const child of this.children) child.parent = null;
-      this.children = [];
-      this.append(...nodes);
-    }
-    remove() {
-      if (!this.parent) return;
-      this.parent.children = this.parent.children.filter((child) => child !== this);
-      this.parent = null;
-    }
-    setAttribute(name, value) {
-      this.attributes[name] = String(value);
-    }
-    getAttribute(name) {
-      return this.attributes[name] ?? null;
-    }
-    scrollIntoView() {
-      scrolled.push(this.id);
-    }
-  }
-  const root = new Element('body');
-  const walk = (node) => [node, ...node.children.flatMap(walk)];
-  const mount = (id) => Object.assign(new Element('section'), { id, hidden: true });
-  const block = Object.assign(new Element('script'), { id: 'plan-page-data', text: html.match(DATA_BLOCK)[1] });
-  const header = Object.assign(new Element('header'), { id: html.match(/<header id="([^"]+)"/u)[1] });
-  header.setAttribute('data-plan', JSON.parse(block.text).lead);
-  root.append(block, header, mount('plan-page-live'), mount('plan-page-others'));
-  const document = {
-    createElement: (tag) => new Element(tag),
-    getElementById: (id) => walk(root).find((node) => node.id === id) ?? null,
-    querySelectorAll: (selector) => walk(root).filter((node) => selector === '[data-plan]' && node.getAttribute('data-plan') !== null),
-  };
-  return { document, scrolled, live: document.getElementById('plan-page-live'), others: document.getElementById('plan-page-others') };
-}
-
-function fakeRuns(docs, { fail = false, emptyFirst = false } = {}) {
-  const snap = (list) => ({ docs: list.map(({ id, data }) => ({ id, data: () => data })), size: list.length });
-  const query = (ops) => {
-    const run = () => ops.reduce((list, op) => op(list), docs.map((data, index) => ({ id: `d${index}`, data })));
-    return {
-      where: (field, op, value) => query([...ops, (list) => list.filter(({ data }) => (op === '==' ? data[field] === value : data[field] <= value))]),
-      orderBy: (field, dir) => query([...ops, (list) => [...list].sort((a, b) => (dir === 'desc' ? -1 : 1) * String(a.data[field]).localeCompare(String(b.data[field])))]),
-      limit: (count) => query([...ops, (list) => list.slice(0, count)]),
-      get: async () => snap(run()),
-      onSnapshot: (next, error) => {
-        if (fail) error({ code: 'revoked', message: 'gone' });
-        else if (emptyFirst) {
-          next(snap([]));
-          setImmediate(() => next(snap(run())));
-        } else next(snap(run()));
-        return () => {};
-      },
-    };
-  };
-  return { collection: (name) => (assert.equal(name, 'runs'), query([])) };
-}
-
-async function deckDraw(html, { db, hash = '', claude = true }) {
-  const script = html.match(/<script id="plan-page-deck">([\s\S]*?)<\/script>/u)[1];
-  const page = deckPage(html);
-  const asked = [];
-  const context = { document: page.document, location: { hash }, console, setImmediate };
-  context.window = context;
-  if (claude) context.claude = { use: async (name) => (asked.push(name), db) };
-  vm.runInNewContext(script, context);
-  for (let turn = 0; turn < 10; turn += 1) await new Promise((done) => setImmediate(done));
-  return { ...page, asked };
-}
-
-test('the deck script a page carries draws notes through textContent, scrolls to the hash, and says when it cannot reach the database', async () => {
-  const { dir, run } = sandbox();
-  const root = project(dir, 'app', { files: { 'docs/plans/topics/stage.md': STAGE_TOPIC, 'docs/plans/2026-02-01-live.md': stagePlan('Live', 'building') } });
-  assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-02-01-live.md'], root).status, 0);
-  const html = read(root, 'docs/plans/artifacts/topics/stage.html');
-  const at = new Date().toISOString();
-  const docs = [
-    { kind: 'handback', v: 1, plan: 'docs/plans/2026-01-01-other.md', slug: '2026-01-01-other', title: 'Other run', session: 'session-other', at, stage: 'Verify', state: 'waiting', blob: 'X1', history: [], landed: false, status: 'waiting for the owner', brief: { changes: 'It moves.', risks: 'It breaks.' }, asks: [{ header: 'Ship', question: 'Ship it today?', why: '', facts: [], options: [{ label: 'Ship', does: 'It ships.', cost: 'None.', recommended: true }], reason: '', go: '', attention: 'look', multi: false }], picks: [] },
-    { kind: 'beacon', v: 1, plan: 'docs/plans/2026-01-01-other.md', slug: '2026-01-01-other', title: 'Other run', session: 'session-other', stage: 'Verify', state: 'waiting', at },
-  ];
-  const absent = await deckDraw(html, { db: null });
-  assert.deepEqual(absent.asked, ['db']);
-  assert.match(absent.others.textContent, /claude\.ai/u, 'a view without the database says where other runs show');
-  const broken = await deckDraw(html, { db: fakeRuns([], { fail: true }) });
-  assert.match(broken.others.textContent, /reload/iu);
-  const drawn = await deckDraw(html, { db: fakeRuns(docs), hash: '#run-2026-01-01-other' });
-  assert.match(drawn.live.textContent, /Other run.*Verify/u);
-  assert.equal(drawn.live.hidden, false);
-  assert.match(drawn.others.textContent, /Other run[\s\S]*Ship it today\?/u);
-  assert.deepEqual(drawn.scrolled, ['run-2026-01-01-other'], 'the hash lands on the card');
-  const bare = await deckDraw(html, { claude: false });
-  assert.deepEqual([bare.live.textContent, bare.others.textContent, bare.live.hidden, bare.others.hidden], ['', '', true, true], 'a copy with no window.claude draws nothing');
-});
-
-test('the deck finds an old question past a thousand newer beacons and hand-backs, draws every part of its memo, gives one card each anchor, and scrolls once a later snapshot draws the target', async () => {
-  const { dir, run } = sandbox();
-  const root = project(dir, 'app', { files: { 'docs/plans/topics/stage.md': STAGE_TOPIC, 'docs/plans/2026-02-01-live.md': stagePlan('Live', 'building') } });
-  assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-02-01-live.md'], root).status, 0);
-  const html = read(root, 'docs/plans/artifacts/topics/stage.html');
-  const DAY = 86_400_000;
-  const ago = (days, index = 0) => new Date(Date.now() - days * DAY + index * 1000).toISOString();
-  const memo = { header: 'Release', question: 'Release it?', why: 'It is public.', facts: ['The migration cannot be undone.'], options: [{ label: 'Ship', does: 'It ships.', cost: 'None.', recommended: false }, { label: 'Wait', does: 'Nothing.', cost: 'A day.', recommended: false }], reason: '', go: 'Go leaves this open.', attention: 'answer', multi: true, lines: [], rest: ['Ask legal first.'] };
-  const bare = { header: null, question: '', why: '', facts: [], options: [], reason: '', go: '', attention: 'answer', multi: false, lines: ['- Confirm the external release.'], rest: [] };
-  const old = (slug, blob, session) => ({ kind: 'handback', v: 1, plan: `docs/plans/${slug}.md`, slug, title: 'Old question', session, at: ago(30), stage: 'Verify', state: 'waiting', blob, history: [], landed: false, status: 'waiting', brief: null, asks: [memo, bare], picks: [] });
-  const docs = [
-    old('old', 'O1', 'session-old'),
-    old('old', 'O2', 'session-two'),
-    ...Array.from({ length: 1000 }, (_, index) => ({ kind: 'beacon', v: 1, plan: 'docs/plans/busy.md', slug: 'busy', title: 'Busy', session: `s${index}`, stage: 'Build', state: 'working', at: ago(1, index) })),
-    ...Array.from({ length: 1000 }, (_, index) => ({ kind: 'handback', v: 1, plan: 'docs/plans/done.md', slug: 'done', title: 'Done', session: `h${index}`, at: ago(10, index), stage: 'Ship', state: 'done', blob: `D${index}`, history: [], landed: false, status: 'executed', brief: null, asks: [], picks: [] })),
-  ];
-  const drawn = await deckDraw(html, { db: fakeRuns(docs, { emptyFirst: true }), hash: '#run-old' });
-  const text = drawn.others.textContent;
-  for (const part of ['Release it?', 'It is public.', 'The migration cannot be undone.', 'Pick any.', 'Go leaves this open.', 'Ask legal first.', '- Confirm the external release.']) assert.ok(text.includes(part), `the card shows ${part}`);
-  assert.equal(drawn.others.children.filter((child) => child.id === 'run-old').length, 1, 'two copies of one plan share one anchor');
-  assert.deepEqual(drawn.scrolled, ['run-old'], 'the hash lands once the card draws');
-});
-
-test('page-stop beacon prints one create-only set when the stage or state moves, and nothing otherwise', () => {
-  const { dir, env } = sandbox();
-  const root = project(dir, 'app', { files: { 'docs/plans/topics/stage.md': STAGE_TOPIC, 'docs/plans/live.md': stagePlan('Live', 'building'), 'docs/plans/live.decisions.tsv': phaseLog(['build']) } });
-  const beacon = () => {
-    const result = pageStop(root, claudeEnv(env), 'beacon', 'docs/plans/live.md', '--session', 'session-one');
-    assert.equal(result.status, 0, result.stderr);
-    return sent(result);
-  };
-  const [first, ...more] = beacon();
-  assert.deepEqual(more, []);
-  assert.deepEqual([first.action, first.url, first.collection, first.data.stage, first.data.state, 'if_version' in first], ['set', 'https://claude.ai/artifact/stage', 'runs', 'Build', 'working', false]);
-  assert.match(first.doc_id, /^live\.b\.session-\.\d{13}$/u);
-  assert.deepEqual(beacon(), [], 'nothing moved, nothing to send');
-  const marker = join(root, 'docs/plans/artifacts/live/page-beacon.session-one.json');
-  const lapse = (minutes) => writeFileSync(marker, JSON.stringify({ ...JSON.parse(readFileSync(marker, 'utf8')), at: new Date(Date.now() - minutes * 60_000).toISOString() }));
-  lapse(31);
-  const [again] = beacon();
-  assert.deepEqual([again?.data.stage, again?.data.since], ['Build', first.data.since], 'a set that may have been lost goes out again after half an hour, still since the stage began');
-  writeFileSync(join(root, 'docs/plans/topics/stage.md'), STAGE_TOPIC.replace('artifact/stage', 'artifact/moved'));
-  assert.deepEqual(beacon().map(({ url }) => url), ['https://claude.ai/artifact/moved'], 'a page bound anew gets its own note');
-  writeFileSync(join(root, 'docs/plans/live.decisions.tsv'), phaseLog(['build', 'verify']));
-  const [verify] = beacon();
-  assert.deepEqual([verify.data.stage, verify.data.state, verify.data.since > first.data.since], ['Verify', 'working', true]);
-  writeFileSync(join(root, 'docs/plans/live.md'), stagePlan('Live', 'waiting for the owner'));
-  assert.deepEqual(beacon().map(({ action, data }) => [action, data.stage, data.state]), [['set', 'Verify', 'waiting']]);
-});
-
-test("decisions-check append prints the beacon's set in Claude Code when its row moves the plan's stage, and still writes the row when the beacon cannot run", () => {
-  const { dir, env } = sandbox();
-  const root = project(dir, 'app', { files: { 'docs/plans/topics/stage.md': STAGE_TOPIC, 'docs/plans/live.md': stagePlan('Live', 'building') } });
-  const log = 'docs/plans/live.decisions.tsv';
-  const append = (environment, phase) => {
-    const result = spawnSync(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', log, phase, 'write the parser', 'the plan asks', 'ran it, scope: all fixtures', 'verified'], { cwd: root, encoding: 'utf8', env: environment });
-    assert.equal(result.status, 0, result.stderr);
-    return result;
-  };
-  const claude = { ...claudeEnv(env), CLAUDE_CODE_SESSION_ID: 'session-one' };
-  const first = append(claude, 'build');
-  assert.deepEqual(sent(first).map(({ action, url, data }) => [action, url, data.stage, data.state]), [['set', 'https://claude.ai/artifact/stage', 'Build', 'working']]);
-  assert.match(first.stdout, /next working call/u);
-  assert.deepEqual(sent(append(claude, 'build')), [], 'the stage did not move');
-  assert.deepEqual(sent(append(claude, 'verify')).map(({ data }) => data.stage), ['Verify']);
-  const codex = claudeEnv(env);
-  delete codex.CLAUDECODE;
-  assert.doesNotMatch(append(codex, 'verify').stdout, /Artifact|Codex/u, 'outside Claude Code an append prints no beacon');
-  const nameless = append(claudeEnv(env), 'verify');
-  assert.deepEqual(sent(nameless), []);
-  assert.match(nameless.stderr, /beacon/iu);
-  assert.equal(read(root, log).trim().split('\n').filter((line) => /\t(build|verify)\t/u.test(line)).length, 5, 'every row was written');
-});
-
-test('page-stop sends nothing outside Claude Code, even with a Codex session id set, and refuses without a session id', () => {
-  const { dir, env } = sandbox();
-  const root = project(dir, 'app', { files: { 'docs/plans/topics/stage.md': STAGE_TOPIC, 'docs/plans/live.md': stagePlan('Live', 'building') } });
-  const codexEnv = { ...claudeEnv(env), CODEX_SESSION_ID: 'codex-1' };
-  delete codexEnv.CLAUDECODE;
-  const codex = pageStop(root, codexEnv, 'beacon', 'docs/plans/live.md');
-  assert.equal(codex.status, 0, codex.stderr);
-  assert.deepEqual(sent(codex), []);
-  assert.match(codex.stdout, /Codex/u);
-  const nameless = pageStop(root, claudeEnv(env), 'beacon', 'docs/plans/live.md');
-  assert.equal(nameless.status, 2);
-  assert.match(nameless.stderr, /session id/u);
-  assert.deepEqual(sent(nameless), []);
-});
-
-test("page-stop stop saves the stop record and a record for each plan the worktree changed since its fork point, and deletes only this session's older documents for them", () => {
-  const { dir, env } = sandbox();
-  const lead = 'docs/plans/2026-01-03-lead.md';
-  const edited = 'docs/plans/2026-01-02-edited.md';
-  const { git } = pushed(dir, 'app', { 'docs/plans/topics/stage.md': STAGE_TOPIC, 'docs/plans/2026-01-01-kept.md': stagePlan('Kept', 'executed'), [edited]: stagePlan('Edited', 'building') });
-  const tree = worktree(git, dir, 'work');
-  writeFileSync(join(tree, lead), stagePlan('Lead', 'building'));
-  writeFileSync(join(tree, edited), stagePlan('Edited', 'building: step two'));
-  const own = join(dir, 'own');
-  mkdirSync(join(own, 'runs'), { recursive: true });
-  const saved = (id, data) => writeFileSync(join(own, 'runs', `${id}.json`), JSON.stringify({ kind: 'beacon', v: 1, plan: lead, session: 'mine', at: '2026-01-01T00:00:00.000Z', ...data }));
-  for (let index = 0; index < 60; index += 1) saved(`2026-01-03-lead.b.mine.${1000 + index}`, { at: `2026-01-01T00:00:${String(index).padStart(2, '0')}.000Z` });
-  saved('2026-01-01-kept.b.mine.1', { plan: 'docs/plans/2026-01-01-kept.md' });
-  saved('2026-01-03-lead.b.theirs.1', { session: 'theirs' });
-  const result = pageStop(tree, claudeEnv(env), 'stop', lead, '--own', own, '--session', 'mine');
-  assert.equal(result.status, 0, result.stderr);
-  const [batch, publish] = sent(result);
-  assert.deepEqual([batch.action, publish.action, publish.url, 'capabilities' in publish], ['batch', 'publish', 'https://claude.ai/artifact/stage', false], 'with a database the batch goes first');
-  assert.ok(existsSync(publish.file_path) && readFileSync(publish.file_path, 'utf8').includes('<header id="run-2026-01-03-lead"'), publish.file_path);
-  const sets = batch.writes.filter((write) => write.op === 'set');
-  assert.deepEqual(sets.map(({ doc_id, data }) => [doc_id.split('.').slice(0, 3).join('.'), data.plan]), [['2026-01-03-lead.s.mine', lead], ['2026-01-02-edited.h.mine', edited]], 'no record for the committed plan');
-  const deletes = batch.writes.filter((write) => write.op === 'delete');
-  assert.equal(batch.writes.length, 50);
-  assert.ok(deletes.every(({ doc_id, if_version }) => /^2026-01-03-lead\.b\.mine\.\d+$/u.test(doc_id) && if_version === 1), JSON.stringify(deletes));
-  assert.ok(deletes.some(({ doc_id }) => doc_id.endsWith('.1000')), 'the oldest go first');
-  assert.match(result.stdout, /^Reply https:\/\/claude\.ai\/artifact\/stage#run-2026-01-03-lead$/mu);
-  const first = pageStop(tree, claudeEnv(env), 'stop', lead, '--own', join(dir, 'none'), '--session', 'mine', '--no-db');
-  assert.equal(first.status, 0, first.stderr);
-  const [publishFirst, batchAfter] = sent(first);
-  assert.deepEqual([publishFirst.action, batchAfter.action], ['publish', 'batch'], 'without a database the publish goes first');
-  assert.deepEqual(publishFirst.capabilities, { db: { rules: [{ path: 'runs', read: 'view', write: 'admin' }] } });
-});
-
-test("page-stop stop publishes again without saving a record it holds, saves a new one when the record changes, and refuses a query directory an earlier stop read", () => {
-  const { dir, env } = sandbox();
-  const root = project(dir, 'app', { files: { 'docs/plans/topics/stage.md': STAGE_TOPIC, 'docs/plans/live.md': stagePlan('Live', 'building') } });
-  const store = runsStore();
-  let query = 0;
-  const stop = (own = store.query(join(dir, `own-${(query += 1)}`), 'mine')) => {
-    const result = pageStop(root, claudeEnv(env), 'stop', 'docs/plans/live.md', '--own', own, '--session', 'mine');
-    assert.equal(result.status, 0, result.stderr);
-    return result;
-  };
-  const first = batchOf(stop());
-  store.apply(first);
-  const again = stop();
-  assert.deepEqual(sent(again).map(({ action }) => action), ['publish'], 'a failed or repeated publish goes out again, with nothing to save');
-  assert.match(again.stdout, /^Reply https:\/\/claude\.ai\/artifact\/stage#run-live$/mu);
-  writeFileSync(join(root, 'docs/plans/live.md'), stagePlan('Live', 'building: step two'));
-  const changed = batchOf(stop());
-  const [oldStop] = first.writes.map(({ doc_id }) => doc_id);
-  assert.ok(changed.writes.some(({ op, doc_id }) => op === 'set' && doc_id.startsWith('live.s.mine.') && doc_id !== oldStop));
-  assert.deepEqual(changed.writes.filter(({ op }) => op === 'delete'), [{ op: 'delete', collection: 'runs', doc_id: oldStop, if_version: 1 }]);
-  store.apply(changed);
-  const reused = pageStop(root, claudeEnv(env), 'stop', 'docs/plans/live.md', '--own', store.query(join(dir, 'own-1'), 'mine'), '--session', 'mine');
-  assert.equal(reused.status, 1, 'a directory still holding a deleted document cannot pin a delete of it');
-  assert.match(reused.stderr, /new directory/u);
-});
-
-test("two worktrees stopping in turn on one subject keep each other's records, and the second page shows the first one's question as a card", async () => {
-  const { deckModel } = await helper('page-live.mjs');
-  const { dir, env } = sandbox();
-  const { git } = pushed(dir, 'app', { 'docs/plans/topics/stage.md': STAGE_TOPIC, 'docs/plans/2026-01-01-base.md': stagePlan('Base', 'executed') });
-  const asker = worktree(git, dir, 'asker');
-  const builder = worktree(git, dir, 'builder');
-  writeFileSync(join(asker, 'docs/plans/2026-01-02-ask.md'), stagePlan('Ask', 'waiting for the owner', `\n## Open questions\n\n${MEMO}`));
-  writeFileSync(join(builder, 'docs/plans/2026-01-03-build.md'), stagePlan('Build', 'building'));
-  const stopIn = (tree, plan, session) => {
-    const result = pageStop(tree, claudeEnv(env), 'stop', plan, '--own', join(dir, `own-${session}`), '--session', session);
-    assert.equal(result.status, 0, result.stderr);
-    return sent(result);
-  };
-  const [first] = stopIn(asker, 'docs/plans/2026-01-02-ask.md', 'session-asker');
-  const [second, publish] = stopIn(builder, 'docs/plans/2026-01-03-build.md', 'session-builder');
-  const firstIds = first.writes.map(({ doc_id }) => doc_id);
-  assert.ok(second.writes.every(({ doc_id }) => !firstIds.includes(doc_id)), "the second stop's batch touches none of the first's documents");
-  const data = JSON.parse(readFileSync(publish.file_path, 'utf8').match(DATA_BLOCK)[1]);
-  const notes = [...first.writes, ...second.writes].filter(({ op }) => op === 'set').map(({ data: note }) => note);
-  const model = deckModel(notes, data, Date.now());
-  assert.deepEqual(model.cards.map(({ plan, asks }) => [plan, asks.map(({ question }) => question)]), [['docs/plans/2026-01-02-ask.md', ['Build the memo now?']]]);
-});
-
-test("a checkout cut before a plan landed keeps that plan's question, which another checkout's stop saved from its commit", async () => {
-  const { deckModel } = await helper('page-live.mjs');
-  const { dir, env } = sandbox();
-  const { root, git } = pushed(dir, 'app', { 'docs/plans/topics/stage.md': STAGE_TOPIC, 'docs/plans/2026-01-01-base.md': stagePlan('Base', 'executed') });
-  const stale = worktree(git, dir, 'stale');
-  writeFileSync(join(root, 'docs/plans/2026-01-02-ask.md'), stagePlan('Ask', 'building', '\n## Open questions\n\n- Confirm the external release.\n'));
-  git('add', '-A');
-  git('commit', '-qm', 'land the ask');
-  git('push', '-q', 'origin', 'next');
-  const landedAt = new Date(git('log', '-1', '--format=%cI').stdout.trim()).toISOString();
-  const fresh = worktree(git, dir, 'fresh');
-  writeFileSync(join(fresh, 'docs/plans/2026-01-03-lead.md'), stagePlan('Lead', 'building'));
-  writeFileSync(join(stale, 'docs/plans/2026-01-04-other.md'), stagePlan('Other', 'building'));
-  const stopIn = (tree, plan, session) => {
-    const result = pageStop(tree, claudeEnv(env), 'stop', plan, '--own', join(dir, `own-${session}`), '--session', session);
-    assert.equal(result.status, 0, result.stderr);
-    return sent(result);
-  };
-  const [first] = stopIn(fresh, 'docs/plans/2026-01-03-lead.md', 'session-fresh');
-  const ask = first.writes.find(({ data }) => data?.plan === 'docs/plans/2026-01-02-ask.md')?.data;
-  assert.deepEqual([ask?.at, ask?.asks[0]?.lines], [landedAt, ['- Confirm the external release.']], "a committed plan that asks is saved as of its commit, with a question that has no options");
-  const [second, publish] = stopIn(stale, 'docs/plans/2026-01-04-other.md', 'session-stale');
-  const data = JSON.parse(readFileSync(publish.file_path, 'utf8').match(DATA_BLOCK)[1]);
-  const notes = [...first.writes, ...second.writes].filter(({ op }) => op === 'set').map(({ data: note }) => note);
-  assert.deepEqual(deckModel(notes, data, Date.now()).cards.map(({ plan }) => plan), ['docs/plans/2026-01-02-ask.md', 'docs/plans/2026-01-03-lead.md']);
 });
 
 test("plan-page inlines a frame its worktree lacks from the main checkout's run directory and names one that exists nowhere", () => {

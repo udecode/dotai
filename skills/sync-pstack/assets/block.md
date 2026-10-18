@@ -131,10 +131,10 @@
 <!-- # adds -->
 - **Calls.** Each call the lead makes re-reads the session's whole context, so in a long session the number of calls, not their size, sets the cost. Read several files or line ranges in one command, or as parallel calls in one message, instead of one small read per call.
 <!-- if delivery!=trunk -->
-  Bookkeeping never takes a call of its own: a retitle, a todo update, a decision-log append, a beacon's set or a plan-page render goes out in the same message as the next working call, and several decision rows go in one `decisions-check.mjs append <log> --from <rows.tsv>` call (owner's word, 2026-10-17).
+  Bookkeeping never takes a call of its own: a retitle, a todo update, a decision-log append, a page publish or a plan-page render goes out in the same message as the next working call, and several decision rows go in one `decisions-check.mjs append <log> --from <rows.tsv>` call (owner's word, 2026-10-17).
 <!-- end -->
 <!-- if delivery=trunk -->
-  Bookkeeping never takes a call of its own: a retitle, a todo update, a decision-log append, a beacon's set or a plan-page render goes out in the same message as the next working call, and several decision rows go in one append (owner's word, 2026-10-17).
+  Bookkeeping never takes a call of its own: a retitle, a todo update, a decision-log append, a page publish or a plan-page render goes out in the same message as the next working call, and several decision rows go in one append (owner's word, 2026-10-17).
 <!-- end -->
 <!-- # overrides how/SKILL.md "Spawn all explorers in a single message" -->
 - **Extraction.** The session's own model keeps every judgment: plans, designs, the code the lead writes, synthesis, explainers, judges, cross-judges, a second reader that checks extracted claims, and reflect's synthesis with every decision on what it applies. In Claude Code, a role that only finds evidence for the lead to judge runs on Codex when the models sheet gives it a `codex:<model> @<effort>` value; today that is the `how explorer` role, which gets pstack's explorer prompt. It runs through `cross.mjs --reach`, which loads the user's Codex config, connectors, web search and network but writes only a scratch folder, never the project. Before using an answer, the lead checks that it covers every source and lookup its brief asked for. A seat that fails, returns nothing, or leaves an asked-for source or lookup uncovered, reported or not, reruns once on its model for the part still missing, and the page names any gap left. In Claude Code, when the lead would otherwise read several files it has not read to find where a change goes, it asks such a seat for the spans and call sites instead, confirms the call sites with its own `git grep` of each changed symbol, then reads in full the function it changes and each caller whose behavior the change can break.
@@ -189,7 +189,7 @@
 <!-- # overrides poteto-mode/playbooks/multi-phase-plan.md "Run `node skills/poteto-mode/scripts/check-plan.mjs <plan.md>` from the installed plugin" -->
 - **Plan pages.** Before you draft or change a plan, in plan mode or a plan file, and at every stop that hands work back, read `.agents/pstack/rules/pages.md` in full; it holds what the page and the hand-back reply contain.
 <!-- if delivery=trunk -->
-  In Claude Code, each decision-log append and each `Status:` change also runs `node .agents/pstack/page-stop.mjs beacon <plan>` in the same command.
+  In Claude Code, each decision-log append and each `Status:` change also runs `node .agents/pstack/page-stop.mjs stage <plan>` in the same command.
 <!-- end -->
 <!-- # overrides poteto-mode/playbooks/prototype.md "let the user pick directions before building" -->
 <!-- # overrides poteto-mode/playbooks/worktree-cleanup.md "`wip`, `untracked`, `ignored`, `reflog`, locked, and in-use pause" -->

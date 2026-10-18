@@ -89,21 +89,20 @@ Every page opens with a header: the title, the flow rail, the `Status:` sentence
 When the leading plan has a brief, the page shows what a reviewer needs to judge the plan, with nothing folded, and leaves the internals in the files:
 
 1. The header.
-2. The live line.
+2. The runs strip.
 3. The brief in one card.
 4. How it works, from Teach.
 5. On top of the PR.
 6. Demo.
 7. Needs you.
-8. Other runs.
-9. Picked for you, from Defaults, each decision with its pick and alternatives under Big calls, Small calls and Details.
-10. Public API, from the leading plan.
-11. The `page-lead` sections in their playbook order, each from the leading plan, or from the subject and marked current when the plan has none.
-12. Main changes.
-13. The leading plan's other sections, apart from Open work.
-14. Verification, once the plan is done.
-15. Open work.
-16. One line that names the plan, its subject and each plan on its `Plans:` line, whose files keep the internals: Close, Scope, Steps, Evidence, Proof, Claims, Asks, Notes, Panel gate, Verification while work runs, iterations and the review rounds.
+8. Picked for you, from Defaults, each decision with its pick and alternatives under Big calls, Small calls and Details.
+9. Public API, from the leading plan.
+10. The `page-lead` sections in their playbook order, each from the leading plan, or from the subject and marked current when the plan has none.
+11. Main changes.
+12. The leading plan's other sections, apart from Open work.
+13. Verification, once the plan is done.
+14. Open work.
+15. One line that names the plan, its subject and each plan on its `Plans:` line, whose files keep the internals: Close, Scope, Steps, Evidence, Proof, Claims, Asks, Notes, Panel gate, Verification while work runs, iterations and the review rounds.
 
 Write every sentence the page shows in the `pstack:bro` voice. Say it the way one person talks to another, plainly, briefly and with no jargon. Use short sentences, the active voice and common words. The brief, Teach, Needs you and Defaults also leave out code, file paths and commit hashes, apart from a Teach picture's path, and the renderer refuses an open plan whose brief, Teach, Open questions or Defaults holds code, inline or in a fenced block. Sections for engineers, such as Public API and Main changes, keep their code and tables, and the sentences around them use the same voice. After a build, the Changes and Risks answers also tell the owner what the Close holds: what landed, where the proof stops, any reversal and the warnings of a decision-trail review.
 
@@ -111,9 +110,9 @@ Needs you collects the Open questions of every iteration, and another iteration'
 
 Without a brief, the page shows the whole record, with every section open:
 
-1. The live line, under the header.
+1. The runs strip, under the header.
 2. Demo, from the leading plan.
-3. Needs you, then Other runs.
+3. Needs you.
 4. Close, from the leading iteration's or the one-off plan's `## Close`.
 5. How it works, from the leading plan's Teach.
 6. The leading plan's lead paragraph.
@@ -124,14 +123,13 @@ Without a brief, the page shows the whole record, with every section open:
 11. Details.
 12. Review history, from the decision log's `panel` and `review` rows.
 
-## Live line and Other runs
+## Runs
 
-Each page keeps a small database beside its HTML, the `runs` collection, and a script that draws it in a signed-in claude.ai view. Each run writes only its own notes there. A local copy, a Codex copy and a signed-out view show neither part, and `--pr` and `--comment` output carry neither.
+A published subject page is a set of files. The page file lists the runs that published to it; each run keeps a header with its stage and a body with its render in its own files, and each picture a body shows is a file of its own. A publish sends only the page file and its own run's files, and the platform keeps the rest. The page file also lists every run with its anchor, so a view without scripts still names them. A local copy, a Codex copy and `--pr` and `--comment` output show only this checkout's plan.
 
-- The live line under the header shows one line per plan and session from its newest beacon or stop note: the stage, since when that stage holds, and whether it waits on the owner. A note goes out whenever the plan's stage or state moves, and again after 30 minutes on one stage, as `.agents/pstack/rules/pages.md` says. After a day without a note the line says when the run last wrote, and after a week the line leaves.
-- A stop's notes hold the hand-back of its own plan. They also hold the hand-back of each other plan the page shows that the stop's checkout changed since its fork from `origin/<branch>`, or that asks something. A hand-back is the brief, `Status:`, every open question and the (look) and (answer) Defaults rows. A plan asks something when it has an open question, waits, is blocked, or is not done and has a (look) or (answer) row. Another plan's committed copy dates from its commit. Other runs, after Needs you, shows one card per plan copy that no newer copy supersedes and that the body does not show whole. Cards that ask something come first. The body shows the leading plan whole but another plan's open questions only, so a card whose version the body shows leaves its questions out. The deck marks a body item as changed when a newer copy of its plan supersedes it.
-- One copy supersedes another when its history holds the other's blob, when both come from one session and it is later, or when its blob is committed on `origin/<branch>` and it is later. Of two copies with the same blob, the later one supersedes. A finished card that asks nothing leaves three days after its copy's time, and a working one after a week. A card that asks something never leaves by age. It leaves once a later copy of its plan lands and shows, or when the owner asks a session to drop it, which deletes that plan's notes pinned to their versions.
-- The leading plan's header carries `id="run-<plan slug>"`, and so does each other plan's first Needs you item and each card whose plan has no such element in the body, so the hand-back link `<url>#run-<plan slug>` lands on that plan's part of the page.
+- The runs strip under the header shows one line per run from its header: the stage, the checked steps, whether it waits on the owner or is blocked, since when and when it last published. Waiting and blocked runs come first, and each line links its run.
+- The page leads with the plan of the newest hand-back, by the number each hand-back takes on the list, and shows that plan's bodies newest first. Two runs of one plan both show their bodies. Other plans' bodies load when their section opens or the link names them. A done run whose last publish is more than three days old shows folded.
+- `#run-<plan slug>` lands on the plan's section, and `#run~<plan slug>~<session id>` on one run. Each body's Needs you holds only its own plan's questions, and a half-typed answer stays in the viewer's browser until the owner sends it.
 
 ## PR body
 

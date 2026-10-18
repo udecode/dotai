@@ -146,22 +146,59 @@ test('land names the one dated plan the task changes, and no plan when it change
   assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), GOOD, 'two plans name none');
 });
 
-test('land pushes a topic branch and opens a PR into next when the clone has no push setting', () => {
-  const { dir, remote, clone, base, message } = trunk();
+// A gh on PATH that records its arguments and the body file, then prints a PR URL.
+function stubGh(dir) {
   const bin = join(dir, 'bin');
   mkdirSync(bin);
   writeFileSync(join(bin, 'gh'), `#!/bin/sh\nprintf '%s\\n' "$@" > '${dir}/gh-args'\ncp "\${10}" '${dir}/gh-body'\necho https://example.test/pull/7\n`);
   chmodSync(join(bin, 'gh'), 0o755);
+  return { PATH: `${bin}:${process.env.PATH}` };
+}
+const ghArgs = (dir) => readFileSync(join(dir, 'gh-args'), 'utf8').trim().split('\n');
+
+test('land pushes a topic branch and opens a PR into next when the clone has no push setting', () => {
+  const { dir, remote, clone, base, message } = trunk();
   writeFileSync(join(clone, 'a.txt'), 'two\n');
 
-  const run = helper('land.mjs', clone, ['--message', message(GOOD)], { PATH: `${bin}:${process.env.PATH}` });
+  const run = helper('land.mjs', clone, ['--message', message(GOOD)], stubGh(dir));
   assert.equal(run.status, 0, run.stderr);
   assert.equal(git(remote, 'rev-parse', 'next'), base, 'next does not move in PR mode');
   assert.equal(git(remote, 'log', '-1', '--format=%s', 'task'), 'feat(a): change a');
-  const args = readFileSync(join(dir, 'gh-args'), 'utf8').split('\n');
-  assert.deepEqual(args.slice(0, 9), ['pr', 'create', '--base', 'next', '--head', 'task', '--title', 'feat(a): change a', '--body-file']);
+  assert.deepEqual(ghArgs(dir).slice(0, 9), ['pr', 'create', '--base', 'next', '--head', 'task', '--title', 'feat(a): change a', '--body-file']);
+  assert.equal(ghArgs(dir).length, 10, 'a direct clone names no other repository');
   assert.equal(readFileSync(join(dir, 'gh-body'), 'utf8'), 'Why a changes.\n\nBeyond the ask: none\n');
   assert.match(run.stdout, /https:\/\/example\.test\/pull\/7/);
+});
+
+test('land in a fork clone rebases onto upstream, pushes the topic to the fork and opens the PR on upstream', () => {
+  const { dir, remote, clone, message, elsewhere } = trunk();
+  const fork = join(dir, 'contributor', 'remote.git');
+  git(dir, 'clone', '--quiet', '--bare', remote, fork);
+  git(clone, 'remote', 'rename', 'origin', 'upstream');
+  git(clone, 'remote', 'add', 'origin', fork);
+  git(elsewhere('d.txt', 'theirs\n', 'docs(d): land elsewhere'), 'push', '--quiet', 'origin', 'HEAD:next');
+  const stale = git(fork, 'rev-parse', 'next');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD)], stubGh(dir));
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(git(fork, 'rev-parse', 'task^'), git(remote, 'rev-parse', 'next'), "the topic sits on upstream's next, not the fork's stale one");
+  assert.equal(git(fork, 'rev-parse', 'next'), stale);
+  assert.equal(spawnSync('git', ['rev-parse', '--verify', 'task'], { cwd: remote, env: ENV }).status, 128, 'nothing is pushed to upstream');
+  const args = ghArgs(dir);
+  assert.deepEqual([...args.slice(0, 6), ...args.slice(10)], ['pr', 'create', '--base', 'next', '--head', 'contributor:task', '--repo', `${dir.split('/').at(-1)}/remote`]);
+});
+
+test('land in a direct clone without push access says to fork and add upstream', () => {
+  const { dir, remote, clone, message } = trunk();
+  writeFileSync(join(remote, 'hooks', 'pre-receive'), '#!/bin/sh\necho "Permission to t/remote.git denied to c." >&2\nexit 1\n');
+  chmodSync(join(remote, 'hooks', 'pre-receive'), 0o755);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD)], stubGh(dir));
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /^land\.mjs: this clone cannot push to origin: fork the repository, .*add the canonical repository as `upstream`/u);
+  assert.equal(existsSync(join(dir, 'gh-args')), false, 'no PR is opened');
 });
 
 test('land refuses a message without a Conventional subject or a Beyond the ask line and changes nothing', () => {
