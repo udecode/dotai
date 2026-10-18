@@ -13,9 +13,11 @@ struct Face: Decodable {
   let currentStep: Int?
   let metrics: [Metric]?
 }
-struct Card: Decodable { let key: String; let state: String; let contentState: Face; let open: String?; let page: String? }
+struct Card: Decodable { let key: String; let state: String; let contentState: Face; let open: String?; let page: String?; let level: Chip? }
 struct Fleet: Decodable { let contentState: Face; let action: Action? }
-struct Board: Decodable { let fleet: Fleet?; let cards: [Card] }
+// A null item draws a separator.
+struct Node: Decodable { let title: String; let color: String?; let items: [Node?]? }
+struct Board: Decodable { let fleet: Fleet?; let pstack: Node?; let cards: [Card] }
 
 let home = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".pstack-pulse")
 let openable: Set<String> = ["https", "claude", "chatgpt"]
@@ -75,9 +77,10 @@ func fleetText(_ face: Face) -> NSAttributedString {
   return lines(parts)
 }
 
-func cardText(_ face: Face) -> NSAttributedString {
+func cardText(_ face: Face, level: Chip?) -> NSAttributedString {
   var head = [styled("● ", size: 13, color: tint(face.color)), styled(clipped(face.title), size: 13, weight: .semibold)]
   if let badge = face.badge { head.append(styled("   \(badge.title)", size: 11, weight: .medium, color: tint(badge.color))) }
+  if let level { head.append(styled("   \(level.title)", size: 11, color: tint(level.color))) }
   var parts = [head]
   if let detail = face.message ?? face.subtitle, !detail.isEmpty { parts.append([styled(clipped(detail), size: 11, color: .secondaryLabelColor)]) }
   if let total = face.numberOfSteps, let current = face.currentStep, total > 1 {
@@ -163,6 +166,15 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate {
     return row
   }
 
+  func item(_ node: Node) -> NSMenuItem {
+    let entry = row(styled(node.title, color: node.color.map(tint) ?? .labelColor), opens: nil)
+    if let items = node.items, !items.isEmpty {
+      entry.submenu = NSMenu()
+      for child in items { entry.submenu?.addItem(child.map(item) ?? .separator()) }
+    }
+    return entry
+  }
+
   @objc func open(_ sender: NSMenuItem) {
     guard let link = sender.representedObject as? String, let url = URL(string: link), openable.contains(url.scheme ?? "") else { return }
     NSWorkspace.shared.open(url)
@@ -179,10 +191,11 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate {
       return
     }
     if let fleet = board.fleet { menu.addItem(row(fleetText(fleet.contentState), opens: fleet.action)) }
+    if let pstack = board.pstack { menu.addItem(item(pstack)) }
     menu.addItem(.separator())
     if board.cards.isEmpty { menu.addItem(row(styled("No live sessions", color: .secondaryLabelColor), opens: nil)) }
     for card in board.cards {
-      menu.addItem(row(cardText(card.contentState), opens: card.open.map { Action(title: "Open session", url: $0) }))
+      menu.addItem(row(cardText(card.contentState, level: card.level), opens: card.open.map { Action(title: "Open session", url: $0) }))
       if let page = card.page {
         let extra = row(styled("↳ Plan", size: 11, color: .linkColor), opens: Action(title: "Plan", url: page))
         extra.indentationLevel = 1
@@ -192,12 +205,17 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate {
     menu.addItem(.separator())
   }
 
+  func dump(_ items: [NSMenuItem], depth: Int = 0) {
+    for entry in items {
+      let text = entry.isSeparatorItem ? "---" : entry.attributedTitle?.string.replacingOccurrences(of: "\n", with: " | ") ?? entry.title
+      print(String(repeating: "  ", count: depth + entry.indentationLevel) + text + ((entry.representedObject as? String).map { " -> \($0)" } ?? ""))
+      if let submenu = entry.submenu { dump(submenu.items, depth: depth + 1) }
+    }
+  }
+
   func dumpAndQuit() {
     menuNeedsUpdate(menu)
-    for entry in menu.items {
-      let text = entry.isSeparatorItem ? "---" : entry.attributedTitle?.string.replacingOccurrences(of: "\n", with: " | ") ?? entry.title
-      print(String(repeating: "  ", count: entry.indentationLevel) + text + ((entry.representedObject as? String).map { " -> \($0)" } ?? ""))
-    }
+    dump(menu.items)
     NSApp.terminate(nil)
   }
 }

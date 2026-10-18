@@ -51,6 +51,8 @@ const HELPER_FILES = {
   'decisions-check.mjs': ['plans'],
   'levels.mjs': ['plans'],
   'plan-open.mjs': ['plans', 'delivery!=trunk'],
+  'page-live.mjs': ['plans'],
+  'page-stop.mjs': ['plans'],
   'plan-page.mjs': ['plans'],
   'status.mjs': ['plans'],
   'tasks.mjs': ['plans'],
@@ -545,6 +547,11 @@ export function apply(root, { tag, force = false, write = true } = {}) {
     if (off === undefined) {
       const source = build(readFileSync(join(HELPERS, name), 'utf8'), config);
       synced.files[path] = sha(source);
+      for (const [, imported] of rule ? [] : source.matchAll(/^\s*import\b[^'"]*['"]\.\/([^'"]+)['"]/gmu)) {
+        if (!HELPER_FILES[imported] || offGate(HELPER_FILES[imported]) !== undefined) {
+          refusals.push({ path, forceable: false, reason: `it imports ./${imported}, which HELPER_FILES does not install here, so the installed helper would fail to load` });
+        }
+      }
       if (present === source) continue;
       if (edited && !force) {
         const last = lastVersion(stored, `assets/pstack/${name}`, (text) => build(text, withDerived(root, stored)), stored.synced?.files?.[path]);

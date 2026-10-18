@@ -2,13 +2,15 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import test from 'node:test';
+import { capEffort, claudeSessionRun, EFFORTS } from '../../sync-pstack/assets/pstack/lead.mjs';
 import { eventOf } from './lib/event.mjs';
 import { codeHash, hookCommand, nextHeal, withHook, withoutHook } from './lib/install.mjs';
-import { projectOf, readRollout } from './lib/io.mjs';
+import { projectOf, readClaudeLevel, readRollout } from './lib/io.mjs';
 import { incidentsOf, keyOf, menuBoardOf, petOf, planBoard, reduce, shippedToday, SUMMARY_KEY, stepOf } from './lib/model.mjs';
 import { createClient, deliver, emptyPhone } from './lib/phone.mjs';
+import { levelRowOf, pstackSectionOf, readPstack } from './lib/pstack.mjs';
 
 const T0 = Date.parse('2026-10-06T10:00:00.000Z');
 const at = (seconds) => new Date(T0 + seconds * 1000).toISOString();
@@ -17,6 +19,31 @@ const ask = (session, seconds, toolUseId = `tu-${session}-${seconds}`) => hook(s
 const projectFrom = (cwd) => (cwd ? { id: cwd, name: basename(cwd) } : { id: 'other', name: 'other' });
 const viewsOf = (sessions, urls = {}, rails = {}, titles = {}) => Object.values(sessions).map((session) => ({ session, title: titles[session.id] ?? `🚧 ${session.id}`, project: projectFrom(session.cwd), rail: rails[session.id] ?? null, webUrl: urls[session.id] ?? null, appUrl: null, account: 'owner@example.com' }));
 const VALID_KEY = /^[A-Za-z0-9_-]{1,255}$/u;
+const NO_PSTACK = readPstack([], mkdtempSync(join(tmpdir(), 'pulse-home-')));
+const PINNED = (ref) => JSON.stringify({ enabledPlugins: { 'pstack@pstack-claude': true }, extraKnownMarketplaces: { 'pstack-claude': { source: { source: 'github', repo: 'michael-denyer/pstack-claude', ref } } } });
+
+// A home with both models sheets, a Codex copy that drops one @high, a listed project and an unlisted sibling pinned to an older tag.
+function pstackHome() {
+  const home = mkdtempSync(join(tmpdir(), 'pulse-home-'));
+  const write = (path, text) => {
+    mkdirSync(dirname(join(home, path)), { recursive: true });
+    writeFileSync(join(home, path), text);
+  };
+  write('.claude/pstack-models.md', '# pstack model configuration\n\nOwner choice: Opus.\n\nstrongest judgment: opus\nfeature, refactoring: opus @high\ndefault effort: high\nsession hook: on\n');
+  write('.claude/CLAUDE.md', '## Work\n\n@~/.claude/pstack-models.md\n');
+  write('.claude/settings.json', JSON.stringify({ ...JSON.parse(PINNED('v1')), effortLevel: 'xhigh' }));
+  write('.codex/pstack-models.md', 'strongest judgment: inherit-parent\nfeature, refactoring: inherit-parent @high\ndefault effort: session\nsession hook: on\n');
+  write('.codex/AGENTS.md', '## pstack model roles\n\nstrongest judgment: inherit-parent\nfeature, refactoring: inherit-parent\ndefault effort: session\n');
+  write('.codex/config.toml', '[marketplaces.pstack-claude]\nsource_type = "git"\nref = "v1"\n');
+  write('.agents/config.json', JSON.stringify({ syncedRepositories: { sets: { mine: { repos: [join(home, 'git/listed')] } } } }));
+  for (const [name, ref] of [['listed', 'v1'], ['sibling', 'v0']]) {
+    mkdirSync(join(home, 'git', name, '.git'), { recursive: true });
+    write(`git/${name}/.agents/pstack.json`, JSON.stringify({ tag: 'v1', maxEffort: 'high' }));
+    write(`git/${name}/.claude/settings.json`, PINNED(ref));
+  }
+  return { home, write, project: join(home, 'git/listed') };
+}
+const assistant = (model, effort) => `${JSON.stringify({ type: 'assistant', timestamp: at(1), ...(effort ? { effort } : {}), message: { model, content: [] } })}\n`;
 
 function fakeClient(script = {}) {
   const calls = [];
@@ -563,7 +590,7 @@ test('the menubar keeps the fleet line and lists every live session ranked, and 
   const sessions = {};
   ['/w/a', '/w/a', '/w/a', '/w/b', '/w/b', null].forEach((cwd, index) => reduce(sessions, hook(`s${index}`, 'UserPromptSubmit', index, { cwd })));
   reduce(sessions, { ...ask('s4', 10), cwd: '/w/b' });
-  const context = { now: T0 + 11_000, shippedToday: 0 };
+  const context = { now: T0 + 11_000, shippedToday: 0, pstack: NO_PSTACK };
   const views = viewsOf(sessions);
   const menu = menuBoardOf(views, context);
   assert.deepEqual(menu.cards.map(({ state }) => state), ['needs-you', 'working', 'working', 'working', 'working', 'working']);
@@ -613,7 +640,7 @@ test('the menubar opens a session in the desktop app by its host id, with its op
   reduce(sessions, { kind: 'registry', runtime: 'claude', session: 'desk', at: at(1), host: 'local_abc', status: 'busy', name: null, bridge: 'session_x', entrypoint: 'claude-desktop', pid: 1 });
   reduce(sessions, hook('cli', 'UserPromptSubmit', 2, { cwd: '/w/a' }));
   const open = { page: 'https://claude.ai/artifact/p', stages: [{ label: 'Build', state: 'now' }], steps: { checked: 0, total: 0 } };
-  const menu = menuBoardOf(viewsOf(sessions, { cli: 'https://claude.ai/code/session_y' }, { desk: open }), { now: T0 + 60_000, shippedToday: 0 });
+  const menu = menuBoardOf(viewsOf(sessions, { cli: 'https://claude.ai/code/session_y' }, { desk: open }), { now: T0 + 60_000, shippedToday: 0, pstack: NO_PSTACK });
   const row = (id) => menu.cards.find(({ key }) => key === keyOf(sessions[`claude:${id}`]));
   assert.equal(row('desk').open, 'claude://claude.ai/epitaxy/local_abc');
   assert.equal(row('desk').page, 'https://claude.ai/artifact/p');
@@ -645,4 +672,85 @@ test('a skill update restarts the daemon only once a change anywhere in the skil
   watch = nextHeal(watch, codeHash(skill));
   assert.equal(watch.heal, false);
   assert.equal(nextHeal(watch, codeHash(skill)).heal, true);
+});
+
+test('each menubar row shows the model and effort its session last ran at, orange off Opus or below the floor, while the phone cards stay the same', () => {
+  const { home, project } = pstackHome();
+  const transcripts = mkdtempSync(join(tmpdir(), 'pulse-'));
+  const sessions = {};
+  const claude = (id, text) => {
+    const path = join(transcripts, `${id}.jsonl`);
+    writeFileSync(path, text);
+    reduce(sessions, hook(id, 'UserPromptSubmit', 0, { cwd: project, transcript: path }));
+    return path;
+  };
+  const readLevel = (id) => reduce(sessions, { kind: 'level', runtime: 'claude', session: id, at: at(2), ...readClaudeLevel(sessions[`claude:${id}`].transcript, sessions[`claude:${id}`].levelCursor) });
+  const lead = claude('lead', assistant('claude-opus-5-5', 'xhigh'));
+  claude('other', assistant('claude-sonnet-4-5', 'high'));
+  const rollout = join(transcripts, 'rollout.jsonl');
+  writeFileSync(rollout, `${JSON.stringify({ type: 'turn_context', timestamp: at(1), payload: { model: 'gpt-6.1-sol' } })}\n`);
+  reduce(sessions, { ...hook('01a11319-0000-7000-8000-000000000002', 'SessionStart', 0, { cwd: project, transcript: rollout }), runtime: 'codex' });
+  reduce(sessions, { kind: 'thread', runtime: 'codex', session: '01a11319-0000-7000-8000-000000000002', at: at(1), source: 'cli', title: null });
+  reduce(sessions, { kind: 'rollout', runtime: 'codex', session: '01a11319-0000-7000-8000-000000000002', at: at(2), ...readRollout(rollout, null) });
+  readLevel('lead');
+  readLevel('other');
+  const views = viewsOf(sessions);
+  const levels = () => {
+    const pstack = readPstack(views.map(({ session }) => session.cwd), home);
+    return Object.fromEntries(menuBoardOf(views, { now: T0 + 3000, shippedToday: 0, pstack }).cards.map(({ key, level }) => [Object.values(sessions).find((session) => keyOf(session) === key).id, level]));
+  };
+  const first = levels();
+  assert.equal(first.lead.color, 'gray');
+  assert.match(first.lead.title, /cap high/u);
+  assert.equal(first.other.color, 'orange');
+  assert.equal(first['01a11319-0000-7000-8000-000000000002'].color, 'gray');
+  const medium = assistant('claude-opus-5-5', 'medium');
+  appendFileSync(lead, medium.slice(0, 30));
+  readLevel('lead');
+  assert.equal(levels().lead.color, 'gray');
+  appendFileSync(lead, medium.slice(30));
+  readLevel('lead');
+  assert.equal(levels().lead.color, 'orange');
+  const withoutLevels = viewsOf(Object.fromEntries(Object.entries(sessions).map(([key, session]) => [key, { ...session, level: null, levelCursor: null }])));
+  assert.deepEqual(planBoard(views, emptyPhone(), { now: T0 + 3000, shippedToday: 0 }), planBoard(withoutLevels, emptyPhone(), { now: T0 + 3000, shippedToday: 0 }));
+  assert.deepEqual([...incidentsOf(views)], [...incidentsOf(withoutLevels)]);
+});
+
+test('the pstack row flags a Codex copy that drifts from its sheet and a project pinned off its tag, and reads all clear once both are fixed', () => {
+  const { home, write } = pstackHome();
+  const section = () => pstackSectionOf(readPstack([], home));
+  const findings = (node) => node.items.filter((item) => item?.color === 'orange');
+  const before = section();
+  assert.equal(findings(before).length, 2);
+  assert.ok(findings(before).some(({ items }) => items.some(({ title }) => title.startsWith('feature, refactoring:'))));
+  assert.ok(findings(before).some(({ title }) => title.includes('sibling')));
+  write('.codex/AGENTS.md', '## pstack model roles\n\nstrongest judgment: inherit-parent\nfeature, refactoring: inherit-parent @high\ndefault effort: session\n');
+  write('git/sibling/.claude/settings.json', PINNED('v1'));
+  const after = section();
+  assert.deepEqual(findings(after), []);
+  assert.equal(after.color, 'gray');
+  assert.ok(after.items.some((item) => item?.title.startsWith('sibling')));
+});
+
+test('pulse reads a Claude transcript and caps effort the way sync-pstack lead.mjs does', () => {
+  const { home, write } = pstackHome();
+  const id = '7c0de000-0000-4000-8000-000000000001';
+  write(`.claude/projects/p/${id}.jsonl`, `${assistant('claude-opus-5-5', 'xhigh')}${JSON.stringify({ type: 'user', message: {} })}\n${assistant('claude-opus-5-5', 'max')}${assistant('claude-opus-5-5')}`);
+  const before = process.env.HOME;
+  process.env.HOME = home;
+  let expected;
+  try {
+    expected = claudeSessionRun(id);
+  } finally {
+    process.env.HOME = before;
+  }
+  const { level } = readClaudeLevel(join(home, `.claude/projects/p/${id}.jsonl`), null);
+  assert.deepEqual({ model: level.model, effort: level.effort }, { model: expected.model, effort: expected.effort });
+  for (const [index, cap] of EFFORTS.slice(0, -1).entries()) {
+    write('git/listed/.agents/pstack.json', JSON.stringify({ tag: 'v1', maxEffort: cap }));
+    const config = readPstack([join(home, 'git/listed')], home);
+    const effort = EFFORTS[index + 1];
+    const row = levelRowOf({ runtime: 'claude', cwd: join(home, 'git/listed'), level: { model: 'claude-opus-5-5', effort } }, config);
+    assert.match(row.title, new RegExp(`\\(cap ${capEffort(effort, cap)}\\)$`, 'u'), `${effort} under cap ${cap}`);
+  }
 });

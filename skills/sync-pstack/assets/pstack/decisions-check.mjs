@@ -13,7 +13,8 @@
 //        Both append forms open the batch with a lead row naming the session's model
 //        and effort, read by lead.mjs, when they differ from the log's last lead row.
 //        Both append forms print the stage a written batch moves the log into, so
-//        the lead renames the session as the Session title rule asks.
+//        the lead renames the session as the Session title rule asks, and in Claude
+//        Code print the page-stop beacon's set for the plan beside the log.
 //        Both append forms, unlike the <log> and --all checks, refuse a partial, open, gap,
 //        blocked or inconclusive row without proof: <existing file under <plans>/artifacts/>
 //        or proof: none, and an accepted row unless its proof: names files an earlier row
@@ -51,6 +52,7 @@ import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { currentLead, leadLabel, maxEffort } from './lead.mjs';
+import { cli as pageStop } from './page-stop.mjs';
 import { board, briefOf, CHIP_STATES, cleanupOf, chipRowProblems, baseRedProblems, gitMerges, LEDGER, newChipRowProblems, newId, offeredAt, readTasks, recordRow, renderBoard, SESSION, staleReport, startedOverlaps } from './tasks.mjs';
 import { acceptedWord, committedLines, defaultsWords, isAcceptingWord, isHandOffReview, NOT_PASSED, proofLabels, proofStates, PROVEN, runPaths, SEATS, SEVERITIES, stageOfRow, STATUSES, statusOf } from './status.mjs';
 
@@ -311,6 +313,19 @@ function stageMoves(path) {
   return stages.filter((stage, index) => stage !== stages[index - 1]);
 }
 
+function tryBeacon(log) {
+  const plan = log.replace(/\.decisions\.tsv$/u, '.md');
+  if (process.env.CLAUDECODE !== '1' || plan === log || !existsSync(plan)) return;
+  try {
+    const { error, lines = [] } = pageStop(['beacon', plan], process.env);
+    if (error) console.error(`No beacon: ${error}`);
+    const sets = lines.filter((line) => line.startsWith('ArtifactData '));
+    if (sets.length) console.info(`Send this beacon with the next working call:\n${sets.join('\n')}`);
+  } catch (error) {
+    console.error(`No beacon: ${error.message}`);
+  }
+}
+
 const args = process.argv.slice(2);
 runLedgerCommandFromMainCheckout(args);
 if (args[0] === 'rounds') {
@@ -455,6 +470,7 @@ if (args[0] === 'append') {
   if (run) console.info(`Lead: ${leadLabel(run)}.`);
   const entered = stageMoves(args[1]).slice(before);
   if (entered.length) console.info(`Stage: ${entered.join(', then ')}.${existsSync(new URL('rules/title.md', import.meta.url)) ? ' Rename the session now, as .agents/pstack/rules/title.md says.' : ''}`);
+  tryBeacon(args[1]);
   process.exit(0);
 }
 const paths =

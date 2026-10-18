@@ -11,6 +11,7 @@ import { HOME } from './lib/event.mjs';
 import { accounts, apiKey, claudeRegistry, loadConfig, loadState, probe, projectOf, railOf, readInbox, saveConfig, saveState, writeFileAtomic } from './lib/io.mjs';
 import { firstNeed, incidentsOf, menuBoardOf, petOf, planBoard, reduce, shippedToday, titleStageOf } from './lib/model.mjs';
 import { createClient, deliver, teardown } from './lib/phone.mjs';
+import { readPstack } from './lib/pstack.mjs';
 
 const SCRIPTS = dirname(realpathSync(fileURLToPath(import.meta.url)));
 const SKILL = dirname(SCRIPTS);
@@ -73,10 +74,11 @@ async function tick(state, config, client) {
   const views = viewsOf(state.sessions);
   latestViews = views;
   const context = { now, shippedToday: shippedToday(state.sessions, now), account: accountCache.value.desktop, listUrl: config.listUrl };
-  latestMenu = menuBoardOf(views, context);
   const board = planBoard(views, state.phone, context);
   problems.push(...(await deliver(state.phone, { cards: board.cards, badge: board.badge, incidents: incidentsOf(views), listUrl: config.listUrl, atDesk: atDesk() }, { client, save: () => saveState(state) })));
   saveState(state);
+  // Built after the phone's turn, so a config file pulse cannot read stalls only the menu.
+  latestMenu = menuBoardOf(views, { ...context, pstack: readPstack(views.map(({ session }) => session.cwd)) });
   const summary = problems.join('; ');
   if (summary && summary !== lastProblems) log(summary);
   lastProblems = summary;

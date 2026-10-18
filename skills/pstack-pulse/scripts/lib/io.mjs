@@ -163,18 +163,18 @@ const accepted = (output) => {
 const stringsOf = (value) => (typeof value === 'string' ? [value] : value && typeof value === 'object' ? Object.values(value).flatMap(stringsOf) : []);
 const userText = (content) => (Array.isArray(content) ? content.map((part) => part?.text ?? '').join('\n') : String(content ?? ''));
 
-const ROLLOUT_CHUNK = 8 * 1024 * 1024;
-const ROLLOUT_FIRST_READ = 1024 * 1024;
+const TAIL_CHUNK = 8 * 1024 * 1024;
+const TAIL_FIRST_READ = 1024 * 1024;
 const commandOutput = (record) => {
   const payload = record.payload ?? {};
   return ['function_call_output', 'custom_tool_call_output'].includes(payload.type) || (payload.type === 'item_completed' && payload.item?.type === 'CommandExecution');
 };
 
-export function readRollout(path, cursor) {
+function readTail(path, cursor) {
   const size = statSync(path).size;
-  const from = cursor === null ? Math.max(0, size - ROLLOUT_FIRST_READ) : cursor > size ? 0 : cursor;
-  if (size <= from) return { cursor: from, signals: [] };
-  const chunk = Buffer.alloc(Math.min(size - from, ROLLOUT_CHUNK));
+  const from = cursor === null ? Math.max(0, size - TAIL_FIRST_READ) : cursor > size ? 0 : cursor;
+  if (size <= from) return { cursor: from, lines: [] };
+  const chunk = Buffer.alloc(Math.min(size - from, TAIL_CHUNK));
   const fd = openSync(path, 'r');
   try {
     readSync(fd, chunk, 0, chunk.length, from);
@@ -183,20 +183,41 @@ export function readRollout(path, cursor) {
   }
   const start = cursor === null && from > 0 ? chunk.indexOf(0x0a) + 1 : 0;
   const complete = chunk.lastIndexOf(0x0a) + 1;
-  const oversizedLine = complete <= start && chunk.length === ROLLOUT_CHUNK;
-  if (oversizedLine) return { cursor: from + chunk.length, signals: [] };
+  const oversizedLine = complete <= start && chunk.length === TAIL_CHUNK;
+  if (oversizedLine) return { cursor: from + chunk.length, lines: [] };
   const partialTail = complete <= start;
-  if (partialTail) return { cursor: from + start, signals: [] };
+  if (partialTail) return { cursor: from + start, lines: [] };
+  return { cursor: from + complete, lines: chunk.subarray(start, complete).toString('utf8').split('\n') };
+}
+
+const parseLine = (line) => {
+  try {
+    return JSON.parse(line);
+  } catch {
+    return null;
+  }
+};
+
+// Claude Code stamps every assistant record with the model and effort it ran at, as lead.mjs reads them.
+export function readClaudeLevel(path, cursor) {
+  const tail = readTail(path, cursor);
+  let level = null;
+  for (const line of tail.lines) {
+    const record = line.includes('"type":"assistant"') ? parseLine(line) : null;
+    if (record?.type === 'assistant' && record.effort && record.message?.model) level = { model: record.message.model, effort: record.effort, at: record.timestamp };
+  }
+  return { cursor: tail.cursor, level };
+}
+
+export function readRollout(path, cursor) {
+  const tail = readTail(path, cursor);
   const signals = [];
-  for (const line of chunk.subarray(start, complete).toString('utf8').split('\n')) {
-    let record;
-    try {
-      record = JSON.parse(line);
-    } catch {
-      continue;
-    }
+  for (const line of tail.lines) {
+    const record = parseLine(line);
+    if (!record) continue;
     const payload = record.payload ?? {};
     const at = typeof record.timestamp === 'string' ? record.timestamp : new Date().toISOString();
+    if (record.type === 'turn_context' && payload.model) signals.push({ type: 'level', model: payload.model, effort: payload.effort ?? 'default', at });
     if (payload.type === 'function_call' && payload.name?.startsWith('request_user_input')) {
       let first = null;
       try {
@@ -210,7 +231,7 @@ export function readRollout(path, cursor) {
     }
     if (commandOutput(record)) for (const text of stringsOf(payload)) for (const path of planMatches(text)) signals.push({ type: 'plan', path });
   }
-  return { cursor: from + complete, signals };
+  return { cursor: tail.cursor, signals };
 }
 
 const repoCache = {};
@@ -283,6 +304,7 @@ export function probe(sessions, now, problems) {
         const pid = entry?.pid ?? session.pid;
         if (pid && alive(pid) === false) observations.push({ kind: 'gone', ...base });
         else if (entry) observations.push({ kind: 'registry', ...base, ...entry, pid });
+        if (session.transcript && existsSync(session.transcript)) observations.push({ kind: 'level', ...base, ...readClaudeLevel(session.transcript, session.levelCursor ?? null) });
       } else if (session.life === 'live') {
         const thread = threads[session.id];
         if (thread) observations.push({ kind: 'thread', ...base, ...thread });

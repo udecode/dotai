@@ -71,7 +71,7 @@ A subject file never holds a `before` or `after` fence.
 
 ## Page order
 
-Every page opens with a header: the title, the flow rail, the `Status:` sentence, and the model and effort of each lead session from the log's `lead` rows, each followed by the panel seats that session ran, with their efforts and `×N` for the rounds each sat. A plan whose `Plans:` line lists the plans it carries names them in the header, and its rail and seats add theirs. A stage ran when any of the plans ran it, review rounds add up and Build counts every plan's steps. On a subject page, a review round on an iteration that does not lead keeps its own tag. The rail shows the stages Plan, Design, Plan review, Build, Writing, Code review, Verify, Audit, Ship and Reflect. Hovering a stage shows the pstack step behind it, and once Plan, Design, a review stage, Writing or Audit ran, small badges name the pstack skills behind it. A stage that ran is a filled green badge, a skipped one is dashed grey and the rest are outlined blue. The next stage is an amber ring while work goes on, a filled orange badge when the `Status:` waits on the owner, and a filled red badge when it is held. A plan that ended without landing, such as a superseded one, adds its word in grey after its last stage and shows every stage it never ran as skipped. Plan names the playbook from the `Playbook:` line and, for a project playbook, the pstack playbooks it extends. Design and Writing name the tools that ran, the review stages name `interrogate` and count their rounds, Audit names `show-me-your-work`, and Build counts its checked steps. Build, Verify, Ship and Reflect carry no badge. Phases outside this table never move the rail, so log each stage's rows under its phase:
+Every page opens with a header: the title, the flow rail, the `Status:` sentence, and the model and effort of each lead session from the log's `lead` rows, each followed by the panel seats that session ran, with their efforts and `×N` for the rounds each sat. A plan whose `Plans:` line lists the plans it carries names them in the header, and its rail and seats add theirs. A stage ran when any of the plans ran it, review rounds add up and Build counts every plan's steps. On a subject page, a review round on an iteration that does not lead keeps its own tag. The rail shows the stages Plan, Design, Plan review, Build, Writing, Code review, Verify, Audit, Ship and Reflect. Hovering a stage shows the pstack step behind it, and once Plan, Design, a review stage, Writing or Audit ran, small badges name the pstack skills behind it. A stage that ran is a filled green badge, a skipped one is dashed grey and the rest are outlined blue. The current stage is the stage of the log's newest Design, Plan review, Build, Writing, Code review, Verify or Ship row; Audit and Reflect rows, stageless rows and a `writing` row before the first `build` row, which cleans the plan's prose, never move it. With no such row it is Build once a step is checked, and Plan otherwise. A stage that has not run is skipped before the current stage and outlined after it. The current stage is an amber ring while work goes on, a filled orange badge when the `Status:` waits on the owner, and a filled red badge when it is held. A plan that ended without landing, such as a superseded one, adds its word in grey after its last stage and shows every stage it never ran as skipped. Plan names the playbook from the `Playbook:` line and, for a project playbook, the pstack playbooks it extends. Design and Writing name the tools that ran, the review stages name `interrogate` and count their rounds, Audit names `show-me-your-work`, and Build counts its checked steps. Build, Verify, Ship and Reflect carry no badge. Phases outside this table never move the rail, so log each stage's rows under its phase:
 
 | Stage | Ran when |
 | --- | --- |
@@ -89,19 +89,21 @@ Every page opens with a header: the title, the flow rail, the `Status:` sentence
 When the leading plan has a brief, the page shows what a reviewer needs to judge the plan, with nothing folded, and leaves the internals in the files:
 
 1. The header.
-2. The brief in one card.
-3. How it works, from Teach.
-4. On top of the PR.
-5. Demo.
-6. Needs you.
-7. Picked for you, from Defaults, each decision with its pick and alternatives under Big calls, Small calls and Details.
-8. Public API, from the leading plan.
-9. The `page-lead` sections in their playbook order, each from the leading plan, or from the subject and marked current when the plan has none.
-10. Main changes.
-11. The leading plan's other sections, apart from Open work.
-12. Verification, once the plan is done.
-13. Open work.
-14. One line that names the plan, its subject and each plan on its `Plans:` line, whose files keep the internals: Close, Scope, Steps, Evidence, Proof, Claims, Asks, Notes, Panel gate, Verification while work runs, iterations and the review rounds.
+2. The live line.
+3. The brief in one card.
+4. How it works, from Teach.
+5. On top of the PR.
+6. Demo.
+7. Needs you.
+8. Other runs.
+9. Picked for you, from Defaults, each decision with its pick and alternatives under Big calls, Small calls and Details.
+10. Public API, from the leading plan.
+11. The `page-lead` sections in their playbook order, each from the leading plan, or from the subject and marked current when the plan has none.
+12. Main changes.
+13. The leading plan's other sections, apart from Open work.
+14. Verification, once the plan is done.
+15. Open work.
+16. One line that names the plan, its subject and each plan on its `Plans:` line, whose files keep the internals: Close, Scope, Steps, Evidence, Proof, Claims, Asks, Notes, Panel gate, Verification while work runs, iterations and the review rounds.
 
 Write every sentence the page shows in the `pstack:bro` voice. Say it the way one person talks to another, plainly, briefly and with no jargon. Use short sentences, the active voice and common words. The brief, Teach, Needs you and Defaults also leave out code, file paths and commit hashes, apart from a Teach picture's path, and the renderer refuses an open plan whose brief, Teach, Open questions or Defaults holds code, inline or in a fenced block. Sections for engineers, such as Public API and Main changes, keep their code and tables, and the sentences around them use the same voice. After a build, the Changes and Risks answers also tell the owner what the Close holds: what landed, where the proof stops, any reversal and the warnings of a decision-trail review.
 
@@ -109,17 +111,27 @@ Needs you collects the Open questions of every iteration, and another iteration'
 
 Without a brief, the page shows the whole record, with every section open:
 
-1. Demo, from the leading plan.
-2. Needs you.
-3. Close, from the leading iteration's or the one-off plan's `## Close`.
-4. How it works, from the leading plan's Teach.
-5. The leading plan's lead paragraph.
-6. Public API, then the `page-lead` sections, then Main changes.
-7. Picked for you, from Defaults, each decision with its pick and alternatives under Big calls, Small calls and Details.
-8. The subject's lead paragraph and other sections.
-9. History, newest first.
-10. Details.
-11. Review history, from the decision log's `panel` and `review` rows.
+1. The live line, under the header.
+2. Demo, from the leading plan.
+3. Needs you, then Other runs.
+4. Close, from the leading iteration's or the one-off plan's `## Close`.
+5. How it works, from the leading plan's Teach.
+6. The leading plan's lead paragraph.
+7. Public API, then the `page-lead` sections, then Main changes.
+8. Picked for you, from Defaults, each decision with its pick and alternatives under Big calls, Small calls and Details.
+9. The subject's lead paragraph and other sections.
+10. History, newest first.
+11. Details.
+12. Review history, from the decision log's `panel` and `review` rows.
+
+## Live line and Other runs
+
+Each page keeps a small database beside its HTML, the `runs` collection, and a script that draws it in a signed-in claude.ai view. Each run writes only its own notes there. A local copy, a Codex copy and a signed-out view show neither part, and `--pr` and `--comment` output carry neither.
+
+- The live line under the header shows one line per plan and session from its newest beacon or stop note: the stage, since when that stage holds, and whether it waits on the owner. A note goes out whenever the plan's stage or state moves, and again after 30 minutes on one stage, as `.agents/pstack/rules/pages.md` says. After a day without a note the line says when the run last wrote, and after a week the line leaves.
+- A stop's notes hold the hand-back of its own plan, and of each other plan the page shows that its checkout changed since it forked from `origin/<branch>` or that asks something: the brief, `Status:`, every open question and the (look) and (answer) Defaults rows. A plan asks something when it has an open question, waits, is blocked, or is not done and has a (look) or (answer) row. A committed copy's note dates from its commit. Other runs, after Needs you, shows one card per plan copy that no newer copy supersedes and that the body does not show whole, waiting and blocked plans first. The body shows the leading plan whole but another plan's open questions only, so that plan's card leaves its questions out. A body item whose plan has a newer note is marked as changed since.
+- One copy supersedes another when its history holds the other's blob, when both come from one session and it is later, or when its blob is committed on `origin/<branch>` and it is later; a tie goes to the later one. A finished card that asks nothing leaves three days after its copy's time, and a working one after a week. A card that asks something never leaves by age. It leaves once a later landed copy of its plan shows, or when the owner asks a session to drop it, which deletes that plan's notes pinned to their versions.
+- The leading plan's header carries `id="run-<plan slug>"`, and so does each other plan's first Needs you item and each card whose plan has no such element in the body, so the hand-back link `<url>#run-<plan slug>` lands on that plan's part of the page.
 
 ## PR body
 

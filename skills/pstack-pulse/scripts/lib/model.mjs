@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { QUESTION_TOOLS } from './event.mjs';
+import { levelRowOf, pstackSectionOf } from './pstack.mjs';
 
 const SLOTS = 5;
 const METRIC_LIMIT = 8;
@@ -54,6 +55,8 @@ function newSession(observation) {
     pushes: [],
     ships: [],
     cursor: null,
+    level: null,
+    levelCursor: null,
   };
 }
 
@@ -183,6 +186,7 @@ function applyRollout(session, rollout) {
     if (signal.type === 'plan') session.plan = planPathOf(signal.path, session.cwd) ?? session.plan;
     else if (signal.type === 'ask') openNeed(session, signal.callId ?? `ask:${signal.at}`, { kind: 'codex-question', openedAt: signal.at, question: signal.question, options: signal.options });
     else if (signal.type === 'reply') delete session.needs[signal.callId];
+    else if (signal.type === 'level') session.level = { model: signal.model, effort: signal.effort, at: signal.at };
   }
 }
 
@@ -243,7 +247,10 @@ export function reduce(sessions, observation) {
     session.audience = ['vscode', 'cli'].includes(observation.source) ? 'owner' : 'hidden';
     session.title = observation.title ?? session.title;
   } else if (observation.kind === 'rollout') applyRollout(session, observation);
-  else if (observation.kind === 'push') applyPush(session, observation);
+  else if (observation.kind === 'level') {
+    session.levelCursor = observation.cursor;
+    session.level = observation.level ?? session.level;
+  } else if (observation.kind === 'push') applyPush(session, observation);
   derive(session, observation.at);
 }
 
@@ -389,8 +396,9 @@ export function menuBoardOf(views, context) {
     ...sessionCardOf(view).body,
     open: view.session.host ? `claude://claude.ai/epitaxy/${view.session.host}` : view.webUrl,
     page: openPlanPage(view),
+    level: levelRowOf(view.session, context.pstack),
   });
-  return { fleet: fleetOf(live, context).body, cards: ranked.map(rowOf) };
+  return { fleet: fleetOf(live, context).body, pstack: pstackSectionOf(context.pstack), cards: ranked.map(rowOf) };
 }
 
 const OWNER_STAGES = ['Waiting', 'Blocked', 'Paused'];
