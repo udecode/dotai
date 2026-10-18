@@ -151,18 +151,16 @@ async function deck(collection, words, size) {
     landed = true;
     target.scrollIntoView();
   };
-  // Beacons and hand-backs read apart, so beacons never push a hand-back out of the window, and hand-backs past it are read once in pages.
-  const runs = db.collection(collection);
-  const handbacks = runs.where('kind', '==', 'handback').orderBy('at', 'desc');
-  const read = { beacons: [], handbacks: [], older: [] };
+  // The newest notes stay live; once they fill the window, the older ones are read once, page by page, so an old question still shows.
+  const notes = db.collection(collection).orderBy('at', 'desc');
+  const read = { live: [], older: [] };
   let paged = false;
-  const redraw = () => draw([...read.beacons, ...read.handbacks, ...read.older]);
   const fail = () => say('Other runs stopped updating. Reload the page.');
   const older = async (snapshot) => {
     const seen = new Set(snapshot.docs.map((doc) => doc.id));
-    let oldest = read.handbacks.at(-1).at;
+    let oldest = read.live.at(-1).at;
     for (;;) {
-      const next = await handbacks.where('at', '<=', oldest).limit(size).get();
+      const next = await notes.where('at', '<=', oldest).limit(size).get();
       const fresh = next.docs.filter((doc) => !seen.has(doc.id));
       for (const doc of fresh) {
         seen.add(doc.id);
@@ -172,17 +170,13 @@ async function deck(collection, words, size) {
       oldest = fresh.at(-1).data().at;
     }
   };
-  runs.where('kind', '==', 'beacon').orderBy('at', 'desc').limit(size).onSnapshot((snapshot) => {
-    read.beacons = snapshot.docs.map((doc) => doc.data());
-    redraw();
-  }, fail);
-  handbacks.limit(size).onSnapshot(async (snapshot) => {
-    read.handbacks = snapshot.docs.map((doc) => doc.data());
+  notes.limit(size).onSnapshot(async (snapshot) => {
+    read.live = snapshot.docs.map((doc) => doc.data());
     if (snapshot.size === size && !paged) {
       paged = true;
       await older(snapshot).catch(fail);
     }
-    redraw();
+    draw([...read.live, ...read.older]);
   }, fail);
 }
 

@@ -119,14 +119,14 @@ function stop(planPath, { own, db, session }) {
   const mine = session.slice(0, 8);
   const current = currentOf(planPath);
   const { since } = noted(context, slug, session, { url: url ?? '', ...current }, now);
-  const record = (path, times, extra = {}) => handbackOf({ plan: relative(root, path), slug: slugOf(path), ...planParts({ path, plan: parsePlan(readFileSync(path, 'utf-8')) }) }, facts.get(path), { session, ...times, ...extra });
-  const lead = record(planPath, { at, since }, current);
+  const record = (path, fields) => handbackOf({ plan: relative(root, path), slug: slugOf(path), ...planParts({ path, plan: parsePlan(readFileSync(path, 'utf-8')) }) }, facts.get(path), { session, ...fields });
+  const lead = record(planPath, { at, since, ...current });
   const digest = createHash('sha256').update(JSON.stringify({ ...lead, at: null, since: null })).digest('hex').slice(0, 12);
   // Another shown plan this checkout changed, or one that asks, gets a record too, so a checkout that lacks it cannot drop it; a committed copy dates from its commit.
   const changed = changedSince(root, branch);
   const others = [...facts.keys()]
     .filter((path) => path !== planPath)
-    .map((path) => ({ path, data: record(path, { at: facts.get(path).at ?? at }, currentOf(path)) }))
+    .map((path) => ({ path, data: record(path, { at: facts.get(path).at ?? at, ...currentOf(path) }) }))
     .filter(({ path, data }) => changed.has(path) || asking(data))
     .map(({ path, data }) => ({ id: `${slugOf(path)}.h.${mine}.${facts.get(path).blob.slice(0, 12)}`, data }));
   const records = [{ id: `${slug}.s.${mine}.${digest}`, data: { ...lead, stop: digest } }, ...others];

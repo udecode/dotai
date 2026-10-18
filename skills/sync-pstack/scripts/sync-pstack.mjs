@@ -74,7 +74,7 @@ export const RULE_FILES = {
   'reflect.md': [],
   'tests.md': ['tests'],
   'time.md': [],
-  'title.md': ['delivery!=trunk'],
+  'title.md': [],
   'trails.md': ['plans', 'delivery!=trunk'],
 };
 const isCondition = (gate) => gate.includes('=');

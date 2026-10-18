@@ -134,7 +134,7 @@
   Bookkeeping never takes a call of its own: a retitle, a todo update, a decision-log append, a beacon's set or a plan-page render goes out in the same message as the next working call, and several decision rows go in one `decisions-check.mjs append <log> --from <rows.tsv>` call (owner's word, 2026-10-17).
 <!-- end -->
 <!-- if delivery=trunk -->
-  Bookkeeping never takes a call of its own: a todo update, a decision-log append, a beacon's set or a plan-page render goes out in the same message as the next working call, and several decision rows go in one append (owner's word, 2026-10-17).
+  Bookkeeping never takes a call of its own: a retitle, a todo update, a decision-log append, a beacon's set or a plan-page render goes out in the same message as the next working call, and several decision rows go in one append (owner's word, 2026-10-17).
 <!-- end -->
 <!-- # overrides how/SKILL.md "Spawn all explorers in a single message" -->
 - **Extraction.** The session's own model keeps every judgment: plans, designs, the code the lead writes, synthesis, explainers, judges, cross-judges, a second reader that checks extracted claims, and reflect's synthesis with every decision on what it applies. In Claude Code, a role that only finds evidence for the lead to judge runs on Codex when the models sheet gives it a `codex:<model> @<effort>` value; today that is the `how explorer` role, which gets pstack's explorer prompt. It runs through `cross.mjs --reach`, which loads the user's Codex config, connectors, web search and network but writes only a scratch folder, never the project. Before using an answer, the lead checks that it covers every source and lookup its brief asked for. A seat that fails, returns nothing, or leaves an asked-for source or lookup uncovered, reported or not, reruns once on its model for the part still missing, and the page names any gap left. In Claude Code, when the lead would otherwise read several files it has not read to find where a change goes, it asks such a seat for the spans and call sites instead, confirms the call sites with its own `git grep` of each changed symbol, then reads in full the function it changes and each caller whose behavior the change can break.
@@ -235,12 +235,7 @@
   Before you close planned work, or brief, wait on or save a subagent, read `.agents/pstack/rules/close.md` in full; it holds the close order and the Decision-trail review rule.
 <!-- end -->
 <!-- # adds -->
-<!-- if delivery!=trunk -->
 - **Session title.** When the runtime has a tool that renames the current session, read `.agents/pstack/rules/title.md` before the run's first stage and after a compaction or a resume, and retitle the session as it says whenever a stage starts or the run's state changes.
-<!-- end -->
-<!-- if delivery=trunk -->
-- **Session title.** When the runtime has a tool that renames the current session, give the session one short title that names its task, and change it only when the task changes.
-<!-- end -->
 <!-- # overrides poteto-mode/SKILL.md "the **technical-writing** skill (`/technical-writing`), on top of **unslop**" -->
 <!-- # overrides poteto-mode/playbooks/opening-a-pr.md "Write every PR title, description, and commit body with `/technical-writing`" -->
 - **Writing passes.** pstack triggers four separate writing passes; run one per kind of change, once per batch of work, never once per edit. A pass counts only when its skill's text is in the current context: the lead invokes the skill for its first pass, and until the next compaction a later pass runs from that loaded text without invoking it again. A pass from memory after a compaction is not the pass, and its todo stays open. Product code gets `deslop`, then `no-comments`, once over every change since its last pass, before any review and before it is committed or handed back at the task's close, except that a panel round's fixes run `no-comments` only when their diff, `deslop`'s edits included, adds, changes or removes a comment line.
