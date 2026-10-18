@@ -1158,6 +1158,14 @@ function usesPstack(root) {
 // A linked worktree's .git is a file.
 const isMainCheckout = (path) => statSync(join(path, '.git'), { throwIfNoEntry: false })?.isDirectory() ?? false;
 
+// A trunk project's main checkout only pulls. A clone that sets pstack.delivery
+// lands through land.mjs, so its sync runs in a worktree and lands from there.
+function trunkMain(root) {
+  const config = existsSync(join(root, CONFIG)) ? readJson(join(root, CONFIG)) : {};
+  if (config.delivery !== 'trunk' || !isMainCheckout(root) || !git(root, 'config', '--get', 'pstack.delivery')) return [];
+  return [{ path: 'git', reason: `this is the main checkout of a trunk project, which only pulls; apply in a worktree cut from origin/${config.branch} and land it with land.mjs` }];
+}
+
 function candidates(roots) {
   const configured = [];
   const configPath = join(homedir(), '.agents/config.json');
@@ -1195,9 +1203,9 @@ function projectState(root, plugin) {
 
 // A sync writes into a live checkout, so it must be on the project's branch and
 // must not mix its change with uncommitted edits to the files it writes.
-function preflight(root, { allowDirty }) {
+function preflight(root, { allowDirty, dryRun }) {
   const config = readJson(join(root, CONFIG));
-  const refusals = [];
+  const refusals = dryRun ? [] : trunkMain(root);
   const branch = git(root, 'branch', '--show-current');
   if (!['pr', 'trunk'].includes(config.delivery) && branch !== config.branch) {
     refusals.push({ path: 'git', reason: `the checkout is on ${branch || 'a detached HEAD'}, not ${config.branch}` });
@@ -1372,7 +1380,10 @@ function main(argv) {
     }
     case 'apply': {
       console.error(source());
-      const result = apply(one(), { tag: flags.tag, force: flags.force, write: !flags.dryRun });
+      const root = one();
+      const blocked = flags.dryRun ? [] : trunkMain(root);
+      const result = apply(root, { tag: flags.tag, force: flags.force, write: !flags.dryRun && blocked.length === 0 });
+      result.refusals.unshift(...blocked);
       console.info(report(result, flags.dryRun ? 'dry-run' : 'write'));
       return result.refusals.length > 0 ? 1 : 0;
     }

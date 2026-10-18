@@ -16,6 +16,9 @@ const ENV = {
   GIT_COMMITTER_NAME: 't',
   GIT_COMMITTER_EMAIL: 't@t',
   GIT_EDITOR: 'true',
+  CLAUDE_CODE_HOST_SESSION_ID: '',
+  CLAUDE_CODE_SESSION_ID: '',
+  CODEX_SESSION_ID: '',
 };
 const GOOD = 'feat(a): change a\n\nWhy a changes.\n\nBeyond the ask: none';
 
@@ -103,11 +106,12 @@ test('land rebases and pushes again when next moves while its checks run', () =>
 
 test('land stops on a rebase conflict with the conflicting paths, and reruns without --message once it is resolved', () => {
   const { remote, clone, message, elsewhere } = trunk();
+  const session = { CLAUDE_CODE_HOST_SESSION_ID: 'local_s1' };
   git(clone, 'config', 'pstack.delivery', 'push');
   git(elsewhere('a.txt', 'theirs\n', 'fix(a): land elsewhere'), 'push', '--quiet', 'origin', 'HEAD:next');
   writeFileSync(join(clone, 'a.txt'), 'mine\n');
 
-  const stopped = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  const stopped = helper('land.mjs', clone, ['--message', message(GOOD)], session);
   assert.equal(stopped.status, 1);
   assert.match(stopped.stderr, /conflicts in:\n {2}a\.txt\n/);
   assert.equal(git(remote, 'show', 'next:a.txt'), 'theirs');
@@ -116,10 +120,30 @@ test('land stops on a rebase conflict with the conflicting paths, and reruns wit
   writeFileSync(join(clone, 'a.txt'), 'both\n');
   git(clone, 'add', 'a.txt');
   git(clone, 'rebase', '--continue');
-  const landed = helper('land.mjs', clone);
+  const landed = helper('land.mjs', clone, [], session);
   assert.equal(landed.status, 0, landed.stderr);
-  assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), GOOD);
+  assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), `${GOOD}\n\nSession: local_s1`, 'the rerun keeps one Session: line');
   assert.equal(git(remote, 'show', 'next:a.txt'), 'both');
+});
+
+test('land names the one dated plan the task changes, and no plan when it changes two or only a subject file', () => {
+  const { remote, clone, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  mkdirSync(join(clone, 'docs/plans/topics'), { recursive: true });
+  writeFileSync(join(clone, 'docs/plans/2026-10-18-x.md'), '# X\n');
+  writeFileSync(join(clone, 'docs/plans/2026-10-18-x.decisions.tsv'), 'row\n');
+  writeFileSync(join(clone, 'docs/plans/topics/x.md'), '# X\n');
+  assert.equal(helper('land.mjs', clone, ['--message', message(GOOD)]).status, 0);
+  assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), `${GOOD}\n\nPlan: docs/plans/2026-10-18-x.md`);
+
+  writeFileSync(join(clone, 'docs/plans/topics/x.md'), '# X again\n');
+  assert.equal(helper('land.mjs', clone, ['--message', message(GOOD)]).status, 0);
+  assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), GOOD, 'a subject file alone names no plan');
+
+  writeFileSync(join(clone, 'docs/plans/2026-10-18-x.md'), '# X closed\n');
+  writeFileSync(join(clone, 'docs/plans/2026-10-18-y.md'), '# Y\n');
+  assert.equal(helper('land.mjs', clone, ['--message', message(GOOD)]).status, 0);
+  assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), GOOD, 'two plans name none');
 });
 
 test('land pushes a topic branch and opens a PR into next when the clone has no push setting', () => {
@@ -157,27 +181,47 @@ test('land refuses a message without a Conventional subject or a Beyond the ask 
   assert.equal(git(clone, 'status', '--porcelain'), 'M a.txt');
 });
 
-test('review lists commits since the reviewed ref grouped by plan link, and --mark moves the ref', () => {
+test('review groups the commits to review by session, --done marks one session reviewed, and --mark marks all', () => {
   const { clone } = trunk();
   assert.match(helper('review.mjs', clone, ['--mark']).stdout, /Marked origin\/next at \w+ as reviewed/);
   const land = (file, subject, body) => {
     writeFileSync(join(clone, file), `${subject}\n`);
     git(clone, 'add', file);
     git(clone, 'commit', '--quiet', '-m', subject, '-m', body);
+    return git(clone, 'rev-parse', 'HEAD');
   };
-  land('one.txt', 'feat(a): one', 'Plan: docs/plans/2026-10-17-x.md\n\nBeyond the ask: none');
-  land('two.txt', 'fix(b): two', 'No plan here.\n\nBeyond the ask: renamed c');
-  land('three.txt', 'docs(a): three', 'See docs/plans/2026-10-17-x.md.\n\nBeyond the ask: none');
+  const one = land('one.txt', 'feat(a): one', 'Beyond the ask: none\n\nSession: local_s1\nPlan: docs/plans/2026-10-17-x.md');
+  land('two.txt', 'fix(b): two', 'No plan here.\n\nBeyond the ask: renamed c\n\nSession: s2');
+  const three = land('three.txt', 'docs(a): three', 'See docs/plans/2026-10-17-x.md.\n\nBeyond the ask: none\n\nSession: local_s1');
+  const four = land('four.txt', 'chore: four', 'Beyond the ask: none');
   git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
+  const reviewed = () => git(clone, 'rev-parse', 'refs/pstack/reviewed');
 
   const listed = helper('review.mjs', clone).stdout;
-  assert.match(listed, /^3 commit\(s\) on origin\/next since refs\/pstack\/reviewed/);
+  assert.match(listed, /^4 commit\(s\) to review on origin\/next since refs\/pstack\/reviewed/);
   assert.match(
     listed,
-    /\n\ndocs\/plans\/2026-10-17-x\.md\n {2}\w+ feat\(a\): one\n {4}Beyond the ask: none\n {2}\w+ docs\(a\): three\n {4}Beyond the ask: none\n\nNo plan link\n {2}\w+ fix\(b\): two\n {4}Beyond the ask: renamed c\n/
+    /\n\nSession local_s1 \(claude:\/\/claude\.ai\/epitaxy\/local_s1\)\n {2}\w+ feat\(a\): one\n {4}docs\/plans\/2026-10-17-x\.md\n {4}Beyond the ask: none\n {2}\w+ docs\(a\): three\n {4}docs\/plans\/2026-10-17-x\.md\n {4}Beyond the ask: none\n\nSession s2\n {2}\w+ fix\(b\): two\n {4}No plan link\n {4}Beyond the ask: renamed c\n\nNo Session: line \(--done none\)\n {2}\w+ chore: four\n/
   );
+  assert.equal(helper('review.mjs', clone, ['--done']).status, 2);
+
+  assert.match(helper('review.mjs', clone, ['--done', 'local_s1']).stdout, /Marked 2 commit\(s\) of session local_s1 as reviewed\. refs\/pstack\/reviewed is now at \w+\./);
+  assert.equal(reviewed(), one, 'the ref stops before the oldest commit still to review');
+  const left = helper('review.mjs', clone).stdout;
+  assert.match(left, /^2 commit\(s\) to review/);
+  assert.doesNotMatch(left, /local_s1/);
+  assert.equal(helper('review.mjs', clone, ['--done', 'local_s1']).status, 1, 'a session with nothing left to review');
+
+  helper('review.mjs', clone, ['--done', 's2']);
+  assert.equal(reviewed(), three, 'the ref passes a commit reviewed earlier');
+  helper('review.mjs', clone, ['--done', 'none']);
+  assert.equal(reviewed(), four);
+  assert.match(helper('review.mjs', clone).stdout, /^No commits to review on origin\/next since refs\/pstack\/reviewed/);
+
+  land('five.txt', 'feat(a): five', 'Beyond the ask: none\n\nSession: s3');
+  git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
   helper('review.mjs', clone, ['--mark']);
-  assert.match(helper('review.mjs', clone).stdout, /^No commits on origin\/next since refs\/pstack\/reviewed/);
+  assert.match(helper('review.mjs', clone).stdout, /^No commits to review/);
 });
 
 test('guard denies an agent force-push or delete of next or main and passes every other command', () => {
@@ -218,6 +262,23 @@ test('guard denies an agent force-push or delete of next or main and passes ever
   for (const command of passed) assert.equal(guard(command), null, command);
   git(clone, 'switch', '--quiet', 'next');
   assert.equal(guard('git push -f')?.permissionDecision, 'deny', 'a push with no refspec targets the current branch');
+});
+
+test("guard denies the app's base-branch sync with the rebase to run instead, and passes other tools", () => {
+  const { clone } = trunk();
+  const hook = (tool_name) => {
+    const run = spawnSync(process.execPath, [join(clone, '.agents/pstack/guard.mjs')], {
+      input: JSON.stringify({ tool_name, tool_input: {}, cwd: clone }),
+      encoding: 'utf8',
+      env: ENV,
+    });
+    assert.equal(run.status, 0, run.stderr);
+    return run.stdout ? JSON.parse(run.stdout).hookSpecificOutput : null;
+  };
+  const denied = hook('mcp__ccd_host__sync_with_base_branch');
+  assert.equal(denied?.permissionDecision, 'deny');
+  assert.match(denied.permissionDecisionReason, /git fetch origin next && git rebase origin\/next/u);
+  assert.equal(hook('mcp__ccd_host__get_storage_usage'), null);
 });
 
 test('setup copies env files and installs dependencies in a new worktree, once', () => {

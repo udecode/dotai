@@ -194,6 +194,28 @@ test('apply installs every helper and rule file the rendered rules name, whichev
   for (const path of named) assert.ok(existsSync(join(root, path)), `${path} is named but not installed`);
 });
 
+test('apply refuses to write the main checkout of a trunk project whose clone lands through land.mjs, and writes its worktree', () => {
+  const { dir, cli } = sandbox();
+  const root = project(dir, 'app', { config: { ...CONFIG, delivery: 'trunk' }, agents: '# App\n' });
+  const land = (at) => join(at, '.agents/pstack/land.mjs');
+  assert.equal(cli('apply', root).status, 0, 'a clone that does not land through land.mjs still syncs in place');
+  spawnSync('git', ['-C', root, 'add', '-A']);
+  spawnSync('git', ['-C', root, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'init']);
+  spawnSync('git', ['-C', root, 'config', 'pstack.delivery', 'push']);
+  rmSync(land(root));
+
+  const refused = cli('apply', root);
+  assert.equal(refused.status, 1);
+  assert.match(refused.stdout, /main checkout of a trunk project, which only pulls; apply in a worktree cut from origin\/next/u);
+  assert.ok(!existsSync(land(root)), 'the refused apply writes nothing');
+  assert.equal(cli('apply', root, '--dry-run').status, 0, 'a dry run still previews');
+
+  const worktree = join(dir, 'app-task');
+  spawnSync('git', ['-C', root, 'worktree', 'add', '-q', '--detach', worktree]);
+  assert.equal(cli('apply', worktree).status, 0);
+  assert.ok(existsSync(land(worktree)), 'the worktree gets the sync');
+});
+
 test('switching delivery to trunk and back swaps the shared-checkout files for the landing ones, and every file the rules name stays installed', () => {
   const { dir, cli } = sandbox();
   const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
