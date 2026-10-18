@@ -5086,7 +5086,6 @@ const sent = (result) =>
     .filter((line) => /^Artifact(?:Data)? \{/u.test(line))
     .map((line) => JSON.parse(line.slice(line.indexOf(' ') + 1)));
 const batchOf = (result) => sent(result).find((call) => call.action === 'batch');
-// A page's runs collection: a batch applies to it, and a query saves one session's documents into a directory, as ArtifactData does.
 const runsStore = () => {
   const docs = new Map();
   return {
@@ -5362,8 +5361,7 @@ function deckPage(html) {
   return { document, scrolled, live: document.getElementById('plan-page-live'), others: document.getElementById('plan-page-others') };
 }
 
-// A runs collection the deck reads through where, orderBy, limit, get and onSnapshot; a late one sends an empty first snapshot.
-function fakeRuns(docs, { fail = false, late = false } = {}) {
+function fakeRuns(docs, { fail = false, emptyFirst = false } = {}) {
   const snap = (list) => ({ docs: list.map(({ id, data }) => ({ id, data: () => data })), size: list.length });
   const query = (ops) => {
     const run = () => ops.reduce((list, op) => op(list), docs.map((data, index) => ({ id: `d${index}`, data })));
@@ -5374,7 +5372,7 @@ function fakeRuns(docs, { fail = false, late = false } = {}) {
       get: async () => snap(run()),
       onSnapshot: (next, error) => {
         if (fail) error({ code: 'revoked', message: 'gone' });
-        else if (late) {
+        else if (emptyFirst) {
           next(snap([]));
           setImmediate(() => next(snap(run())));
         } else next(snap(run()));
@@ -5437,7 +5435,7 @@ test('the deck finds an old question past a thousand newer beacons and hand-back
     ...Array.from({ length: 1000 }, (_, index) => ({ kind: 'beacon', v: 1, plan: 'docs/plans/busy.md', slug: 'busy', title: 'Busy', session: `s${index}`, stage: 'Build', state: 'working', at: ago(1, index) })),
     ...Array.from({ length: 1000 }, (_, index) => ({ kind: 'handback', v: 1, plan: 'docs/plans/done.md', slug: 'done', title: 'Done', session: `h${index}`, at: ago(10, index), stage: 'Ship', state: 'done', blob: `D${index}`, history: [], landed: false, status: 'executed', brief: null, asks: [], picks: [] })),
   ];
-  const drawn = await deckDraw(html, { db: fakeRuns(docs, { late: true }), hash: '#run-old' });
+  const drawn = await deckDraw(html, { db: fakeRuns(docs, { emptyFirst: true }), hash: '#run-old' });
   const text = drawn.others.textContent;
   for (const part of ['Release it?', 'It is public.', 'The migration cannot be undone.', 'Pick any.', 'Go leaves this open.', 'Ask legal first.', '- Confirm the external release.']) assert.ok(text.includes(part), `the card shows ${part}`);
   assert.equal(drawn.others.children.filter((child) => child.id === 'run-old').length, 1, 'two copies of one plan share one anchor');
