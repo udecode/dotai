@@ -446,10 +446,6 @@
       "sha256": "2244ddc546c603c5c114a1b89002968ba4f251d43d1fbc11c55a12bcb214b64e",
       "mode": 420
     },
-    "skills/sync-pstack/scripts/fixtures/page-stop/lines.json": {
-      "sha256": "c4f52fd49fd0e069ed3b5caf53654695324ad10ca1f21bd88de4ae4b9b8832d7",
-      "mode": 420
-    },
     "skills/sync-pstack/scripts/page-files.test.mjs": {
       "sha256": "31f5152e53606a349e04ca60f6844bfed7bfe90f47aa7814eb05e7f522395c66",
       "mode": 420
