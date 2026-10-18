@@ -11,9 +11,4 @@ This file says when a test earns its place and what it may assert. The pstack bl
   A test a delegate wrote meets the same bar, and the lead rewrites or cuts each one that falls short before it lands.
 <!-- end -->
   Assertions live inside tests, and committed code has no `.only` or `.skip`. During iteration run only the narrowest affected check. Run `{{check}}` once for the settled change when its blast radius justifies it, and attribute each failing step to its files before calling it someone else's. Call a failure pre-existing only when the same check fails the same way at `HEAD` in a detached worktree; a failure your change joined or made worse is yours.
-<!-- if delivery!=trunk -->
   A decision row that records a pre-existing failure names the check as `base-red: <check>`, which `decisions-check.mjs` refuses until an open suggested task owns that check, as `.agents/pstack/rules/chips.md` says.
-<!-- end -->
-<!-- if delivery=trunk -->
-  A pre-existing failure the run leaves in place gets a session card that owns it, or one line in the project's backlog.
-<!-- end -->

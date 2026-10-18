@@ -74,7 +74,7 @@ const git = gitMerges({ branch: projectConfig().branch });
 
 let ledgerTasks = null;
 const currentLedger = () => {
-  const path = join(plansDir(), LEDGER);
+  const path = trunk() ? join(mainCheckout(), plansDir(), LEDGER) : join(plansDir(), LEDGER);
   ledgerTasks ??= readTasks(existsSync(path) ? readFileSync(path, 'utf8').split('\n').slice(1) : []);
   return ledgerTasks;
 };
@@ -88,6 +88,39 @@ function plansDir() {
   return projectConfig().plans || 'docs/plans';
 }
 
+const trunk = () => projectConfig().delivery === 'trunk';
+
+let main;
+function mainCheckout() {
+  if (main === undefined) {
+    try {
+      main = execFileSync('git', ['worktree', 'list', '--porcelain'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).match(/^worktree (.+)$/mu)?.[1] ?? process.cwd();
+    } catch {
+      main = process.cwd();
+    }
+  }
+  return main;
+}
+function chipsArgs(args) {
+  const valued = new Set(['--session', '--sessions'].flatMap((name) => (args.includes(name) ? [args.indexOf(name), args.indexOf(name) + 1] : [])));
+  const at = args.flatMap((arg, index) => (index > 0 && arg !== '--fetch' && !valued.has(index) ? [index] : []));
+  const first = args[at[0]];
+  const logAt = first === 'brief' ? at[2] : ['stale', 'all', 'cleanup'].includes(first) ? at[1] : first === 'id' ? undefined : at[0];
+  return { rest: at.map((index) => args[index]), logAt };
+}
+function runLedgerCommandFromMainCheckout(args) {
+  if (!trunk() || !['append', 'chips'].includes(args[0])) return;
+  const logAt = args[0] === 'append' ? 1 : chipsArgs(args).logAt;
+  const ledgers = [resolve(join(plansDir(), LEDGER)), join(mainCheckout(), plansDir(), LEDGER)];
+  if (logAt !== undefined && !ledgers.includes(resolve(args[logAt] ?? ''))) return;
+  if (args[0] === 'append' && args[2] === '--from' && args[3]) args[3] = resolve(args[3]);
+  const sessions = args.indexOf('--sessions');
+  if (sessions !== -1 && args[sessions + 1]) args[sessions + 1] = resolve(args[sessions + 1]);
+  process.chdir(mainCheckout());
+  if (logAt !== undefined) args[logAt] = join(plansDir(), LEDGER);
+}
+const onDisk = (path) => existsSync(path) || (trunk() && !isAbsolute(path) && existsSync(join(mainCheckout(), path)));
+
 function missingPlan(path, line, where) {
   if (line.split('\t')[1] !== 'panel' || dirname(resolve(path)) !== resolve(plansDir())) return [];
   const plan = path.replace(/\.decisions\.tsv$/u, '.md');
@@ -99,7 +132,7 @@ const markedMissing = (evidence, path) =>
 
 function missingPaths(evidence, where) {
   return runPaths(evidence, plansDir())
-    .filter((path) => !existsSync(path) && !markedMissing(evidence, path))
+    .filter((path) => !onDisk(path) && !markedMissing(evidence, path))
     .map((path) => `${where}: evidence cites ${path}, which does not exist; write it first or cite the path it was saved to`);
 }
 
@@ -167,7 +200,7 @@ function appendOnlyLabelProblems(log, row, earlier, where) {
   if (isHandOffReview(phase)) return [];
   const status = statusOf(result);
   if (!NOT_PASSED.includes(status) && status !== 'accepted') return [];
-  const labels = proofLabels(evidence, plansDir());
+  const labels = proofLabels(evidence, plansDir(), onDisk);
   const found = labels
     .filter((label) => label.path && !label.exists)
     .map((label) => `${where}: proof: ${label.path} names no file`);
@@ -279,6 +312,7 @@ function stageMoves(path) {
 }
 
 const args = process.argv.slice(2);
+runLedgerCommandFromMainCheckout(args);
 if (args[0] === 'rounds') {
   if (!args[1] || !existsSync(args[1])) {
     console.error(args[1] ? `no log at ${args[1]}` : 'Usage: node .agents/pstack/decisions-check.mjs rounds <log.decisions.tsv>');
@@ -297,14 +331,13 @@ if (args[0] === 'chips') {
     console.error("--session takes this session's id, the one the runtime's session tool gives it");
     process.exit(2);
   }
-  const valued = new Set(['--session', '--sessions'].flatMap((name) => (args.includes(name) ? [args.indexOf(name), args.indexOf(name) + 1] : [])));
-  const rest = args.filter((arg, index) => index > 0 && arg !== '--fetch' && !valued.has(index));
+  const { rest, logAt } = chipsArgs(args);
   if (rest[0] === 'id') {
     console.info(newId());
     process.exit(0);
   }
   const id = rest[0] === 'brief' ? rest[1] : null;
-  const named = rest[0] === 'brief' ? rest[2] : ['stale', 'all', 'cleanup'].includes(rest[0]) ? rest[1] : rest[0];
+  const named = args[logAt];
   const ledger = named ?? join(plansDir(), LEDGER);
   if (!existsSync(ledger)) {
     console.error(named ? `no log at ${ledger}` : `No ledger at ${ledger} yet; run this from the project root.`);
@@ -421,7 +454,7 @@ if (args[0] === 'append') {
   console.info(batch.length > 1 ? `Appended ${batch.length} rows to ${args[1]}.` : `Appended a row to ${args[1]}.`);
   if (run) console.info(`Lead: ${leadLabel(run)}.`);
   const entered = stageMoves(args[1]).slice(before);
-  if (entered.length) console.info(`Stage: ${entered.join(', then ')}. Rename the session now, as .agents/pstack/rules/title.md says.`);
+  if (entered.length) console.info(`Stage: ${entered.join(', then ')}.${existsSync(new URL('rules/title.md', import.meta.url)) ? ' Rename the session now, as .agents/pstack/rules/title.md says.' : ''}`);
   process.exit(0);
 }
 const paths =

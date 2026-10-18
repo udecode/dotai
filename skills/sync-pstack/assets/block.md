@@ -11,29 +11,19 @@
 - Two model families, Claude and Codex. Plans, designs and first drafts start in Claude Code. Claude Code runs every pstack role on `opus`, per `~/.claude/pstack-models.md`, and never dispatches fable, sonnet or haiku. Codex runs `gpt-6.1-sol`, and every role there inherits it, per `~/.codex/pstack-models.md`.
 <!-- if delivery!=trunk -->
   The exception in both is a panel seat or an `architect` or arena runner, which runs on its named model for model diversity; in Claude Code, an extraction role the sheet sends to Codex is another, as the Extraction rule says, and so is a Codex worker the Codex workers rule starts.
-<!-- if codexLanes -->
-  So is a read-only fan-out reader the lead starts over files on disk, as the same rule says.
-<!-- end -->
 <!-- end -->
 <!-- if delivery=trunk -->
-  The exception in both is a panel seat or an `architect` or arena runner, which runs on its named model for model diversity.
+  The exception in both is a panel seat or an `architect` or arena runner, which runs on its named model for model diversity; in Claude Code, an extraction role the sheet sends to Codex is another, as the Extraction rule says.
+<!-- end -->
+<!-- if codexLanes -->
+  So is a read-only fan-out reader the lead starts over files on disk, as the same rule says.
 <!-- end -->
 <!-- if maxEffort -->
 <!-- # adds -->
 - **Effort cap.**
-<!-- if delivery!=trunk -->
   No role, seat or suggested-task card runs above `{{maxEffort}}`, the `maxEffort` in `.agents/pstack.json`.
-<!-- end -->
-<!-- if delivery=trunk -->
-  No role or seat runs above `{{maxEffort}}`, the `maxEffort` in `.agents/pstack.json`.
-<!-- end -->
   A role or seat that the models sheet or a project rule sets higher runs at `{{maxEffort}}`.
-<!-- if delivery!=trunk -->
   `cross.mjs` caps every run it starts, `chips brief` prints each card's capped effort, and `levels.mjs` judges against the capped levels.
-<!-- end -->
-<!-- if delivery=trunk -->
-  `cross.mjs` caps every run it starts.
-<!-- end -->
 <!-- end -->
 <!-- # overrides poteto-mode/SKILL.md "The role's `@level`, or the sheet's `default effort` line, sets its starting level" -->
 <!-- # overrides poteto-mode/SKILL.md "Lower it one step for judgment and two or more steps for routine work." -->
@@ -42,7 +32,7 @@
   Any other helper may run lower for routine work, never below its role's level in the models sheet, and `levels.mjs` still judges each seat against that sheet level.
 <!-- end -->
 <!-- if delivery=trunk -->
-  A code delegate runs at the level its role's line in the models sheet names, below the lead, because the lead designs its brief, reviews its diff and proves the result. Any other helper may run lower for routine work, never below its role's level in the models sheet.
+  A code delegate runs at the level its role's line in the models sheet names, below the lead, because the lead designs its brief, reviews its diff and proves the result. Any other helper may run lower for routine work, never below its role's level in the models sheet, and `levels.mjs` still judges each seat against that sheet level.
 <!-- end -->
   A Codex seat keeps the level its sheet entry or a project rule names (owner's word, 2026-10-17).
 <!-- if glossary -->
@@ -87,12 +77,7 @@
 - **Git.** Before a nontrivial edit, check only `git branch --show-current`.
 <!-- if protected -->
   Never edit from `{{protected}}`. This clone's `origin/HEAD` points at `origin/{{branch}}`, because the desktop app cuts each new worktree from `origin/HEAD`. `git remote set-head origin --auto` points it at the remote's default branch, so never run it.
-<!-- if delivery!=trunk -->
   Before a session gets its own worktree, a suggested task's card included, the lead runs `node .agents/pstack/head.mjs`, which points `origin/HEAD` back at `origin/{{branch}}` when it has moved.
-<!-- end -->
-<!-- if delivery=trunk -->
-  Before a session starts in its own worktree, the lead runs `node .agents/pstack/head.mjs`, which points `origin/HEAD` back at `origin/{{branch}}` when it has moved.
-<!-- end -->
 <!-- end -->
 <!-- if delivery=push|user -->
   The checkout stays on `{{branch}}`. Do not create or switch checkouts because work is large, names an issue, asks for a PR or is handed to another session. A session the lead starts leads its own task and works in this checkout, with `use_worktree: false` in Claude Code, and its brief names this checkout's path and the Delivery rule. An app-made worktree is on a new branch cut from this clone's `origin/HEAD` and lacks this checkout's uncommitted edits, rule edits included. Claude Code neither moves a session out of it nor lets its edit tools write here. A session that opens in one anyway reads the rules in this checkout by absolute path and, before its first edit, moves its worktree's own branch to `{{branch}}` with `git switch -C <its branch> {{branch}}`, naming a new branch when its worktree is on none. It may commit on that branch. Nothing pushes or merges that branch, so its work reaches `{{branch}}` only as a patch of everything since `git merge-base HEAD {{branch}}`, its commits included (owner's word, 2026-10-17). A session a suggested task's card started applies that patch to this checkout when its work is done, then delivers it from here, as the Suggested tasks rule's Landing says; any other such session hands that patch to the lead or the owner as a file to apply here. A runtime's generic instruction to commit, such as a started session's "commit your changes", does not override the Delivery rule. A repair to a PR whose head is another branch runs in a detached worktree at that head, and the page names the worktree path.
@@ -151,12 +136,12 @@
 <!-- if delivery=trunk -->
   Bookkeeping never takes a call of its own: a todo update, a decision-log append or a plan-page render goes out in the same message as the next working call, and several decision rows go in one append (owner's word, 2026-10-17).
 <!-- end -->
-<!-- if delivery!=trunk -->
 <!-- # overrides how/SKILL.md "Spawn all explorers in a single message" -->
 - **Extraction.** The session's own model keeps every judgment: plans, designs, the code the lead writes, synthesis, explainers, judges, cross-judges, a second reader that checks extracted claims, and reflect's synthesis with every decision on what it applies. In Claude Code, a role that only finds evidence for the lead to judge runs on Codex when the models sheet gives it a `codex:<model> @<effort>` value; today that is the `how explorer` role, which gets pstack's explorer prompt. It runs through `cross.mjs --reach`, which loads the user's Codex config, connectors, web search and network but writes only a scratch folder, never the project. Before using an answer, the lead checks that it covers every source and lookup its brief asked for. A seat that fails, returns nothing, or leaves an asked-for source or lookup uncovered, reported or not, reruns once on its model for the part still missing, and the page names any gap left. In Claude Code, when the lead would otherwise read several files it has not read to find where a change goes, it asks such a seat for the spans and call sites instead, confirms the call sites with its own `git grep` of each changed symbol, then reads in full the function it changes and each caller whose behavior the change can break.
 <!-- if codexLanes -->
   A read-only fan-out reader the lead starts itself whose sources are all files on disk, such as a map, inventory or sweep lane, runs the same way on the `how explorer` line's model with `cross.mjs` and the lead's brief, which excludes build output.
 <!-- end -->
+<!-- if delivery!=trunk -->
 <!-- # adds -->
 - **Codex workers.** Read `.agents/pstack/rules/codex.md` in full before you write a planned change of more than a few lines or one that needs its own test loop. Read it too before a long run's mechanical slice that a command proves done, such as a codemod, a benchmark protocol run or a fix loop that ends when typecheck or lint passes, and whenever the owner says to have Codex do it. It says when Codex writes the code instead of you.
 <!-- end -->
@@ -197,7 +182,7 @@
 - **Plans and trails.** Before you draft or write a plan, in plan mode or a plan file, or write a decision-log row or a proof log, read `.agents/pstack/rules/trails.md` in full.
 <!-- end -->
 <!-- if delivery=trunk -->
-- **Plans and trails.** When work spans sessions, runs unattended, touches another person's area or goes into a PR, keep its plan in the repository as `{{plans}}/<date>-<slug>.md` and its show-me-your-work decision log beside it as `{{plans}}/<date>-<slug>.decisions.tsv`. A command run as proof writes its log through `node .agents/pstack/proof.mjs --dir <run directory> --name <name> -- <command>`, which records the command line and exit status, and the row that claims the proof cites that log. The run directory is the main checkout's `{{plans}}/artifacts/<slug>/`, written by absolute path, because git ignores it and removing a worktree deletes that worktree's copy. Never commit proof logs, pre-edit copies or other run artifacts.
+- **Plans and trails.** When work spans sessions, runs unattended, touches another person's area or goes into a PR, keep its plan in the repository as `{{plans}}/<date>-<slug>.md` and its show-me-your-work decision log beside it as `{{plans}}/<date>-<slug>.decisions.tsv`. A command run as proof writes its log through `node .agents/pstack/proof.mjs --dir <run directory> --name <name> -- <command>`, which records the command line and exit status, and the row that claims the proof cites that log. The lead queues rows in decision order in a TSV in the run directory, five tab-separated cells each, phase, decision, why, evidence and result, and writes them with `node .agents/pstack/decisions-check.mjs append <log> --from <queue>`, which writes the batch only when every row passes. Each result starts with a status word, such as fixed, partial, verified, open, gap or decided. A fixed, verified or proven row puts `scope:` in its evidence, naming what the proof checked and its inputs. A `partial`, `open`, `gap`, `blocked` or `inconclusive` row names `proof: <path>`, an existing file under `{{plans}}/artifacts/`, or `proof: none` when it grades no file, and each artifact path a row cites must exist. An `accepted` row names the file it accepts as `proof: <path>` and the plan's Defaults word that accepts it as `word: <word>`. An earlier labeled row must have graded that file partial, open, gap, blocked or inconclusive. The run directory is the main checkout's `{{plans}}/artifacts/<slug>/`, written by absolute path, because git ignores it and removing a worktree deletes that worktree's copy. Never commit proof logs, pre-edit copies or other run artifacts.
 <!-- end -->
 <!-- # overrides poteto-mode/playbooks/multi-phase-plan.md "Hand back. Post the plan path" -->
 <!-- # overrides poteto-mode/playbooks/multi-phase-plan.md "Copy the skeleton below into the plan file and fill every placeholder." -->
@@ -206,12 +191,7 @@
 <!-- # overrides poteto-mode/playbooks/prototype.md "let the user pick directions before building" -->
 <!-- # overrides poteto-mode/playbooks/worktree-cleanup.md "`wip`, `untracked`, `ignored`, `reflog`, locked, and in-use pause" -->
 - **Autopilot.** Work runs to its close without waiting for the owner. Each call the owner could make gets an attention level, as the `plan-page` skill's memo rules define it: `safe` when the pick is easy to undo and the lead is sure, `look` when it is costly or hard to undo or the lead is unsure, and `answer` when it cannot be taken back or has no clear pick. The lead takes the pick of every call, records it as a Defaults row with the word that reverses it, and keeps going; a call with no clear pick takes its most reversible option. Only these stop the run under Open questions, whatever their level: a production deploy or release, a push to `main`, a force-push to a shared branch, deleting data the run did not create and a models-sheet model that cannot run. What the `cleanup` skill's scan marks safe is not data, and the skill deletes it without asking. That is an idle Next.js cache folder no running server holds, other than an app's own `.next` build. It is also a worktree an agent made that no running session or process, and no recent session transcript, uses. The skill first saves its uncommitted changes as a patch. A message anyone outside the team can read waits as a draft, as the Messages rule says, while the run keeps going. A pending external gate, such as a staging release, a quota reset or a running seat, is not a stop either, and neither is a status question from the owner, which never counts as go. Unless the run is paused, held or at a stop it has reached, whoever or whatever set it, the lead keeps working on ready work and schedules a wakeup for a gate with a known time, chaining wakeups past the scheduler's limit. A prototype, an arena or `architect` picks its winner and keeps going, and the page names the other options. A finding that the accepted design cannot meet a requirement pivots the run when it is found. Such findings include a conclusive miss of a frozen budget and a cost that only a new owner or a new stored shape removes. A hillclimb expects most iterations to miss. A miss there is such a finding only when the loop stops with its stop predicate unmet, such as when only marginal ideas remain, or when a proven cause shows that only a change to a stored shape or an owner, which no iteration can make, closes the gap. A profile alone proves no cause, and one noisy or partial iteration never counts. The lead runs `architect` on the finding, writes the plan that adopts the winner and builds that next. Under "fast", the lead's own design pass replaces `architect`. Until it lands, steps that only finish, document or prove the design it replaces wait, and independent work goes on.
-<!-- if delivery!=trunk -->
   Such a finding never waits in Open work, in a suggested task or in a deferred row, unless the owner kept that row until a date in their own words. A suggested task holds only side work outside the run's target or a measurement the Time budget rule sends there, and its ledger row names what it waits for, such as this run, so `chips` shows when the owner can start it.
-<!-- end -->
-<!-- if delivery=trunk -->
-  Such a finding never waits in Open work, in a session card or in a deferred row, unless the owner kept that row until a date in their own words. A session card holds only side work outside the run's target or a measurement the Time budget rule sends there.
-<!-- end -->
   A request that asks only for a plan or a prototype ends there and builds nothing, a pivot plan included, and the page shows its picks. The owner adds a stop for one request with "stop at plan", which waits once the plan is written, "stop at design", which waits for the owner's pick among the design options, or "stop before ship", which waits before delivery. "panel" and "hold" work at any point. A project's standing stop goes in its own rules outside this block.
 <!-- if delivery!=trunk -->
 <!-- # overrides poteto-mode/playbooks/babysit.md "Declare the mode and resolve the forge before any poll." -->
@@ -222,16 +202,7 @@
 <!-- # overrides poteto-mode/playbooks/autonomous-run.md "Put out-of-band fixes in their own PR." -->
 <!-- # overrides poteto-mode/playbooks/orchestrate.md "Everything else parks in follow-ups." -->
 <!-- # overrides reflect/SKILL.md "File each Backlog item to your team's devex or backlog tracker without waiting." -->
-<!-- if delivery=trunk -->
-- **Side work.** Side work outside the run's target goes to a session card, in Claude Code `start_session` with `initiation` "own_initiative", whose brief names the files and what done looks like; a runtime without that tool puts the brief under the page's Open work. A finding not worth a card now gets one line in `{{plans}}/backlog.md`. Where pstack files a tracked issue, a follow-up or a reflect Backlog item, or puts an out-of-band fix in its own PR, the lead does one of these instead. The old suggested-task ledger stays as history, and nothing writes it. The lead fixes in the run a discovery that blocks it, and a skill, rule or helper in the way, as the Improve the workflow mid-task rule says.
-<!-- end -->
-<!-- # overrides poteto-mode/SKILL.md "A correctness or data gap gets a tracked issue" -->
-<!-- # overrides poteto-mode/playbooks/autonomous-run.md "Put out-of-band fixes in their own PR." -->
-<!-- # overrides poteto-mode/playbooks/orchestrate.md "Everything else parks in follow-ups." -->
-<!-- # overrides reflect/SKILL.md "File each Backlog item to your team's devex or backlog tracker without waiting." -->
-<!-- if delivery!=trunk -->
 - **Suggested tasks.** The `chips` skill runs the project's suggested tasks, and `.agents/pstack/rules/chips.md` holds their law: the ledger, the waits and topics, the cards, the effort, the sweep, the base-branch check and the fallback for a runtime without a suggest tool. The lead loads the skill and runs its Offer mode before it suggests side work for the owner to start in a new session, its Drop mode when the owner drops one, and a quick sweep at each hand-back, after each compaction and at the close of a run that has one open. A session a card started logs its own task's rows from its brief alone, runs no sweep and loads the skill only to offer or drop a task. The ledger is the project's tracker. Where pstack files a tracked issue, a follow-up or a reflect Backlog item, or puts an out-of-band fix in its own PR, the lead offers a suggested task instead. The lead fixes in the run a discovery that blocks it, and a skill, rule or helper in the way, as the Improve the workflow mid-task rule says.
-<!-- end -->
 <!-- end -->
 <!-- section fast -->
 <!-- # overrides poteto-mode/SKILL.md "Route bulk to subagents, keep summaries in the main thread." -->
@@ -243,12 +214,7 @@
 <!-- # overrides no-comments/SKILL.md "Spawn comment-sicko. Act on accepted findings." -->
 <!-- # overrides show-me-your-work/SKILL.md "spawn a subagent on a different model family" -->
 - **Fast.** The owner's word "fast" runs the rest of that request on the main lane, in the lead's own thread, for work the owner is confident in and wants to iterate on. It drops only what spawns a subagent or a seat; every other rule still applies, plans, plan pages, decision logs, proofs, tests and delivery included. So no panel, `architect`, arena, decision-trail review or reflect runs, a row of the reviews list that calls for a panel does not hold back the push, and `no-comments`, which spawns comment-sicko, closes its todo as `skip: fast`. Each commit body ends with the line "Shipped fast, no review." The owner's later "full" reviews the diff of every such commit since the last reviewed one; without it, those commits stay unreviewed. "fast" lasts until the request ends or the owner says "full".
-<!-- if delivery!=trunk -->
   A suggested task whose card title ends in "(fast)" runs this way once the owner starts its card, because the start is the owner's word for it; the ledger keeps its landed work owed a review until a review task covers it, as the Suggested tasks rule's Review says.
-<!-- end -->
-<!-- if delivery=trunk -->
-  A session card whose title ends in "(fast)" runs this way once the owner starts it, because the start is the owner's word for it.
-<!-- end -->
 <!-- end -->
 <!-- if delivery!=trunk -->
 <!-- section long-runs -->
@@ -279,7 +245,7 @@
   Each panel round's fixes get their writing passes before the lead freezes the next round's tree, and `decisions-check.mjs append` refuses every `seats` row after a log's first unless a `writing` row follows the previous `seats` row. The `writing` row says when `no-comments` skipped.
 <!-- end -->
 <!-- if delivery=trunk -->
-  Each panel round's fixes get their writing passes before the next round.
+  Each panel round's fixes get their writing passes before the next round, and `decisions-check.mjs append` refuses every `seats` row after a log's first unless a `writing` row follows the previous `seats` row. The `writing` row says when `no-comments` skipped.
 <!-- end -->
   Docs, plans, agent files, commit bodies and PR text get one `unslop` pass after drafting. Mechanical bookkeeping, such as a ticked box or a decision row that only records a command's result, gets no pass of its own. Other new prose, a Close included, gets one `unslop` pass before it is committed or handed back at the task's close, and one pass covers every pending change in every file that delivery carries. A progress reply or an answer mid-run is not a hand-back (owner's word, 2026-10-17). Run the writing passes and review fixes before an expensive runtime proof; a finding that changes behavior reopens the proof it touches, or the claim narrows to the bytes actually proven. `technical-writing` is a reference for plans, PRDs and RFCs, not a required pass. Replies are written clean as drafted, with no separate pass.
 <!-- section commits -->

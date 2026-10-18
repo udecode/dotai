@@ -197,9 +197,9 @@ test('switching delivery to trunk and back swaps the shared-checkout files for t
   const { dir, cli } = sandbox();
   const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
   const pstack = (name) => join(root, '.agents/pstack', name);
-  const sharedCheckout = ['codex-build.md', 'decisions-check.mjs', 'freeze.mjs', 'levels.mjs', 'mutate.mjs', 'plan-open.mjs', 'reply.mjs', 'reread.mjs', 'tasks.mjs', ...['chips', 'close', 'codex', 'long-runs', 'title', 'trails'].map((name) => `rules/${name}.md`)];
+  const sharedCheckout = ['codex-build.md', 'freeze.mjs', 'mutate.mjs', 'plan-open.mjs', 'reply.mjs', 'reread.mjs', ...['close', 'codex', 'long-runs', 'title', 'trails'].map((name) => `rules/${name}.md`)];
   const landing = ['guard.mjs', 'land.mjs', 'review.mjs', 'setup.mjs', 'rules/land.md'];
-  const everywhere = ['cross.mjs', 'lead.mjs', 'plan-page.mjs', 'proof.mjs', 'status.mjs', 'rules/panel.md', 'rules/pages.md'];
+  const everywhere = ['cross.mjs', 'decisions-check.mjs', 'lead.mjs', 'levels.mjs', 'plan-page.mjs', 'proof.mjs', 'status.mjs', 'tasks.mjs', 'rules/chips.md', 'rules/panel.md', 'rules/pages.md'];
   const deliver = (delivery) => {
     writeFileSync(join(root, '.agents/pstack.json'), `${JSON.stringify({ ...JSON.parse(read(root, '.agents/pstack.json')), delivery }, null, 2)}\n`);
     assert.equal(cli('apply', root).status, 0);
@@ -212,7 +212,9 @@ test('switching delivery to trunk and back swaps the shared-checkout files for t
   deliver('trunk');
   for (const name of sharedCheckout) assert.ok(!existsSync(pstack(name)), `trunk keeps ${name}`);
   for (const name of [...landing, ...everywhere]) assert.ok(existsSync(pstack(name)), `trunk lacks ${name}`);
-  assert.doesNotMatch(read(root, 'AGENTS.md'), /chips|decisions-check|levels\.mjs|freeze\.mjs/);
+  assert.doesNotMatch(read(root, 'AGENTS.md'), /freeze\.mjs|Codex workers|Side work/);
+  assert.match(read(root, 'AGENTS.md'), /- \*\*Suggested tasks\.\*\* The `chips` skill/);
+  assert.match(read(root, 'AGENTS.md'), /- \*\*Extraction\.\*\* The session's own model/);
   deliver('push');
   for (const name of [...sharedCheckout, ...everywhere]) assert.ok(existsSync(pstack(name)), `push lacks ${name}`);
   for (const name of landing) assert.ok(!existsSync(pstack(name)), `push keeps ${name}`);
@@ -2681,6 +2683,72 @@ test('chips brief forces the Codex handoff for a card carded with codex: always 
   writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ branch: 'next', chips: { codex: 'always' } }));
   assert.match(helper('chips', 'brief', 'task_a1').stdout, forced, 'a project whose config sets chips.codex');
   assert.equal(helper(LEDGER).status, 0);
+});
+
+const linkedWorktree = (delivery) => {
+  const context = chipLedger();
+  const { LEDGER, dir, root, run } = context;
+  writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ branch: 'next', delivery }));
+  writeFileSync(join(root, LEDGER), 'ts\tphase\tdecision\twhy\tevidence\tresult\n');
+  spawnSync('git', ['-C', root, 'add', '-A']);
+  commit(root, 'base');
+  const worktree = join(dir, 'wt');
+  spawnSync('git', ['-C', root, 'worktree', 'add', '-q', '--detach', worktree]);
+  const helper = (...args) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), ...args], worktree);
+  const offerHere = (decision, evidence) => helper('append', LEDGER, 'chip', decision, 'why', evidence, 'offered');
+  return { ...context, helper, offerHere, worktree };
+};
+
+test('in a trunk project a linked worktree writes the main checkout ledger, cites its run directory and briefs a card to land through land.mjs', () => {
+  const { LEDGER, dir, helper, offerHere, outside, root, worktree } = linkedWorktree('trunk');
+  const offered = offerHere('task_a1 Fix the stale badge', 'writes: README.md; topic: docs; owns: ci:new');
+  assert.equal(offered.status, 0, offered.stderr);
+  assert.match(read(root, LEDGER), /task_a1 Fix the stale badge/, 'the row goes to the main checkout ledger');
+  assert.doesNotMatch(read(worktree, LEDGER), /task_a1/, "the worktree's committed copy stays as it was");
+  assert.match(helper('chips').stdout, /task_a1 {2}Fix the stale badge/, 'the board reads the main checkout ledger');
+  const log = 'docs/plans/2026-01-01-fix.decisions.tsv';
+  const red = helper('append', log, 'verify', 'Record the base failure', 'why', 'base-red: ci:new; proof: none', 'partial, fails on base');
+  assert.equal(red.status, 0, `a base-red row finds the owner in the main checkout ledger: ${red.stderr}`);
+  const brief = helper('chips', 'brief', 'task_a1').stdout;
+  assert.match(brief, /land the task yourself from it with node \.agents\/pstack\/land\.mjs/);
+  assert.match(brief, /scan\.mjs --landed <your worktree's absolute path>\. When it exits 0/, 'the landed scan guards the worktree removal');
+  assert.doesNotMatch(brief, /git diff --cached|apply --check|\/wt\b|cd \/|outside the checkout/, 'no patch landing, checkout cd, worktree path or outside-path wait');
+  mkdirSync(join(root, 'docs/plans/artifacts/fix'), { recursive: true });
+  writeFileSync(join(root, 'docs/plans/artifacts/fix/send-a1.log'), 'exit=0\n');
+  const cited = helper('append', log, 'verify', 'Prove the send', 'why', 'proof: docs/plans/artifacts/fix/send-a1.log', 'partial, one width ran');
+  assert.equal(cited.status, 0, cited.stderr);
+  assert.ok(existsSync(join(worktree, log)), 'a run log stays in the worktree');
+  const missing = helper('append', log, 'verify', 'Prove the reply', 'why', 'proof: docs/plans/artifacts/fix/reply-a1.log', 'partial, no run');
+  assert.equal(missing.status, 1, 'a path neither checkout holds');
+  writeFileSync(join(root, 'docs/plans/artifacts/fix/open-a1.log'), 'exit=1\n');
+  writeFileSync(join(worktree, 'docs/plans/2026-01-01-fix.md'), '# Fix\n\nStatus: building\n\n## Defaults\n\n| Decision | Pick | Alternative | Word | Impact |\n| --- | --- | --- | --- | --- |\n| A | B | C | hold | small |\n');
+  const accepted = helper('append', log, 'verify', 'Accept the gap', 'why', 'proof: docs/plans/artifacts/fix/open-a1.log; word: hold', 'accepted');
+  assert.match(accepted.stderr, /open-a1\.log has no labeled partial, open, gap, blocked or inconclusive row before this one/, 'a main checkout proof still needs its earlier verdict');
+  mkdirSync(join(dir, 'replay'), { recursive: true });
+  assert.equal(helper('append', join(dir, 'replay', 'suggested-tasks.decisions.tsv'), 'trail', 'Inspect the replay', 'why', 'proof: none', 'recorded').status, 0);
+  assert.match(read(dir, 'replay/suggested-tasks.decisions.tsv'), /Inspect the replay/, 'an explicit log path keeps its destination');
+  assert.doesNotMatch(read(root, LEDGER), /Inspect the replay/);
+  for (const [decision, topic] of [['task_b2 Edit the shared notes', 'notes-a'], ['task_c3 Rewrite the shared notes', 'notes-b']]) assert.equal(offerHere(decision, `writes: ${outside('notes.md')}; topic: ${topic}`).status, 0);
+  assert.equal(offerHere('task_d4 Follow the fix', 'writes: docs/guide.md; topic: follow; waits: run:docs/plans/2026-01-01-fix.md').status, 0);
+  assert.equal(offerHere('task_e5 Follow a typo', 'writes: docs/typo.md; topic: typo; waits: run:docs/plans/2026-01-01-nope.md').status, 0);
+  const board = helper('chips').stdout;
+  assert.doesNotMatch(board, /queued behind|outside this checkout/, 'trunk drops the waits on paths outside the checkout');
+  assert.match(board, /run:docs\/plans\/2026-01-01-fix\.md not landed/, 'a plan only a worktree holds has not landed');
+  assert.match(board, /run:docs\/plans\/2026-01-01-nope\.md dangling, no such plan/);
+  writeFileSync(join(root, 'docs/plans/2026-01-01-fix.md'), '# Fix\n\nStatus: done\n');
+  spawnSync('git', ['-C', root, 'add', 'docs/plans/2026-01-01-fix.md']);
+  commit(root, 'land the fix');
+  spawnSync('git', ['-C', root, 'update-ref', 'refs/remotes/origin/next', 'HEAD']);
+  assert.doesNotMatch(helper('chips').stdout, /2026-01-01-fix\.md/, "the wait clears once origin's branch holds the done plan");
+});
+
+test('outside trunk delivery a linked worktree keeps its own ledger and the waits on paths outside the checkout', () => {
+  const { LEDGER, helper, offerHere, outside, root, worktree } = linkedWorktree('push');
+  assert.equal(offerHere('task_a1 Fix the stale badge', 'writes: README.md; topic: docs').status, 0);
+  assert.match(read(worktree, LEDGER), /task_a1/, 'the row goes to the ledger of the checkout the command runs in');
+  assert.doesNotMatch(read(root, LEDGER), /task_a1/);
+  for (const [decision, topic] of [['task_b2 Edit the shared notes', 'notes-a'], ['task_c3 Rewrite the shared notes', 'notes-b']]) assert.equal(offerHere(decision, `writes: ${outside('notes.md')}; topic: ${topic}`).status, 0);
+  assert.match(helper('chips').stdout, /queued behind task_b2/);
 });
 
 test('decisions-check takes later rows for a task offered under an old-form title', () => {
