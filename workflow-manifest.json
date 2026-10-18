@@ -263,7 +263,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "c79730cf4f42bd1b2a04789aed4a85e8de5cc9c02755d0bfaae5594fa1214f41",
+      "sha256": "24ef2637e3a41b2944e23c4513757ff588da0b399dc1315ec8a37c9904b6603e",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/codex-browser.mjs": {
@@ -435,11 +435,11 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.mjs": {
-      "sha256": "c57c28755a13bc482780ea720cea6b0e0c9587a53557f6f7d25af3418194fd7d",
+      "sha256": "caee7d860332340a63c8160b244e1f5a0016e566a5d2444290b57d10880ef3e9",
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "a62486e00996bc07f44b722e04a09d98145053137c28f5a58ea0342523e11051",
+      "sha256": "ba3e21efdf75229179a6bd36b09903b901a57c7390de9614ab0bc91877e2de18",
       "mode": 420
     },
     "skills/sync-pstack/scripts/trunk.test.mjs": {

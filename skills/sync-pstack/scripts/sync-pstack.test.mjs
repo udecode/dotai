@@ -198,9 +198,9 @@ test('switching delivery to trunk and back swaps the shared-checkout files for t
   const { dir, cli } = sandbox();
   const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
   const pstack = (name) => join(root, '.agents/pstack', name);
-  const sharedCheckout = ['codex-build.md', 'freeze.mjs', 'mutate.mjs', 'plan-open.mjs', 'reply.mjs', 'reread.mjs', ...['close', 'codex', 'long-runs', 'trails'].map((name) => `rules/${name}.md`)];
+  const sharedCheckout = ['codex-build.md', 'freeze.mjs', 'mutate.mjs', 'plan-open.mjs', 'reply.mjs', ...['close', 'codex', 'trails'].map((name) => `rules/${name}.md`)];
   const landing = ['guard.mjs', 'land.mjs', 'review.mjs', 'setup.mjs', 'rules/land.md'];
-  const everywhere = ['cross.mjs', 'decisions-check.mjs', 'lead.mjs', 'levels.mjs', 'plan-page.mjs', 'proof.mjs', 'status.mjs', 'tasks.mjs', 'rules/chips.md', 'rules/panel.md', 'rules/pages.md', 'rules/title.md'];
+  const everywhere = ['cross.mjs', 'decisions-check.mjs', 'lead.mjs', 'levels.mjs', 'plan-page.mjs', 'proof.mjs', 'status.mjs', 'tasks.mjs', 'rules/chips.md', 'rules/panel.md', 'rules/pages.md', 'rules/title.md', 'reread.mjs', 'rules/long-runs.md'];
   const deliver = (delivery) => {
     writeFileSync(join(root, '.agents/pstack.json'), `${JSON.stringify({ ...JSON.parse(read(root, '.agents/pstack.json')), delivery }, null, 2)}\n`);
     assert.equal(cli('apply', root).status, 0);

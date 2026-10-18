@@ -219,11 +219,9 @@
 - **Fast.** The owner's word "fast" runs the rest of that request on the main lane, in the lead's own thread, for work the owner is confident in and wants to iterate on. It drops only what spawns a subagent or a seat; every other rule still applies, plans, plan pages, decision logs, proofs, tests and delivery included. So no panel, `architect`, arena, decision-trail review or reflect runs, a row of the reviews list that calls for a panel does not hold back the push, and `no-comments`, which spawns comment-sicko, closes its todo as `skip: fast`. Each commit body ends with the line "Shipped fast, no review." The owner's later "full" reviews the diff of every such commit since the last reviewed one; without it, those commits stay unreviewed. "fast" lasts until the request ends or the owner says "full".
   A suggested task whose card title ends in "(fast)" runs this way once the owner starts its card, because the start is the owner's word for it; the ledger keeps its landed work owed a review until a review task covers it, as the Suggested tasks rule's Review says.
 <!-- end -->
-<!-- if delivery!=trunk -->
 <!-- section long-runs -->
 <!-- # overrides poteto-mode/playbooks/pause-safely.md "Commit uncommitted edits as one clear `wip:` commit on the current branch so nothing is lost." -->
 - **Long runs.** Before a multi-slice build after "go", `/loop`, `/goal`, a pause or a resume, and after every compaction, read `.agents/pstack/rules/long-runs.md` in full.
-<!-- end -->
 <!-- end -->
 <!-- # adds -->
 - **Time budget.** No command, proof or seat that a run starts takes more than an hour, except a stress run, and no wait on the machine's state lasts longer (owner's word, 2026-10-16). Read `.agents/pstack/rules/time.md` in full before you start one that may run long, such as a proof, a benchmark protocol or a wait for a quiet host, and before you offer a measurement that cannot fit the hour.
@@ -268,7 +266,5 @@
 <!-- # overrides reflect/SKILL.md "would enforce more reliably to Backlog" -->
 <!-- # overrides correct/SKILL.md "fix the most frequent classes now, one commit each" -->
 - **Improve the workflow mid-task.** When a skill, rule, script or helper gets in the way, fix it then, separately from the task's change, and keep working. When the user corrects the same mistake a second time, in code or in a shell or tool command a rule already forbade, run `/pstack:correct` on that class, which fixes it with architecture, types or a check before any rule text; for a shell or tool mistake that means a helper that removes the need, then a hook, then text.
-<!-- if delivery!=trunk -->
   After a run of pstack's Autonomous run playbook or a project playbook built on it, an audit, or any session where the user corrected the workflow, run `/pstack:reflect` before the final reply. The Autopilot rule alone does not make a run autonomous.
-<!-- end -->
   Before `/pstack:reflect`, `/pstack:correct`, a new or changed check, or an edit to an agent file such as a skill, a rule or `AGENTS.md`, read `.agents/pstack/rules/reflect.md` in full; it holds the rest of this rule and the Corrections and Agent files rules.
