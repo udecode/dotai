@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
@@ -316,6 +316,64 @@ test("guard denies the app's base-branch sync with the rebase to run instead, an
   assert.equal(denied?.permissionDecision, 'deny');
   assert.match(denied.permissionDecisionReason, /git fetch origin next && git rebase origin\/next/u);
   assert.equal(hook('mcp__ccd_host__get_storage_usage'), null);
+});
+
+test('guard denies an edit in the main checkout on next or main, except the ledger and artifacts, and passes a worktree or a task branch', () => {
+  const { dir, clone } = trunk();
+  const tree = join(clone, '.claude/worktrees/task');
+  git(clone, 'worktree', 'add', '--quiet', '--detach', tree, 'origin/next');
+  const edit = (tool_name, path, { from = clone, cwd = clone, env = {} } = {}) => {
+    const run = spawnSync(process.execPath, [join(from, '.agents/pstack/guard.mjs')], {
+      input: JSON.stringify({ tool_name, tool_input: tool_name === 'NotebookEdit' ? { notebook_path: path } : { file_path: path }, cwd }),
+      encoding: 'utf8',
+      env: { ...ENV, ...env },
+    });
+    assert.equal(run.status, 0, run.stderr);
+    return run.stdout ? JSON.parse(run.stdout).hookSpecificOutput : null;
+  };
+  const alias = join(dir, 'alias.txt');
+  symlinkSync(join(clone, 'a.txt'), alias);
+  const dangling = join(dir, 'dangling.txt');
+  symlinkSync(join(clone, 'new.txt'), dangling);
+  mkdirSync(join(clone, 'docs/plans/artifacts/run'), { recursive: true });
+  mkdirSync(join(clone, 'sub'));
+  symlinkSync(join(clone, 'sub'), join(clone, 'docs/plans/artifacts/escape'));
+  symlinkSync(`${join(clone, 'docs/plans/artifacts/escape')}/..`, join(dir, 'up'));
+  symlinkSync(join(clone, 'docs/plans/artifacts/run'), join(clone, 'sub/into'));
+  symlinkSync(`${join(clone, 'sub/into')}/..`, join(dir, 'down'));
+  git(clone, 'switch', '--quiet', 'next');
+  const denied = [
+    ['Edit', 'a.txt'],
+    ['Write', join(clone, 'src/new/b.ts')],
+    ['NotebookEdit', 'c.ipynb'],
+    ['Write', alias],
+    ['Write', dangling],
+    ['Edit', 'docs/plans/artifacts/escape/../a.txt'],
+    ['Write', join(dir, 'up/a.txt')],
+    ['Edit', join(clone, '.git/HEAD')],
+  ];
+  for (const [tool, path] of denied) {
+    const decision = edit(tool, path);
+    assert.equal(decision?.permissionDecision, 'deny', path);
+    assert.match(decision.permissionDecisionReason, /Move to your own worktree/u);
+  }
+  const fromTree = edit('Write', join(clone, 'docs/plans/x.md'), { from: tree, cwd: tree });
+  assert.equal(fromTree?.permissionDecision, 'deny', "the worktree's own guard finds the main checkout");
+  assert.ok(fromTree.permissionDecisionReason.includes(join(tree, 'docs/plans/x.md')), 'the reason names the same file in the worktree');
+  for (const path of ['docs/plans/suggested-tasks.decisions.tsv', 'docs/plans/artifacts/run/log.txt', join(dir, 'down/kept.txt'), join(tree, 'a.txt')]) {
+    assert.equal(edit('Write', path), null, path);
+  }
+  const broken = { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'broken', GIT_CONFIG_VALUE_0: '1' };
+  assert.equal(edit('Write', 'docs/plans/artifacts/run/log.txt', { env: broken })?.permissionDecision, 'deny', 'a git failure refuses the edit');
+  git(clone, 'switch', '--quiet', 'main');
+  assert.equal(edit('Edit', 'a.txt')?.permissionDecision, 'deny', 'the protected branch is guarded too');
+  git(clone, 'switch', '--quiet', '--detach');
+  assert.equal(edit('Edit', 'a.txt')?.permissionDecision, 'deny', 'a detached main checkout, such as a stopped rebase, is guarded');
+  git(clone, 'switch', '--quiet', 'task');
+  assert.equal(edit('Edit', 'a.txt'), null, 'a main checkout on a task branch is not guarded');
+  const config = join(clone, '.agents/pstack.json');
+  writeFileSync(config, JSON.stringify({ ...JSON.parse(readFileSync(config, 'utf8')), branch: ['task'] }));
+  assert.equal(edit('Edit', 'a.txt')?.permissionDecision, 'deny', 'a config without a branch name refuses the edit');
 });
 
 test('setup copies env files and installs dependencies in a new worktree, once', () => {
