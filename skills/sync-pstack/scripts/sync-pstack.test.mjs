@@ -2660,10 +2660,13 @@ const chipLedger = () => {
   const LEDGER = 'docs/plans/suggested-tasks.decisions.tsv';
   const helper = (...args) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), ...args], root);
   const appendTo = (log, phase, decision, evidence, result) => helper('append', log, phase, decision, 'why', evidence, result);
-  const chip = (decision, result, evidence = 'evidence') => appendTo(LEDGER, 'chip', decision, evidence, result);
+  // A new offer must name its priority, so the helpers give each offer that names
+  // none a P1 bug's evidence, keeping every test's task listed in full on the board.
+  const tagged = (result, evidence) => (/^offered\b/u.test(result) && !/(?:^|[\s;])priority:/u.test(evidence) ? `${evidence}; priority: P1; repro: steps` : evidence);
+  const chip = (decision, result, evidence = 'evidence') => appendTo(LEDGER, 'chip', decision, tagged(result, evidence), result);
   const offer = (decision, writes = 'README.md', more = 'topic: docs') => chip(decision, 'offered', `writes: ${writes}; ${more}`);
   const batch = (rows) => {
-    writeFileSync(join(root, 'batch.tsv'), rows.map(([decision, result, evidence = 'evidence']) => ['chip', decision, 'why', evidence, result].join('\t')).join('\n') + '\n');
+    writeFileSync(join(root, 'batch.tsv'), rows.map(([decision, result, evidence = 'evidence']) => ['chip', decision, 'why', tagged(result, evidence), result].join('\t')).join('\n') + '\n');
     return helper('append', LEDGER, '--from', 'batch.tsv');
   };
   const chips = (...args) => helper('chips', ...args);
@@ -2717,7 +2720,7 @@ test('decisions-check takes a chip offer only with a plain title, a topic and th
 test('decisions-check takes a new chip finding only when this checkout holds the evidence it cites', () => {
   const { LEDGER, helper, root } = chipLedger();
   const log = 'docs/plans/artifacts/probe/base-a1.log';
-  const offerCiting = (finding) => helper('append', LEDGER, 'chip', 'task_a1 Fix the stale badge', finding, 'writes: README.md; topic: docs', 'offered');
+  const offerCiting = (finding) => helper('append', LEDGER, 'chip', 'task_a1 Fix the stale badge', finding, 'writes: README.md; topic: docs; priority: P3', 'offered');
   const missing = offerCiting(`the badge links a dead page (${log})`);
   assert.equal(missing.status, 1, 'an offer citing a log only another worktree holds');
   assert.match(missing.stderr, /the finding cites docs\/plans\/artifacts\/probe\/base-a1\.log, which this checkout lacks/);
@@ -2756,7 +2759,7 @@ const linkedWorktree = (delivery) => {
   const worktree = join(dir, 'wt');
   spawnSync('git', ['-C', root, 'worktree', 'add', '-q', '--detach', worktree]);
   const helper = (...args) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), ...args], worktree);
-  const offerHere = (decision, evidence) => helper('append', LEDGER, 'chip', decision, 'why', evidence, 'offered');
+  const offerHere = (decision, evidence) => helper('append', LEDGER, 'chip', decision, 'why', `${evidence}; priority: P1; repro: steps`, 'offered');
   return { ...context, helper, offerHere, worktree };
 };
 
@@ -2832,9 +2835,9 @@ test('decisions-check keeps a task under one id: no new gone or replaced rows', 
     assert.match(chip('task_a1 Fix the stale badge', `dismissed ${reason}`).stderr, /a task keeps its id for good: log uncarded/, `a new dismissed ${reason} row`);
   }
   assert.equal(chip('task_a1 Fix the stale badge', 'uncarded').status, 0, 'a card that left the queue');
-  assert.match(chips().stdout, /Ready \(2\)\n {2}task_a1 {2}Fix the stale badge {2}\[docs\] {2}no card/, 'the task stays open and ready after its card left');
+  assert.match(chips().stdout, /Ready, P1 \(2\)\n {2}task_a1 {2}Fix the stale badge {2}\[docs\] {2}no card/, 'the task stays open and ready after its card left');
   const old = 'task_b2 Fix the release notes';
-  writeFileSync(join(root, LEDGER), `${readFileSync(join(root, LEDGER), 'utf8')}${[['offered', 'writes: CHANGES.md; topic: docs'], ['dismissed gone', 'the queue pushed it out']].map(([result, evidence]) => ['2026-01-01T10:00:00Z', 'chip', old, 'why', evidence, result].join('\t')).join('\n')}\n`);
+  writeFileSync(join(root, LEDGER), `${readFileSync(join(root, LEDGER), 'utf8')}${[['offered', 'writes: CHANGES.md; topic: docs; priority: P1; repro: steps'], ['dismissed gone', 'the queue pushed it out']].map(([result, evidence]) => ['2026-01-01T10:00:00Z', 'chip', old, 'why', evidence, result].join('\t')).join('\n')}\n`);
   spawnSync('git', ['-C', root, 'add', LEDGER]);
   spawnSync('git', ['-C', root, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'ledger']);
   const reopened = chip(old, 'reopened');
@@ -2914,7 +2917,7 @@ test('chips names the open tasks that share a ready task\'s paths, compared by w
   for (const [index, alias] of aliases.entries()) assert.equal(offer(`task_b${index} Rewrite the file`, alias).status, 0, alias);
   assert.equal(offer('task_c1 Fix the top file', 'x.txt').status, 0);
   const board = chips().stdout;
-  assert.match(board, /Ready \(8\)/, 'a shared project path holds no task back');
+  assert.match(board, /Ready, P1 \(8\)/, 'a shared project path holds no task back');
   for (const index of aliases.keys()) assert.match(board, new RegExp(`task_b${index} {2}Rewrite the file {2}\\[docs\\] {2}no card {2}shares paths with [^\\n]*task_a[12]`), aliases[index]);
   assert.match(board, /task_b4 {2}Rewrite the file {2}\[docs\] {2}no card {2}shares paths with task_a2\n/, 'the kernel follows link before .. steps out of it');
   assert.match(board, /task_c1 {2}Fix the top file {2}\[docs\] {2}no card\n/, 'the top-level file is another file than deep/x.txt');
@@ -3109,7 +3112,7 @@ test('a card prompt leads with the task, then how its session lands, and ends by
   const checkout = realpathSync(root);
   const brief = chips('brief', 'task_a1').stdout;
   const quoted = (text) => text.replace(/[.*+?^${}()|[\]\\/]/gu, '\\$&');
-  assert.match(brief, /^Fix the parser\n\nTopic: parser\. Kind: fix\. Effort: high\.\nFindings:\n/, 'the card shows the task before any bookkeeping');
+  assert.match(brief, /^Fix the parser\n\nTopic: parser\. Kind: fix\. Effort: high\. Priority: P1\.\nRepro: steps\nFindings:\n/, 'the card shows the task before any bookkeeping');
   assert.match(brief, new RegExp(`\\n\\nSuggested task task_a1 in docs/plans/suggested-tasks\\.decisions\\.tsv of the project checkout ${quoted(checkout)}\\. This prompt can be older than the task, so before anything else run cd ${quoted(checkout)} && node \\.agents/pstack/decisions-check\\.mjs chips brief task_a1 and work from what it prints\\. Run every ledger command from ${quoted(checkout)} that way, even when your session opened in its own worktree[^\\n]*\\n?$`), 'a card made before a later fold or dup, run from a worktree whose ledger copy is stale');
   const patch = join(checkout, 'docs/plans/artifacts/chips/task_a1.patch');
   const branch = execFileSync('git', ['branch', '--show-current'], { cwd: checkout, encoding: 'utf8' }).trim();
@@ -3171,7 +3174,7 @@ test('a dup that would leave two tasks waiting on each other is refused, and the
   assert.match(chip('task_d1 Fix d', 'dismissed dup task_k1').stderr, /this row leaves task_m1 and task_k1 waiting on each other; keep task_d1 open$/m, 'a wait on the duplicate that now leads to the kept task');
   const board = chips();
   assert.equal(board.status, 0, board.stdout);
-  assert.match(board.stdout, /Ready \(1\)\n {2}task_d1 {2}Fix d {2}\[chain\] {2}no card\n/, 'the route the refusal names keeps every task and wait');
+  assert.match(board.stdout, /Ready, P1 \(1\)\n {2}task_d1 {2}Fix d {2}\[chain\] {2}no card\n/, 'the route the refusal names keeps every task and wait');
 });
 
 test('a dup that hands the kept task a wait back on itself is refused', () => {
@@ -3419,7 +3422,7 @@ test('a finding that waits on a carded task stays open when the owner declines t
   const { appendTo, chip, chips, offer } = chipLedger();
   assert.equal(offer('task_k1 Fix k', 'src/k.ts', 'topic: card; card: c1; session: s1').status, 0);
   assert.equal(offer('task_d1 Fix d', 'src/d.ts', 'topic: card; waits: task:task_k1; owns: ci:d').status, 0);
-  assert.match(chips().stdout, /Waiting \(1\)\n {2}task_d1 {2}Fix d {2}\[card\] {2}owns ci:d {2}waits on task:task_k1 offered\n/);
+  assert.match(chips().stdout, /Waiting, P0 \(1\)\n {2}task_d1 {2}Fix d {2}\[card\] {2}owns ci:d {2}waits on task:task_k1 offered\n/);
   assert.equal(chip('task_k1 Fix k', 'dismissed declined', 'card: c1').status, 0, 'the owner dismissed the card, which showed task_k1 whole');
   const board = chips();
   assert.equal(board.status, 1);
@@ -3501,7 +3504,84 @@ test('chips shows one pass at a time: withdrawals, then ledger rows, then cards'
   assert.match(ledger.stdout, /Do, ledger pass \(1\)\n {2}migrate task_o1/);
   assert.doesNotMatch(ledger.stdout, /card task_a1/);
   assert.equal(chip('task_o1 Fix the old docs', 'updated', 'topic: docs; waits: none').status, 0);
+  assert.match(chips().stdout, /Do, ledger pass \(1\)\n {2}prioritize task_o1: log updated with priority:/, 'an untagged task gets no card until a sweep tags it');
+  assert.equal(chip('task_o1 Fix the old docs', 'updated', 'priority: P2').status, 0);
   assert.match(chips().stdout, /Do, card pass \(2\)\n {2}card task_a1:[^\n]*\n {2}card task_o1:/);
+});
+
+test('decisions-check takes a P0 or P1 claim only with its evidence', () => {
+  const { LEDGER, chip, helper, merge, offer, root } = chipLedger();
+  const bare = (decision, tokens) => helper('append', LEDGER, 'chip', decision, 'why', tokens, 'offered');
+  const untagged = bare('task_a1 Fix a', 'writes: a.md; topic: one');
+  assert.equal(untagged.status, 1, 'a new offer with no priority');
+  assert.match(untagged.stderr, /a new offer names its priority as "priority: P0"/);
+  assert.equal(bare('task_a1 Fix a', 'writes: a.md; topic: one; owns: ci:check').status, 0, 'a task that owns a failing check is P0 without a token');
+  assert.match(bare('task_b1 Fix b', 'writes: b.md; topic: two; priority: P0').stderr, /a P0 task is broken now/);
+  assert.match(bare('task_b1 Fix b', 'writes: b.md; topic: two; priority: P1').stderr, /a P1 task is a bug with its repro/);
+  assert.match(bare('task_b1 Fix b', 'writes: b.md; topic: two; priority: P4').stderr, /priority: is P0, P1, P2 or P3/);
+  assert.match(bare('task_b1 Fix b', 'writes: b.md; topic: two; priority: P0; regressed: abc1234').stderr, /regressed: abc1234 is not a commit/);
+  assert.match(bare('task_b1 Fix b', 'writes: b.md; topic: two; priority: P1; ship: r1').stderr, /sets no chips\.ship command/);
+  merge('break b');
+  const head = spawnSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
+  assert.equal(bare('task_b1 Fix b', `writes: b.md; topic: two; priority: P0; regressed: ${head}`).status, 0, 'a regression names its commit');
+  assert.equal(bare('task_c1 Fix c', 'writes: c.md; topic: three; priority: P2').status, 0, 'P2 needs no evidence');
+  assert.match(chip('task_c1 Fix c', 'updated', 'priority: P0').stderr, /a P0 task is broken now/, 'a raise to P0 without evidence');
+  assert.equal(chip('task_c1 Fix c', 'updated', 'priority: P0; repro: type then reload loses the text').status, 0, 'a raise to P0 with its repro');
+  assert.equal(chip('task_c1 Fix c', 'folded', 'priority: P3').status, 0);
+  assert.match(helper('chips', 'brief', 'task_c1').stdout, /Priority: P0\./, 'a folded finding never lowers the priority');
+  assert.equal(offer('task_d1 Fix d', 'd.md', 'topic: four; priority: P2; card: d1; session: s1').status, 0);
+  assert.equal(chip('task_d1 Fix d', 'updated', 'priority: P3').status, 0, 'a carded task takes a new priority');
+  assert.match(chip('task_d1 Fix d', 'updated', 'topic: five').stderr, /holds card d1, which cannot change/);
+  assert.match(helper('chips', 'brief', 'task_b1').stdout, /Priority: P0\.[\s\S]*Regressed in: [0-9a-f]+/);
+});
+
+test('chips lists P0 and P1 in full, counts the rest and cards at most 10, highest priority first', () => {
+  const { batch, chips } = chipLedger();
+  const rows = [];
+  for (let n = 0; n < 6; n += 1) rows.push([`task_p${n} Fix p${n}`, 'offered', `writes: p${n}.md; topic: p2-${n}; priority: P2`]);
+  for (let n = 0; n < 4; n += 1) rows.push([`task_t${n} Tune t${n}`, 'offered', `writes: t${n}.md; topic: p3-${n}; priority: P3`]);
+  rows.push(['task_b1 Fix the lost save', 'offered', 'writes: b.md; topic: save; priority: P0; repro: type then reload loses the text']);
+  rows.push(['task_c1 Fix the cursor', 'offered', 'writes: c.md; topic: cursor; priority: P1; repro: click past the end']);
+  rows.push(['task_h1 Fix held', 'offered', 'writes: h.md; topic: held; priority: P2; card: h1; session: s1']);
+  const written = batch(rows);
+  assert.equal(written.status, 0, written.stderr);
+  const board = chips().stdout;
+  assert.match(board, /Ready, P0 \(1\)\n {2}task_b1 /);
+  assert.match(board, /Ready, P1 \(1\)\n {2}task_c1 /);
+  assert.match(board, /Ready, lower priority \(P2 7, P3 4\): chips all lists them/);
+  assert.doesNotMatch(board, /task_p0 {2}Fix p0 {2}\[/, 'a P2 task shows only as a count');
+  assert.match(board, /Do, card pass \(10\)\n {2}card task_b1:[^\n]*\n {2}card task_c1:[^\n]*\n {2}card task_p0:/, 'P0 first');
+  assert.equal(board.match(/^ {2}card task_/gmu).length, 9, 'ten cards less the one this session holds');
+  assert.match(board, /\n {2}card task_t0:[^\n]*\n {2}3 more can start once this session holds fewer than 10 cards/);
+  const full = chips('all', '--session', 's1').stdout;
+  assert.match(full, /Ready, P2 \([0-9]+\)\n {2}task_/);
+  assert.match(full, /Ready, P3 \(4\)/);
+});
+
+test('chips offers each open item of the ship list as a P1 task and orders P1 tasks by it', () => {
+  const { chips, offer, root } = chipLedger();
+  assert.equal(offer('task_c1 Fix the cursor', 'c.md', 'topic: cursor; priority: P1; repro: click past the end').status, 0);
+  writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ branch: 'next', chips: { ship: [process.execPath, 'ship.mjs'] } }));
+  writeFileSync(join(root, 'ship.mjs'), "import { readFileSync } from 'node:fs';\nprocess.stdout.write(readFileSync('ship.json', 'utf8'));\n");
+  const items = (list) => writeFileSync(join(root, 'ship.json'), JSON.stringify(list));
+  items([
+    { id: 'r1', title: 'Settle review item r1 (xhigh)', finding: 'r1 is open', writes: ['docs/plans'], topic: 'review-r1', kind: 'decide' },
+    { id: 'r2', title: 'Settle review item r2 (xhigh)', finding: 'r2 is open', writes: ['docs/plans'], topic: 'review-r2', kind: 'decide' },
+    { id: 'r3', title: 'Settle review item r3 (xhigh)', writes: ['docs/plans'], busy: true },
+  ]);
+  const shown = chips();
+  const board = shown.stdout;
+  assert.match(board, /Do, ledger pass \(2\)\n {2}offer ship item r1, which no open task serves: append chip "t_[0-9a-f]+ Settle review item r1 \(xhigh\)" "r1 is open" "writes: docs\/plans; topic: review-r1; kind: decide; priority: P1; ship: r1" offered\n {2}offer ship item r2/, shown.stderr);
+  assert.doesNotMatch(board, /ship item r3/, 'a plan already works on a busy item');
+  assert.equal(offer('task_s2 Settle review item r2 (xhigh)', 'docs/plans', 'topic: review-r2; kind: decide; priority: P1; ship: r2').status, 0);
+  assert.equal(offer('task_s1 Settle review item r1 (xhigh)', 'docs/plans', 'topic: review-r1; kind: decide; priority: P1; ship: r1').status, 0);
+  const closed = offer('task_s9 Settle review item r9 (xhigh)', 'docs/plans', 'topic: review-r9; kind: decide; priority: P1; ship: r9');
+  assert.match(closed.stderr, /ship: r9 is not an open item of the project's ship list/);
+  assert.match(chips().stdout, /Ready, P1 \(3\)\n {2}task_s1 [^\n]*\n {2}task_s2 [^\n]*\n {2}task_c1 /, 'P1 tasks follow the ship order, then the ledger order, whatever order they were offered in');
+  items([{ id: 'r2', title: 'Settle review item r2 (xhigh)', writes: ['docs/plans'] }]);
+  assert.match(chips('stale').stdout, /task_s1 [^\n]*priority P1; ship item r1 is no longer open/);
+  writeFileSync(join(root, 'ship.mjs'), 'process.exit(3);\n');
+  assert.match(chips().stdout, /No ship list: [^\n]*ship\.mjs failed/);
 });
 
 test('chips stale lists each open task with the paths it writes that were deleted since its offer or are missing, and the commits on its paths since its offer', () => {
@@ -3524,8 +3604,8 @@ test('chips stale lists each open task with the paths it writes that were delete
   assert.equal(
     stale.stdout,
     '2 open suggested tasks in docs/plans/suggested-tasks.decisions.tsv, the likeliest stale first:\n' +
-      '  task_a1  Fix a  [stale]  age 0d; deleted since its offer: gone.md; missing: new.md; 1 commit on its paths since its offer, last "fix kept"\n' +
-      '  task_b1  Fix b  [fresh]  age 0d; card c1 in session s1\n',
+      '  task_a1  Fix a  [stale]  age 0d; priority P1; deleted since its offer: gone.md; missing: new.md; 1 commit on its paths since its offer, last "fix kept"\n' +
+      '  task_b1  Fix b  [fresh]  age 0d; priority P1; card c1 in session s1\n',
   );
 });
 
@@ -3535,7 +3615,7 @@ test('a legacy row with an empty waits: replays as no waits', () => {
   writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', 'task_a1 Fix a', 'why', 'waits:', 'updated'].join('\t') + '\n');
   const board = chips();
   assert.equal(board.status, 0, board.stdout);
-  assert.match(board.stdout, /Ready \(1\)\n {2}task_a1 {2}Fix a {2}\[blank\] {2}no card\n/, 'a row the previous helper read as clearing the waits');
+  assert.match(board.stdout, /Ready, P1 \(1\)\n {2}task_a1 {2}Fix a {2}\[blank\] {2}no card\n/, 'a row the previous helper read as clearing the waits');
 });
 
 test('chips brief on a replaced task prints its replacement\'s brief', () => {
@@ -3578,7 +3658,7 @@ test('chips leaves a prose wait on a task with no topic to its migration', () =>
   writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', 'task_o1 Fix o1', 'why', 'writes: src/o1.ts; waits: the parser PR', 'offered'].join('\t') + '\n');
   const board = chips();
   assert.equal(board.status, 0, 'the prose wait the migration states again: ' + board.stdout);
-  assert.match(board.stdout, /migrate task_o1: log updated with topic: and the waits: it has/);
+  assert.match(board.stdout, /migrate task_o1: log updated with topic:, priority: and the waits: it has/);
 });
 
 test('chips reports a wait loop between tasks that have no topic', () => {
@@ -3641,7 +3721,7 @@ test('a chain of dups carries every title and drops each wait that now leads bac
   assert.equal(chip('task_c1 Fix c', 'dismissed dup task_b1').status, 0);
   assert.equal(chip('task_a1 Fix a', 'updated', 'waits: task:task_c1').status, 0);
   assert.equal(chip('task_b1 Fix b', 'dismissed dup task_a1').status, 0);
-  assert.match(chips().stdout, /Ready \(1\)\n {2}task_a1 {2}Fix a {2}\[alias\] {2}no card\n/, 'a wait on a task merged earlier into the one now merged');
+  assert.match(chips().stdout, /Ready, P1 \(1\)\n {2}task_a1 {2}Fix a {2}\[alias\] {2}no card\n/, 'a wait on a task merged earlier into the one now merged');
   assert.match(chips('brief', 'task_a1').stdout, /Also covers:\n- task_b1 Fix b\n {2}- why\n- task_c1 Fix c\n {2}- why\n/, 'titles merged earlier come along');
   assert.match(chip('task_a1 Fix a', 'updated', 'waits: task:task_c1').stderr, /task_a1 cannot wait on itself/, 'a wait on a task merged into this one');
 });
@@ -3690,7 +3770,7 @@ test('a ready task with a card keeps its place when an earlier task frees up', (
   assert.equal(offer('task_b1 Fix the badge', outside('README.md'), 'topic: badge; card: c1; session: s1').status, 0);
   merge('Merge pull request #99 from a/readme');
   const board = chips();
-  assert.match(board.stdout, /Ready \(1\)\n {2}task_b1 {2}Fix the badge {2}\[badge\] {2}card c1/, 'the card stays');
+  assert.match(board.stdout, /Ready, P1 \(1\)\n {2}task_b1 {2}Fix the badge {2}\[badge\] {2}card c1/, 'the card stays');
   assert.match(board.stdout, /task_a1 {2}Rewrite the README {2}\[readme\] {2}waits on queued behind task_b1/);
   assert.equal(board.status, 0, board.stdout);
 });
@@ -3752,7 +3832,7 @@ test('a started row names the session that started the task, and a sweep checks 
   assert.match(here.stdout, /check session s2, which started task_a1: when the session tool reports it archived, log landed when a commit holds its change or its last report says it landed the change, with patch: when it names one; when that report hands back a patch it never applied, land that patch as chips brief's footer says and log landed with patch:; and log dismissed stopped when it hands back no patch and neither this checkout nor its worktree holds an uncommitted edit on its paths/);
   assert.doesNotMatch(chips('--session', 's2').stdout, /started task_a1/, "the session's own task");
   assert.doesNotMatch(chips().stdout, /started task_a1/, 'a board read without a session');
-  assert.match(chips('stale').stdout, /task_a1 {2}Fix the parser {2}\[parser\] {2}age 0d; started in session s2;/);
+  assert.match(chips('stale').stdout, /task_a1 {2}Fix the parser {2}\[parser\] {2}age 0d; priority P1; started in session s2;/);
   assert.equal(chip(parser, 'dismissed stopped').status, 0);
   assert.doesNotMatch(chips('--session', 's1').stdout, /task_a1/);
 });
@@ -3772,7 +3852,7 @@ test('chips reports a wait that loops back as one that can never clear', () => {
   assert.equal(chip('task_e1 Fix e', 'updated', 'waits: task:task_e2').status, 0);
   const board = chips();
   assert.match(board.stdout, /fix task_a1's wait: task:task_b1 waits back on task_a1/, 'two tasks that wait on each other');
-  assert.match(board.stdout, /Ready \([0-9]+\)\n(?: {2}.*\n)* {2}task_c1 {2}Fix c {2}\[merge\] {2}no card\n/, 'a merge drops the kept task\'s wait on the task it absorbed');
+  assert.match(board.stdout, /Ready, P1 \([0-9]+\)\n(?: {2}.*\n)* {2}task_c1 {2}Fix c {2}\[merge\] {2}no card\n/, 'a merge drops the kept task\'s wait on the task it absorbed');
   assert.match(board.stdout, /task_e1 {2}Fix e {2}\[stale\] {2}waits on task:task_e2 started\n/, 'a started task\'s old waits never loop');
   assert.doesNotMatch(board.stdout, /task_e2 waits back/);
   assert.equal(board.status, 1);
@@ -3803,10 +3883,10 @@ test('two tasks on one project path are both ready, and a started one holds noth
   const { chip, chips, offer } = chipLedger();
   assert.equal(offer('task_a1 Fix the reader', 'src/r.ts', 'topic: reader').status, 0);
   assert.equal(offer('task_b1 Speed up the reader', 'src/r.ts', 'topic: reader-speed').status, 0);
-  assert.match(chips().stdout, /Ready \(2\)\n {2}task_a1 {2}Fix the reader {2}\[reader\] {2}no card {2}shares paths with task_b1\n {2}task_b1 [^\n]*shares paths with task_a1\n/);
+  assert.match(chips().stdout, /Ready, P1 \(2\)\n {2}task_a1 {2}Fix the reader {2}\[reader\] {2}no card {2}shares paths with task_b1\n {2}task_b1 [^\n]*shares paths with task_a1\n/);
   assert.equal(chip('task_a1 Fix the reader', 'started').status, 0);
   const board = chips().stdout;
-  assert.match(board, /Ready \(1\)\n {2}task_b1 {2}Speed up the reader {2}\[reader-speed\] {2}no card {2}shares paths with task_a1\n/, 'a started session on the same project path');
+  assert.match(board, /Ready, P1 \(1\)\n {2}task_b1 {2}Speed up the reader {2}\[reader-speed\] {2}no card {2}shares paths with task_a1\n/, 'a started session on the same project path');
   assert.match(board, /card task_b1: it can start and has no card; first judge whether it needs the result of another open task, starting with task_a1, which writes its paths, or of an open design question its work builds on/);
 });
 
@@ -3903,7 +3983,7 @@ test('a task that waits on a landed patch starts once a commit after the landing
   spawnSync('git', ['-C', root, 'add', 'src/p.ts']);
   commit(root, 'parser');
   writeFileSync(join(root, 'src/p.ts'), 'export const parse = 2;\n');
-  assert.match(chips().stdout, /Ready \(1\)\n {2}task_b1 {2}Use the parser/, "a later task's uncommitted edit on top of the committed parser does not hold the wait");
+  assert.match(chips().stdout, /Ready, P1 \(1\)\n {2}task_b1 {2}Use the parser/, "a later task's uncommitted edit on top of the committed parser does not hold the wait");
 });
 
 test('a session cards only the tasks it owns, and chips all takes the ones no live session owns', () => {
