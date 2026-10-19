@@ -22,7 +22,7 @@ Keep a test that passes both. Rewrite or cut the rest, as the sections below say
 
 Take the user's scope, or the files they name; `full` takes every tracked test file, as [Full mode](#full-mode) says. Read the root and scoped `AGENTS.md` first; their Tests rule is the bar for every test this audit keeps, rewrites or moves. A request that only asks which tests are weak or what is untested stays read-only and reports its candidates and gaps. Leave out skills and code installed from another repository.
 
-## Discover, read-only
+## Discover without editing the checkout
 
 1. For a broad scope, split it into read-only lanes by owner area and run them in parallel.
 2. For each candidate, read the whole test, its production owner, the owner's callers, the overlapping tests, CI routing and history. When a test claims behavior a dependency provides, read that dependency.
@@ -84,7 +84,7 @@ Change one coherent owner-boundary batch at a time. Delete obsolete test-only ex
 
 1. **Inventory.** List every tracked test file with the project's own test patterns and group the files by owner area, such as a package or an app. Write a ledger in the run directory with one row per area: its files, line count, signals (internal imports, mocks and spies, snapshots) and state. A later session resumes from the ledger and never restarts an area the ledger marks done.
 2. **Suite health.** Before the lanes, scan for skipped and focused tests, commented-out tests, tests that import another test file, placeholder titles, and snapshot files that keep dead keys. Report only what is worth fixing.
-3. **Lanes.** Take the areas in the order the ledger ranks, largest and most internally coupled first. Each lane runs this skill on one area, read-only first, then its edit batch, with a file budget it states before it starts. In a project with a task ledger, each area's edits go out as their own task.
+3. **Lanes.** Take the areas in the order the ledger ranks, largest and most internally coupled first. Each lane runs this skill on one area with a file budget it states before it starts: discovery first, then its edit batch when the request asks for repairs. In a project with a task ledger, each area's edits go out as their own task.
 4. **Flaky lane.** A test that fails only sometimes is a defect in the test or the code. Reproduce it, then repair it or quarantine it in the project's own way with its owner named.
 5. **Gaps.** From fresh coverage and the public exports, list the public contracts whose break no test catches, ranked by the named defect a test would catch. Skip barrels, declarations, type-only and generated files. List a contract that only a browser can prove under the project's browser proof, not as a unit-test gap. Stop when what remains is wrappers, glue or code due for a rewrite. The list writes no test; the project's Tests rule gates each one.
 
