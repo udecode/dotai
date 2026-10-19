@@ -95,7 +95,7 @@
 <!-- end -->
   Ignore unrelated diffs and never pause to ask about them. Never reset or discard work this run did not write. Reset a proof case in a fresh detached worktree; never run `git stash` in this repository or any of its worktrees, because every worktree shares one stash list.
 <!-- if delivery!=trunk -->
-  Remove only a worktree the run created, a card session's own worktree once its patch lands, as Landing says, or one the `cleanup` skill marks safe.
+  Remove only a worktree the run created, a task session's own worktree once its task lands, as Landing says, or one the `cleanup` skill marks safe.
 <!-- end -->
 <!-- if delivery=trunk -->
   Remove only a worktree the run created, its own once its task lands, or one the `cleanup` skill marks safe.
