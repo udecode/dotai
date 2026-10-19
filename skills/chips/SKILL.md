@@ -17,13 +17,13 @@ Every command below is `node .agents/pstack/decisions-check.mjs <command>`, run 
 | [Start](#start) | begin a task a card opened, in the card's session |
 | [Drop](#drop) | record the owner's word to drop a task |
 
-pstack calls these modes too. Where a pstack step files a tracked issue, a follow-up or a reflect Backlog item, or puts an out-of-band fix in its own PR, the lead runs Offer instead. At each hand-back, after each compaction and at the close, it runs a quick sweep, which skips step 3. A question about open chips, such as "what's next" over side work, runs steps 1 and 6 without step 1's cleanup and writes nothing.
+pstack calls these modes too. Where a pstack step files a tracked issue, a follow-up or a reflect Backlog item, or puts an out-of-band fix in its own PR, the lead runs Offer instead. It runs a sweep only where chips.md's Sweep says: on `/chips`, at the last hand-back of a run whose project playbook asks for one and when a wave ends. The last two are quick sweeps, which skip step 3. A question about open chips, such as "what's next" over side work, runs steps 1 and 6 without step 1's cleanup and writes nothing.
 
 ## Sweep
 
 1. In a trunk project, first run `node .agents/pstack/setup.mjs` from the main checkout, which fast-forwards it when no local edit is in the way. Run `chips --session <id>` and `chips stale`. The stale report lists each open task with its age, the paths it writes that were deleted since its offer or are missing, the commits on its paths since its offer, its closed PR waits and its card, the likeliest stale first.
 
-   Then clean up the card sessions of landed tasks, as chips.md's Cleanup says. Save the session tool's list of every session, archived ones included, such as Claude Code desktop's `list_sessions` with `include_archived` and a `limit` above the session count, as a JSON array in the run directory, and run `chips cleanup --sessions <file> --session <id>`. Read the last report of each session it lists under Archive with the session tool, fix each piece of workflow friction it names that no report message already brought, as chips.md's Landing says, then archive the session, save the list again, run `chips cleanup` again and run the `scan.mjs --remove` command it prints. Keep the first run's Report lines for step 6. Under `/chips all`, read the board again with `chips all --session <id> --sessions <file>`, using the list saved last, as chips.md's Owner says, and use that board from here on. A runtime with no session tool skips this.
+   Then clean up the card sessions of landed tasks, as chips.md's Cleanup says. Save the session tool's list of every session, archived ones included, such as Claude Code desktop's `list_sessions` with `include_archived` and a `limit` above the session count, as a JSON array in the run directory, and run `chips cleanup --sessions <file> --session <id>`. Read, with the session tool, the last report of each session it lists under Archive whose report message never reached this session, fix each piece of workflow friction that report names, as chips.md's Landing says, then archive the session, save the list again, run `chips cleanup` again and run the `scan.mjs --remove` command it prints. Keep the first run's Report lines for step 6. Under `/chips all`, read the board again with `chips all --session <id> --sessions <file>`, using the list saved last, as chips.md's Owner says, and use that board from here on. A runtime with no session tool skips this.
 2. Apply the pass the Do list shows, together with the run's own rows that chips.md's Sweep lists, in one `append --from <file>` batch:
    - Withdrawal pass: call the dismiss tool on each card it names, then log the row the tool's report decides, as each item says.
    - Ledger pass: log each row it names.
@@ -53,7 +53,7 @@ pstack calls these modes too. Where a pstack step files a tracked issue, a follo
    - When it belongs to the question of a started task or of one that holds a card, offer a new task in that topic with `waits: task:<id>`. `chips` merges it into a carded task once the card is withdrawn.
    - Otherwise offer a new task with an id from `chips id`, a plain imperative title, `(xhigh)` only where chips.md's Title rule gives it, and its `writes:`, `topic:`, `kind:`, `waits:`, `owns:` and `session:`, this session's id, which makes it this session's task, as chips.md's Owner says. Its `waits:` include `run:<plan>` for each active plan whose files it writes, as Sweep step 5 finds them. Reuse a topic the board lists when the finding answers its question. A new topic names one owner question, never an area.
 3. Append it with `append <plans>/suggested-tasks.decisions.tsv chip "<id> <title>" "<finding>" "<tokens>" <result>`. When `append` refuses the row, its message names the route; follow it.
-4. Leave the card to the next sweep.
+4. Leave the card to the next sweep, and say in the hand-back how many tasks this run offered and that `/chips` cards them.
 
 ## Start
 
@@ -63,7 +63,7 @@ A session a card opened, or one the lead started on the owner's "start <id>", ru
 2. Run `chips`. When the task is neither Ready nor Started, tell the owner what it waits on and stop.
 3. Log `started` with `writes:` naming any path the brief lacks and `session:` naming this session's id where the runtime's session tool gives one, then run `chips brief <id>` again, because the task could change until that row. When the session tool shows this session above the brief's `Effort:`, say so to the owner in your first reply, because a session cannot lower its own effort.
 4. Before writing a path the task does not list, log another `started` row with it. When `append` refuses that row because another started task writes that path outside the checkout, which happens only outside trunk delivery, leave the path alone and tell the owner.
-5. When the work is done, land it, log `landed`, send the report the brief asks for and remove the worktree as the last command, as the brief's paragraph on landing and chips.md's Landing say. A review task's session first logs `reviewed` on each task it reviewed.
+5. When the work is done, land it, log `landed` and remove the worktree as the last command, as the brief's paragraph on landing and chips.md's Landing say, then send the report the brief asks for. A review task's session first logs `reviewed` on each task it reviewed.
 
 ## Drop
 

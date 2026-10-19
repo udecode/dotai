@@ -3937,7 +3937,7 @@ test('a fast mark shows on a plain fix, refuses design judgment, and drops when 
   const link = 'task_f1 Fix the badge link';
   assert.equal(offer(link, 'README.md', 'topic: badge; fast: yes').status, 0);
   assert.match(chips().stdout, /task_f1 {2}Fix the badge link \(fast\) {2}\[badge\]/);
-  assert.match(chips('brief', 'task_f1').stdout, /^Fix the badge link \(fast\)\n[\s\S]*This task is marked fast: the owner's start of its card is the word fast for it/);
+  assert.match(chips('brief', 'task_f1').stdout, /^Fix the badge link \(fast\)\n[\s\S]*This task is marked fast: the owner's start of its card, or their "start <id>", is the word fast for it/);
   assert.match(offer('task_f2 Decide the badge (xhigh)', 'README.md', 'topic: badge-design; fast: yes').stderr, /task_f2 is an \(xhigh\) task, and fast: yes marks only a fix at high effort/);
   assert.match(offer('task_f3 Design the badge', 'README.md', 'topic: badge-look; kind: decide; fast: yes').stderr, /task_f3 is a decide task/);
   assert.match(offer('task_f4 Fix the badge color (fast)', 'README.md', 'topic: badge-color').stderr, /fast: yes adds \(fast\) for it/);
