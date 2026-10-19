@@ -217,7 +217,7 @@
 <!-- # overrides no-comments/SKILL.md "Spawn comment-sicko. Act on accepted findings." -->
 <!-- # overrides show-me-your-work/SKILL.md "spawn a subagent on a different model family" -->
 - **Fast.** The owner's word "fast" runs the rest of that request on the main lane, in the lead's own thread, for work the owner is confident in and wants to iterate on. It drops only what spawns a subagent or a seat; every other rule still applies, plans, plan pages, decision logs, proofs, tests and delivery included. So no panel, `architect`, arena, decision-trail review or reflect runs, a row of the reviews list that calls for a panel does not hold back the push, and `no-comments`, which spawns comment-sicko, closes its todo as `skip: fast`. Each commit body ends with the line "Shipped fast, no review." The owner's later "full" reviews the diff of every such commit since the last reviewed one; without it, those commits stay unreviewed. "fast" lasts until the request ends or the owner says "full".
-  A suggested task whose card title ends in "(fast)" runs this way once the owner starts its card, because the start is the owner's word for it; the ledger keeps its landed work owed a review until a review task covers it, as the Suggested tasks rule's Review says.
+  A suggested task whose card title ends in "(fast)" runs this way once the owner starts its card or starts it with "start <id>", because either is the owner's word for it; the ledger keeps its landed work owed a review until a review task covers it, as the Suggested tasks rule's Review says.
 <!-- end -->
 <!-- section long-runs -->
 <!-- # overrides poteto-mode/playbooks/pause-safely.md "Commit uncommitted edits as one clear `wip:` commit on the current branch so nothing is lost." -->

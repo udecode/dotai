@@ -150,7 +150,7 @@
       "mode": 493
     },
     "skills/chips/SKILL.md": {
-      "sha256": "c7bdbfe2e4646b16c0758324f156a8e490b204a1b5beec7e59e05b0d5a50233a",
+      "sha256": "5e1a7fcef386e13d79b5ce8817f91378af556741e2dab1e870869a584ad668bc",
       "mode": 420
     },
     "skills/cleanup/SKILL.md": {
@@ -274,7 +274,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "d5424c6ebaf6b7ee737a50c54ebc23c263a61029974a0406ac13befba4fc8ffb",
+      "sha256": "ea20fd5d0efd9f793cb41f914fc42da6ecec4dee21be6b26855574572017eac2",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/codex-browser.mjs": {
@@ -362,7 +362,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/chips.md": {
-      "sha256": "97d339c84d1794ae8e3cf7ab71b25b3c3d5e93b11e8b2ce373c7247e13ce9ae5",
+      "sha256": "e9a213edb9dfc4acd32b53e98e8e6c289e947b1d82155d1504a197ed349c1519",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/close.md": {
@@ -386,7 +386,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/panel.md": {
-      "sha256": "47dc610e3426934276e73cefe52574c2a651e101b8a43a42244df2362e467eda",
+      "sha256": "a31b3250ddefd27ae6f99c4b8842cfe1b6ede73d06de7298f24b6bd1f649e417",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/reflect.md": {
@@ -410,7 +410,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/seats.mjs": {
-      "sha256": "6d7a537e8d24a800abca50eafde44c917d6f32b69f42139dd97b8bcc187d858e",
+      "sha256": "4e121f4ae04aee6c5112264cb4663e598c97a1fd734f94e052a207be1c2baf87",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/setup.mjs": {
@@ -422,7 +422,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/tasks.mjs": {
-      "sha256": "819e89275106e392f8a94904de38b5e8a987106453edaf265abc81bde347f6ae",
+      "sha256": "9f0524f1a64508d87b67555a74fbb8a39955705a8a27565ac319984f9a97daa2",
       "mode": 420
     },
     "skills/sync-pstack/references/adapt.md": {
@@ -482,7 +482,7 @@
       "mode": 420
     },
     "skills/test-audit/SKILL.md": {
-      "sha256": "0e46830de25f4ba4e1b119bd83b2facfd1e23f174e3b76ccea14704d8def64d4",
+      "sha256": "060caf2ec9a29fa120fc3d2d88bf84bbcc6f0c4fa8238317582e7f7616555059",
       "mode": 420
     },
     "skills/video-transcripts/SKILL.md": {
