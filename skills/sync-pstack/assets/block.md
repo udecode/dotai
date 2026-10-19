@@ -224,7 +224,7 @@
 - **Long runs.** Before a multi-slice build after "go", `/loop`, `/goal`, a pause or a resume, and after every compaction, read `.agents/pstack/rules/long-runs.md` in full.
 <!-- end -->
 <!-- # adds -->
-- **Time budget.** No command, proof or seat that a run starts takes more than an hour, except a stress run, and no wait on the machine's state lasts longer (owner's word, 2026-10-16). Read `.agents/pstack/rules/time.md` in full before you start one that may run long, such as a proof, a benchmark protocol or a wait for a quiet host, and before you offer a measurement that cannot fit the hour.
+- **Time budget.** No command, proof or seat that a run starts takes more than an hour, except a stress run, and nothing waits for the host's load to drop (owner's word). Read `.agents/pstack/rules/time.md` in full before you start one that may run long, such as a proof or a benchmark protocol, after a gate fails under load, and before you offer a measurement that cannot fit the hour.
 <!-- # adds -->
 <!-- # overrides show-me-your-work/SKILL.md "spawn a subagent on a different model family" -->
 <!-- # overrides show-me-your-work/SKILL.md "Every reply for a run that produced a trail ends with" -->
