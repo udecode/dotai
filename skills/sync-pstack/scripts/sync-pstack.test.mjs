@@ -4864,8 +4864,8 @@ test('plan-open reads the pre-acceptance mark through Markdown emphasis', () => 
 
 const claudeCall = (marker, effort) =>
   [
-    JSON.stringify({ type: 'user', message: { content: [{ type: 'tool_result', content: 'done' }] } }),
-    JSON.stringify({ type: 'assistant', effort, message: { model: 'claude-opus-5-5', content: [{ type: 'tool_use', input: { command: `node decisions-check.mjs append ${marker} --from q.tsv` } }] } }),
+    JSON.stringify({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'run', content: 'done' }] } }),
+    JSON.stringify({ type: 'assistant', effort, message: { model: 'claude-opus-5-5', content: [{ type: 'tool_use', id: 'run', name: 'Bash', input: { command: `node decisions-check.mjs append ${marker} --from q.tsv` } }] } }),
   ].join('\n');
 
 test('decisions-check append opens with a lead row naming the model and effort, and again only when they change', () => {
@@ -4898,7 +4898,7 @@ test('decisions-check append opens with a lead row naming the model and effort, 
     rollout,
     [
       { type: 'turn_context', payload: { model: 'gpt-6.1-sol', effort: 'xhigh' } },
-      { type: 'response_item', payload: { type: 'custom_tool_call', input: 'tools.exec_command({cmd:"node decisions-check.mjs append log.decisions.tsv --from q.tsv"})' } },
+      { type: 'response_item', payload: { type: 'custom_tool_call', name: 'exec', call_id: 'run', input: 'tools.exec_command({cmd:"node decisions-check.mjs append log.decisions.tsv --from q.tsv"})' } },
     ]
       .map((record) => JSON.stringify(record))
       .join('\n'),
