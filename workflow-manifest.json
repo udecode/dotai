@@ -119,6 +119,17 @@
         "Real final-state captures, Node.js and the configured annotation tool"
       ],
       "provenance": null
+    },
+    {
+      "name": "worktree-workspace",
+      "distribution": "bundled",
+      "description": "Open every git worktree of a project in one VS Code window, each folder labeled by its agent session's title. Use for /worktree-workspace, reviewing worktrees in VS Code, or seeing which worktree holds which task.",
+      "category": "Maintenance",
+      "dependencies": [],
+      "capabilities": [
+        "Node.js 22+, Git and the VS Code `code` command; session titles from a sessions file or the Claude desktop app on macOS"
+      ],
+      "provenance": null
     }
   ],
   "files": {
@@ -127,11 +138,11 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "99f21753237c0daa5d2f11f425798b3bdcf856b1b646ae2de5254acb988eb26a",
+      "sha256": "ccc89c00135f804eac30701ffb56712454d728b6b7c0e2bdab1761675595883c",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
-      "sha256": "ba2e76d8765d01692fca78c94a11616d181d8e7218412cb304dd7ed6ad9f2b08",
+      "sha256": "be1b279d0f5325aab6567b3b2f5e189bdcdb4ecb843113beab0d4410d44752ac",
       "mode": 420
     },
     "scripts/validate-skills": {
@@ -139,7 +150,7 @@
       "mode": 493
     },
     "skills/chips/SKILL.md": {
-      "sha256": "ba90bee0755c8835e91c5622dd8557a5b19e4b623726ef1855d69cc68647b86a",
+      "sha256": "7e6553dc3376aee0d14ec4c94f55bee8faf2142e712134db07e9ae86b092cb92",
       "mode": 420
     },
     "skills/cleanup/SKILL.md": {
@@ -255,7 +266,7 @@
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
-      "sha256": "e64a432c5fc93729c93f373a3dec8f5b99038b163642a7d07200504a50c20f3a",
+      "sha256": "8d684d2fe66fe1be2b64f29b4c4cbe13bdfc08be3ae76af91590daa490b6b31d",
       "mode": 420
     },
     "skills/sync-pstack/agents/openai.yaml": {
@@ -279,7 +290,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/cross.mjs": {
-      "sha256": "8e5c14542daaaa3083d27d34f8c1d359cd7db04b96f157419b4549703ddadb7d",
+      "sha256": "57d7bffc13d8e3980a2a17964368c2462d27798e37d4ae9112f79de90f8fe493",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/cua-steps.mjs": {
@@ -351,7 +362,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/chips.md": {
-      "sha256": "b2d24967c553827f2ccb4aa493d04e1f37e12b77f94fbc781b8398159f5de803",
+      "sha256": "fb55c13dd1bf043c1a6dd5b6e61d341c99606c5a15dc7cf2ce6c08af383fec2a",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/close.md": {
@@ -375,7 +386,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/panel.md": {
-      "sha256": "12e2146c6fca2657fcf7ee8b2c3687f8000d488d30f0126cd6e4392a8075d6d2",
+      "sha256": "bf1200746028f8f34eb592617ea43dcdaf54df5f891f14a4d7254207d8598501",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/reflect.md": {
@@ -398,6 +409,10 @@
       "sha256": "29805e5e1f92685a2ddb2083ef30717551fa52f92faffac9715b2aea578ffdd0",
       "mode": 420
     },
+    "skills/sync-pstack/assets/pstack/seats.mjs": {
+      "sha256": "010c9d2501487726a2ed424f6a617d2e1dc0f2592002b0a1e11b9ed86e75582d",
+      "mode": 420
+    },
     "skills/sync-pstack/assets/pstack/setup.mjs": {
       "sha256": "60580894488429641eb51c552fbdf84c8f0572f3e2c442b225a55a8902ea7e82",
       "mode": 420
@@ -407,7 +422,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/tasks.mjs": {
-      "sha256": "38c970c98d048e4630677b3c6617e13b2718545cc10bcf469bc3ef661c27f242",
+      "sha256": "4accb81ff8d61fdb091cab0365bdd650bca4457f6b7ca5296c4cb8bd06c79b4a",
       "mode": 420
     },
     "skills/sync-pstack/references/adapt.md": {
@@ -451,7 +466,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.mjs": {
-      "sha256": "e605ab02af57374827a62f6007e0985634292269fac9f94737b970d138b5354e",
+      "sha256": "3b44e7213f49b30f2a6e2ea078af289cf82c9b519f369c2f6cbaa3391472b26e",
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
@@ -500,6 +515,18 @@
     },
     "skills/walkthrough/scripts/diff-baseline.test.mjs": {
       "sha256": "4447384c1b5ca994d8a65b549a7b2620e1cffc30e7bf5ffe73fba86172e6984d",
+      "mode": 420
+    },
+    "skills/worktree-workspace/SKILL.md": {
+      "sha256": "99ee8529a026075e67e19fc7c52919a2b7d5c16d3b5d62470926f49388d4d1e1",
+      "mode": 420
+    },
+    "skills/worktree-workspace/scripts/workspace.mjs": {
+      "sha256": "1d9c93aae9706a07d6f60162f581f3b33e979f92ec8196529f20b9886d16fb52",
+      "mode": 420
+    },
+    "skills/worktree-workspace/scripts/workspace.test.mjs": {
+      "sha256": "4bb89b94f84a15670d15811aea925da9c5c21e1d7333310a0834899a18188dd5",
       "mode": 420
     },
     "upstream-skills.json": {

@@ -14,7 +14,7 @@ const groups = {
   'Review': ['test-audit'],
   'Communication': ['walkthrough', 'video-transcripts', 'plan-page'],
   'Workflow': ['chips', 'passwords', 'redo'],
-  'Maintenance': ['cleanup', 'sync-pstack'],
+  'Maintenance': ['cleanup', 'sync-pstack', 'worktree-workspace'],
   'Monitoring': ['pstack-pulse', 'rca'],
 };
 const explicitDependencies = {};
@@ -28,6 +28,7 @@ const requirements = {
   'sync-pstack': ['Node.js 22+ and Git; the Claude Code and Codex CLIs for plugin pins and smoke tests'],
   'video-transcripts': ['ffmpeg, curl, jq and authorized Gemini credentials'],
   walkthrough: ['Real final-state captures, Node.js and the configured annotation tool'],
+  'worktree-workspace': ['Node.js 22+, Git and the VS Code `code` command; session titles from a sessions file or the Claude desktop app on macOS'],
 };
 
 function walk(dir) {
