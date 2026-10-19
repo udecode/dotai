@@ -2585,7 +2585,7 @@ test('decisions-check append writes only a row that passes the check', () => {
   assert.equal(ok.status, 0, ok.stderr);
   const lines = read(root, 'log.decisions.tsv').trim().split('\n');
   assert.equal(lines[0], 'ts\tphase\tdecision\twhy\tevidence\tresult');
-  assert.match(lines[1], /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\tfix\trepair the parser\t/);
+  assert.match(lines.find((line) => line.split('\t')[1] === 'fix'), /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\tfix\trepair the parser\t/);
   assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'log.decisions.tsv'], root).status, 0);
 });
 
@@ -3558,6 +3558,28 @@ test('chips lists P0 and P1 in full, counts the rest and cards at most 10, highe
   assert.match(full, /Ready, P3 \(4\)/);
 });
 
+test('chips ranks a task with the most urgent open task that waits on it', () => {
+  const { batch, chip, chips } = chipLedger();
+  const written = batch([
+    ['task_a1 Fix the lost save', 'offered', 'writes: a.md; topic: save; priority: P0; repro: type then reload loses the text; waits: task:task_b1'],
+    ['task_b1 Tune the index', 'offered', 'writes: b.md; topic: index; priority: P2; waits: task:task_c1'],
+    ['task_c1 Measure the index', 'offered', 'writes: c.md; topic: measure; priority: P3'],
+    ['task_d1 Fix the cursor', 'offered', 'writes: d.md; topic: cursor; priority: P1; repro: click past the end; waits: task:task_e1'],
+    ['task_e1 Probe the cursor', 'offered', 'writes: e.md; topic: probe; priority: P3'],
+    ['task_f1 Tidy the toolbar', 'offered', 'writes: f.md; topic: toolbar; priority: P2; waits: task:task_g1'],
+    ['task_g1 Fix the toolbar focus', 'offered', 'writes: g.md; topic: focus; priority: P1; repro: tab past the last button'],
+  ]);
+  assert.equal(written.status, 0, written.stderr);
+  const board = chips().stdout;
+  assert.match(board, /Ready, P0 \(1\)\n {2}task_c1 {2}Measure the index {2}\[measure\] {2}blocks task_b1 {2}no card\n/, 'a P3 task under a P2 that a P0 waits on ranks P0');
+  assert.match(board, /Ready, P1 \(2\)\n {2}task_e1 {2}Probe the cursor {2}\[probe\] {2}blocks task_d1 {2}no card\n {2}task_g1 {2}Fix the toolbar focus {2}\[focus\] {2}no card\n/, 'a less urgent waiter lowers nothing');
+  assert.match(board, /Waiting, P0 \(2\)\n {2}task_a1 [^\n]*\n {2}task_b1 {2}Tune the index {2}\[index\] {2}blocks task_a1 {2}waits on task:task_c1 offered\n/);
+  assert.match(chips('brief', 'task_c1').stdout, /^\[P0\] Measure the index\n\nTopic: measure\. Kind: fix\. Effort: high\. Priority: P0, from task_b1, which waits on it; its own is P3\.\n/);
+  assert.match(chips('stale').stdout, /task_c1 [^\n]*priority P0 \(own P3, from task_b1\);/);
+  assert.equal(chip('task_a1 Fix the lost save', 'dismissed done').status, 0);
+  assert.match(chips('brief', 'task_c1').stdout, /^\[P2\] [^\n]*\n\n[^\n]*Priority: P2, from task_b1, which waits on it; its own is P3\./, 'the lift follows the waiters still open');
+});
+
 test('chips offers each open item of the ship list as a P1 task and orders P1 tasks by it', () => {
   const { chips, offer, root } = chipLedger();
   assert.equal(offer('task_c1 Fix the cursor', 'c.md', 'topic: cursor; priority: P1; repro: click past the end').status, 0);
@@ -3582,6 +3604,28 @@ test('chips offers each open item of the ship list as a P1 task and orders P1 ta
   assert.match(chips('stale').stdout, /task_s1 [^\n]*priority P1; ship item r1 is no longer open/);
   writeFileSync(join(root, 'ship.mjs'), 'process.exit(3);\n');
   assert.match(chips().stdout, /No ship list: [^\n]*ship\.mjs failed/);
+});
+
+test('no session owns a ship-list task, so any session cards it', () => {
+  const { chip, chips, offer, root } = chipLedger();
+  writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ branch: 'next', chips: { ship: [process.execPath, 'ship.mjs'] } }));
+  writeFileSync(join(root, 'ship.mjs'), "import { readFileSync } from 'node:fs';\nprocess.stdout.write(readFileSync('ship.json', 'utf8'));\n");
+  writeFileSync(join(root, 'ship.json'), JSON.stringify([
+    { id: 'r1', title: 'Settle review item r1', finding: 'r1 is open', writes: ['docs/plans'], topic: 'review-r1', kind: 'fix' },
+    { id: 'r2', title: 'Settle review item r2', finding: 'r2 is open', writes: ['docs/plans'], topic: 'review-r2', kind: 'fix' },
+  ]));
+  assert.equal(offer('task_a1 Fix the parser', 'src/a.ts', 'topic: a; session: s2').status, 0);
+  assert.match(chips('--session', 's1').stdout, /offer ship item r1[^\n]*"writes: docs\/plans; topic: review-r1; kind: fix; priority: P1; ship: r1" offered/, 'a ship offer names no session');
+  assert.equal(offer('task_s1 Settle review item r1', 'docs/plans', 'topic: review-r1; priority: P1; ship: r1; session: s2').status, 0);
+  assert.equal(offer('task_s2 Settle review item r2', 'docs/plans', 'topic: review-r2; priority: P1; ship: r2').status, 0);
+  const own = chips('--session', 's1').stdout;
+  assert.match(own, /Do, card pass \(2\)\n {2}card task_s1:[^\n]*\n {2}card task_s2:/, 'a ship task an older offer gave to s2 is cardable from s1');
+  assert.match(own, /Other owners \(1\)\n {2}session s2 {2}1 open: task_a1\n/, 'the ship task is not listed under another owner');
+  assert.equal(chip('task_s1 Settle review item r1', 'carded', 'card: c1; session: s1').status, 0);
+  assert.equal(chip('task_s1 Settle review item r1', 'uncarded', 'card: c1').status, 0);
+  assert.equal(chip('task_s1 Settle review item r1', 'updated', 'session: s1').status, 0);
+  assert.equal(chip('task_s1 Settle review item r1', 'carded', 'card: c2; session: s3').status, 0, 'neither carding nor an updated session: makes a ship task one session\'s');
+  assert.equal(chip('task_a1 Fix the parser', 'carded', 'card: c3; session: s1').status, 1, 'a task off the ship list keeps its owner');
 });
 
 test('chips stale lists each open task with the paths it writes that were deleted since its offer or are missing, and the commits on its paths since its offer', () => {
@@ -4355,7 +4399,7 @@ test('decisions-check append --from writes every queued row or none', () => {
   const ok = queue([seats, finding]);
   assert.equal(ok.status, 0, ok.stderr);
   const lines = read(root, 'log.decisions.tsv').trim().split('\n');
-  assert.deepEqual(lines.slice(1).map((line) => line.split('\t')[2]), [seats[1], finding[1]]);
+  assert.deepEqual(lines.slice(1).filter((line) => line.split('\t')[1] !== 'lead').map((line) => line.split('\t')[2]), [seats[1], finding[1]]);
 });
 
 
@@ -4862,50 +4906,68 @@ test('plan-open reads the pre-acceptance mark through Markdown emphasis', () => 
   assert.match(check(`- [x] 2.6 _Pre-acceptance_ probe: \`${log}\``).stderr, /a pre-acceptance probe stays open/);
 });
 
-const claudeCall = (marker, effort) =>
-  [
-    JSON.stringify({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'run', content: 'done' }] } }),
-    JSON.stringify({ type: 'assistant', effort, message: { model: 'claude-opus-5-5', content: [{ type: 'tool_use', id: 'run', name: 'Bash', input: { command: `node decisions-check.mjs append ${marker} --from q.tsv` } }] } }),
-  ].join('\n');
-
-test('decisions-check append opens with a lead row naming the model and effort, and again only when they change', () => {
+test('decisions-check records verified runtime identity and an unknown boundary before later work', () => {
   const { dir, env, home } = sandbox();
-  const root = project(dir, 'app', { files: { 'q.tsv': 'build\tship it\twhy\tevidence\tdecided\n' } });
-  const transcript = join(home, '.claude/projects/-app/session.jsonl');
-  const append = () => spawnSync(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', '--from', 'q.tsv'], { cwd: root, encoding: 'utf8', env: { ...env, CODEX_HOME: join(home, '.codex') } });
-  const leads = () => read(root, 'log.decisions.tsv').split('\n').filter((line) => line.split('\t')[1] === 'lead').map((line) => line.split('\t')[2]);
-
-  const blind = append();
-  assert.equal(blind.status, 0, blind.stderr);
-  assert.match(blind.stderr, /gets no lead row/, 'an unknown effort says so');
-  assert.deepEqual(leads(), []);
-
-  mkdirSync(dirname(transcript), { recursive: true });
-  writeFileSync(transcript, `${claudeCall('log.decisions.tsv', 'medium')}\n`);
-  assert.equal(append().status, 0);
-  writeFileSync(transcript, `${claudeCall('log.decisions.tsv', 'medium')}\n${claudeCall('log.decisions.tsv', 'medium')}\n`);
-  assert.equal(append().status, 0);
-  assert.deepEqual(leads(), ['claude-opus-5-5 @medium'], 'an unchanged lead writes no second row');
-
-  writeFileSync(transcript, `${claudeCall('log.decisions.tsv', 'medium')}\n${claudeCall('other.decisions.tsv', 'xhigh')}\n`);
-  append();
-  assert.deepEqual(leads(), ['claude-opus-5-5 @medium'], 'a session whose pending call is another command is not this one');
-
-  rmSync(transcript);
-  const rollout = join(home, '.codex/sessions/2026/10/09/rollout-a.jsonl');
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': '# Plan\n\nStatus: executed\n', 'q.tsv': 'build\tship it\twhy\tevidence\tdecided\n' } });
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'ps'), '#!/bin/sh\necho "1 /runtime/codex"\n', { mode: 0o755 });
+  const runtimeEnv = { ...env, CODEX_HOME: join(home, '.codex'), CODEX_THREAD_ID: 'child', CODEX_SESSION_ID: 'parent', CODEX_TOOL_CALL_ID: 'exec-12345678-1234-1234-1234-123456789abc', CLAUDE_CODE_SESSION_ID: '', PATH: `${bin}:${process.env.PATH}` };
+  const rollout = join(runtimeEnv.CODEX_HOME, 'sessions/2026/10/19/rollout-child.jsonl');
   mkdirSync(dirname(rollout), { recursive: true });
-  writeFileSync(
-    rollout,
-    [
-      { type: 'turn_context', payload: { model: 'gpt-6.1-sol', effort: 'xhigh' } },
-      { type: 'response_item', payload: { type: 'custom_tool_call', name: 'exec', call_id: 'run', input: 'tools.exec_command({cmd:"node decisions-check.mjs append log.decisions.tsv --from q.tsv"})' } },
-    ]
-      .map((record) => JSON.stringify(record))
-      .join('\n'),
-  );
+  writeFileSync(rollout, [
+    { type: 'session_meta', payload: { id: 'child', session_id: 'parent', parent_thread_id: 'parent' } },
+    { type: 'turn_context', payload: { model: 'gpt-6.1-sol', effort: 'high' } },
+    { type: 'response_item', payload: { type: 'custom_tool_call', name: 'exec', call_id: 'wrapper', input: 'await tools.exec_command({cmd: process.env.COMMAND})' } },
+  ].map(JSON.stringify).join('\n'));
+  const append = (extra = {}) => spawnSync(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'docs/plans/plan.decisions.tsv', '--from', 'q.tsv'], { cwd: root, encoding: 'utf8', env: { ...runtimeEnv, ...extra } });
+  const leads = () => read(root, 'docs/plans/plan.decisions.tsv').split('\n').filter((line) => line.split('\t')[1] === 'lead').map((line) => line.split('\t')[2]);
+  const first = append();
+  assert.equal(first.status, 0, first.stderr);
   assert.equal(append().status, 0);
-  assert.deepEqual(leads(), ['claude-opus-5-5 @medium', 'gpt-6.1-sol @xhigh'], 'a Codex session reads its turn context');
-  assert.equal(spawnSync(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'log.decisions.tsv'], { cwd: root, encoding: 'utf8' }).status, 0, 'lead rows pass the check');
+  assert.deepEqual(leads(), ['gpt-6.1-sol @high']);
+  const unknown = append({ CODEX_TOOL_CALL_ID: '' });
+  assert.equal(unknown.status, 0, unknown.stderr);
+  assert.match(unknown.stderr, /unknown lead boundary/);
+  assert.deepEqual(leads(), ['gpt-6.1-sol @high', 'unknown']);
+  assert.equal(append({ CODEX_TOOL_CALL_ID: '' }).status, 0);
+  assert.deepEqual(leads(), ['gpt-6.1-sol @high', 'unknown']);
+  assert.equal(append().status, 0);
+  assert.deepEqual(leads(), ['gpt-6.1-sol @high', 'unknown', 'gpt-6.1-sol @high']);
+  const check = spawnSync(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'docs/plans/plan.decisions.tsv'], { cwd: root, encoding: 'utf8', env });
+  assert.equal(check.status, 0, check.stderr);
+  const levels = spawnSync(process.execPath, [join(HELPERS, 'levels.mjs'), '--seats', 'gpt-6-astra @high', 'docs/plans/plan.decisions.tsv'], { cwd: root, encoding: 'utf8', env: runtimeEnv });
+  assert.equal(levels.status, 0, levels.stderr);
+  assert.match(levels.stdout, /at lines 3-4: lead gpt-6.1-sol @high/);
+  assert.match(levels.stdout, /below lines 6-7: lead unknown/);
+  assert.match(levels.stdout, /at line 9: lead gpt-6.1-sol @high/);
+  const page = spawnSync(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], { cwd: root, encoding: 'utf8', env });
+  assert.equal(page.status, 0, page.stderr);
+  const html = read(root, 'docs/plans/artifacts/plan.html');
+  const header = html.slice(html.indexOf('<header'), html.indexOf('</header>')).replace(/<[^>]+>/gu, ' ').replace(/\s+/gu, ' ');
+  assert.match(header, /Lead gpt-6.1-sol high Lead unknown/);
+});
+
+test('unknown identity never attributes foreign readers and remains unknown in levels and the page', () => {
+  const { dir, env, home } = sandbox();
+  const plan = '# Plan\n\nStatus: executed\n\n## Main changes\n\n- Check attribution.\n';
+  const log = LOG_HEAD + logRow('lead', 'claude-opus-5-5 @medium') + logRow('build', 'known work');
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan, 'docs/plans/plan.decisions.tsv': log, 'q.tsv': 'build\tunknown work\twhy\tevidence\trecorded\npanel\tseats gpt-6-astra @high\twhy\tevidence\trecorded\n' } });
+  const foreign = join(home, '.claude/projects/-app/foreign.jsonl');
+  mkdirSync(dirname(foreign), { recursive: true });
+  writeFileSync(foreign, JSON.stringify({ type: 'assistant', effort: 'medium', message: { model: 'claude-opus-5-5', content: [{ type: 'tool_use', id: 'foreign', name: 'Bash', input: { command: 'cat plan.decisions.tsv' } }] } }));
+  const unknownEnv = { ...env, CODEX_HOME: join(home, '.codex'), CODEX_THREAD_ID: '', CODEX_SESSION_ID: '', CODEX_TOOL_CALL_ID: '', CLAUDE_CODE_SESSION_ID: '' };
+  const append = spawnSync(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'docs/plans/plan.decisions.tsv', '--from', 'q.tsv'], { cwd: root, encoding: 'utf8', env: unknownEnv });
+  assert.equal(append.status, 0, append.stderr);
+  assert.match(read(root, 'docs/plans/plan.decisions.tsv'), /\tlead\tunknown\t/);
+  const levels = spawnSync(process.execPath, [join(HELPERS, 'levels.mjs'), '--lead', 'claude-opus-5-5 @medium', '--seats', 'gpt-6-astra @high', 'docs/plans/plan.decisions.tsv'], { cwd: root, encoding: 'utf8', env: unknownEnv });
+  assert.equal(levels.status, 0, levels.stderr);
+  assert.match(levels.stdout, /below lines 5-6: lead unknown \(no verified lead names its level\)/);
+  const page = spawnSync(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], { cwd: root, encoding: 'utf8', env: unknownEnv });
+  assert.equal(page.status, 0, page.stderr);
+  const html = read(root, 'docs/plans/artifacts/plan.html');
+  const header = html.slice(html.indexOf('<header'), html.indexOf('</header>')).replace(/<[^>]+>/gu, ' ').replace(/\s+/gu, ' ');
+  assert.match(header, /Lead claude-opus-5-5 medium Lead unknown Reviews gpt-6-astra high/);
 });
 
 test('plan-page shows each lead model and effort in the header', () => {
@@ -5322,7 +5384,7 @@ test('levels lists each lead stretch and seat round below this session or the co
     [
       'target: lead claude-opus-5-5 @xhigh; seats opus @high, gpt-6-astra @xhigh, gpt-6.1-sol @high',
       'log.tsv',
-      '  below line 2: lead unknown (no lead row names its level)',
+      '  below line 2: lead unknown (no verified lead names its level)',
       '  below lines 4-5: lead claude-opus-5-5 @high (@high is below @xhigh)',
       '  at line 5: panel opus @high, gpt-6-astra @xhigh, gpt-6.1-sol @xhigh',
       '  at lines 7-9: lead claude-opus-5-5 @xhigh',
