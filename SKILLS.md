@@ -6,7 +6,7 @@
 
 | Skill | Purpose |
 | --- | --- |
-| [test-audit](skills/test-audit/SKILL.md) | Audit existing tests for low-value, duplicated or implementation-coupled cases and the test-only code they keep alive, then remove or rewrite them on evidence. Use for test-audit, /test-audit <scope>, a test sweep, or pruning tests. Not for writing a new test; the project's Tests rule gates that. |
+| [test-audit](skills/test-audit/SKILL.md) | Audit existing tests for low-value, duplicated or implementation-coupled cases and the test-only code they keep alive, then remove or rewrite them on evidence. /test-audit full covers the whole suite and also lists public contracts no test guards. Use for test-audit, /test-audit <scope>, /test-audit full, a test sweep, or pruning tests. Not for writing a new test; the project's Tests rule gates that. |
 
 ## Communication (3)
 
