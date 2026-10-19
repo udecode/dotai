@@ -3,7 +3,6 @@ import { join, resolve } from 'node:path';
 import { QUESTION_TOOLS } from './event.mjs';
 import { levelRowOf, pstackSectionOf } from './pstack.mjs';
 
-const SLOTS = 5;
 const METRIC_LIMIT = 8;
 const HOUR = 3_600_000;
 const LOST_SHOWN_MS = HOUR;
@@ -368,20 +367,6 @@ function projectsOf(ranked) {
   return [...groups.values()];
 }
 
-function keepShownUntilOutranked(ranked, shown, slots) {
-  const chosen = ranked.filter(({ key }) => shown.has(key)).slice(0, slots);
-  for (const unit of ranked) {
-    if (chosen.includes(unit)) continue;
-    if (chosen.length < slots) {
-      chosen.push(unit);
-      continue;
-    }
-    const weakest = chosen.toSorted((a, b) => b.rank - a.rank)[0];
-    if (weakest && unit.rank < weakest.rank) chosen.splice(chosen.indexOf(weakest), 1, unit);
-  }
-  return chosen;
-}
-
 function rankedLive(views) {
   const live = views.filter(({ session }) => session.life === 'live' && RANK[session.state] !== undefined);
   const ranked = live.toSorted((a, b) => RANK[a.session.state] - RANK[b.session.state] || (a.session.state === 'needs-you' ? firstNeed(a.session).openedAt.localeCompare(firstNeed(b.session).openedAt) : b.session.lastHookAt.localeCompare(a.session.lastHookAt)));
@@ -401,27 +386,12 @@ export function menuBoardOf(views, context) {
   return { fleet: fleetOf(live, context).body, pstack: pstackSectionOf(context.pstack), cards: ranked.map(rowOf) };
 }
 
-const OWNER_STAGES = ['Waiting', 'Blocked', 'Paused'];
-// Beside the summary card only a session that waits on the owner gets a card of its own; working ones show on the summary alone.
-function waitRankOf(view) {
-  const state = shownStateOf(view);
-  if (state === 'needs-you') return 0;
-  if (state === 'failed') return 1;
-  return state === 'resume' || OWNER_STAGES.includes(titleStageOf(view.title)?.label) ? 2 : null;
-}
-
-export function planBoard(views, phone, context) {
+// The phone shows only the summary card, titled by its project when one project is live; session rows stay on the menubar.
+export function planBoard(views, context) {
   const { live } = rankedLive(views);
   const { ranked } = rankedLive(views.filter((view) => titleStageOf(view.title)));
   const badge = live.filter(({ session }) => session.state === 'needs-you').length;
-  const slots = phone.capacity && context.now < phone.capacity.until ? Math.min(SLOTS, phone.capacity.slots) : SLOTS;
-  if (ranked.length < 2) return { cards: ranked.map((view) => [keyOf(view.session), sessionCardOf(view)]), badge };
-  const units = ranked
-    .map((view) => ({ key: keyOf(view.session), rank: waitRankOf(view), view }))
-    .filter(({ rank }) => rank !== null)
-    .toSorted((a, b) => a.rank - b.rank);
-  const chosen = keepShownUntilOutranked(units, new Set(Object.keys(phone.streams)), slots - 1);
-  return { cards: [[SUMMARY_KEY, summaryCardOf(projectsOf(ranked), context)], ...chosen.map(({ key, view }) => [key, sessionCardOf(view)])], badge };
+  return { cards: ranked.length ? [[SUMMARY_KEY, summaryCardOf(projectsOf(ranked), context)]] : [], badge };
 }
 
 export function incidentsOf(views) {

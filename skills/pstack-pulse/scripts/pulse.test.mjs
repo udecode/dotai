@@ -63,23 +63,22 @@ function fakeClient(script = {}) {
 const send = (sessions, phone, client, seconds, atDesk = false) => {
   const now = T0 + seconds * 1000;
   const views = viewsOf(sessions);
-  const board = planBoard(views, phone, { now, shippedToday: 0 });
+  const board = planBoard(views, { now, shippedToday: 0 });
   return deliver(phone, { cards: board.cards, badge: board.badge, incidents: incidentsOf(views), listUrl: null, atDesk }, { client, clock: () => now });
 };
 const pushes = (client) => client.calls.filter((call) => call.startsWith('push'));
 
-const boardOf = (sessions, titles = {}) => planBoard(viewsOf(sessions, {}, {}, titles), emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
+const boardOf = (sessions, titles = {}) => planBoard(viewsOf(sessions, {}, {}, titles), { now: T0 + 60_000, shippedToday: 0 }).cards;
 
-test('one session gets only its own card, and a second working one turns the board into the summary card alone', () => {
+test('the phone gets only the summary card, titled by its project, from the first session on', () => {
   const sessions = {};
   reduce(sessions, hook('a', 'UserPromptSubmit', 0, { cwd: '/w/ellie' }));
-  const key = (id) => keyOf(sessions[`claude:${id}`]);
-  assert.deepEqual(boardOf(sessions).map(([cardKey]) => cardKey), [key('a')]);
-  reduce(sessions, hook('b', 'UserPromptSubmit', 1, { cwd: '/w/ellie' }));
-  const cards = boardOf(sessions);
-  assert.equal(cards[0][0], SUMMARY_KEY);
-  assert.equal(cards[0][1].body.content_state.title, 'ellie');
-  assert.equal(cards.length, 1);
+  for (const id of ['b', null]) {
+    if (id) reduce(sessions, hook(id, 'UserPromptSubmit', 1, { cwd: '/w/ellie' }));
+    const cards = boardOf(sessions);
+    assert.deepEqual(cards.map(([cardKey]) => cardKey), [SUMMARY_KEY]);
+    assert.equal(cards[0][1].body.content_state.title, 'ellie');
+  }
 });
 
 test('sessions across projects share one summary card titled by its state counts, listing the project with the fewest sessions first', () => {
@@ -95,16 +94,6 @@ test('sessions across projects share one summary card titled by its state counts
   assert.equal(face.metrics[0].value, '🚧 e1');
   reduce(sessions, { ...ask('p1', 7), cwd: '/w/plate' });
   assert.equal(boardOf(sessions)[0][1].body.content_state.title, '1 needs you · 4 working · 1 to resume');
-});
-
-test('beside the summary card only sessions waiting on you get their own card', () => {
-  const sessions = {};
-  ['w1', 'w2', 'w3', 'w4'].forEach((id, index) => reduce(sessions, hook(id, 'UserPromptSubmit', 10 + index, { cwd: '/w/a' })));
-  reduce(sessions, hook('paused', 'UserPromptSubmit', 0, { cwd: '/w/b' }));
-  reduce(sessions, hook('paused', 'Stop', 1, { cwd: '/w/b' }));
-  reduce(sessions, { ...ask('asker', 2), cwd: '/w/c' });
-  const keys = boardOf(sessions).slice(1).map(([cardKey]) => cardKey);
-  assert.deepEqual(keys, [keyOf(sessions['claude:asker']), keyOf(sessions['claude:paused'])]);
 });
 
 test('the summary card updates in place when sessions spread from one project to several', async () => {
@@ -151,22 +140,18 @@ test('cards an older daemon left, the fleet and an alert, end before any new car
   await send(sessions, phone, retry, 16);
   assert.ok(retry.calls.findIndex((call) => call.startsWith('put')) > retry.calls.indexOf('end pulse-fleet'));
   assert.ok(!phone.streams['pulse-fleet']);
-  assert.equal(phone.streams[old1].type, 'segmented_progress');
+  assert.deepEqual(Object.keys(phone.streams), [SUMMARY_KEY]);
 });
 
-test('behind the summary card, a session that needs you comes first, then one waiting to resume, and a working one has no card', () => {
+test('the summary card leads with the question of a session that needs you, with no session card beside it', () => {
   const sessions = {};
   reduce(sessions, hook('a1', 'UserPromptSubmit', 1, { cwd: '/w/a' }));
   reduce(sessions, hook('a1', 'Stop', 2, { cwd: '/w/a' }));
   reduce(sessions, { ...ask('b2', 4), cwd: '/w/b' });
   reduce(sessions, hook('b3', 'UserPromptSubmit', 5, { cwd: '/w/b' }));
-  const cards = planBoard(viewsOf(sessions), emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
-  const key = (id) => keyOf(sessions[`claude:${id}`]);
-  assert.deepEqual(cards.map(([cardKey]) => cardKey), [SUMMARY_KEY, key('b2'), key('a1')]);
-  const asking = cards[1][1];
-  assert.equal(asking.type, 'segmented_progress');
-  assert.equal(asking.body.content_state.subtitle, 'Ship b2?');
-  assert.equal(cards[2][1].body.content_state.subtitle, 'a · Build');
+  const cards = planBoard(viewsOf(sessions), { now: T0 + 60_000, shippedToday: 0 }).cards;
+  assert.deepEqual(cards.map(([cardKey]) => cardKey), [SUMMARY_KEY]);
+  assert.match(cards[0][1].body.content_state.subtitle, /Ship b2\?$/u);
 });
 
 test('only sessions whose title shows a pstack stage reach the phone', () => {
@@ -175,22 +160,23 @@ test('only sessions whose title shows a pstack stage reach the phone', () => {
   reduce(sessions, hook('chat', 'UserPromptSubmit', 1, { cwd: '/w/a' }));
   reduce(sessions, hook('loose', 'UserPromptSubmit', 2, { cwd: null }));
   const views = viewsOf(sessions, {}, {}, { chat: 'quick question', loose: 'Find Balloon Popper' });
-  const cards = planBoard(views, emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
-  assert.deepEqual(cards.map(([key]) => key), [keyOf(sessions['claude:poteto'])]);
+  const cards = planBoard(views, { now: T0 + 60_000, shippedToday: 0 }).cards;
+  assert.deepEqual(cards.map(([key]) => key), [SUMMARY_KEY]);
+  assert.deepEqual(cards[0][1].body.content_state.metrics.map(({ value }) => value), ['🚧 poteto']);
 });
 
-test('a card reads the stage from the session title, and links the plan page only while the plan is open', () => {
+test('a menubar row reads the stage from the session title, and links the plan page only while the plan is open', () => {
   const sessions = {};
   reduce(sessions, hook('scrub', 'UserPromptSubmit', 0, { cwd: '/w/a' }));
   const rail = (state) => ({ page: 'https://claude.ai/artifact/scrub', stages: [{ label: 'Plan', state: 'done' }, { label: 'Reflect', state }], steps: { checked: 12, total: 12 } });
-  const board = (state) => planBoard(viewsOf(sessions, {}, { scrub: rail(state) }, { scrub: '📝 scrub (1/3)' }), emptyPhone(), { now: T0 + 60_000, shippedToday: 0 }).cards;
-  const [[, session]] = board('done');
-  assert.deepEqual([session.body.content_state.current_step, session.body.content_state.number_of_steps], [1, 3]);
-  assert.equal(session.body.action, undefined);
-  assert.equal(board('waiting')[0][1].body.action.url, 'https://claude.ai/artifact/scrub');
+  const row = (state) => menuBoardOf(viewsOf(sessions, {}, { scrub: rail(state) }, { scrub: '📝 scrub (1/3)' }), { now: T0 + 60_000, shippedToday: 0, pstack: NO_PSTACK }).cards[0];
+  const done = row('done');
+  assert.deepEqual([done.content_state.current_step, done.content_state.number_of_steps], [1, 3]);
+  assert.equal(done.page, null);
+  assert.equal(row('waiting').page, 'https://claude.ai/artifact/scrub');
 });
 
-test('a question turns a shown session card orange in place, without ending it', async () => {
+test('a question turns the session orange on the summary card in place, without ending it', async () => {
   const sessions = {};
   reduce(sessions, hook('worker', 'UserPromptSubmit', 0, { cwd: '/w/a' }));
   const phone = emptyPhone();
@@ -198,14 +184,11 @@ test('a question turns a shown session card orange in place, without ending it',
   reduce(sessions, { ...ask('worker', 2), cwd: '/w/a' });
   const client = fakeClient();
   await send(sessions, phone, client, 3);
-  const key = keyOf(sessions['claude:worker']);
-  assert.deepEqual(client.calls.filter((call) => call.endsWith(key)), [`put ${key}`]);
-  assert.equal(phone.streams[key].body.content_state.color, 'orange');
+  assert.deepEqual(client.calls.filter((call) => call.endsWith(SUMMARY_KEY)), [`put ${SUMMARY_KEY}`]);
+  assert.equal(phone.streams[SUMMARY_KEY].body.content_state.metrics[0].color, 'orange');
 });
 
-// With one free card only the summary card shows.
-const crowded = () => ({ ...emptyPhone(), capacity: { slots: 1, until: Infinity } });
-const projectCard = (sessions, urls, context = {}) => planBoard(viewsOf(sessions, urls), crowded(), { now: T0 + 60_000, shippedToday: 0, ...context }).cards[0][1].body;
+const projectCard = (sessions, urls, context = {}) => planBoard(viewsOf(sessions, urls), { now: T0 + 60_000, shippedToday: 0, ...context }).cards[0][1].body;
 
 test('a crowded project lists the session that needs you first, with its question and a button that opens it, and folds the rest into a more value', () => {
   const sessions = {};
@@ -230,7 +213,7 @@ test('a project card lists sessions that need you, then working ones, then the o
     reduce(sessions, hook(id, 'Stop', 2, { cwd: '/w/ellie' }));
   }
   const titles = { scrub: '🚧 scrub (4/9)', shipper: 'shipper' };
-  const card = () => planBoard(viewsOf(sessions, {}, {}, titles), crowded(), { now: T0 + 60_000, shippedToday: 1 }).cards[0][1].body.content_state;
+  const card = () => planBoard(viewsOf(sessions, {}, {}, titles), { now: T0 + 60_000, shippedToday: 1 }).cards[0][1].body.content_state;
   assert.deepEqual(card().metrics, [
     { label: 'Build', value: '🚧 busy', color: 'blue' },
     { label: 'Build 4/9', value: '🚧 scrub', color: 'yellow' },
@@ -247,7 +230,7 @@ test('a project whose runs all wait for you to resume them shows each one with i
     reduce(sessions, hook(id, 'Stop', 1, { cwd: '/w/ellie' }));
   }
   const titles = { scrub: '🧪 scrub (10/10)', hookdeck: '🟠 hookdeck (3/7)' };
-  const [[, card]] = planBoard(viewsOf(sessions, {}, {}, titles), crowded(), { now: T0 + 60_000, shippedToday: 0 }).cards;
+  const [[, card]] = planBoard(viewsOf(sessions, {}, {}, titles), { now: T0 + 60_000, shippedToday: 0 }).cards;
   assert.deepEqual(card.body.content_state.metrics, [
     { label: 'Waiting 3/7', value: '🟠 hookdeck', color: 'yellow' },
     { label: 'Verify 10/10', value: '🧪 scrub', color: 'yellow' },
@@ -264,8 +247,8 @@ test('a desktop session the app resumes in a new process replaces its old proces
   reduce(sessions, hook('new', 'UserPromptSubmit', 3));
   reduce(sessions, registry('new', 4, 2));
   const views = viewsOf(sessions);
-  const cards = planBoard(views, emptyPhone(), { now: T0 + 5000, shippedToday: 0 }).cards;
-  assert.deepEqual(cards.map(([key]) => key), [keyOf(sessions['claude:new'])]);
+  const cards = planBoard(views, { now: T0 + 5000, shippedToday: 0 }).cards;
+  assert.equal(cards[0][1].body.content_state.metrics.length, 1);
   assert.ok(![...incidentsOf(views).values()].some(({ kind }) => kind === 'failed'));
 });
 
@@ -463,7 +446,7 @@ test('a refused push is retried until accepted, and a backlog sends one push per
   assert.equal(pushes(busy).length, 1);
 });
 
-test('a card the API refuses holds back neither the badge nor the pushes, and the board regrows when the capacity hint expires', async () => {
+test('a summary card the API refuses holds back neither the badge nor the pushes', async () => {
   const sessions = {};
   reduce(sessions, hook('alpha', 'SessionStart', 0, { cwd: '/w/a' }));
   const phone = emptyPhone();
@@ -471,11 +454,9 @@ test('a card the API refuses holds back neither the badge nor the pushes, and th
   reduce(sessions, { ...ask('alpha', 2), cwd: '/w/a' });
   reduce(sessions, hook('beta', 'SessionStart', 3, { cwd: '/w/b' }));
   reduce(sessions, { ...ask('beta', 3), cwd: '/w/b' });
-  const client = fakeClient({ [`put ${keyOf(sessions['claude:alpha'])}`]: { ok: false, kind: 'capacity' } });
+  const client = fakeClient({ [`put ${SUMMARY_KEY}`]: { ok: false, kind: 'capacity' } });
   await send(sessions, phone, client, 4);
   assert.deepEqual(client.calls.filter((call) => !call.startsWith('put') && !call.startsWith('end')), ['badge 2', 'push alpha needs you']);
-  assert.ok(!client.calls.includes(`put ${keyOf(sessions['claude:beta'])}`));
-  assert.equal(planBoard(viewsOf(sessions), phone, { now: T0 + 3_600_000, shippedToday: 0 }).cards.length, 3);
 });
 
 test('the daemon picks up a key stored after it started', async () => {
@@ -594,7 +575,7 @@ test('the menubar keeps the fleet line and lists every live session ranked, and 
   const views = viewsOf(sessions);
   const menu = menuBoardOf(views, context);
   assert.deepEqual(menu.cards.map(({ state }) => state), ['needs-you', 'working', 'working', 'working', 'working', 'working']);
-  const phoneCards = new Map(planBoard(views, emptyPhone(), context).cards);
+  const phoneCards = new Map(planBoard(views, context).cards);
   for (const row of menu.cards) {
     const view = views.find(({ session }) => keyOf(session) === row.key);
     const own = phoneCards.get(row.key)?.body.content_state;
@@ -712,7 +693,7 @@ test('each menubar row shows the model and effort its session last ran at, orang
   readLevel('lead');
   assert.equal(levels().lead.color, 'orange');
   const withoutLevels = viewsOf(Object.fromEntries(Object.entries(sessions).map(([key, session]) => [key, { ...session, level: null, levelCursor: null }])));
-  assert.deepEqual(planBoard(views, emptyPhone(), { now: T0 + 3000, shippedToday: 0 }), planBoard(withoutLevels, emptyPhone(), { now: T0 + 3000, shippedToday: 0 }));
+  assert.deepEqual(planBoard(views, { now: T0 + 3000, shippedToday: 0 }), planBoard(withoutLevels, { now: T0 + 3000, shippedToday: 0 }));
   assert.deepEqual([...incidentsOf(views)], [...incidentsOf(withoutLevels)]);
 });
 

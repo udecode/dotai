@@ -74,7 +74,7 @@ async function tick(state, config, client) {
   const views = viewsOf(state.sessions);
   latestViews = views;
   const context = { now, shippedToday: shippedToday(state.sessions, now), account: accountCache.value.desktop, listUrl: config.listUrl };
-  const board = planBoard(views, state.phone, context);
+  const board = planBoard(views, context);
   problems.push(...(await deliver(state.phone, { cards: board.cards, badge: board.badge, incidents: incidentsOf(views), listUrl: config.listUrl, atDesk: atDesk() }, { client, save: () => saveState(state) })));
   saveState(state);
   // Built after the phone's turn, so a config file pulse cannot read stalls only the menu.
