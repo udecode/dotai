@@ -2701,7 +2701,7 @@ test('decisions-check leaves the chip rows an older run log holds to that log', 
 test('decisions-check takes a chip offer only with a plain title, a topic and the paths it writes', () => {
   const { LEDGER, appendTo, chip, helper, offer } = chipLedger();
   assert.equal(offer('task_a1').status, 1, 'an id with no title');
-  for (const tagged of ['task_a1 Now: Fix the stale badge', 'task_a1 After: Fix the stale badge', 'task_a1 Fix the stale badge (high)']) {
+  for (const tagged of ['task_a1 Now: Fix the stale badge', 'task_a1 After: Fix the stale badge', 'task_a1 [P1] Fix the stale badge', 'task_a1 Fix the stale badge (high)']) {
     assert.match(offer(tagged).stderr, /no title says Now: or After:/, tagged);
   }
   assert.match(offer('task_a1 Fix the stale badge', 'README.md', 'the badge links a dead page').stderr, /names its owner question as "topic: <word>"/, 'an offer with no topic');
@@ -2987,7 +2987,7 @@ test('decisions-check holds one open design question per topic and folds the nex
   assert.equal(offer('task_a3 Fix the drop indicator', 'src/ui', 'topic: landing').status, 0, 'a plain fix in the same topic');
   assert.equal(offer('task_b1 Decide the export format (xhigh)', 'src/export', 'topic: export; kind: decide').status, 0, 'a design question in another topic');
   assert.equal(chip(landing, 'folded', 'writes: src/drop').status, 0);
-  assert.match(chips('brief', 'task_a1').stdout, /^Decide where pasted content lands \(xhigh\)\n\nTopic: landing\.[\s\S]*Findings:\n- why\n- why\nWrites: src\/core, src\/drop[\s\S]*settles a design question first[\s\S]*\n\nSuggested task task_a1 in docs\/plans\/suggested-tasks\.decisions\.tsv of the project checkout [^\n]*\n?$/);
+  assert.match(chips('brief', 'task_a1').stdout, /^\[P1\] Decide where pasted content lands \(xhigh\)\n\nTopic: landing\.[\s\S]*Findings:\n- why\n- why\nWrites: src\/core, src\/drop[\s\S]*settles a design question first[\s\S]*\n\nSuggested task task_a1 in docs\/plans\/suggested-tasks\.decisions\.tsv of the project checkout [^\n]*\n?$/);
   assert.match(chips('id').stdout, /^t_[0-9a-f]{8}\n$/u);
   assert.match(chips('--fetch', 'id').stdout, /^t_[0-9a-f]{8}\n$/u, 'a flag before the id command');
   const raced = 'docs/plans/raced.decisions.tsv';
@@ -3112,7 +3112,7 @@ test('a card prompt leads with the task, then how its session lands, and ends by
   const checkout = realpathSync(root);
   const brief = chips('brief', 'task_a1').stdout;
   const quoted = (text) => text.replace(/[.*+?^${}()|[\]\\/]/gu, '\\$&');
-  assert.match(brief, /^Fix the parser\n\nTopic: parser\. Kind: fix\. Effort: high\. Priority: P1\.\nRepro: steps\nFindings:\n/, 'the card shows the task before any bookkeeping');
+  assert.match(brief, /^\[P1\] Fix the parser\n\nTopic: parser\. Kind: fix\. Effort: high\. Priority: P1\.\nRepro: steps\nFindings:\n/, 'the card shows the task and its priority before any bookkeeping');
   assert.match(brief, new RegExp(`\\n\\nSuggested task task_a1 in docs/plans/suggested-tasks\\.decisions\\.tsv of the project checkout ${quoted(checkout)}\\. This prompt can be older than the task, so before anything else run cd ${quoted(checkout)} && node \\.agents/pstack/decisions-check\\.mjs chips brief task_a1 and work from what it prints\\. Run every ledger command from ${quoted(checkout)} that way, even when your session opened in its own worktree[^\\n]*\\n?$`), 'a card made before a later fold or dup, run from a worktree whose ledger copy is stale');
   const patch = join(checkout, 'docs/plans/artifacts/chips/task_a1.patch');
   const branch = execFileSync('git', ['branch', '--show-current'], { cwd: checkout, encoding: 'utf8' }).trim();
@@ -3125,10 +3125,10 @@ test('a merge or a folded design question keeps the effort the task\'s work need
   assert.equal(offer('task_a1 Fix the parser', 'src/p.ts', 'topic: parser').status, 0);
   assert.equal(offer('task_b1 Find why the parser hangs (xhigh)', 'src/q.ts', 'topic: parser').status, 0);
   assert.equal(chip('task_b1 Find why the parser hangs (xhigh)', 'dismissed dup task_a1').status, 0);
-  assert.match(chips('brief', 'task_a1').stdout, /^Fix the parser \(xhigh\)\n/, 'a diagnosis merged into a plain fix');
+  assert.match(chips('brief', 'task_a1').stdout, /^\[P1\] Fix the parser \(xhigh\)\n/, 'a diagnosis merged into a plain fix');
   assert.equal(offer('task_c1 Fix the printer', 'src/r.ts', 'topic: printer').status, 0);
   assert.equal(chip('task_c1 Fix the printer', 'folded', 'kind: decide; writes: src/r2.ts').status, 0, 'a design question found later');
-  assert.match(chips('brief', 'task_c1').stdout, /^Fix the printer \(xhigh\)\n[\s\S]*Kind: decide\.[\s\S]*settles a design question first/);
+  assert.match(chips('brief', 'task_c1').stdout, /^\[P1\] Fix the printer \(xhigh\)\n[\s\S]*Kind: decide\.[\s\S]*settles a design question first/);
 });
 
 test('folding a design finding into an offered fix makes it a design question', () => {
@@ -3201,7 +3201,7 @@ test('chips brief on a merged task prints the task it merged into, and a closed 
   assert.equal(chip('task_b1 Fix b', 'dismissed dup task_a1').status, 0);
   const merged = chips('brief', 'task_b1');
   assert.equal(merged.status, 0, merged.stderr);
-  assert.match(merged.stdout, /^task_b1 was merged into task_a1; work from its brief\.\n\nFix a\n\nTopic: brief\.[\s\S]*\n\nSuggested task task_a1 [^\n]*\n?$/, 'a card on the duplicate that another session still holds');
+  assert.match(merged.stdout, /^task_b1 was merged into task_a1; work from its brief\.\n\n\[P1\] Fix a\n\nTopic: brief\.[\s\S]*\n\nSuggested task task_a1 [^\n]*\n?$/, 'a card on the duplicate that another session still holds');
   assert.equal(chip('task_a1 Fix a', 'started').status, 0);
   assert.equal(chip('task_a1 Fix a', 'landed').status, 0);
   const landed = chips('brief', 'task_b1');
@@ -3264,7 +3264,7 @@ test('folding an unknown-cause diagnosis into a plain fix raises its brief and b
   const { chip, chips, offer } = chipLedger();
   assert.equal(offer('task_p1 Fix the parser', 'src/p.ts', 'topic: parser').status, 0);
   assert.equal(chip('task_p1 Fix the parser', 'folded', 'effort: xhigh; writes: src/q.ts').status, 0, 'a hang nobody has explained yet');
-  assert.match(chips('brief', 'task_p1').stdout, /^Fix the parser \(xhigh\)\n[\s\S]*Kind: fix\./);
+  assert.match(chips('brief', 'task_p1').stdout, /^\[P1\] Fix the parser \(xhigh\)\n[\s\S]*Kind: fix\./);
   assert.match(chips().stdout, /task_p1 {2}Fix the parser \(xhigh\) {2}\[parser\]/, 'the board shows the effort the card passes');
   assert.match(chip('task_p1 Fix the parser', 'folded', 'effort: high').stderr, /a folded row takes effort: xhigh only/);
 });
@@ -3278,7 +3278,7 @@ test("a card's effort is its title's, capped at the project's maxEffort, in the 
   assert.match(chips('brief', 'task_d1').stdout, /Kind: decide\. Effort: xhigh\./);
   assert.match(chips().stdout, /task_d1 {2}Design the export ledger \(xhigh\) {2}\[export, decide\] {2}no card/, 'an uncapped line leaves the effort to its title');
   writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ branch: 'next', maxEffort: 'high' }));
-  assert.match(chips('brief', 'task_d1').stdout, /^Design the export ledger \(xhigh\)\n[\s\S]*Kind: decide\. Effort: high\./, 'the title keeps its recommendation');
+  assert.match(chips('brief', 'task_d1').stdout, /^\[P1\] Design the export ledger \(xhigh\)\n[\s\S]*Kind: decide\. Effort: high\./, 'the title keeps its recommendation');
   const board = chips().stdout;
   assert.match(board, /task_d1 {2}Design the export ledger \(xhigh\) {2}\[export, decide\] {2}effort high {2}no card/);
   assert.match(board, /task_w1 {2}Fix the export core {2}\[core\] {2}waits on /, 'a plain title is already at the cap');
@@ -3628,7 +3628,7 @@ test('chips brief on a replaced task prints its replacement\'s brief', () => {
   writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + rows.map(([decision, evidence, result]) => ['2026-01-01T10:00:00Z', 'chip', decision, 'why', evidence, result].join('\t')).join('\n') + '\n');
   const brief = chips('brief', 'task_o1');
   assert.equal(brief.status, 0, brief.stderr);
-  assert.match(brief.stdout, /^task_o1 was replaced by task_n1; work from its brief\.\n\nFix the badge\n/, 'an old card whose task an older helper replaced');
+  assert.match(brief.stdout, /^task_o1 was replaced by task_n1; work from its brief\.\n\n\[P1\] Fix the badge\n/, 'an old card whose task an older helper replaced');
 });
 
 test('a design question moved into the topic of a design question it absorbed counts once', () => {
@@ -4017,7 +4017,7 @@ test('a fast mark shows on a plain fix, refuses design judgment, and drops when 
   const link = 'task_f1 Fix the badge link';
   assert.equal(offer(link, 'README.md', 'topic: badge; fast: yes').status, 0);
   assert.match(chips().stdout, /task_f1 {2}Fix the badge link \(fast\) {2}\[badge\]/);
-  assert.match(chips('brief', 'task_f1').stdout, /^Fix the badge link \(fast\)\n[\s\S]*This task is marked fast: the owner's start of its card, or their "start <id>", is the word fast for it/);
+  assert.match(chips('brief', 'task_f1').stdout, /^\[P1\] Fix the badge link \(fast\)\n[\s\S]*This task is marked fast: the owner's start of its card, or their "start <id>", is the word fast for it/);
   assert.match(offer('task_f2 Decide the badge (xhigh)', 'README.md', 'topic: badge-design; fast: yes').stderr, /task_f2 is an \(xhigh\) task, and fast: yes marks only a fix at high effort/);
   assert.match(offer('task_f3 Design the badge', 'README.md', 'topic: badge-look; kind: decide; fast: yes').stderr, /task_f3 is a decide task/);
   assert.match(offer('task_f4 Fix the badge color (fast)', 'README.md', 'topic: badge-color').stderr, /fast: yes adds \(fast\) for it/);
@@ -5383,17 +5383,17 @@ test('an effort: high row lowers a stored (xhigh) title, and a design question s
   const { chip, chips, offer } = chipLedger();
   const parser = 'task_e1 Fix the parser (xhigh)';
   assert.equal(offer(parser, 'src/p.ts', 'topic: parser').status, 0);
-  assert.match(chips('brief', 'task_e1').stdout, /^Fix the parser \(xhigh\)\n[\s\S]*Effort: xhigh\./);
+  assert.match(chips('brief', 'task_e1').stdout, /^\[P1\] Fix the parser \(xhigh\)\n[\s\S]*Effort: xhigh\./);
   assert.equal(chip(parser, 'updated', 'effort: high').status, 0);
   assert.match(chips().stdout, /task_e1 {2}Fix the parser {2}\[parser\]/);
-  assert.match(chips('brief', 'task_e1').stdout, /^Fix the parser\n[\s\S]*Effort: high\./);
+  assert.match(chips('brief', 'task_e1').stdout, /^\[P1\] Fix the parser\n[\s\S]*Effort: high\./);
   assert.equal(chip(parser, 'updated', 'effort: xhigh').status, 0);
   assert.match(chips('brief', 'task_e1').stdout, /Effort: xhigh\./, 'an updated row raises it again');
   assert.match(chip(parser, 'updated', 'effort: max').stderr, /effort: is high or xhigh/);
   const design = 'task_e2 Decide the parser shape';
   assert.equal(offer(design, 'src/q.ts', 'topic: parser-shape; kind: decide').status, 0);
   assert.equal(chip(design, 'updated', 'effort: high').status, 0);
-  assert.match(chips('brief', 'task_e2').stdout, /^Decide the parser shape \(xhigh\)\n[\s\S]*Effort: xhigh\./, 'a design question stays at xhigh');
+  assert.match(chips('brief', 'task_e2').stdout, /^\[P1\] Decide the parser shape \(xhigh\)\n[\s\S]*Effort: xhigh\./, 'a design question stays at xhigh');
 });
 
 test('a fold only raises a task, and a dup of an xhigh task raises a task lowered to high', () => {
@@ -5404,7 +5404,7 @@ test('a fold only raises a task, and a dup of an xhigh task raises a task lowere
   assert.match(chip(kept, 'folded', 'effort: high').stderr, /a folded row takes effort: xhigh only/);
   assert.equal(offer('task_d1 Rework the footer layout (xhigh)', 'docs/f.md', 'topic: footer').status, 0);
   assert.equal(chip('task_d1 Rework the footer layout (xhigh)', 'dismissed dup task_k1').status, 0);
-  assert.match(chips('brief', 'task_k1').stdout, /^Fix the footer \(xhigh\)\n[\s\S]*Effort: xhigh\./);
+  assert.match(chips('brief', 'task_k1').stdout, /^\[P1\] Fix the footer \(xhigh\)\n[\s\S]*Effort: xhigh\./);
 });
 
 test('a task that holds a card takes an updated row that only changes its effort', () => {
