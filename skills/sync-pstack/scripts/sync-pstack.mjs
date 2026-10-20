@@ -353,6 +353,13 @@ function validate(config) {
   if (config.pushBranches !== undefined && typeof config.pushBranches !== 'boolean') throw new Error('pushBranches must be true or false');
   if (config.pushBranches && config.delivery !== 'user') throw new Error('pushBranches applies only to user delivery');
   if (config.maxEffort !== undefined && !EFFORTS.includes(config.maxEffort)) throw new Error(`maxEffort must be one of ${EFFORTS.join(', ')}`);
+  const paths = config.reviewPaths;
+  if (
+    paths !== undefined &&
+    (typeof paths !== 'object' || paths === null || Array.isArray(paths) || Object.entries(paths).some(([key, globs]) => !['tests', 'public', 'internal'].includes(key) || !Array.isArray(globs) || globs.some((glob) => typeof glob !== 'string')))
+  ) {
+    throw new Error('reviewPaths must map tests, public and internal to lists of globs');
+  }
 }
 
 export function locateBlock(text) {

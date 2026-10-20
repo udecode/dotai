@@ -287,7 +287,7 @@ test('review groups the commits to review by session, --done marks one session r
   assert.match(listed, /^4 commit\(s\) to review on origin\/next since refs\/pstack\/reviewed/);
   assert.match(
     listed,
-    /\n\nSession local_s1 \(claude:\/\/claude\.ai\/epitaxy\/local_s1\)\n {2}\w+ feat\(a\): one\n {4}docs\/plans\/2026-10-17-x\.md\n {4}Beyond the ask: none\n {2}\w+ docs\(a\): three\n {4}docs\/plans\/2026-10-17-x\.md\n {4}Beyond the ask: none\n\nSession s2\n {2}\w+ fix\(b\): two\n {4}No plan link\n {4}Beyond the ask: renamed c\n\nNo Session: line \(--done none\)\n {2}\w+ chore: four\n/
+    /\n\nSession local_s1 \(claude:\/\/claude\.ai\/epitaxy\/local_s1\)\n {2}\w+ feat\(a\): one\n {4}docs\/plans\/2026-10-17-x\.md\n {4}Beyond the ask: none\n {2}\w+ docs\(a\): three\n {4}docs\/plans\/2026-10-17-x\.md\n {4}Beyond the ask: none\n {2}Net: node \.agents\/pstack\/review\.mjs --net local_s1\n\nSession s2\n {2}\w+ fix\(b\): two\n {4}No plan link\n {4}Beyond the ask: renamed c\n\nNo Session: line \(--done none\)\n {2}\w+ chore: four\n/
   );
   assert.equal(helper('review.mjs', clone, ['--done']).status, 2);
 
@@ -308,6 +308,58 @@ test('review groups the commits to review by session, --done marks one session r
   git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
   helper('review.mjs', clone, ['--mark']);
   assert.match(helper('review.mjs', clone).stdout, /^No commits to review/);
+  assert.equal(helper('review.mjs', clone, ['--tier', 'public']).status, 2, 'a tier needs reviewPaths');
+});
+
+test('review lists a tier and weakened tests, needs no review for unreviewed paths, and --net cancels what a session undid', () => {
+  const { clone } = trunk();
+  const reviewPaths = { tests: ['**/*.test.*'], public: ['packages/**'], internal: ['apps/**'] };
+  writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify({ branch: 'next', protected: 'main', plans: 'docs/plans', reviewPaths }));
+  helper('review.mjs', clone, ['--mark']);
+  const land = (files, subject, body) => {
+    for (const [path, text] of Object.entries(files)) {
+      mkdirSync(dirname(join(clone, path)), { recursive: true });
+      writeFileSync(join(clone, path), text);
+      git(clone, 'add', path);
+    }
+    git(clone, 'commit', '--quiet', '-m', subject, '-m', body);
+    return git(clone, 'rev-parse', 'HEAD');
+  };
+  const spec = 'packages/a/x.test.ts';
+  land({ [spec]: "it('a', () => {\n  expect(1).toBe(1);\n  expect(2).toBe(2);\n});\n" }, 'test(a): cover a', 'Beyond the ask: none\n\nSession: s0');
+  land({ 'packages/a/src/x.ts': 'one\ntemp\n' }, 'feat(a): add x', 'Beyond the ask: none\n\nSession: local_s1');
+  const docs = land({ 'docs/plans/p.md': 'plan\n' }, 'docs(plans): add p', 'Beyond the ask: none\n\nSession: s2');
+  land({ 'apps/web/y.ts': 'y\n' }, 'feat(web): add y', 'Beyond the ask: none\n\nShipped fast, no review.\n\nSession: s3');
+  land({ 'packages/a/src/x.ts': 'one\n', 'packages/a/src/z.ts': 'z\n' }, 'fix(a): drop temp', 'Beyond the ask: none\n\nSession: local_s1');
+  const tip = land({ [spec]: "it('a', () => {\n  expect(1).toBe(1);\n});\nit.skip('b', () => {});\n" }, 'test(a): trim a', 'Beyond the ask: none\n\nSession: s4');
+  git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
+  const reviewed = () => git(clone, 'rev-parse', 'refs/pstack/reviewed');
+
+  const listed = helper('review.mjs', clone).stdout;
+  assert.match(listed, /^3 commit\(s\) with public changes or weakened tests to review on origin\/next since refs\/pstack\/reviewed/);
+  assert.match(listed, /\n\nSession local_s1 .*\n {2}\w+ feat\(a\): add x\n.*\n.*\n {4}1 public file\(s\): packages\/a\/src\/x\.ts\n {2}\w+ fix\(a\): drop temp\n.*\n.*\n {4}2 public file\(s\): packages\/a\/src\/x\.ts, packages\/a\/src\/z\.ts\n {2}Net: node \.agents\/pstack\/review\.mjs --net local_s1\n/);
+  assert.match(listed, /\n\nSession s4\n {2}\w+ test\(a\): trim a\n.*\n.*\n {4}Tests: 1 fewer expect or assert lines, 1 more \.skip or \.todo calls\n/);
+  assert.doesNotMatch(listed, /Session s[023]\b/);
+  assert.match(listed, /\n1 more commit\(s\) change internal paths and no public ones; --tier internal lists them/);
+  assert.match(listed, /\n2 commit\(s\) change only unreviewed paths or add tests, and need no review\.\n$/);
+
+  const internal = helper('review.mjs', clone, ['--tier', 'internal']).stdout;
+  assert.match(internal, /\n\nSession s3\n {2}\w+ feat\(web\): add y\n.*\n.*\n {4}1 internal file\(s\): apps\/web\/y\.ts\n {4}Shipped fast, no review\.\n/);
+  assert.match(internal, /Session s4/, 'weakened tests show in every tier');
+
+  const net = helper('review.mjs', clone, ['--net', 'local_s1']);
+  assert.equal(net.status, 0, net.stderr);
+  assert.match(net.stdout, /^Net diff of session local_s1's 2 commit\(s\) in public paths/);
+  assert.match(net.stdout, /\+one\n/);
+  assert.match(net.stdout, /\+z\n/);
+  assert.doesNotMatch(net.stdout, /temp/, 'the second commit cancels the line the first added');
+
+  helper('review.mjs', clone, ['--done', 'local_s1']);
+  assert.equal(reviewed(), docs, 'the ref passes commits that need no review and stops before s3');
+  helper('review.mjs', clone, ['--done', 's3']);
+  helper('review.mjs', clone, ['--done', 's4']);
+  assert.equal(reviewed(), tip);
+  assert.match(helper('review.mjs', clone).stdout, /^No commits with public changes or weakened tests to review/);
 });
 
 test('guard denies an agent force-push or delete of next or main and passes every other command', () => {
@@ -339,7 +391,6 @@ test('guard denies an agent force-push or delete of next or main and passes ever
     assert.ok(decision.permissionDecisionReason.includes(command), `the reason quotes the command for the owner: ${command}`);
   }
   const passed = [
-    'git push origin HEAD:next',
     'git push -f origin task',
     'git push --force origin HEAD',
     "git commit -m 'never git push -f origin next'",
@@ -348,6 +399,30 @@ test('guard denies an agent force-push or delete of next or main and passes ever
   for (const command of passed) assert.equal(guard(command), null, command);
   git(clone, 'switch', '--quiet', 'next');
   assert.equal(guard('git push -f')?.permissionDecision, 'deny', 'a push with no refspec targets the current branch');
+});
+
+test("guard denies an agent's plain push to next, which only land.mjs makes, and passes a dry run, tags and a release push", () => {
+  const { clone } = trunk();
+  const guard = (command) => {
+    const run = spawnSync(process.execPath, [join(clone, '.agents/pstack/guard.mjs')], {
+      input: JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd: clone }),
+      encoding: 'utf8',
+      env: ENV,
+    });
+    assert.equal(run.status, 0, run.stderr);
+    return run.stdout ? JSON.parse(run.stdout).hookSpecificOutput : null;
+  };
+  for (const command of ['git push origin HEAD:next', 'git push origin task:refs/heads/next', 'git push --all origin', 'cd x && git -C . push origin next']) {
+    const decision = guard(command);
+    assert.equal(decision?.permissionDecision, 'deny', command);
+    assert.match(decision.permissionDecisionReason, /only through `node \.agents\/pstack\/land\.mjs`/u, command);
+    assert.ok(decision.permissionDecisionReason.includes(command), `the reason quotes the command for the owner: ${command}`);
+  }
+  const passed = ['git push origin HEAD', 'git push -u origin task', 'git push --dry-run origin HEAD:next', 'git push -n origin HEAD:next', 'PSTACK_RELEASE=1 git push origin next', 'git push origin --tags'];
+  for (const command of passed) assert.equal(guard(command), null, command);
+  git(clone, 'switch', '--quiet', 'next');
+  assert.equal(guard('git push')?.permissionDecision, 'deny', 'a push with no refspec targets the current branch');
+  assert.equal(guard('git push origin --tags'), null, 'a tags push with no refspec targets no branch');
 });
 
 test('guard denies an agent gh pr create into next or with no base, and passes a stacked PR and other gh commands', () => {

@@ -306,7 +306,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/guard.mjs": {
-      "sha256": "d9f041660b2926f5234c9f4d9fa2dcd8ff66ffbb1e52252e73c1f34421f92784",
+      "sha256": "9e7dfef0aa9bf74c5c8d87308c474ccee070def34343ffd6388afd34cf65f0ed",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/head.mjs": {
@@ -354,7 +354,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/review.mjs": {
-      "sha256": "f5a547dd16cfba377aa9773916de4d6a5469fa58abb73115dd5a0674a1881ba3",
+      "sha256": "b9581355b354debd7eb3ee003a11bec836cdb8096f2a7c82951a081c38382771",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/browser.md": {
@@ -374,7 +374,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/land.md": {
-      "sha256": "3b2a05e5e4e0a2868e459b23f9b871fba47cce3d01ddf3e184fc7d7864437bdc",
+      "sha256": "79421a8db2ffb5c6aae3c11748c36299776a438d8a2cb29aff812038421586de",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/long-runs.md": {
@@ -434,7 +434,7 @@
       "mode": 420
     },
     "skills/sync-pstack/references/interview.md": {
-      "sha256": "1583d082092254617394c02b7b14142af9468bc804979fd607ebc0118a5a59ec",
+      "sha256": "135ef9747ea8d0127e464ea574dc6c1d6e6976b75097a02f8bb16ff5852f71a4",
       "mode": 420
     },
     "skills/sync-pstack/scripts/audit.mjs": {
@@ -470,7 +470,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.mjs": {
-      "sha256": "b6313c28ce5ca33ca0ad47356cfdb34ef02decee39992a448738911bf6b20fda",
+      "sha256": "502e779690f442733608025694fff6a5c386bba3ca4e1f49b1239193a97f50cc",
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
@@ -478,7 +478,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/trunk.test.mjs": {
-      "sha256": "f4c2aa00090b8e69fb797c4cc8996654cda4055cd330763cface41920441fa69",
+      "sha256": "9fa9587a3ab70f414f30cb301db751f60477b5ea617b144f7856495a1da32cc3",
       "mode": 420
     },
     "skills/test-audit/LICENSE": {
