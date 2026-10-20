@@ -312,7 +312,7 @@ test("page-stop sends the page file and this run's files, sends nothing when the
   const stop = pageStop(['stop', live, '--session', 'one'], CLAUDE);
   assert.deepEqual(callOf(stop.lines).files, runFiles, 'a stop sends the body again');
   assert.deepEqual(runsOf(callOf(stop.lines)), [['2026-02-01-live.one', 1]]);
-  assert.equal(stop.lines.at(-1), 'Once the publish goes through, reply with https://claude.ai/artifact/stage#run-2026-02-01-live');
+  assert.equal(stop.lines.at(-1), 'Once the publish goes through, reply with 📄 https://claude.ai/artifact/stage#run-2026-02-01-live');
 });
 
 test('after a refusal, --base composes on the live page, an old page lists only this run, and --new makes a new page', () => {

@@ -4018,7 +4018,7 @@ test('a landed row names each commit that delivered the task, and append refuses
 test('chips cleanup lists the idle card sessions of landed tasks to archive and the worktrees of archived ones to remove, with commit links', () => {
   const { chip, chips, offer, root } = chipLedger();
   spawnSync('git', ['-C', root, 'remote', 'set-url', 'origin', 'https://github.com/acme/app.git']);
-  spawnSync('git', ['-C', root, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'fix']);
+  spawnSync('git', ['-C', root, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'fix(app): keep the [caret] in place']);
   const sha = spawnSync('git', ['-C', root, 'rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
   const card = (name) => {
     const path = join(realpathSync(root), '.claude', 'worktrees', name);
@@ -4042,7 +4042,7 @@ test('chips cleanup lists the idle card sessions of landed tasks to archive and 
   const out = chips('cleanup', '--sessions', 'sessions.json').stdout;
   assert.match(out, /^Archive \(1\)[^\n]*\n {2}s1 {2}idle card\n/u, 'only the idle, unpinned card session is archived');
   assert.match(out, new RegExp(`Remove \\(1\\)[^\\n]*\\n {2}node \\.agents/skills/cleanup/scripts/scan\\.mjs --repo \\. --remove ${card('b').replace(/[.*+?^${}()|[\]\\/]/gu, '\\$&')}\\n`), 'the archived card worktree is removed');
-  assert.match(out, new RegExp(`task_a1 Fix part 0: https://diffshub\\.com/acme/app/commit/${sha}`), 'the report links the named commit');
+  assert.ok(out.includes(`task_a1 Fix part 0: 📦 [fix(app): keep the \\[caret\\] in place](https://diffshub.com/acme/app/commit/${sha})`), 'the report links the named commit by its subject');
   assert.match(out, /task_b1 Fix part 1: no commit named/);
   assert.doesNotMatch(out, /task_[cde]1/, 'a working, checkout or pinned session is left alone');
 });
