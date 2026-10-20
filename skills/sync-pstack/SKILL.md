@@ -151,7 +151,7 @@ Keep project knowledge in skills and the project's rules; a playbook only orders
 
 - Never edit pstack's own files. Change its behavior through the block or a project rule.
 - Never overwrite a refused block or helper without the owner's word, unless its edit has moved to the template or outside the block.
-- Setup and sync deliver only by the project's delivery answer. They never push a protected branch, force-push or open a PR that answer does not call for, and a sync opens no PR at all, as Sync step 7 says.
+- Setup and sync deliver only by the project's delivery answer. They never push a protected branch, force-push or open a PR that answer does not call for, and a sync opens no PR at all, as Sync step 7 says. A `pr` project's sync push to its branch is the one protected push they make, even past a ruleset that asks for a PR, because the owner asked for it as a standing request (owner's word, 2026-10-20); it counts as the user's ask that a project's rule against pushing `main` needs.
 - The interview's settled answers belong to the owner. Ask again only when a project's evidence contradicts one.
 - Setup and sync never trim, merge or rewrite a domain skill's method. Trimming is its own measured pass: measure the overlap between files before cutting, and keep any rule that has no other owner.
 
