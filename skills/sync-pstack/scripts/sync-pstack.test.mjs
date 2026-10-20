@@ -4042,7 +4042,7 @@ test('chips cleanup lists the idle card sessions of landed tasks to archive and 
   const out = chips('cleanup', '--sessions', 'sessions.json').stdout;
   assert.match(out, /^Archive \(1\)[^\n]*\n {2}s1 {2}idle card\n/u, 'only the idle, unpinned card session is archived');
   assert.match(out, new RegExp(`Remove \\(1\\)[^\\n]*\\n {2}node \\.agents/skills/cleanup/scripts/scan\\.mjs --repo \\. --remove ${card('b').replace(/[.*+?^${}()|[\]\\/]/gu, '\\$&')}\\n`), 'the archived card worktree is removed');
-  assert.match(out, new RegExp(`task_a1 Fix part 0: https://github\\.com/acme/app/commit/${sha}`), 'the report links the named commit');
+  assert.match(out, new RegExp(`task_a1 Fix part 0: https://diffshub\\.com/acme/app/commit/${sha}`), 'the report links the named commit');
   assert.match(out, /task_b1 Fix part 1: no commit named/);
   assert.doesNotMatch(out, /task_[cde]1/, 'a working, checkout or pinned session is left alone');
 });
@@ -5223,7 +5223,7 @@ test("plan-page --comment covers only the commits after the author's, without th
   assert.equal(result.status, 0, result.stderr);
   assert.ok(result.stdout.split('\n')[0].endsWith('/docs/plans/artifacts/pr.comment.md'), result.stdout);
   const body = read(root, 'docs/plans/artifacts/pr.comment.md');
-  assert.ok(body.includes(`\n[My commits after yours](https://github.com/o/r/compare/${author}...${head})\n`), 'the compare link spans exactly the commits after the author');
+  assert.ok(body.includes(`\n[My commits after yours](https://diffshub.com/o/r/compare/${author}...${head})\n`), 'the compare link spans exactly the commits after the author');
   assert.ok(body.includes('\n## On top of the PR\n\n- Kept\n  - The title fix\n- Dropped\n  - The private scroll zone\n'));
   assert.ok(body.indexOf('## How it works') < body.indexOf('## On top of the PR') && body.indexOf('## On top of the PR') < body.indexOf('## Demo'));
   assert.match(body, /\n## Demo\n\n1\. Open the page\.\n/);
