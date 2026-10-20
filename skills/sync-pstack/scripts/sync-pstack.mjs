@@ -356,9 +356,9 @@ function validate(config) {
   const paths = config.reviewPaths;
   if (
     paths !== undefined &&
-    (typeof paths !== 'object' || paths === null || Array.isArray(paths) || Object.entries(paths).some(([key, globs]) => !['tests', 'public', 'internal'].includes(key) || !Array.isArray(globs) || globs.some((glob) => typeof glob !== 'string')))
+    (typeof paths !== 'object' || paths === null || Array.isArray(paths) || Object.entries(paths).some(([key, globs]) => !['skip', 'tests', 'public'].includes(key) || !Array.isArray(globs) || globs.some((glob) => typeof glob !== 'string')))
   ) {
-    throw new Error('reviewPaths must map tests, public and internal to lists of globs');
+    throw new Error('reviewPaths must map skip, tests and public to lists of globs');
   }
 }
 

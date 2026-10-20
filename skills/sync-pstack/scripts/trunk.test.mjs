@@ -311,9 +311,9 @@ test('review groups the commits to review by session, --done marks one session r
   assert.equal(helper('review.mjs', clone, ['--tier', 'public']).status, 2, 'a tier needs reviewPaths');
 });
 
-test('review lists a tier and weakened tests, needs no review for unreviewed paths, and --net cancels what a session undid', () => {
+test('review lists a tier and weakened tests, needs no review for skipped paths, and --net cancels what a session undid', () => {
   const { clone } = trunk();
-  const reviewPaths = { tests: ['**/*.test.*'], public: ['packages/**'], internal: ['apps/**'] };
+  const reviewPaths = { skip: ['docs/**', '**/index.ts'], tests: ['**/*.test.*'], public: ['packages/**'] };
   writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify({ branch: 'next', protected: 'main', plans: 'docs/plans', reviewPaths }));
   helper('review.mjs', clone, ['--mark']);
   const land = (files, subject, body) => {
@@ -328,7 +328,7 @@ test('review lists a tier and weakened tests, needs no review for unreviewed pat
   const spec = 'packages/a/x.test.ts';
   land({ [spec]: "it('a', () => {\n  expect(1).toBe(1);\n  expect(2).toBe(2);\n});\n" }, 'test(a): cover a', 'Beyond the ask: none\n\nSession: s0');
   land({ 'packages/a/src/x.ts': 'one\ntemp\n' }, 'feat(a): add x', 'Beyond the ask: renamed\nthe helper\nSession: local_s1');
-  const docs = land({ 'docs/plans/p.md': 'plan\n' }, 'docs(plans): add p', 'Beyond the ask: none\n\nSession: s2');
+  const docs = land({ 'docs/plans/p.md': 'plan\n', 'packages/a/index.ts': 'export {};\n' }, 'docs(plans): add p', 'Beyond the ask: none\n\nSession: s2');
   land({ 'apps/web/y.ts': 'y\n' }, 'feat(web): add y', 'Beyond the ask: none\n\nShipped fast, no review.\n\nSession: s3');
   land({ 'packages/a/src/x.ts': 'one\n', 'packages/a/src/z.ts': 'z\n' }, 'fix(a): drop temp', 'Beyond the ask: none\n\nSession: local_s1');
   const tip = land({ [spec]: "it('a', () => {\n  expect(1).toBe(1);\n});\nit.skip('b', () => {});\n" }, 'test(a): trim a', 'Beyond the ask: none\n\nSession: s4');
@@ -341,7 +341,7 @@ test('review lists a tier and weakened tests, needs no review for unreviewed pat
   assert.match(listed, /\n\nSession s4\n {2}\w+ test\(a\): trim a\n.*\n.*\n {4}Tests: 1 fewer expect or assert lines, 1 more \.skip or \.todo calls\n/);
   assert.doesNotMatch(listed, /Session s[023]\b/);
   assert.match(listed, /\n1 more commit\(s\) change internal paths and no public ones; --tier internal lists them/);
-  assert.match(listed, /\n2 commit\(s\) change only unreviewed paths or add tests, and need no review\.\n$/);
+  assert.match(listed, /\n2 commit\(s\) change only skipped paths or add tests, and need no review\.\n$/, 'skip wins over public, and a path no list names is internal');
 
   const internal = helper('review.mjs', clone, ['--tier', 'internal']).stdout;
   assert.match(internal, /\n\nSession s3\n {2}\w+ feat\(web\): add y\n.*\n.*\n {4}1 internal file\(s\): apps\/web\/y\.ts\n {4}Shipped fast, no review\.\n/);
