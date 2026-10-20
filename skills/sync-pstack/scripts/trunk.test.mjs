@@ -21,6 +21,7 @@ const ENV = {
   CODEX_SESSION_ID: '',
 };
 const GOOD = 'feat(a): change a\n\nWhy a changes.\n\nBeyond the ask: none';
+const PR = 'feat(a): change a\n\n## Why\n\nWhy a changes.\n\n## Verification\n\n- a.txt reads two.\n\nBeyond the ask: none';
 
 const git = (cwd, ...args) => {
   const run = spawnSync('git', args, { cwd, encoding: 'utf8', env: ENV });
@@ -160,13 +161,14 @@ test('land pushes a topic branch and opens a PR into next when the clone has no 
   const { dir, remote, clone, base, message } = trunk();
   writeFileSync(join(clone, 'a.txt'), 'two\n');
 
-  const run = helper('land.mjs', clone, ['--message', message(GOOD)], stubGh(dir));
+  const run = helper('land.mjs', clone, ['--message', message(PR)], stubGh(dir));
   assert.equal(run.status, 0, run.stderr);
   assert.equal(git(remote, 'rev-parse', 'next'), base, 'next does not move in PR mode');
+  assert.equal(git(remote, 'log', '-1', '--format=%B', 'task'), PR, 'the commit keeps its section headings');
   assert.equal(git(remote, 'log', '-1', '--format=%s', 'task'), 'feat(a): change a');
   assert.deepEqual(ghArgs(dir).slice(0, 9), ['pr', 'create', '--base', 'next', '--head', 'task', '--title', 'feat(a): change a', '--body-file']);
   assert.equal(ghArgs(dir).length, 10, 'a direct clone names no other repository');
-  assert.equal(readFileSync(join(dir, 'gh-body'), 'utf8'), 'Why a changes.\n\nBeyond the ask: none\n');
+  assert.equal(readFileSync(join(dir, 'gh-body'), 'utf8'), `${PR.split('\n').slice(2).join('\n')}\n`);
   assert.match(run.stdout, /https:\/\/example\.test\/pull\/7/);
 });
 
@@ -180,7 +182,7 @@ test('land in a fork clone rebases onto upstream, pushes the topic to the fork a
   const stale = git(fork, 'rev-parse', 'next');
   writeFileSync(join(clone, 'a.txt'), 'two\n');
 
-  const run = helper('land.mjs', clone, ['--message', message(GOOD)], stubGh(dir));
+  const run = helper('land.mjs', clone, ['--message', message(PR)], stubGh(dir));
   assert.equal(run.status, 0, run.stderr);
   assert.equal(git(fork, 'rev-parse', 'task^'), git(remote, 'rev-parse', 'next'), "the topic sits on upstream's next, not the fork's stale one");
   assert.equal(git(fork, 'rev-parse', 'next'), stale);
@@ -244,7 +246,7 @@ test('land in a direct clone without push access says to fork and add upstream',
   chmodSync(join(remote, 'hooks', 'pre-receive'), 0o755);
   writeFileSync(join(clone, 'a.txt'), 'two\n');
 
-  const run = helper('land.mjs', clone, ['--message', message(GOOD)], stubGh(dir));
+  const run = helper('land.mjs', clone, ['--message', message(PR)], stubGh(dir));
   assert.equal(run.status, 1);
   assert.match(run.stderr, /^land\.mjs: this clone cannot push to origin: fork the repository, .*add the canonical repository as `upstream`/u);
   assert.equal(existsSync(join(dir, 'gh-args')), false, 'no PR is opened');
@@ -265,6 +267,27 @@ test('land refuses a message without a Conventional subject or a Beyond the ask 
   assert.equal(git(remote, 'rev-parse', 'next'), base);
   assert.equal(git(clone, 'rev-parse', 'HEAD'), head);
   assert.equal(git(clone, 'status', '--porcelain'), 'M a.txt');
+});
+
+test('land refuses a PR whose body is the commit body without Why and Verification text, and puts the task commits back', () => {
+  const { dir, remote, clone, message } = trunk();
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  git(clone, 'commit', '--quiet', '-am', 'wip');
+  const head = git(clone, 'rev-parse', 'HEAD');
+  const gh = stubGh(dir);
+
+  const bare = helper('land.mjs', clone, ['--message', message(GOOD)], gh);
+  assert.equal(bare.status, 1);
+  assert.match(bare.stderr, /needs a `## Why` section and a `## Verification` section with text/);
+  const empty = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\n## Why\n\nWhy a changes.\n\n## Verification\n\n<!-- Each real run path and its outcome. -->\n\nBeyond the ask: none')], gh);
+  assert.equal(empty.status, 1);
+  assert.match(empty.stderr, /needs a `## Verification` section with text/);
+  assert.equal(git(clone, 'rev-parse', 'HEAD'), head, 'the task commits are back as they were');
+  assert.equal(spawnSync('git', ['rev-parse', '--verify', 'task'], { cwd: remote, env: ENV }).status, 128, 'no topic branch reaches the remote');
+  assert.equal(existsSync(join(dir, 'gh-args')), false, 'no PR is opened');
+
+  const landed = helper('land.mjs', clone, ['--message', message(PR)], gh);
+  assert.equal(landed.status, 0, landed.stderr);
 });
 
 test('review groups the commits to review by session, --done marks one session reviewed, and --mark marks all', () => {
