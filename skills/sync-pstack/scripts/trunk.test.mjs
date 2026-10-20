@@ -327,7 +327,7 @@ test('review lists a tier and weakened tests, needs no review for unreviewed pat
   };
   const spec = 'packages/a/x.test.ts';
   land({ [spec]: "it('a', () => {\n  expect(1).toBe(1);\n  expect(2).toBe(2);\n});\n" }, 'test(a): cover a', 'Beyond the ask: none\n\nSession: s0');
-  land({ 'packages/a/src/x.ts': 'one\ntemp\n' }, 'feat(a): add x', 'Beyond the ask: none\n\nSession: local_s1');
+  land({ 'packages/a/src/x.ts': 'one\ntemp\n' }, 'feat(a): add x', 'Beyond the ask: renamed\nthe helper\nSession: local_s1');
   const docs = land({ 'docs/plans/p.md': 'plan\n' }, 'docs(plans): add p', 'Beyond the ask: none\n\nSession: s2');
   land({ 'apps/web/y.ts': 'y\n' }, 'feat(web): add y', 'Beyond the ask: none\n\nShipped fast, no review.\n\nSession: s3');
   land({ 'packages/a/src/x.ts': 'one\n', 'packages/a/src/z.ts': 'z\n' }, 'fix(a): drop temp', 'Beyond the ask: none\n\nSession: local_s1');
@@ -337,7 +337,7 @@ test('review lists a tier and weakened tests, needs no review for unreviewed pat
 
   const listed = helper('review.mjs', clone).stdout;
   assert.match(listed, /^3 commit\(s\) with public changes or weakened tests to review on origin\/next since refs\/pstack\/reviewed/);
-  assert.match(listed, /\n\nSession local_s1 .*\n {2}\w+ feat\(a\): add x\n.*\n.*\n {4}1 public file\(s\): packages\/a\/src\/x\.ts\n {2}\w+ fix\(a\): drop temp\n.*\n.*\n {4}2 public file\(s\): packages\/a\/src\/x\.ts, packages\/a\/src\/z\.ts\n {2}Net: node \.agents\/pstack\/review\.mjs --net local_s1\n/);
+  assert.match(listed, /\n\nSession local_s1 .*\n {2}\w+ feat\(a\): add x\n.*\n {4}Beyond the ask: renamed the helper\n {4}1 public file\(s\): packages\/a\/src\/x\.ts\n {2}\w+ fix\(a\): drop temp\n.*\n.*\n {4}2 public file\(s\): packages\/a\/src\/x\.ts, packages\/a\/src\/z\.ts\n {2}Net: node \.agents\/pstack\/review\.mjs --net local_s1\n/);
   assert.match(listed, /\n\nSession s4\n {2}\w+ test\(a\): trim a\n.*\n.*\n {4}Tests: 1 fewer expect or assert lines, 1 more \.skip or \.todo calls\n/);
   assert.doesNotMatch(listed, /Session s[023]\b/);
   assert.match(listed, /\n1 more commit\(s\) change internal paths and no public ones; --tier internal lists them/);

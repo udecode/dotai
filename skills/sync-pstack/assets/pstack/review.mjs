@@ -80,6 +80,7 @@ const matcher = (globs = []) => {
   return (path) => patterns.some((pattern) => pattern.test(path));
 };
 const classes = ['tests', ...TIERS].map((name) => [name, matcher(reviewPaths?.[name])]);
+const some = (paths) => `${paths.slice(0, 3).join(', ')}${paths.length > 3 ? `, and ${paths.length - 3} more` : ''}`;
 const diffOf = (sha, ...rest) => ['diff-tree', '-r', '-M', '--no-commit-id', '--root', '--diff-merges=first-parent', ...rest, sha];
 
 // Each changed file with its status and class, and a note when the commit weakens tests.
@@ -101,7 +102,8 @@ function changes(sha) {
     if (/\b(?:expect|assert)\w*\s*\(/u.test(line)) asserts += sign;
     if (/\.(?:skip|todo)\s*\(|\bx(?:it|test|describe)\s*\(/u.test(line)) skips += sign;
   }
-  const notes = tests.filter((file) => file.status === 'D').map((file) => `deleted ${file.paths[0]}`);
+  const deleted = tests.filter((file) => file.status === 'D').map((file) => file.paths[0]);
+  const notes = deleted.length > 0 ? [`deleted ${deleted.length} test file(s): ${some(deleted)}`] : [];
   if (asserts < 0) notes.push(`${-asserts} fewer expect or assert lines`);
   if (skips > 0) notes.push(`${skips} more .skip or .todo calls`);
   return { files, weak: notes.length > 0 ? notes.join(', ') : null };
@@ -123,7 +125,7 @@ const commits = log
       weak,
       session: body.match(/^Session: (\S+)$/mu)?.[1] ?? 'none',
       plan: `${subject}\n${body}`.match(PLAN)?.[0] ?? 'No plan link',
-      beyond: body.match(/^Beyond the ask:.*$/mu)?.[0] ?? 'No Beyond the ask: line',
+      beyond: body.match(/^Beyond the ask:.*(?:\n(?!(?:Session|Plan): ).+)*/mu)?.[0].replaceAll('\n', ' ') ?? 'No Beyond the ask: line',
       fast: /^Shipped fast, no review\.$/mu.test(body),
     };
   });
@@ -160,18 +162,24 @@ const open = commits.filter((commit) => !reviewedShas.has(commit.sha));
 if (flags.net !== undefined) {
   const ours = open.filter((commit) => commit.session === flags.net);
   if (ours.length === 0) fail(`no listed commit to review has Session: ${flags.net}; run review.mjs to see the sessions`);
-  const start = git(['rev-parse', '--verify', '--quiet', `${ours[0].sha}^1`]).stdout.trim() || must('hash-object', '-t', 'tree', '/dev/null');
+  const paths = tier === 'all' ? [] : [...new Set(ours.flatMap((commit) => commit.files.filter((file) => file.tier === tier).flatMap((file) => file.paths)))];
+  if (tier !== 'all' && paths.length === 0) fail(`session ${flags.net} changes no ${tier} paths`);
+  const used = tier === 'all' ? ours : ours.filter((commit) => inTier(commit, tier));
+  const start = git(['rev-parse', '--verify', '--quiet', `${used[0].sha}^1`]).stdout.trim() || must('hash-object', '-t', 'tree', '/dev/null');
   const scratch = mkdtempSync(join(tmpdir(), 'review-net-'));
   const env = { ...process.env, GIT_INDEX_FILE: join(scratch, 'index') };
   const unread = git(['read-tree', start], { env }).status !== 0;
-  const stuck = unread ? null : ours.find((commit) => git(['apply', '--cached', '--binary'], { env, input: git(diffOf(commit.sha, '-p', '--binary')).stdout }).status !== 0);
+  const stuck = unread
+    ? null
+    : used.find((commit) => {
+        const patch = git([...diffOf(commit.sha, '-p', '--binary'), '--', ...paths]).stdout;
+        return patch !== '' && git(['apply', '--cached', '--binary'], { env, input: patch }).status !== 0;
+      });
   const tree = unread || stuck ? null : git(['write-tree'], { env }).stdout.trim();
   rmSync(scratch, { recursive: true, force: true });
   if (unread) fail(`git read-tree ${start} failed`);
   if (stuck) fail(`${stuck.short} does not apply on the session's earlier commits alone, because a commit landed between them changed the same lines; review its commits one by one`);
-  const paths = tier === 'all' ? [] : [...new Set(ours.flatMap((commit) => commit.files.filter((file) => file.tier === tier).flatMap((file) => file.paths)))];
-  if (tier !== 'all' && paths.length === 0) fail(`session ${flags.net} changes no ${tier} paths`);
-  console.log(`Net diff of session ${flags.net}'s ${ours.length} commit(s)${tier === 'all' ? '' : ` in ${tier} paths`}, from ${start.slice(0, 7)}:\n`);
+  console.log(`Net diff of session ${flags.net}'s ${used.length} commit(s)${tier === 'all' ? '' : ` in ${tier} paths`}, from ${start.slice(0, 7)}:\n`);
   process.stdout.write(must('diff', '-M', start, tree, '--', ...paths));
   process.stdout.write('\n');
   process.exit(0);
@@ -185,7 +193,7 @@ for (const commit of listed) {
   if (!groups.has(commit.session)) groups.set(commit.session, []);
   const lines = [`  ${title(commit)}`, `    ${commit.plan}`, `    ${commit.beyond}`];
   const files = commit.files.filter((file) => file.tier === tier).map((file) => file.paths.at(-1));
-  if (tier !== 'all' && files.length > 0) lines.push(`    ${files.length} ${tier} file(s): ${files.slice(0, 3).join(', ')}${files.length > 3 ? `, and ${files.length - 3} more` : ''}`);
+  if (tier !== 'all' && files.length > 0) lines.push(`    ${files.length} ${tier} file(s): ${some(files)}`);
   if (commit.weak) lines.push(`    Tests: ${commit.weak}`);
   if (commit.fast) lines.push('    Shipped fast, no review.');
   groups.get(commit.session).push(lines.join('\n'));
