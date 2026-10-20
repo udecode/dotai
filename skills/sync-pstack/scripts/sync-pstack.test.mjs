@@ -3869,7 +3869,7 @@ test('a started row names the session that started the task, and a sweep checks 
   assert.equal(offer(parser, 'src/p.ts', 'topic: parser').status, 0);
   assert.equal(chip(parser, 'started').status, 0, 'a start the dismiss tool reported, which names no session');
   assert.match(chips('--session', 's1').stdout, /find the session that started task_a1 with the session tool, [^\n]*log started with session: <its id>; when the search finds none, task_a1 stays started/);
-  assert.match(chip(parser, 'started', 'session: two words').stderr, /session: names the session id as one token/);
+  assert.match(chip(parser, 'started', 'session: two words').stderr, /session: names the session id as one token; a field runs to the next ";", so end it with ";" before more evidence/);
   assert.equal(chip(parser, 'started', 'session: s2').status, 0);
   const here = chips('--session', 's1');
   assert.match(here.stdout, /Started \(1\)\n {2}task_a1 {2}Fix the parser {2}\[parser\] {2}session s2\n/);
@@ -3972,7 +3972,8 @@ test('a landed row names each commit that delivered the task, and append refuses
   const parser = 'task_a1 Add the parser';
   assert.equal(offer(parser, 'src/p.ts', 'topic: parser').status, 0);
   assert.equal(chip(parser, 'started').status, 0);
-  assert.match(chip(parser, 'landed', 'commit: deadbeef1').stderr, /commit: deadbeef1 is not a commit in this checkout/);
+  assert.match(chip(parser, 'landed', 'commit: deadbeef1').stderr, /commit: deadbeef1 is not a commit in this checkout; name each commit that delivered the task by its hash, after committing it\n/);
+  assert.match(chip(parser, 'landed', 'commit: deadbeef1 scope: the parser').stderr, /commit: deadbeef1 scope: the parser is not a commit in this checkout; .*; a field runs to the next ";"/);
   spawnSync('git', ['-C', root, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'parser']);
   const sha = spawnSync('git', ['-C', root, 'rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
   assert.equal(chip(parser, 'landed', `commit: ${sha}`).status, 0);
@@ -4549,6 +4550,30 @@ test('proof stops every process a timed-out command started, so none writes to i
   assert.equal(proveWithTimeout(dir, 'late', 'sh -c "sleep 2; echo late-write"; true').status, 1);
   spawnSync('sleep', ['3']);
   assert.equal(read(dir, 'run/late-a1.log'), `$ (${realpathSync(dir)}) sh -c "sleep 2; echo late-write"; true\ntimed out after 1 seconds\nexit=ETIMEDOUT\n`, 'a process the command started wrote after the timeout');
+});
+
+const until = async (done) => {
+  for (const begun = Date.now(); !done() && Date.now() - begun < 10_000; ) await new Promise((wake) => setTimeout(wake, 50));
+};
+
+test('proof logs the exit when it is stopped before its command ends', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-proof-stopped-'));
+  const proof = spawn(process.execPath, [join(HELPERS, 'proof.mjs'), '--dir', join(dir, 'run'), '--name', 'stopped', '--', 'echo ready; sleep 20'], { cwd: dir, detached: true, stdio: 'ignore' });
+
+  await until(() => existsSync(join(dir, 'run/stopped-a1.log')) && read(dir, 'run/stopped-a1.log').includes('\nready\n'));
+  process.kill(-proof.pid, 'SIGTERM');
+  await until(() => read(dir, 'run/stopped-a1.log').includes('exit='));
+  assert.match(read(dir, 'run/stopped-a1.log'), /\nready\n\nproof\.mjs stopped by SIGTERM\nexit=SIGTERM\n$/);
+});
+
+test('proof logs the exit of a command that outlives its parent proof.mjs', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-proof-orphan-'));
+  const proof = spawn(process.execPath, [join(HELPERS, 'proof.mjs'), '--dir', join(dir, 'run'), '--name', 'orphan', '--', 'echo ready; sleep 1'], { cwd: dir, stdio: 'ignore' });
+
+  await until(() => existsSync(join(dir, 'run/orphan-a1.log')) && read(dir, 'run/orphan-a1.log').includes('\nready\n'));
+  proof.kill('SIGKILL');
+  await until(() => read(dir, 'run/orphan-a1.log').includes('exit='));
+  assert.match(read(dir, 'run/orphan-a1.log'), /\nready\n\nproof\.mjs ended before its command\nexit=0\n$/);
 });
 
 test('proof fails a timed-out command that exits 0 on its timeout signal', () => {
