@@ -3598,22 +3598,12 @@ test('chips raises a task through waits logged after it, never from a started ta
   assert.doesNotMatch(chips('stale').stdout, /task_m1 [^\n]*own/);
 });
 
-test('append records the priority a card shows, and chips withdraws the card once its task shows another', () => {
-  const { chip, chips, offer, root, LEDGER } = chipLedger();
-  const ledger = () => readFileSync(join(root, LEDGER), 'utf8');
+test("a card stays when its task's priority changes, because its session prints the current brief", () => {
+  const { chip, chips, offer } = chipLedger();
   assert.equal(offer('task_d1 Tune the index', 'd.md', 'topic: index; priority: P2; card: c1; session: s1').status, 0);
-  assert.match(ledger(), /task_d1 Tune the index\twhy\t[^\t\n]*; shown: P2\toffered\n/);
-  assert.doesNotMatch(chips('--session', 's1').stdout, /withdraw task_d1/, 'a card whose title shows its priority stays');
   assert.equal(chip('task_w1 Fix the lost save', 'offered', 'writes: w.md; topic: save; priority: P0; repro: type then reload loses the text; waits: task:task_d1').status, 0);
-  assert.match(chips('--session', 's1').stdout, /Do, withdrawal pass[\s\S]*withdraw task_d1's card c1: its title shows P2 and the task is P0 now;/);
-  assert.equal(chip('task_d1 Tune the index', 'uncarded', 'card: c1').status, 0);
-  assert.equal(chip('task_d1 Tune the index', 'carded', 'card: c2; session: s1').status, 0);
-  assert.match(ledger(), /\tcard: c2; session: s1; shown: P0\tcarded\n/, 'the stamp records the raised priority the brief printed');
-  assert.doesNotMatch(chips('--session', 's1').stdout, /withdraw task_d1/);
-  assert.equal(chip('task_w1 Fix the lost save', 'dismissed done').status, 0);
-  assert.match(chips('--session', 's1').stdout, /withdraw task_d1's card c2: its title shows P0 and the task is P2 now;/);
-  assert.match(chip('task_d1 Tune the index', 'uncarded', 'card: c2; shown: P2').stderr, /an uncarded row does not take shown:/);
-  assert.match(chip('task_e1 Fix e', 'offered', 'writes: e.md; topic: e; priority: P2; card: c4; session: s1; shown: P5').stderr, /shown: is the priority the card's title shows/);
+  assert.match(chips('brief', 'task_d1').stdout, /^\[P0\] Tune the index\n/, 'the brief shows the raised priority');
+  assert.doesNotMatch(chips('--session', 's1').stdout, /withdraw task_d1/, 'a raised priority withdraws no card');
 });
 
 test('a task that only a waiting task raises gets a prioritize item before any card', () => {
@@ -3628,7 +3618,7 @@ test('a task that only a waiting task raises gets a prioritize item before any c
   assert.match(chips().stdout, /Do, card pass[\s\S]*card task_o1:/);
 });
 
-test('chips offers each open item of the ship list as a P1 task and orders P1 tasks by it', () => {
+test('chips offers each open item of the ship list as a P1 task with the waits the item names', () => {
   const { chips, offer, root } = chipLedger();
   assert.equal(offer('task_c1 Fix the cursor', 'c.md', 'topic: cursor; priority: P1; repro: click past the end').status, 0);
   writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ branch: 'next', chips: { ship: [process.execPath, 'ship.mjs'] } }));
@@ -3637,17 +3627,15 @@ test('chips offers each open item of the ship list as a P1 task and orders P1 ta
   items([
     { id: 'r1', title: 'Settle review item r1 (xhigh)', finding: 'r1 is open', writes: ['docs/plans'], topic: 'review-r1', kind: 'decide' },
     { id: 'r2', title: 'Settle review item r2 (xhigh)', finding: 'r2 is open', writes: ['docs/plans'], topic: 'review-r2', kind: 'decide' },
-    { id: 'r3', title: 'Settle review item r3 (xhigh)', writes: ['docs/plans'], busy: true },
+    { id: 'r3', title: 'Settle review item r3 (xhigh)', finding: 'r3 is open', writes: ['docs/plans'], topic: 'review-r3', kind: 'decide', waits: ['run:docs/plans/r3.md'] },
   ]);
   const shown = chips();
   const board = shown.stdout;
-  assert.match(board, /Do, ledger pass \(2\)\n {2}offer ship item r1, which no open task serves: append chip "t_[0-9a-f]+ Settle review item r1 \(xhigh\)" "r1 is open" "writes: docs\/plans; topic: review-r1; kind: decide; priority: P1; ship: r1" offered\n {2}offer ship item r2/, shown.stderr);
-  assert.doesNotMatch(board, /ship item r3/, 'a plan already works on a busy item');
-  assert.equal(offer('task_s2 Settle review item r2 (xhigh)', 'docs/plans', 'topic: review-r2; kind: decide; priority: P1; ship: r2').status, 0);
+  assert.match(board, /Do, ledger pass \(3\)\n {2}offer ship item r1, which no open task serves: append chip "t_[0-9a-f]+ Settle review item r1 \(xhigh\)" "r1 is open" "writes: docs\/plans; topic: review-r1; kind: decide; priority: P1; ship: r1" offered\n {2}offer ship item r2/, shown.stderr);
+  assert.match(board, /offer ship item r3, [^\n]*; ship: r3; waits: run:docs\/plans\/r3\.md" offered/, 'an item a plan works on is offered waiting on that plan');
   assert.equal(offer('task_s1 Settle review item r1 (xhigh)', 'docs/plans', 'topic: review-r1; kind: decide; priority: P1; ship: r1').status, 0);
   const closed = offer('task_s9 Settle review item r9 (xhigh)', 'docs/plans', 'topic: review-r9; kind: decide; priority: P1; ship: r9');
   assert.match(closed.stderr, /ship: r9 is not an open item of the project's ship list/);
-  assert.match(chips().stdout, /Ready, P1 \(3\)\n {2}task_s1 [^\n]*\n {2}task_s2 [^\n]*\n {2}task_c1 /, 'P1 tasks follow the ship order, then the ledger order, whatever order they were offered in');
   items([{ id: 'r2', title: 'Settle review item r2 (xhigh)', writes: ['docs/plans'] }]);
   assert.match(chips('stale').stdout, /task_s1 [^\n]*priority P1; ship item r1 is no longer open/);
   writeFileSync(join(root, 'ship.mjs'), 'process.exit(3);\n');
@@ -4985,7 +4973,7 @@ test('decisions-check records verified runtime identity and an unknown boundary 
   const bin = join(dir, 'bin');
   mkdirSync(bin);
   writeFileSync(join(bin, 'ps'), '#!/bin/sh\necho "1 /runtime/codex"\n', { mode: 0o755 });
-  const runtimeEnv = { ...env, CODEX_HOME: join(home, '.codex'), CODEX_THREAD_ID: 'child', CODEX_SESSION_ID: 'parent', CODEX_TOOL_CALL_ID: 'exec-12345678-1234-1234-1234-123456789abc', CLAUDE_CODE_SESSION_ID: '', PATH: `${bin}:${process.env.PATH}` };
+  const runtimeEnv = { ...env, CODEX_HOME: join(home, '.codex'), CODEX_THREAD_ID: 'child', CODEX_SESSION_ID: 'parent', CODEX_TOOL_CALL_ID: 'exec-12345678-1234-1234-1234-123456789abc', CLAUDECODE: '', CLAUDE_SESSION_ID: '', CLAUDE_CODE_SESSION_ID: '', CLAUDE_PID: '', CLAUDE_CODE_ENTRYPOINT: '', PATH: `${bin}:${process.env.PATH}` };
   const rollout = join(runtimeEnv.CODEX_HOME, 'sessions/2026/10/19/rollout-child.jsonl');
   mkdirSync(dirname(rollout), { recursive: true });
   writeFileSync(rollout, [
