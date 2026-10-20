@@ -151,11 +151,23 @@ test('land names the one dated plan the task changes, and no plan when it change
 function stubGh(dir) {
   const bin = join(dir, 'bin');
   mkdirSync(bin);
-  writeFileSync(join(bin, 'gh'), `#!/bin/sh\nprintf '%s\\n' "$@" > '${dir}/gh-args'\ncp "\${10}" '${dir}/gh-body'\necho https://example.test/pull/7\n`);
+  writeFileSync(
+    join(bin, 'gh'),
+    [
+      '#!/bin/sh',
+      'case "$1 $2" in',
+      `  "pr create") printf '%s\\n' "$@" > '${dir}/gh-args'; cp "\${10}" '${dir}/gh-body'; echo https://example.test/pull/7 ;;`,
+      `  "pr merge") printf '%s\\n' "$@" > '${dir}/gh-merge' ;;`,
+      `  "api "*) cat '${dir}/gh-rules' 2>/dev/null || echo '[]' ;;`,
+      'esac',
+      '',
+    ].join('\n')
+  );
   chmodSync(join(bin, 'gh'), 0o755);
   return { PATH: `${bin}:${process.env.PATH}` };
 }
-const ghArgs = (dir) => readFileSync(join(dir, 'gh-args'), 'utf8').trim().split('\n');
+const ghLines = (dir, file) => readFileSync(join(dir, file), 'utf8').trim().split('\n');
+const ghArgs = (dir) => ghLines(dir, 'gh-args');
 
 test('land pushes a topic branch and opens a PR into next when the clone has no push setting', () => {
   const { dir, remote, clone, base, message } = trunk();
@@ -170,6 +182,31 @@ test('land pushes a topic branch and opens a PR into next when the clone has no 
   assert.equal(ghArgs(dir).length, 10, 'a direct clone names no other repository');
   assert.equal(readFileSync(join(dir, 'gh-body'), 'utf8'), `${PR.split('\n').slice(2).join('\n')}\n`);
   assert.match(run.stdout, /https:\/\/example\.test\/pull\/7/);
+  assert.match(run.stdout, /Auto-merge stays off: next's rules require no approval/);
+  assert.equal(existsSync(join(dir, 'gh-merge')), false, 'a branch without a required approval gets no auto-merge');
+});
+
+test('land arms auto-merge only where an approval of the latest push gates the merge, with a method the rules allow', () => {
+  const land = (rules) => {
+    const { dir, clone, message } = trunk();
+    writeFileSync(join(clone, 'a.txt'), 'two\n');
+    writeFileSync(join(dir, 'gh-rules'), JSON.stringify(rules));
+    const run = helper('land.mjs', clone, ['--message', message(PR)], stubGh(dir));
+    assert.equal(run.status, 0, run.stderr);
+    return { run, merge: existsSync(join(dir, 'gh-merge')) ? ghLines(dir, 'gh-merge') : null };
+  };
+  const review = (parameters) => ({ type: 'pull_request', parameters: { required_approving_review_count: 1, ...parameters } });
+
+  const gated = land([{ type: 'deletion' }, review({ dismiss_stale_reviews_on_push: true, allowed_merge_methods: ['merge'] })]);
+  assert.deepEqual(gated.merge, ['pr', 'merge', 'https://example.test/pull/7', '--auto', '--merge']);
+  assert.match(gated.run.stdout, /Armed auto-merge \(merge\)/);
+
+  assert.deepEqual(land([review({ require_last_push_approval: true })]).merge, ['pr', 'merge', 'https://example.test/pull/7', '--auto', '--squash']);
+
+  const stale = land([review({})]);
+  assert.equal(stale.merge, null, 'an approval that survives a later push does not gate what lands');
+  assert.match(stale.run.stdout, /Auto-merge stays off/);
+  assert.equal(land([review({ required_approving_review_count: 0, dismiss_stale_reviews_on_push: true })]).merge, null);
 });
 
 test('land in a fork clone rebases onto upstream, pushes the topic to the fork and opens the PR on upstream', () => {
