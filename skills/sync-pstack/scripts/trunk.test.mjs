@@ -189,6 +189,55 @@ test('land in a fork clone rebases onto upstream, pushes the topic to the fork a
   assert.deepEqual([...args.slice(0, 6), ...args.slice(10)], ['pr', 'create', '--base', 'next', '--head', 'contributor:task', '--repo', `${dir.split('/').at(-1)}/remote`]);
 });
 
+// A plan-page.mjs that prints what land.mjs reads from the real one: the body file, then one --attach line.
+// It refuses a plan that says "no brief", as the real one refuses a plan without a ## Brief.
+function stubPlanPage(clone) {
+  writeFileSync(
+    join(clone, '.agents/pstack/plan-page.mjs'),
+    `import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+const [plan, flag] = process.argv.slice(2);
+if (flag !== '--pr' || readFileSync(plan, 'utf8').includes('no brief')) {
+  console.error(\`\${plan} needs a ## Brief before --pr\`);
+  process.exit(1);
+}
+mkdirSync('docs/plans/artifacts', { recursive: true });
+writeFileSync('docs/plans/artifacts/x.pr.md', \`<!-- plan-page:start -->\\nThe page of \${plan}\\n<!-- plan-page:end -->\\n\`);
+console.info(\`\${process.cwd()}/docs/plans/artifacts/x.pr.md\\n--attach ./docs/plans/shots/after.png\`);
+`
+  );
+  mkdirSync(join(clone, 'docs/plans'), { recursive: true });
+}
+const PAGE = '<!-- plan-page:start -->\nThe page of docs/plans/2026-10-18-x.md\n<!-- plan-page:end -->\n';
+
+test('land opens the PR with the page of the one plan the task changes, with its frames attached', () => {
+  const { dir, clone, message } = trunk();
+  stubPlanPage(clone);
+  writeFileSync(join(clone, 'docs/plans/2026-10-18-x.md'), '# X\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD)], stubGh(dir));
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(readFileSync(join(dir, 'gh-body'), 'utf8'), PAGE);
+  assert.deepEqual(ghArgs(dir).slice(10), ['--attach', './docs/plans/shots/after.png']);
+});
+
+test('land stops before the push when plan-page refuses the plan, and the fixed plan reruns without --message', () => {
+  const { dir, remote, clone, message } = trunk();
+  stubPlanPage(clone);
+  writeFileSync(join(clone, 'docs/plans/2026-10-18-x.md'), '# X\n\nno brief\n');
+  const gh = stubGh(dir);
+
+  const refused = helper('land.mjs', clone, ['--message', message(GOOD)], gh);
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /plan-page\.mjs refused docs\/plans\/2026-10-18-x\.md, so nothing was pushed:\ndocs\/plans\/2026-10-18-x\.md needs a ## Brief/u);
+  assert.equal(spawnSync('git', ['rev-parse', '--verify', 'task'], { cwd: remote, env: ENV }).status, 128, 'no topic branch reaches the remote');
+  assert.equal(existsSync(join(dir, 'gh-args')), false, 'no PR is opened');
+
+  writeFileSync(join(clone, 'docs/plans/2026-10-18-x.md'), '# X\n');
+  const landed = helper('land.mjs', clone, [], gh);
+  assert.equal(landed.status, 0, landed.stderr);
+  assert.equal(readFileSync(join(dir, 'gh-body'), 'utf8'), PAGE);
+});
+
 test('land in a direct clone without push access says to fork and add upstream', () => {
   const { dir, remote, clone, message } = trunk();
   writeFileSync(join(remote, 'hooks', 'pre-receive'), '#!/bin/sh\necho "Permission to t/remote.git denied to c." >&2\nexit 1\n');
@@ -299,6 +348,41 @@ test('guard denies an agent force-push or delete of next or main and passes ever
   for (const command of passed) assert.equal(guard(command), null, command);
   git(clone, 'switch', '--quiet', 'next');
   assert.equal(guard('git push -f')?.permissionDecision, 'deny', 'a push with no refspec targets the current branch');
+});
+
+test('guard denies an agent gh pr create into next or with no base, and passes a stacked PR and other gh commands', () => {
+  const { clone } = trunk();
+  const guard = (command) => {
+    const run = spawnSync(process.execPath, [join(clone, '.agents/pstack/guard.mjs')], {
+      input: JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd: clone }),
+      encoding: 'utf8',
+      env: ENV,
+    });
+    assert.equal(run.status, 0, run.stderr);
+    return run.stdout ? JSON.parse(run.stdout).hookSpecificOutput : null;
+  };
+  const denied = [
+    'gh pr create --base next --fill',
+    'gh pr create',
+    'gh pr new -B next',
+    'gh pr create --base=refs/heads/next',
+    'cd x && GH_REPO=a/b gh pr create -Bnext',
+    "bash -c 'gh pr create --base next'",
+  ];
+  for (const command of denied) {
+    const decision = guard(command);
+    assert.equal(decision?.permissionDecision, 'deny', command);
+    assert.match(decision.permissionDecisionReason, /node \.agents\/pstack\/land\.mjs/u, command);
+  }
+  const passed = [
+    'gh pr create --base someone-branch',
+    'gh pr edit 7 --body-file b.md',
+    'gh pr comment 7 --body x',
+    'git push origin HEAD:someone-branch',
+    'node .agents/pstack/land.mjs --message m.txt',
+    "cat <<'EOF'\ngh pr create\nEOF",
+  ];
+  for (const command of passed) assert.equal(guard(command), null, command);
 });
 
 test("guard denies the app's base-branch sync with the rebase to run instead, and passes other tools", () => {
