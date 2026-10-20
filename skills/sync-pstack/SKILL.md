@@ -84,7 +84,7 @@ A change to the shared source syncs every managed project and installs each new 
    - **Error.** A config the template cannot render. Fix the config, then rerun that project.
 5. Run `user-pin --tag <tag>`, then the printed commands from the home directory. Codex asks to trust the pstack hook again when its file changed.
 6. Verify each synced project with `verify`, and smoke-test one project per delivery mode in use, judged as in Setup step 6. Smoke one plain prompt for each playbook whose `when` or steps changed, one for each cut entry point and one for each new or changed gate, not a fixed set. When `CHANGES.md` adds or changes a skill or principle, also run [Audit](#audit) on each synced project, which reads pstack at the new pin. Judge first the project and user-scope skills whose job that skill covers.
-7. Deliver each project on its branch by its own delivery answer, committing only the files the sync wrote. A `push` project commits and pushes the sync, a `user` project leaves the change for its owner, a `pr` project opens a PR, and a `trunk` project runs the sync in a worktree cut from `origin/<branch>` and lands it with `land.mjs`. Each commit body names the runtimes and committers that gain or lose what, as Setup step 7 says.
+7. Deliver each project on its branch by its own delivery answer, committing only the files the sync wrote. A `push` project commits and pushes the sync, a `user` project leaves the change for its owner, a `pr` project commits the sync and pushes it straight to `<branch>` with no PR (owner's word, 2026-10-20), and a `trunk` project runs the sync in a worktree cut from `origin/<branch>` and lands it with `land.mjs`. Before a `push` or `pr` project's push, read the `on: push` filters of each workflow that runs on that branch. When a path the push carries would start a workflow, through a `paths` list that matches it, a `paths-ignore` list that misses it or no filter, change that workflow's filter so the path no longer starts it, and put `[skip ci]` in the head commit's message, because the workflow edit would start CI itself. Merge the project's branch with `--no-ff` instead of rebasing when the sync sits on earlier sync branches, so GitHub marks their PRs merged. Each commit body names the runtimes and committers that gain or lose what, as Setup step 7 says.
 
 ## Compare
 
@@ -151,7 +151,7 @@ Keep project knowledge in skills and the project's rules; a playbook only orders
 
 - Never edit pstack's own files. Change its behavior through the block or a project rule.
 - Never overwrite a refused block or helper without the owner's word, unless its edit has moved to the template or outside the block.
-- Setup and sync deliver only by the project's delivery answer. They never push a protected branch, force-push or open a PR that answer does not call for.
+- Setup and sync deliver only by the project's delivery answer. They never push a protected branch, force-push or open a PR that answer does not call for, and a sync opens no PR at all, as Sync step 7 says.
 - The interview's settled answers belong to the owner. Ask again only when a project's evidence contradicts one.
 - Setup and sync never trim, merge or rewrite a domain skill's method. Trimming is its own measured pass: measure the overlap between files before cutting, and keep any rule that has no other owner.
 
