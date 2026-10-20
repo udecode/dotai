@@ -2776,7 +2776,8 @@ test('in a trunk project a linked worktree writes the main checkout ledger, cite
   const brief = helper('chips', 'brief', 'task_a1').stdout;
   assert.match(brief, /land the task yourself from it with node \.agents\/pstack\/land\.mjs/);
   assert.match(brief, /scan\.mjs --landed <your worktree's absolute path>\. When it exits 0/, 'the landed scan guards the worktree removal');
-  assert.match(brief, /holds the change\. Then title your session 👀 <name>, with no count, as [^\n]*\/\.agents\/pstack\/rules\/title\.md says[^\n]*\. Last, stop each server/, 'a landed card session takes the review title before its cleanup');
+  assert.match(brief, /holds the change\. Last, stop each server/, 'the landing steps run before the review title');
+  assert.match(brief, /send nothing\. Once the task has landed, where your runtime can rename this session, make your last call of that turn, after the worktree removal and the report, the one that titles your session 👀 <name>, with no count, as [^\n]*\/\.agents\/pstack\/rules\/title\.md says[^\n]*\. When a later message has you work again, title the session with your current stage before your first step\./, 'a landed card session takes the review title last, and drops it when it works again');
   assert.doesNotMatch(brief, /git diff --cached|apply --check|\/wt\b|cd \/|outside the checkout/, 'no patch landing, checkout cd, worktree path or outside-path wait');
   mkdirSync(join(root, 'docs/plans/artifacts/fix'), { recursive: true });
   writeFileSync(join(root, 'docs/plans/artifacts/fix/send-a1.log'), 'exit=0\n');
@@ -3117,7 +3118,7 @@ test('a card prompt leads with the task, then how its session lands, and ends by
   const patch = join(checkout, 'docs/plans/artifacts/chips/task_a1.patch');
   const branch = execFileSync('git', ['branch', '--show-current'], { cwd: checkout, encoding: 'utf8' }).trim();
   assert.match(brief, new RegExp(`you may commit in your worktree as you go\\. When you finish, land it yourself: run git add -A in your worktree and save git diff --cached <base>, where <base> is what git merge-base HEAD ${quoted(branch)} prints, which holds your commits, your uncommitted changes and new files, as ${quoted(patch)}, run git -C ${quoted(checkout)} apply --check --whitespace=error-all ${quoted(patch)}, then git -C ${quoted(checkout)} apply ${quoted(patch)}, which changes only the checkout's working tree and leaves its index alone\\.[^\\n]*Then deliver the patch's paths from ${quoted(checkout)} as your project's Delivery rule says[^\\n]*where that rule commits, commit only those paths there; where the owner owns commits, leave them in the working tree\\. Merge each run directory you wrote under docs/plans/artifacts in your worktree into the same path in ${quoted(checkout)} without overwriting, with mkdir -p <that path> && cp -Rn <your run directory>/\\. <that path>/, because append refuses a row whose evidence cites a path the checkout lacks, and removing the worktree deletes ignored files your logged rows cite\\. Then log landed with patch: ${quoted(patch)}, adding commit: <hash>, <hash> for each commit you made`), 'a session copies its run directories into the checkout before the landed row that cites them');
-  assert.match(brief, new RegExp(`so the lead's report links them\\. Then title your session 👀 <name>, with no count, as ${quoted(checkout)}/\\.agents/pstack/rules/title\\.md says, so the owner's sidebar shows which sessions hold work to review\\. Last, stop each server you started\\. Then run node ${quoted(checkout)}/\\.agents/skills/cleanup/scripts/scan\\.mjs --landed <your worktree's absolute path>\\. When it exits 0, every change and ignored file of yours is committed, recreated by an install or build, or in the checkout, so remove your worktree as your final command with git -C ${quoted(checkout)} worktree remove --force <your worktree's absolute path> && git -C ${quoted(checkout)} worktree list, and check that its list no longer names your worktree\\. `), 'a landed session deletes its own worktree only once the cleanup scan finds all its work in the checkout');
+  assert.match(brief, new RegExp(`so the lead's report links them\\. Last, stop each server you started\\. Then run node ${quoted(checkout)}/\\.agents/skills/cleanup/scripts/scan\\.mjs --landed <your worktree's absolute path>\\. When it exits 0, every change and ignored file of yours is committed, recreated by an install or build, or in the checkout, so remove your worktree as your final command with git -C ${quoted(checkout)} worktree remove --force <your worktree's absolute path> && git -C ${quoted(checkout)} worktree list, and check that its list no longer names your worktree\\. `), 'a landed session deletes its own worktree only once the cleanup scan finds all its work in the checkout');
 });
 
 test('a merge or a folded design question keeps the effort the task\'s work needs', () => {
@@ -3556,6 +3557,30 @@ test('chips lists P0 and P1 in full, counts the rest and cards at most 10, highe
   const full = chips('all', '--session', 's1').stdout;
   assert.match(full, /Ready, P2 \([0-9]+\)\n {2}task_/);
   assert.match(full, /Ready, P3 \(4\)/);
+});
+
+test('a brief says whether the board has its task Ready, Waiting or Started, whatever its priority', () => {
+  const { batch, chip, chips } = chipLedger();
+  const written = batch([
+    ['task_p1 Fix p', 'offered', 'writes: p.md; topic: p; priority: P2'],
+    ['task_w1 Fix w', 'offered', 'writes: w.md; topic: w; priority: P3; waits: task:task_p1'],
+  ]);
+  assert.equal(written.status, 0, written.stderr);
+  assert.doesNotMatch(chips().stdout, /task_p1 {2}Fix p/, 'the board shows a P2 task only as a count');
+  const ready = chips('brief', 'task_p1').stdout;
+  assert.match(ready, /^State: Ready\.$/mu);
+  assert.match(ready, /When the State: line that chips brief prints says neither Ready nor Started, tell the owner what it says and stop\./);
+  assert.match(ready, /each field in "<tokens>" ended by ";" before the next, such as "writes: a\.ts, b\.ts; session: <id>"/);
+  assert.match(chips('brief', 'task_w1').stdout, /^State: Waiting on task:task_p1 [^\n]*\.$/mu);
+  assert.equal(chip('task_p1 Fix p', 'started', 'session: s1').status, 0);
+  assert.match(chips('brief', 'task_p1').stdout, /^State: Started\.$/mu);
+  const outside = batch([
+    ['task_o1 Fix the other repo', 'offered', 'writes: /elsewhere/repo/x.md; topic: o1; priority: P2'],
+    ['task_o2 Tune the other repo', 'offered', 'writes: /elsewhere/repo/x.md; topic: o2; priority: P2'],
+  ]);
+  assert.equal(outside.status, 0, outside.stderr);
+  assert.match(chips('brief', 'task_o1').stdout, /^State: Ready\.$/mu);
+  assert.match(chips('brief', 'task_o2').stdout, /^State: Waiting on queued behind task_o1, which writes the same paths outside this checkout\.$/mu, 'a task writing outside the checkout queues behind an earlier ready task on the same path');
 });
 
 test('chips ranks a task with the most urgent open task that waits on it', () => {

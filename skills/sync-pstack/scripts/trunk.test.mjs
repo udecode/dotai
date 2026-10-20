@@ -554,6 +554,21 @@ test('setup copies env files and installs dependencies in a new worktree, once',
   assert.equal(helper('setup.mjs', tree, ['--install', 'false']).stdout, '', 'a set-up worktree copies and installs nothing');
 });
 
+test('setup installs once in a worktree that arrives with node_modules, because copied modules ran no install script', () => {
+  const { dir, clone } = trunk();
+  const tree = join(dir, 'tree');
+  git(clone, 'worktree', 'add', '--quiet', '--detach', tree);
+  mkdirSync(join(tree, 'node_modules'));
+  const first = helper('setup.mjs', tree, ['--install', 'touch node_modules/ran']);
+  assert.equal(first.status, 0, first.stderr);
+  assert.ok(existsSync(join(tree, 'node_modules/ran')), 'the install ran although node_modules existed');
+  assert.equal(helper('setup.mjs', tree, ['--install', 'false']).stdout, '', 'the next session start installs nothing');
+  const failing = join(dir, 'failing');
+  git(clone, 'worktree', 'add', '--quiet', '--detach', failing);
+  assert.match(helper('setup.mjs', failing, ['--install', 'false']).stdout, /false failed \(exit 1\)/);
+  assert.match(helper('setup.mjs', failing, ['--install', 'touch ran']).stdout, /ran touch ran/, 'a failed install runs again at the next start');
+});
+
 test('setup fast-forwards the main checkout only when no local edit touches an incoming path', () => {
   const { clone, elsewhere } = trunk();
   git(clone, 'switch', '--quiet', 'next');
