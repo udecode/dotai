@@ -3580,6 +3580,54 @@ test('chips ranks a task with the most urgent open task that waits on it', () =>
   assert.match(chips('brief', 'task_c1').stdout, /^\[P2\] [^\n]*\n\n[^\n]*Priority: P2, from task_b1, which waits on it; its own is P3\./, 'the lift follows the waiters still open');
 });
 
+test('chips raises a task through waits logged after it, never from a started task, and shows its own priority once nothing more urgent waits', () => {
+  const { batch, chip, chips } = chipLedger();
+  const written = batch([
+    ['task_m1 Measure the index', 'offered', 'writes: m.md; topic: measure; priority: P3'],
+    ['task_n1 Tune the index', 'offered', 'writes: n.md; topic: index; priority: P2; waits: task:task_m1'],
+    ['task_o1 Fix the lost save', 'offered', 'writes: o.md; topic: save; priority: P0; repro: type then reload loses the text; waits: task:task_n1'],
+  ]);
+  assert.equal(written.status, 0, written.stderr);
+  assert.match(chips('brief', 'task_m1').stdout, /^\[P0\] [^\n]*\n\n[^\n]*Priority: P0, from task_n1, which waits on it; its own is P3\./, 'the raise climbs a chain whose waiters come later in the ledger');
+  const started = chip('task_o1 Fix the lost save', 'started', 'session: s9');
+  assert.equal(started.status, 0, started.stderr);
+  assert.match(chips('brief', 'task_m1').stdout, /^\[P2\] [^\n]*\n\n[^\n]*Priority: P2, from task_n1, which waits on it; its own is P3\./, "a started task's waits no longer count");
+  assert.equal(chip('task_n1 Tune the index', 'dismissed declined').status, 0);
+  assert.match(chips('brief', 'task_m1').stdout, /^\[P3\] Measure the index\n\nTopic: measure\. Kind: fix\. Effort: high\. Priority: P3\.\n/);
+  assert.match(chips('stale').stdout, /task_m1 [^\n]*priority P3;/);
+  assert.doesNotMatch(chips('stale').stdout, /task_m1 [^\n]*own/);
+});
+
+test('append records the priority a card shows, and chips withdraws the card once its task shows another', () => {
+  const { chip, chips, offer, root, LEDGER } = chipLedger();
+  const ledger = () => readFileSync(join(root, LEDGER), 'utf8');
+  assert.equal(offer('task_d1 Tune the index', 'd.md', 'topic: index; priority: P2; card: c1; session: s1').status, 0);
+  assert.match(ledger(), /task_d1 Tune the index\twhy\t[^\t\n]*; shown: P2\toffered\n/);
+  assert.doesNotMatch(chips('--session', 's1').stdout, /withdraw task_d1/, 'a card whose title shows its priority stays');
+  assert.equal(chip('task_w1 Fix the lost save', 'offered', 'writes: w.md; topic: save; priority: P0; repro: type then reload loses the text; waits: task:task_d1').status, 0);
+  assert.match(chips('--session', 's1').stdout, /Do, withdrawal pass[\s\S]*withdraw task_d1's card c1: its title shows P2 and the task is P0 now;/);
+  assert.equal(chip('task_d1 Tune the index', 'uncarded', 'card: c1').status, 0);
+  assert.equal(chip('task_d1 Tune the index', 'carded', 'card: c2; session: s1').status, 0);
+  assert.match(ledger(), /\tcard: c2; session: s1; shown: P0\tcarded\n/, 'the stamp records the raised priority the brief printed');
+  assert.doesNotMatch(chips('--session', 's1').stdout, /withdraw task_d1/);
+  assert.equal(chip('task_w1 Fix the lost save', 'dismissed done').status, 0);
+  assert.match(chips('--session', 's1').stdout, /withdraw task_d1's card c2: its title shows P0 and the task is P2 now;/);
+  assert.match(chip('task_d1 Tune the index', 'uncarded', 'card: c2; shown: P2').stderr, /an uncarded row does not take shown:/);
+  assert.match(chip('task_e1 Fix e', 'offered', 'writes: e.md; topic: e; priority: P2; card: c4; session: s1; shown: P5').stderr, /shown: is the priority the card's title shows/);
+});
+
+test('a task that only a waiting task raises gets a prioritize item before any card', () => {
+  const { chip, chips, offer, root, LEDGER } = chipLedger();
+  assert.equal(offer('task_a1 Fix a', 'src/a.ts', 'topic: one').status, 0);
+  writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', 'task_o1 Fix the old docs', 'why', 'writes: docs/o.md', 'offered'].join('\t') + '\n');
+  assert.equal(chip('task_o1 Fix the old docs', 'updated', 'topic: docs; waits: none').status, 0);
+  assert.equal(chip('task_w1 Fix the lost save', 'offered', 'writes: w.md; topic: save; priority: P0; repro: type then reload loses the text; waits: task:task_o1').status, 0);
+  assert.match(chips().stdout, /Do, ledger pass \(1\)\n {2}prioritize task_o1:/, 'a raise is no priority of its own');
+  assert.match(chips('brief', 'task_o1').stdout, /Priority: P0, from task_w1, which waits on it; its own is none yet\./);
+  assert.equal(chip('task_o1 Fix the old docs', 'updated', 'priority: P3').status, 0);
+  assert.match(chips().stdout, /Do, card pass[\s\S]*card task_o1:/);
+});
+
 test('chips offers each open item of the ship list as a P1 task and orders P1 tasks by it', () => {
   const { chips, offer, root } = chipLedger();
   assert.equal(offer('task_c1 Fix the cursor', 'c.md', 'topic: cursor; priority: P1; repro: click past the end').status, 0);

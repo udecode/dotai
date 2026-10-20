@@ -43,17 +43,17 @@ const LEGACY_ONLY = ['dismissed gone', 'dismissed replaced'];
 const PROOFS = ['repro', 'regressed', 'ship'];
 const EVIDENCE = ['priority', ...PROOFS];
 const TAKES = {
-  offered: ['writes', 'topic', 'kind', 'waits', 'owns', 'fast', 'card', 'session', 'transcript', ...EVIDENCE],
+  offered: ['writes', 'topic', 'kind', 'waits', 'owns', 'fast', 'card', 'shown', 'session', 'transcript', ...EVIDENCE],
   updated: ['writes', 'topic', 'kind', 'effort', 'waits', 'owns', 'fast', 'session', 'transcript', ...EVIDENCE],
   folded: ['writes', 'kind', 'effort', 'waits', 'owns', ...EVIDENCE],
   started: ['writes', 'session'],
   landed: ['patch', 'commit'],
-  carded: ['card', 'session', 'codex'],
+  carded: ['card', 'shown', 'session', 'codex'],
   uncarded: ['card'],
   'dismissed declined': ['card'],
 };
 const LIST_KEYS = ['writes', 'waits', 'owns', 'commit'];
-const SCALAR_KEYS = ['topic', 'kind', 'effort', 'fast', 'patch', 'card', 'session', 'transcript', 'codex', ...EVIDENCE];
+const SCALAR_KEYS = ['topic', 'kind', 'effort', 'fast', 'patch', 'card', 'shown', 'session', 'transcript', 'codex', ...EVIDENCE];
 const KINDS = ['fix', 'decide', 'review'];
 const PRIORITIES = ['P0', 'P1', 'P2', 'P3'];
 const CARD_LIMIT = 10;
@@ -227,6 +227,7 @@ export function recordRow(tasks, cells, ts = null) {
       covers: [],
     };
     created.cardEffort = created.card ? levelOf(created) : null;
+    created.cardPriority = created.card ? shownOf(given, created) : null;
     tasks.set(row.id, created);
     return;
   }
@@ -261,6 +262,7 @@ export function recordRow(tasks, cells, ts = null) {
     task.codex = given.codex === 'always';
     task.session = given.session ?? null;
     task.cardEffort = levelOf(task);
+    task.cardPriority = shownOf(given, task);
     // An offer older than the session: token has no owner, so the first
     // session that cards it takes it.
     task.owner ??= task.session;
@@ -270,6 +272,7 @@ export function recordRow(tasks, cells, ts = null) {
     task.codex = false;
     task.session = null;
     task.cardEffort = null;
+    task.cardPriority = null;
   }
   if (row.move === 'reopened') {
     task.status = 'offered';
@@ -321,6 +324,7 @@ const tokenProblems = (given, where) => {
   if (given.transcript !== undefined && !SESSION.test(given.transcript)) found.push(`${where}: transcript: names the session's transcript id as one token${ranOn(given.transcript)}`);
   if (given.codex !== undefined && given.codex !== 'always') found.push(`${where}: codex: is always, which forces the card session's Codex handoff`);
   if (given.priority !== undefined && !PRIORITIES.includes(given.priority)) found.push(`${where}: priority: is P0, P1, P2 or P3, as chips.md's Priority says`);
+  if (given.shown !== undefined && !PRIORITIES.includes(given.shown)) found.push(`${where}: shown: is the priority the card's title shows, P0, P1, P2 or P3`);
   if (given.repro === '') found.push(`${where}: repro: names a failing test or the exact steps that show the bug`);
   if (given.regressed !== undefined && !/^[0-9a-f]{7,40}$/u.test(given.regressed)) found.push(`${where}: regressed: names the commit the regression came in by its hash`);
   if (given.ship !== undefined && !SESSION.test(given.ship)) found.push(`${where}: ship: names one item of the project's ship list by its id`);
@@ -330,8 +334,18 @@ const tokenProblems = (given, where) => {
 const afterRow = (before, cells) => {
   const after = structuredClone(before);
   recordRow(after, cells);
+  liftPriorities(after);
   return after;
 };
+
+export function stampShown(cells, before) {
+  const row = parseRow(cells);
+  const { given } = fields(row?.evidence ?? '');
+  if (!row || given.shown !== undefined || !(row.move === 'carded' || (row.move === 'offered' && given.card))) return cells;
+  const task = afterRow(before, cells).get(row.id);
+  const shown = task && priorityOf(task);
+  return shown ? [...cells.slice(0, 3), `${row.evidence}; shown: ${shown}`, cells[4]] : cells;
+}
 
 export function chipRowProblems(cells, before, where) {
   const [, decision, , evidence] = cells;
@@ -801,8 +815,8 @@ export function board(tasks, git, here = null, { transcript = null, all = false,
       .filter(({ task }) => task.card && !elsewhere(task))
       .map(({ task, blockers }) => ({ kind: 'problem', ids: [task.id], text: `withdraw ${task.id}'s card ${task.card}: ${blockers[0]}; ${withdrawn(task.card)} once it is withdrawn or its session has ended` })),
     ...ready
-      .filter((task) => task.card && !elsewhere(task) && task.cardEffort && task.cardEffort !== levelOf(task))
-      .map((task) => ({ kind: 'effort', ids: [task.id], text: `withdraw ${task.id}'s card ${task.card}: it was offered at ${task.cardEffort} and the task is at ${levelOf(task)} now; ${withdrawn(task.card)} once it is withdrawn or its session has ended, and the card pass offers it again` })),
+      .filter((task) => task.card && !elsewhere(task) && cardDrift(task))
+      .map((task) => ({ kind: 'effort', ids: [task.id], text: `withdraw ${task.id}'s card ${task.card}: ${cardDrift(task)}; ${withdrawn(task.card)} once it is withdrawn or its session has ended, and the card pass offers it again` })),
   ];
   const rows = [
     ...waiting.flatMap(({ task, stuck }) => stuck.map((blocker) => ({ kind: 'problem', ids: [task.id], text: `fix ${task.id}'s wait: ${blocker}; log updated with the waits it has now` }))),
@@ -812,7 +826,7 @@ export function board(tasks, git, here = null, { transcript = null, all = false,
     ...unmigrated.flatMap((task) => blockersOf(task, tasks, git).filter((blocker) => blocker.stuck && !blocker.malformed).map((blocker) => ({ kind: 'problem', ids: [task.id], text: `fix ${task.id}'s wait: ${blocker.text}; log updated with the waits it has now` }))),
     ...unmigrated.map((task) => ({ kind: 'migrate', ids: [task.id], text: `migrate ${task.id}: log updated with topic:, priority: and the waits: it has, as waits: none when it has none` })),
     ...offered
-      .filter((task) => task.topic && !priorityOf(task))
+      .filter((task) => task.topic && !ownPriority(task))
       .map((task) => ({ kind: 'priority', ids: [task.id], text: `prioritize ${task.id}: log updated with priority: and the evidence a P0 or P1 claim needs, as chips.md's Priority says` })),
     ...shipOffers(ship.items, tasks, open),
     ...lost.map((task) => ({ kind: 'migrate', ids: [task.id], text: `reopen ${task.id} or close it: a dropped card closed it as gone; log reopened, then updated with topic: and waits:, or dismissed done or superseded` })),
@@ -820,7 +834,7 @@ export function board(tasks, git, here = null, { transcript = null, all = false,
   const owed = [...tasks.values()].filter((task) => task.status === 'landed' && fastOf(task) && !task.reviewed).sort(byOrder);
   rows.push(...reviewItems(tasks, owed), ...adoptions);
   const merge = mergeItem(offered, tasks, git);
-  const cardable = ready.filter((task) => !task.card && mayCard(task) && priorityOf(task));
+  const cardable = ready.filter((task) => !task.card && mayCard(task) && ownPriority(task));
   const room = Math.max(0, CARD_LIMIT - offered.filter((task) => task.card && !elsewhere(task)).length);
   const notes = cardable.length > room ? [{ kind: 'note', text: `${cardable.length - room} more can start once this session holds fewer than ${CARD_LIMIT} cards; the card pass offers the highest priority first` }] : [];
   const cards = cardable
@@ -845,14 +859,28 @@ export function board(tasks, git, here = null, { transcript = null, all = false,
 }
 
 const failsOnBase = (task) => task.owns.length > 0;
-export const priorityOf = (task) => (failsOnBase(task) ? 'P0' : higher(task.priority, task.blockingPriority));
+const ownPriority = (task) => (failsOnBase(task) ? 'P0' : task.priority);
+const shownOf = (given, task) => given.shown ?? ownPriority(task);
+export const priorityOf = (task) => higher(ownPriority(task), task.blockingPriority);
+
+const cardDrift = (task) =>
+  [
+    task.cardEffort && task.cardEffort !== levelOf(task) ? `it was offered at ${task.cardEffort} and the task is at ${levelOf(task)} now` : null,
+    task.cardPriority && task.cardPriority !== priorityOf(task) ? `its title shows ${task.cardPriority} and the task is ${priorityOf(task)} now` : null,
+  ]
+    .filter(Boolean)
+    .join(', and ');
 
 function liftPriorities(tasks) {
-  const open = [...tasks.values()].filter(isOpen);
+  for (const task of tasks.values()) {
+    task.blockingPriority = null;
+    task.blocks = null;
+  }
+  const waiters = [...tasks.values()].filter((task) => task.status === 'offered');
   let changed = true;
   while (changed) {
     changed = false;
-    for (const waiter of open) {
+    for (const waiter of waiters) {
       const level = priorityOf(waiter);
       for (const wait of waiter.waits) {
         const blocker = follow(wait.match(WAIT)?.[2] ?? '', tasks);

@@ -150,7 +150,7 @@
       "mode": 493
     },
     "skills/chips/SKILL.md": {
-      "sha256": "8c62547f3c0169a84190cf5772b6946b17faa79a4dded232eeea4760d1fcaeff",
+      "sha256": "5141b50017c6608e9a012ad68bae21e685d09515b261db28072f389725ea06b1",
       "mode": 420
     },
     "skills/cleanup/SKILL.md": {
@@ -298,7 +298,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
-      "sha256": "4d05b6d37ef40a23c4c95c90d144d6ba2334f39e35c2dfed19bf712b81ea09e4",
+      "sha256": "024b2d1f64a783ff728f1df38f029b86802ca7622213f0c1c199e3a73e6c28e4",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/freeze.mjs": {
@@ -342,7 +342,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/proof.mjs": {
-      "sha256": "c81639aeadb82404ab064d7c8ee181ab1ef895cdc6aceee2ea65fa3343af1136",
+      "sha256": "fea4e08d55499d1db65baddf0727e6e3feb94ed44e96df621930cf43ede1305e",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/reply.mjs": {
@@ -362,7 +362,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/chips.md": {
-      "sha256": "23296c06e6c53c561cb6e80279e2734ab9c2e08d9dfe9daa47014f86284403d0",
+      "sha256": "2b74bbce10ca4d35f10b2b46846109463961ff611e749648de6931cbe2c763f1",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/close.md": {
@@ -422,7 +422,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/tasks.mjs": {
-      "sha256": "db73dbe4190be2aebaea96b3c26a0c14524302815a5a1c92e2dde57b657a459c",
+      "sha256": "6559302dd73c278c6a11b3260437c97d181a68ca101a0b773cd7c2d09e13c8aa",
       "mode": 420
     },
     "skills/sync-pstack/references/adapt.md": {
@@ -474,7 +474,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "a8b0c0d4371a441f09f589432f62f013e67e5a89a2d484ee7c7856af3a832c16",
+      "sha256": "984f229d7d81d578221bfde2581b812e6b5ae3fe6b82d3397290aa66db0fff9d",
       "mode": 420
     },
     "skills/sync-pstack/scripts/trunk.test.mjs": {
