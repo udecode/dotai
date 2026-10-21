@@ -537,7 +537,7 @@ test("guard denies the app's base-branch sync with the rebase to run instead, an
   assert.equal(hook('mcp__ccd_host__get_storage_usage'), null);
 });
 
-test('guard denies an edit in the main checkout on next or main, except the ledger and artifacts, and passes a worktree or a task branch', () => {
+test('guard denies an edit in the main checkout on next or main, except the artifacts that hold the ledger, and passes a worktree or a task branch', () => {
   const { dir, clone } = trunk();
   const tree = join(clone, '.claude/worktrees/task');
   git(clone, 'worktree', 'add', '--quiet', '--detach', tree, 'origin/next');
@@ -579,7 +579,7 @@ test('guard denies an edit in the main checkout on next or main, except the ledg
   const fromTree = edit('Write', join(clone, 'docs/plans/x.md'), { from: tree, cwd: tree });
   assert.equal(fromTree?.permissionDecision, 'deny', "the worktree's own guard finds the main checkout");
   assert.ok(fromTree.permissionDecisionReason.includes(join(tree, 'docs/plans/x.md')), 'the reason names the same file in the worktree');
-  for (const path of ['docs/plans/suggested-tasks.decisions.tsv', 'docs/plans/artifacts/run/log.txt', join(dir, 'down/kept.txt'), join(tree, 'a.txt')]) {
+  for (const path of ['docs/plans/artifacts/run/log.txt', join(dir, 'down/kept.txt'), join(tree, 'a.txt')]) {
     assert.equal(edit('Write', path), null, path);
   }
   const broken = { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'broken', GIT_CONFIG_VALUE_0: '1' };

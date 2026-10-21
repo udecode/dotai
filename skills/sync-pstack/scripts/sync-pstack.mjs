@@ -25,6 +25,7 @@ import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ask } from '../assets/pstack/cross.mjs';
 import { EFFORTS } from '../assets/pstack/lead.mjs';
+import { LEDGER, ledgerPath } from '../assets/pstack/tasks.mjs';
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const TEMPLATE = join(SKILL, 'assets/block.md');
@@ -1019,9 +1020,10 @@ export function corpus(root, { session, installedDir = join(root, HELPER_DIR) } 
   const env = { ...process.env, PSTACK_BASE: wholeLogBase };
   if (!wholeLogBase) delete env.PSTACK_BASE;
   const clock = `data:text/javascript,Date.now=()=>${Date.now()}`;
-  const live = join(root, (existsSync(join(root, CONFIG)) && readJson(join(root, CONFIG)).plans) || 'docs/plans', 'suggested-tasks.decisions.tsv');
+  const config = existsSync(join(root, CONFIG)) ? readJson(join(root, CONFIG)) : {};
+  const live = join(root, ledgerPath(config.plans || 'docs/plans', config.delivery));
   const scratch = mkdtempSync(join(tmpdir(), 'sync-pstack-corpus-'));
-  const snapshot = existsSync(live) ? join(scratch, 'suggested-tasks.decisions.tsv') : null;
+  const snapshot = existsSync(live) ? join(scratch, LEDGER) : null;
   if (snapshot) writeFileSync(snapshot, readFileSync(live));
   const sides = { installed: installedDir, bundled: HELPERS };
   const transcripts = { installed: [], bundled: [] };

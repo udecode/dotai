@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
@@ -2751,8 +2751,11 @@ test('chips brief forces the Codex handoff for a card carded with codex: always 
 
 const linkedWorktree = (delivery) => {
   const context = chipLedger();
-  const { LEDGER, dir, root, run } = context;
+  const { dir, root, run } = context;
+  const LEDGER = delivery === 'trunk' ? 'docs/plans/artifacts/suggested-tasks.decisions.tsv' : context.LEDGER;
   writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ branch: 'next', delivery }));
+  writeFileSync(join(root, '.gitignore'), 'docs/plans/artifacts/\n');
+  mkdirSync(dirname(join(root, LEDGER)), { recursive: true });
   writeFileSync(join(root, LEDGER), 'ts\tphase\tdecision\twhy\tevidence\tresult\n');
   spawnSync('git', ['-C', root, 'add', '-A']);
   commit(root, 'base');
@@ -2760,7 +2763,7 @@ const linkedWorktree = (delivery) => {
   spawnSync('git', ['-C', root, 'worktree', 'add', '-q', '--detach', worktree]);
   const helper = (...args) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), ...args], worktree);
   const offerHere = (decision, evidence) => helper('append', LEDGER, 'chip', decision, 'why', `${evidence}; priority: P1; repro: steps`, 'offered');
-  return { ...context, helper, offerHere, worktree };
+  return { ...context, LEDGER, helper, offerHere, worktree };
 };
 
 test('in a trunk project a linked worktree writes the main checkout ledger, cites its run directory and briefs a card to land through land.mjs', () => {
@@ -2768,7 +2771,7 @@ test('in a trunk project a linked worktree writes the main checkout ledger, cite
   const offered = offerHere('task_a1 Fix the stale badge', 'writes: README.md; topic: docs; owns: ci:new');
   assert.equal(offered.status, 0, offered.stderr);
   assert.match(read(root, LEDGER), /task_a1 Fix the stale badge/, 'the row goes to the main checkout ledger');
-  assert.doesNotMatch(read(worktree, LEDGER), /task_a1/, "the worktree's committed copy stays as it was");
+  assert.ok(!existsSync(join(worktree, LEDGER)), 'no commit holds the ledger, so the worktree has no copy');
   assert.match(helper('chips').stdout, /task_a1 {2}Fix the stale badge/, 'the board reads the main checkout ledger');
   const log = 'docs/plans/2026-01-01-fix.decisions.tsv';
   const red = helper('append', log, 'verify', 'Record the base failure', 'why', 'base-red: ci:new; proof: none', 'partial, fails on base');
@@ -5590,46 +5593,92 @@ test("an effort change on a carded task lists its card in the holder's withdrawa
 });
 
 
-test('setup lands the ledger rows sessions appended and fast-forwards past them', () => {
+// A bare origin whose next holds the helpers and a trunk config whose checkout
+// ignores the plans artifacts, with clones of it standing in for main checkouts.
+function ledgerRemote(files = {}) {
   const { dir, run } = sandbox();
-  const ledger = 'docs/plans/suggested-tasks.decisions.tsv';
-  // Past spawnSync's 1 MB default buffer, as a real ledger grows.
-  const old = Array.from({ length: 3000 }, (_, i) => `row ${i} ${'x'.repeat(400)}\n`).join('');
   const origin = join(dir, 'origin.git');
   const seed = join(dir, 'seed');
   run('git', ['init', '-q', '--bare', '-b', 'next', origin]);
   run('git', ['clone', '-q', origin, seed]);
   run('git', ['-C', seed, 'checkout', '-q', '-b', 'next']);
   cpSync(HELPERS, join(seed, '.agents/pstack'), { recursive: true });
-  writeFileSync(join(seed, '.agents/pstack.json'), `${JSON.stringify({ branch: 'next', plans: 'docs/plans' })}\n`);
-  mkdirSync(join(seed, 'docs/plans'), { recursive: true });
-  writeFileSync(join(seed, ledger), old);
+  writeFileSync(join(seed, '.agents/pstack.json'), `${JSON.stringify({ branch: 'next', plans: 'docs/plans', delivery: 'trunk' })}\n`);
+  writeFileSync(join(seed, '.gitignore'), 'docs/plans/artifacts/\n');
+  for (const [path, text] of Object.entries(files)) {
+    mkdirSync(dirname(join(seed, path)), { recursive: true });
+    writeFileSync(join(seed, path), text);
+  }
   run('git', ['-C', seed, 'add', '.']);
   commit(seed, 'seed');
   run('git', ['-C', seed, 'push', '-q', 'origin', 'next']);
-  const main = join(dir, 'main');
-  run('git', ['clone', '-q', '-b', 'next', origin, main]);
+  const clone = (name) => {
+    run('git', ['clone', '-q', '-b', 'next', origin, join(dir, name)]);
+    return join(dir, name);
+  };
+  const setup = (cwd) => run(process.execPath, [join(cwd, '.agents/pstack/setup.mjs')], cwd);
+  const onRef = () => execFileSync('git', ['--git-dir', origin, 'show', 'refs/pstack/ledger:suggested-tasks.decisions.tsv'], { encoding: 'utf8', maxBuffer: 1 << 30 });
+  const next = () => run('git', ['--git-dir', origin, 'rev-parse', 'next']).stdout;
+  return { clone, next, onRef, run, seed, setup };
+}
 
-  writeFileSync(join(seed, ledger), `${old}row from another clone\n`);
-  writeFileSync(join(seed, 'feature.txt'), 'landed elsewhere\n');
-  run('git', ['-C', seed, 'add', '.']);
-  commit(seed, 'another landing');
-  run('git', ['-C', seed, 'push', '-q', 'origin', 'next']);
-  writeFileSync(join(main, ledger), `${old}row 1\nrow 2\nhalf a ro`);
+test('setup keeps the ignored ledger in step with refs/pstack/ledger on origin and never commits to the branch', () => {
+  const { clone, next, onRef, run, setup } = ledgerRemote();
+  const ledger = 'docs/plans/artifacts/suggested-tasks.decisions.tsv';
+  // Past spawnSync's 1 MB default buffer, as a real ledger grows.
+  const old = Array.from({ length: 3000 }, (_, i) => `row ${i} ${'x'.repeat(400)}\n`).join('');
+  const base = next();
+  const main = clone('main');
+  mkdirSync(join(main, 'docs/plans/artifacts'), { recursive: true });
+  writeFileSync(join(main, ledger), `${old}row 1\nhalf a ro`);
 
-  const setup = run(process.execPath, [join(main, '.agents/pstack/setup.mjs')], main);
-  assert.equal(setup.status, 0, setup.stderr);
-  assert.match(setup.stdout, /landed 2 ledger row\(s\) on origin\/next/);
-  const landed = execFileSync('git', ['-C', main, 'show', `origin/next:${ledger}`], { encoding: 'utf8', maxBuffer: 1 << 30 });
-  assert.equal(landed, `${old}row from another clone\nrow 1\nrow 2\n`);
-  assert.equal(run('git', ['--git-dir', origin, 'rev-parse', 'next']).stdout, run('git', ['-C', main, 'rev-parse', 'HEAD']).stdout);
-  assert.equal(readFileSync(join(main, 'feature.txt'), 'utf8'), 'landed elsewhere\n');
-  assert.equal(readFileSync(join(main, ledger), 'utf8'), `${landed}half a ro`);
-  assert.equal(run('git', ['-C', main, 'status', '--porcelain']).stdout, ` M ${ledger}\n`);
+  const first = setup(main);
+  assert.equal(first.status, 0, first.stderr);
+  assert.match(first.stdout, /pushed 3001 ledger row\(s\) to refs\/pstack\/ledger/);
+  assert.equal(onRef(), `${old}row 1\n`, 'a row another session is still writing stays local');
 
-  writeFileSync(join(main, ledger), `${landed}half a row\n`);
-  const again = run(process.execPath, [join(main, '.agents/pstack/setup.mjs')], main);
-  assert.match(again.stdout, /landed 1 ledger row\(s\)/);
+  const other = clone('other');
+  mkdirSync(join(other, 'docs/plans/artifacts'), { recursive: true });
+  writeFileSync(join(other, ledger), 'row from another clone\n');
+  const elsewhere = setup(other);
+  assert.match(elsewhere.stdout, /added 3001 ledger row\(s\) from refs\/pstack\/ledger/);
+  assert.match(elsewhere.stdout, /pushed 1 ledger row\(s\)/);
+  assert.equal(readFileSync(join(other, ledger), 'utf8'), `row from another clone\n${old}row 1\n`);
+
+  writeFileSync(join(main, ledger), `${old}row 1\nhalf a row\n`);
+  const again = setup(main);
+  assert.match(again.stdout, /added 1 ledger row\(s\)/);
+  assert.match(again.stdout, /pushed 1 ledger row\(s\)/);
+  assert.equal(readFileSync(join(main, ledger), 'utf8'), `${old}row 1\nhalf a row\nrow from another clone\n`);
+  assert.equal(onRef(), `${old}row 1\nrow from another clone\nhalf a row\n`);
+  assert.equal(setup(main).stdout, '', 'a ledger in step with the ref changes nothing');
+  assert.equal(next(), base, 'no session start commits to next');
   assert.equal(run('git', ['-C', main, 'status', '--porcelain']).stdout, '');
-  assert.equal(run(process.execPath, [join(main, '.agents/pstack/setup.mjs')], main).stdout, '');
+});
+
+test("setup moves the rows at the ledger's former path into the ledger, so next can trade that file for a link", () => {
+  const former = 'docs/plans/suggested-tasks.decisions.tsv';
+  const { clone, next, onRef, run, seed, setup } = ledgerRemote({ [former]: 'row 0\n' });
+  const main = clone('main');
+  writeFileSync(join(main, former), 'row 0\nrow 1\n');
+  run('git', ['-C', seed, 'rm', '-q', '--cached', former]);
+  rmSync(join(seed, former));
+  symlinkSync('artifacts/suggested-tasks.decisions.tsv', join(seed, former));
+  run('git', ['-C', seed, 'add', former]);
+  commit(seed, 'move the ledger');
+  run('git', ['-C', seed, 'push', '-q', 'origin', 'next']);
+  const moved = next();
+
+  const first = setup(main);
+  assert.equal(first.status, 0, first.stderr);
+  assert.match(first.stdout, /moved 2 ledger row\(s\) from docs\/plans\/suggested-tasks\.decisions\.tsv/);
+  assert.match(first.stdout, /pushed 2 ledger row\(s\)/);
+  assert.match(first.stdout, /fast-forwarded next by 1 commit/, "the former path's unlanded row no longer blocks the fast-forward");
+  assert.ok(lstatSync(join(main, former)).isSymbolicLink());
+  assert.equal(readFileSync(join(main, former), 'utf8'), 'row 0\nrow 1\n', 'a helper that predates the move reads the ledger through the link');
+  appendFileSync(join(main, former), 'row 2\n');
+  assert.match(setup(main).stdout, /pushed 1 ledger row\(s\)/, 'and its appends reach the ref');
+  assert.equal(onRef(), 'row 0\nrow 1\nrow 2\n');
+  assert.equal(next(), moved, 'no session start commits to next');
+  assert.equal(run('git', ['-C', main, 'status', '--porcelain']).stdout, '');
 });
