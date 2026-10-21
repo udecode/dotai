@@ -5593,6 +5593,8 @@ test("an effort change on a carded task lists its card in the holder's withdrawa
 test('setup lands the ledger rows sessions appended and fast-forwards past them', () => {
   const { dir, run } = sandbox();
   const ledger = 'docs/plans/suggested-tasks.decisions.tsv';
+  // Past spawnSync's 1 MB default buffer, as a real ledger grows.
+  const old = Array.from({ length: 3000 }, (_, i) => `row ${i} ${'x'.repeat(400)}\n`).join('');
   const origin = join(dir, 'origin.git');
   const seed = join(dir, 'seed');
   run('git', ['init', '-q', '--bare', '-b', 'next', origin]);
@@ -5601,25 +5603,25 @@ test('setup lands the ledger rows sessions appended and fast-forwards past them'
   cpSync(HELPERS, join(seed, '.agents/pstack'), { recursive: true });
   writeFileSync(join(seed, '.agents/pstack.json'), `${JSON.stringify({ branch: 'next', plans: 'docs/plans' })}\n`);
   mkdirSync(join(seed, 'docs/plans'), { recursive: true });
-  writeFileSync(join(seed, ledger), 'row 0\n');
+  writeFileSync(join(seed, ledger), old);
   run('git', ['-C', seed, 'add', '.']);
   commit(seed, 'seed');
   run('git', ['-C', seed, 'push', '-q', 'origin', 'next']);
   const main = join(dir, 'main');
   run('git', ['clone', '-q', '-b', 'next', origin, main]);
 
-  writeFileSync(join(seed, ledger), 'row 0\nrow from another clone\n');
+  writeFileSync(join(seed, ledger), `${old}row from another clone\n`);
   writeFileSync(join(seed, 'feature.txt'), 'landed elsewhere\n');
   run('git', ['-C', seed, 'add', '.']);
   commit(seed, 'another landing');
   run('git', ['-C', seed, 'push', '-q', 'origin', 'next']);
-  writeFileSync(join(main, ledger), 'row 0\nrow 1\nrow 2\nhalf a ro');
+  writeFileSync(join(main, ledger), `${old}row 1\nrow 2\nhalf a ro`);
 
   const setup = run(process.execPath, [join(main, '.agents/pstack/setup.mjs')], main);
   assert.equal(setup.status, 0, setup.stderr);
   assert.match(setup.stdout, /landed 2 ledger row\(s\) on origin\/next/);
-  const landed = run('git', ['-C', main, 'show', `origin/next:${ledger}`]).stdout;
-  assert.equal(landed, 'row 0\nrow from another clone\nrow 1\nrow 2\n');
+  const landed = execFileSync('git', ['-C', main, 'show', `origin/next:${ledger}`], { encoding: 'utf8', maxBuffer: 1 << 30 });
+  assert.equal(landed, `${old}row from another clone\nrow 1\nrow 2\n`);
   assert.equal(run('git', ['--git-dir', origin, 'rev-parse', 'next']).stdout, run('git', ['-C', main, 'rev-parse', 'HEAD']).stdout);
   assert.equal(readFileSync(join(main, 'feature.txt'), 'utf8'), 'landed elsewhere\n');
   assert.equal(readFileSync(join(main, ledger), 'utf8'), `${landed}half a ro`);
