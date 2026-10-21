@@ -216,8 +216,7 @@
 <!-- # overrides poteto-mode/playbooks/perf-issue.md "If it crosses a function boundary, `architect` first." -->
 <!-- # overrides no-comments/SKILL.md "Spawn comment-sicko. Act on accepted findings." -->
 <!-- # overrides show-me-your-work/SKILL.md "spawn a subagent on a different model family" -->
-- **Fast.** The owner's word "fast" runs the rest of that request on the main lane, in the lead's own thread, for work the owner is confident in and wants to iterate on. It drops only what spawns a subagent or a seat; every other rule still applies, plans, plan pages, decision logs, proofs, tests and delivery included. So no panel, `architect`, arena, decision-trail review or reflect runs, a row of the reviews list that calls for a panel does not hold back the push, and `no-comments`, which spawns comment-sicko, closes its todo as `skip: fast`. Each commit body ends with the line "Shipped fast, no review." The owner's later "full" reviews the diff of every such commit since the last reviewed one; without it, those commits stay unreviewed. "fast" lasts until the request ends or the owner says "full".
-  A suggested task whose card title ends in "(fast)" runs this way once the owner starts its card or starts it with "start <id>", because either is the owner's word for it; the ledger keeps its landed work owed a review until a review task covers it, as the Suggested tasks rule's Review says.
+- **Fast.** The owner's word "fast", or a suggested task whose card title ends in "(fast)", runs the request on the main lane, with no subagent or seat. Before you run one that way, read `.agents/pstack/rules/fast.md` in full.
 <!-- end -->
 <!-- section long-runs -->
 <!-- # overrides poteto-mode/playbooks/pause-safely.md "Commit uncommitted edits as one clear `wip:` commit on the current branch so nothing is lost." -->
@@ -256,6 +255,8 @@
 <!-- end -->
 <!-- # overrides poteto-mode/SKILL.md "In your reply, name each principle that shaped a decision" -->
 - **Principles in replies.** pstack's principle skills still apply. Read the leaf skill for any principle a decision rests on, as poteto-mode's Principles list says. Only the rule to name each principle in the reply is dropped; name one only when it explains a choice the reader would otherwise question.
+<!-- # adds -->
+- **Links in replies.** A reply or report names each file, commit, PR, issue and page in its text without a link, and ends with one list of those links, local ones such as files and sessions first, then external ones (owner's word, 2026-10-21). A page is `📄 <url>`, a commit `📦 [<subject>](https://diffshub.com/<owner>/<repo>/commit/<sha>)`, or `📦 [<repo>: <subject>](...)` outside the current repository, and a PR or issue `[owner/repo#123](<url>)`, so the owner tells them apart at a glance (owner's word, 2026-10-20). A reply with no links has no list.
 <!-- # adds -->
 - **Blocked.** For an unclear tool or access failure, allow two informed attempts or ten minutes, whichever comes first. Then finish a bounded repair, ask once for the exact human action under the page's Needs you, or move to other ready work.
 <!-- # overrides reflect/SKILL.md "prints the first path whose opening typed prompt carries the fragment" -->
