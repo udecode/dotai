@@ -150,7 +150,7 @@
       "mode": 493
     },
     "skills/chips/SKILL.md": {
-      "sha256": "61da311bc78fff40e9eac39bdba5731af24130fe4e6786c990942e0e51ed1fbb",
+      "sha256": "1975c154f234fa72d5f3f45b79db8e4cfa562e1fadba8ded897f791dcf98ec8d",
       "mode": 420
     },
     "skills/cleanup/SKILL.md": {
@@ -366,7 +366,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/chips.md": {
-      "sha256": "74179e3edb02631a3f89b22598389bcf39666c79136fa5739cf29a483e49acc2",
+      "sha256": "35ef821ee53792713931f9990e8b2f56618b1f83c7ebab9bea0e7e348dfaf4c7",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/close.md": {
