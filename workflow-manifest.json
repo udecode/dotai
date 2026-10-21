@@ -374,7 +374,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/land.md": {
-      "sha256": "1498d9948a63e2a799fbfb413cdacb70092b8304e6d1c0e864b9bd18dea4cbcf",
+      "sha256": "e66f82689bf429072781c3b4abd4fbb5503caef83b5ceb7d7424f2044626607a",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/long-runs.md": {
@@ -422,7 +422,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/tasks.mjs": {
-      "sha256": "b382cc5897feb482371a08b47ce938c2d6bac377ec3e12e28ab195427a0049a4",
+      "sha256": "f97cc2075beb11791bb4b63d83b6fd81bf0096b8c30f08334a82e47a49ed210f",
       "mode": 420
     },
     "skills/sync-pstack/references/adapt.md": {
