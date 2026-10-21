@@ -85,7 +85,10 @@ fi
 node "$ROOT/scripts/build-workflow.mjs" --check >/dev/null
 tests=("$SKILLS_DIR"/*/scripts/*.test.mjs)
 if [ "${#tests[@]}" -gt 0 ]; then
-  node --test "${tests[@]}" >/dev/null
+  if ! out="$(node --test "${tests[@]}" 2>&1)"; then
+    printf '%s\n' "$out" | sed -n '/^✖ failing tests/,$p'
+    exit 1
+  fi
 fi
 
 echo "skills ok"
