@@ -129,7 +129,7 @@
 <!-- end -->
 <!-- end -->
 <!-- # adds -->
-- **Calls.** Each call the lead makes re-reads the session's whole context, so in a long session the number of calls, not their size, sets the cost. Read several files or line ranges in one command, or as parallel calls in one message, instead of one small read per call.
+- **Calls.** Each call the lead makes re-reads the session's whole context, so in a long session the number of calls, not their size, sets the cost. Read several files or line ranges in one command, or as parallel calls in one message, instead of one small read per call. A session that another session started, which Claude Code desktop's `get_session` with `self` shows as a `parentSessionId` without `detached: true`, detaches itself from that session as its first step with `detach_session` with `self`, because while linked each of its turn ends wakes the other session, and each wake re-reads that session's whole context. It messages that session only when the brief that started it says that session's run waits on its result, and then once, when it lands or stops; a follow-up, such as the next item of a queue, sends nothing back (owner's word, 2026-10-21). A lead that starts a session its run waits on says so in its brief.
 <!-- if delivery!=trunk -->
   Bookkeeping never takes a call of its own: a retitle, a todo update, a decision-log append, a page publish or a plan-page render goes out in the same message as the next working call, and several decision rows go in one `decisions-check.mjs append <log> --from <rows.tsv>` call (owner's word, 2026-10-17).
 <!-- end -->
