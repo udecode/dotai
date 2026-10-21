@@ -65,7 +65,7 @@ A run that offered a task runs this at its last hand-back, once it has delivered
 3. Leave every other task and every pass of the Do list to `/chips`.
 4. Add one line to the reply beside the page link: how many tasks the run offered, how many it carded and what each of the rest waits on, with `start <id>` beside each Ready task the limit left uncarded. `/chips` cards a waiting task once its wait clears, or `/chips all` once this session is gone.
 
-A runtime with no suggest tool lists each Ready task in the reply instead, as chips.md's Limits says for a run with no plan, because the plan has already closed.
+A runtime with no suggest tool still runs step 1 and appends its rows in one batch, then lists each Ready task in the reply instead of carding it, as chips.md's Limits says for a plan that has closed.
 
 ## Start
 
