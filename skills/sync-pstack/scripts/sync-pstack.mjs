@@ -40,6 +40,7 @@ const HELPER_FILES = {
   'codex-browser.mjs': [],
   'codex-build.md': ['delivery!=trunk'],
   'codex-isolation.mjs': [],
+  'checkout.mjs': [],
   'cross.mjs': [],
   'cua-steps.mjs': [],
   'freeze.mjs': ['delivery!=trunk'],

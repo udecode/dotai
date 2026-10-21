@@ -614,6 +614,27 @@ test('setup copies env files and installs dependencies in a new worktree, once',
   assert.equal(helper('setup.mjs', tree, ['--install', 'false']).stdout, '', 'a set-up worktree copies and installs nothing');
 });
 
+test('setup --hook started in the main checkout sets up the worktree the payload names', () => {
+  const { dir, clone } = trunk();
+  writeFileSync(join(clone, '.env'), 'A=1\n');
+  const tree = join(dir, 'tree');
+  git(clone, 'worktree', 'add', '--quiet', '--detach', tree);
+  mkdirSync(join(tree, 'sub'));
+  const other = join(dir, 'other');
+  mkdirSync(other);
+  git(other, 'init', '--quiet');
+  const hook = (cwd) => spawnSync(process.execPath, [join(HELPERS, 'setup.mjs'), '--hook', '--install', 'touch ran'], { cwd: clone, encoding: 'utf8', env: ENV, input: JSON.stringify({ cwd }) });
+
+  const elsewhere = hook(other);
+  assert.equal(elsewhere.status, 0, elsewhere.stderr);
+  assert.ok(!existsSync(join(tree, 'ran')) && !existsSync(join(other, 'ran')), 'a session cwd in another repository sets up nothing there');
+  const started = hook(join(tree, 'sub'));
+  assert.equal(started.status, 0, started.stderr);
+  assert.match(started.stdout, /copied \.env from /);
+  assert.ok(existsSync(join(tree, 'ran')), 'the install ran in the worktree');
+  assert.ok(!existsSync(join(clone, 'ran')), 'the main checkout installs nothing');
+});
+
 test('setup installs once in a worktree that arrives with node_modules, because copied modules ran no install script', () => {
   const { dir, clone } = trunk();
   const tree = join(dir, 'tree');

@@ -221,7 +221,7 @@ test('switching delivery to trunk and back swaps the shared-checkout files for t
   const pstack = (name) => join(root, '.agents/pstack', name);
   const sharedCheckout = ['codex-build.md', 'freeze.mjs', 'mutate.mjs', 'reply.mjs', ...['close', 'codex', 'trails'].map((name) => `rules/${name}.md`)];
   const landing = ['guard.mjs', 'land.mjs', 'review.mjs', 'setup.mjs', 'rules/land.md'];
-  const everywhere = ['cross.mjs', 'decisions-check.mjs', 'lead.mjs', 'levels.mjs', 'plan-open.mjs', 'plan-page.mjs', 'proof.mjs', 'status.mjs', 'tasks.mjs', 'rules/chips.md', 'rules/panel.md', 'rules/pages.md', 'rules/title.md', 'reread.mjs', 'rules/long-runs.md'];
+  const everywhere = ['cross.mjs', 'decisions-check.mjs', 'lead.mjs', 'levels.mjs', 'plan-open.mjs', 'plan-page.mjs', 'proof.mjs', 'status.mjs', 'tasks.mjs', 'rules/chips.md', 'rules/panel.md', 'rules/pages.md', 'rules/title.md', 'checkout.mjs', 'reread.mjs', 'rules/long-runs.md'];
   const deliver = (delivery) => {
     writeFileSync(join(root, '.agents/pstack.json'), `${JSON.stringify({ ...JSON.parse(read(root, '.agents/pstack.json')), delivery }, null, 2)}\n`);
     assert.equal(cli('apply', root).status, 0);
@@ -4846,9 +4846,35 @@ test('reread prints each changed sentence whole against its last snapshot', () =
   edit('Keep plans in the repository.', 'Keep plans in the repository. Never stash.');
   const after = hook('startup').stdout;
   assert.ok(after.includes('+ Never stash.'), after);
-  assert.ok(after.includes("run node .agents/pstack/reread.mjs --dir docs/plans/artifacts/reread/s-startup AGENTS.md missing.md 'it'\\''s spaced.md' before each gate"), after);
+  assert.ok(after.includes(`run node .agents/pstack/reread.mjs --dir ${realpathSync(dir)}/docs/plans/artifacts/reread/s-startup AGENTS.md`), after);
+  assert.ok(after.includes("AGENTS.md missing.md 'it'\\''s spaced.md' before each gate"), after);
   const bare = spawnSync(process.execPath, [join(HELPERS, 'reread.mjs'), '--hook'], { cwd: dir, encoding: 'utf8', input: JSON.stringify({ session_id: 's-bare', source: 'startup' }) });
   assert.doesNotMatch(bare.stdout, /--dir/u, 'a hook given no files prints no command that would only print usage');
+});
+
+test('reread --hook started in the main checkout reads the worktree the payload names and keeps its snapshots in the main checkout', () => {
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'sync-pstack-reread-tree-')));
+  const [main, tree, other] = ['main', 'tree', 'other'].map((name) => join(dir, name));
+  const git = (cwd, ...args) => assert.equal(spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { cwd }).status, 0, args.join(' '));
+  for (const repo of [main, other]) {
+    mkdirSync(repo);
+    git(repo, 'init', '--quiet');
+  }
+  writeFileSync(join(main, 'AGENTS.md'), 'Main rules.\n');
+  git(main, 'add', 'AGENTS.md');
+  git(main, 'commit', '--quiet', '-m', 'base');
+  git(main, 'worktree', 'add', '--quiet', '--detach', tree);
+  writeFileSync(join(tree, 'AGENTS.md'), 'Tree rules.\n');
+  mkdirSync(join(tree, 'sub'));
+  const hook = (session, cwd) => spawnSync(process.execPath, [join(HELPERS, 'reread.mjs'), '--hook', 'AGENTS.md'], { cwd: main, encoding: 'utf8', input: JSON.stringify({ cwd, session_id: session, source: 'startup' }) });
+  const snapshots = join(main, 'docs/plans/artifacts/reread/s1');
+
+  assert.ok(hook('s1', join(tree, 'sub')).stdout.includes(`--dir ${snapshots} AGENTS.md`), 'the printed directory is the main checkout\'s, by absolute path');
+  assert.equal(readFileSync(join(snapshots, encodeURIComponent(join(tree, 'AGENTS.md'))), 'utf8'), 'Tree rules.\n', 'the snapshot holds the worktree\'s file');
+  const later = spawnSync(process.execPath, [join(HELPERS, 'reread.mjs'), '--dir', snapshots, 'AGENTS.md'], { cwd: tree, encoding: 'utf8' });
+  assert.match(later.stdout, /AGENTS\.md: unchanged since /, 'the session\'s own reread from its worktree compares against the hook\'s snapshot');
+  hook('s2', other);
+  assert.ok(existsSync(join(main, 'docs/plans/artifacts/reread/s2', encodeURIComponent(join(main, 'AGENTS.md')))), 'a session cwd in another repository keeps the checkout the hook started in');
 });
 
 test('reread --hook names on a reload line each loaded skill the compaction restore cut short, and only after a compaction', () => {
