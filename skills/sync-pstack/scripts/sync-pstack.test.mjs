@@ -5228,11 +5228,12 @@ test("plan-page --pr shows the sections the playbook's page-pr line names, from 
   assert.match(stray.stderr, /lists Native behavior and proof on its page-pr line; the PR body shows only page-lead sections/);
 });
 
-test("plan-page --comment covers only the commits after the author's, without the clips the description already shows", () => {
+test("plan-page --comment covers only the commits after the author's, without the clips the description already shows or what only the owner reads", () => {
   const { dir, run } = sandbox();
   const root = project(dir, 'app', {
     files: {
-      'docs/plans/pr.md': prPlan('', '\n## On top of the PR\n\n- Kept\n  - The title fix\n- Dropped\n  - The private scroll zone\n'),
+      'docs/plans/pr.md': prPlan('', '\n## On top of the PR\n\n- Kept\n  - The title fix\n- Dropped\n  - The private scroll zone\n\n## Verification\n\n- The browser test passed.\n\n## Open work\n\n- The merge. owner: o. stop: s.\n'),
+      'docs/plans/pr.decisions.tsv': LOG_HEAD + logRow('lead', 'claude-opus-5-5 @xhigh'),
       'docs/plans/shots/after.png': 'png',
       'description.md': 'The author demo: ![before](https://github.com/user-attachments/assets/v1)\n',
     },
@@ -5248,11 +5249,23 @@ test("plan-page --comment covers only the commits after the author's, without th
   assert.equal(result.status, 0, result.stderr);
   assert.ok(result.stdout.split('\n')[0].endsWith('/docs/plans/artifacts/pr.comment.md'), result.stdout);
   const body = read(root, 'docs/plans/artifacts/pr.comment.md');
-  assert.ok(body.includes(`\n[My commits after yours](https://diffshub.com/o/r/compare/${author}...${head})\n`), 'the compare link spans exactly the commits after the author');
+  assert.ok(body.startsWith(`<!-- plan-page:start -->\n\n[My commits after yours](https://diffshub.com/o/r/compare/${author}...${head})\n\n## On top of the PR\n`), 'the compare link spans exactly the commits after the author, with no models line above it and no brief below it');
   assert.ok(body.includes('\n## On top of the PR\n\n- Kept\n  - The title fix\n- Dropped\n  - The private scroll zone\n'));
-  assert.ok(body.indexOf('## How it works') < body.indexOf('## On top of the PR') && body.indexOf('## On top of the PR') < body.indexOf('## Demo'));
+  assert.ok(body.indexOf('## On top of the PR') < body.indexOf('## Demo') && body.indexOf('## Demo') < body.indexOf('## Public API') && body.indexOf('## Public API') < body.indexOf('## Verification'));
+  assert.doesNotMatch(body, /claude-opus-5-5|It opens with a brief|Old plans need a brief|CAUTION|How it works|The page is the plan|## Decisions|## Out of scope|The merge|## Plans/, 'what the author wrote or only the owner reads stays out');
   assert.match(body, /\n## Demo\n\n1\. Open the page\.\n/);
   assert.doesNotMatch(body, /Scroll down|assets\/v1/, 'a step whose clips the description shows stays out');
+  const plan = read(root, 'docs/plans/pr.md');
+  for (const [label, text] of [
+    ['missing', plan.replace(/\n## On top of the PR\n[\s\S]*?(?=\n## Verification)/, '').replace(/## Demo\n[\s\S]*?(?=## Defaults)/, '')],
+    ['empty', plan.replace(/(## On top of the PR\n)[\s\S]*?(?=\n## Verification)/, '$1')],
+  ]) {
+    writeFileSync(join(root, 'docs/plans/pr.md'), text);
+    assert.match(comment('--comment', author).stderr, /needs a non-empty ## On top of the PR before --comment/, `a comment refuses a ${label} On top of the PR`);
+  }
+  writeFileSync(join(root, 'docs/plans/pr.md'), plan.replace(/## Brief\n[\s\S]*?(?=## Teach)/, ''));
+  assert.equal(comment('--comment', author).status, 0, 'a comment shows no brief, so it needs none');
+  writeFileSync(join(root, 'docs/plans/pr.md'), plan);
   assert.match(comment('--comment', 'deadbeef').stderr, /--comment names deadbeef, which is not a commit in this checkout/);
   git('checkout', '-q', '--orphan', 'other');
   git('commit', '-q', '--allow-empty', '-m', 'unrelated');
@@ -5352,7 +5365,7 @@ test('plan-page keeps the plan anchors on the local page, with no deck, mount or
       'docs/plans/topics/stage.md': STAGE_TOPIC,
       'docs/plans/2026-01-01-asking.md': asking,
       'docs/plans/2026-02-01-live.md': stagePlan('Live', 'building', `\n## Open questions\n\n${MEMO}`),
-      'docs/plans/pr.md': prPlan(''),
+      'docs/plans/pr.md': prPlan('', '\n## On top of the PR\n\n- Kept\n  - The title fix\n'),
       'docs/plans/shots/after.png': 'png',
     },
   });
