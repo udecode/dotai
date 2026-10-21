@@ -70,6 +70,7 @@ export const RULE_FILES = {
   'fast.md': ['fast'],
   'codex.md': ['delivery!=trunk'],
   'land.md': ['delivery=trunk'],
+  'linked.md': [],
   'long-runs.md': ['long-runs'],
   'pages.md': ['plans'],
   'panel.md': [],
