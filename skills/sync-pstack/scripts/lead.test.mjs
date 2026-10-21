@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { invocationRun } from '../assets/pstack/lead.mjs';
+import { claudeInvocationRun, invocationRun } from '../assets/pstack/lead.mjs';
 
 const identity = { runtime: 'codex', thread: 'child', session: 'parent', invocation: 'exec-12345678-1234-1234-1234-123456789abc' };
 const meta = { type: 'session_meta', payload: { id: 'child', session_id: 'parent', parent_thread_id: 'parent' } };
@@ -44,4 +44,18 @@ test('recorded invocation must still be running in the same thread and turn', ()
   for (const payload of [{ ...event.payload, thread_id: 'parent' }, { ...event.payload, turn_id: 'old' }, { ...event.payload, item: { ...event.payload.item, status: 'completed' } }]) {
     assert.equal(invocationRun(identity, [transcript([meta, context, { ...event, payload }])]), null);
   }
+});
+
+test('a Claude Code session is the one whose Bash call is still open', () => {
+  const bash = (id, effort = 'high') => ({ type: 'assistant', effort, timestamp: 't', message: { model: 'claude-opus-5-5', content: [{ type: 'tool_use', id, name: 'Bash', input: { command: 'node "$HELPER" append "$LOG"' } }] } });
+  const result = (id) => ({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: id, content: 'done' }] } });
+  const claude = (records, path) => ({ transcript: path, text: records.map(JSON.stringify).join('\n') });
+  const lead = claude([bash('a', 'medium'), result('a'), bash('b')], 'session.jsonl');
+  assert.deepEqual(claudeInvocationRun([lead]), { runtime: 'claude', model: 'claude-opus-5-5', effort: 'high', at: 't', transcript: 'session.jsonl' });
+  const waiting = claude([bash('a'), result('a'), { type: 'assistant', effort: 'high', message: { model: 'claude-opus-5-5', content: [{ type: 'tool_use', id: 'c', name: 'Agent', input: {} }] } }], 'session.jsonl');
+  const agent = claude([bash('d', 'low')], 'agent-x.jsonl');
+  assert.equal(claudeInvocationRun([waiting, agent])?.transcript, 'agent-x.jsonl', "a subagent's call is the subagent's, not the lead's");
+  assert.equal(claudeInvocationRun([lead, agent]), null, 'two open calls stay unknown');
+  assert.equal(claudeInvocationRun([claude([bash('a'), result('a')], 'session.jsonl')]), null, 'a finished call is not the running one');
+  assert.equal(claudeInvocationRun([claude([{ ...bash('a'), effort: undefined }], 'session.jsonl')]), null, 'a record without effort is unknown');
 });
