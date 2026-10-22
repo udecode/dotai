@@ -39,6 +39,8 @@ function trunk({ lint = false } = {}) {
   const remote = join(dir, 'remote.git');
   const clone = join(dir, 'clone');
   git(dir, 'init', '--quiet', '--bare', '--initial-branch=main', remote);
+  // A push starts a detached `git maintenance` that repacks the objects a later local clone hardlinks.
+  git(remote, 'config', 'receive.autogc', 'false');
   git(dir, 'clone', '--quiet', remote, clone);
   mkdirSync(join(clone, '.agents/pstack'), { recursive: true });
   cpSync(join(HELPERS, 'guard.mjs'), join(clone, '.agents/pstack/guard.mjs'));
@@ -213,6 +215,7 @@ test('land in a fork clone rebases onto upstream, pushes the topic to the fork a
   const { dir, remote, clone, message, elsewhere } = trunk();
   const fork = join(dir, 'contributor', 'remote.git');
   git(dir, 'clone', '--quiet', '--bare', remote, fork);
+  git(fork, 'config', 'receive.autogc', 'false');
   git(clone, 'remote', 'rename', 'origin', 'upstream');
   git(clone, 'remote', 'add', 'origin', fork);
   git(elsewhere('d.txt', 'theirs\n', 'docs(d): land elsewhere'), 'push', '--quiet', 'origin', 'HEAD:next');

@@ -4797,6 +4797,7 @@ test('head points origin/HEAD at the working branch only when a protected branch
     return run.stdout.trim();
   };
   git(dir, 'init', '--quiet', '--bare', '--initial-branch=main', remote);
+  git(remote, 'config', 'receive.autogc', 'false');
   git(dir, 'clone', '--quiet', remote, clone);
   git(clone, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '--quiet', '--allow-empty', '-m', 'base');
   git(clone, 'push', '--quiet', 'origin', 'HEAD:main', 'HEAD:next');
@@ -5331,6 +5332,7 @@ function pushed(dir, name, files) {
   git('add', '-A');
   git('commit', '-qm', 'base');
   spawnSync('git', ['init', '-q', '--bare', join(dir, `${name}.git`)]);
+  spawnSync('git', ['--git-dir', join(dir, `${name}.git`), 'config', 'receive.autogc', 'false']);
   git('remote', 'add', 'origin', join(dir, `${name}.git`));
   git('push', '-q', 'origin', 'next');
   return { root, git };
@@ -5626,6 +5628,8 @@ function ledgerRemote(files = {}) {
   const origin = join(dir, 'origin.git');
   const seed = join(dir, 'seed');
   run('git', ['init', '-q', '--bare', '-b', 'next', origin]);
+  // A push starts a detached `git maintenance` that repacks the objects a later local clone hardlinks.
+  run('git', ['--git-dir', origin, 'config', 'receive.autogc', 'false']);
   run('git', ['clone', '-q', origin, seed]);
   run('git', ['-C', seed, 'checkout', '-q', '-b', 'next']);
   cpSync(HELPERS, join(seed, '.agents/pstack'), { recursive: true });

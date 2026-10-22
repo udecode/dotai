@@ -490,11 +490,11 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "17929ac9c2adb09db820c8da07de3a6f39677412f2307d434b09cd4930550f8c",
+      "sha256": "880e2b0b6372a6ab5eddc75fee20593a4f536aa618d110642455c5f7c448b447",
       "mode": 420
     },
     "skills/sync-pstack/scripts/trunk.test.mjs": {
-      "sha256": "de9574bf2a66267627448cf218cf96ce4c216c4f2fcc95106d4ebbbcba00c4dc",
+      "sha256": "04478f4505c4e7a4bcb68ee6bbb7e294335333db9c04e638f2752242951f5750",
       "mode": 420
     },
     "skills/test-audit/LICENSE": {
