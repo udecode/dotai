@@ -646,8 +646,15 @@ test('setup installs once in a worktree that arrives with node_modules, because 
   assert.equal(helper('setup.mjs', tree, ['--install', 'false']).stdout, '', 'the next session start installs nothing');
   const failing = join(dir, 'failing');
   git(clone, 'worktree', 'add', '--quiet', '--detach', failing);
-  assert.match(helper('setup.mjs', failing, ['--install', 'false']).stdout, /false failed \(exit 1\)/);
+  const failed = helper('setup.mjs', failing, ['--install', 'false']);
+  assert.match(failed.stdout, /false failed \(exit 1\)/);
+  assert.equal(failed.status, 1, 'a failed install run by hand exits 1, so a chained command stops');
   assert.match(helper('setup.mjs', failing, ['--install', 'touch ran']).stdout, /ran touch ran/, 'a failed install runs again at the next start');
+  const hooked = join(dir, 'hooked');
+  git(clone, 'worktree', 'add', '--quiet', '--detach', hooked);
+  const started = spawnSync(process.execPath, [join(HELPERS, 'setup.mjs'), '--hook', '--install', 'false'], { cwd: clone, encoding: 'utf8', env: ENV, input: JSON.stringify({ cwd: hooked }) });
+  assert.match(started.stdout, /false failed \(exit 1\)/);
+  assert.equal(started.status, 0, 'a hook exits 0 after a failed install, so the session sees the failure line');
 });
 
 test('setup fast-forwards the main checkout only when no local edit touches an incoming path', () => {

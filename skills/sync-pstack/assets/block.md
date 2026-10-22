@@ -105,7 +105,7 @@
   Before the first edit to a file that already holds uncommitted or staged work this run did not write, copy it to the run directory that Plans and trails names, and measure, commit or revert this run's change against that copy. Run a tree-sensitive tool, such as a review that refuses a changing tree or a check at `HEAD`, from a detached worktree (`git worktree add --detach <path> <sha>`, then `git worktree remove --force <path>`). Before anything runs in a worktree the run creates for a proof or a seat, link its installed dependencies, or install them offline where its bundler refuses links, and copy its untracked env files from this checkout; a round whose seat reports it could not load the app logs its `seats` row `partial`. Never overwrite a tracked file in this checkout to test or measure `HEAD`, even for a moment; use the worktree.
 <!-- end -->
 <!-- if delivery=trunk -->
-  Before anything runs in a worktree the run creates for a proof or a seat, run the project's `SessionStart` setup command there, `node .agents/pstack/setup.mjs` with the hook's `--install` and `--env` arguments, which copies the main checkout's env files and installs dependencies.
+  Before anything runs in a worktree the run creates with `git worktree add` for a proof or a seat, run `node .agents/pstack/setup.mjs` from inside it, with each `--install` and `--env` value the project's `SessionStart` hook passes that script, quoted as the hook quotes it, and without `--hook` or the hook's `cd`. It copies the main checkout's env files and installs dependencies. When it exits 1, fix the install before anything else runs there. A project helper that makes and sets up its own worktree replaces this step.
 <!-- end -->
 <!-- if delivery!=trunk -->
 <!-- # adds -->
