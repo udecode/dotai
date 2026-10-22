@@ -2749,7 +2749,7 @@ test('chips brief forces the Codex handoff for a card carded with codex: always 
   assert.equal(helper(LEDGER).status, 0);
 });
 
-const linkedWorktree = (delivery) => {
+const linkedWorktree = (delivery, card) => {
   const context = chipLedger();
   const { dir, root, run } = context;
   const LEDGER = delivery === 'trunk' ? 'docs/plans/artifacts/suggested-tasks.decisions.tsv' : context.LEDGER;
@@ -2759,7 +2759,7 @@ const linkedWorktree = (delivery) => {
   writeFileSync(join(root, LEDGER), 'ts\tphase\tdecision\twhy\tevidence\tresult\n');
   spawnSync('git', ['-C', root, 'add', '-A']);
   commit(root, 'base');
-  const worktree = join(dir, 'wt');
+  const worktree = card ? join(realpathSync(root), '.claude', 'worktrees', card) : join(dir, 'wt');
   spawnSync('git', ['-C', root, 'worktree', 'add', '-q', '--detach', worktree]);
   const helper = (...args) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), ...args], worktree);
   const offerHere = (decision, evidence) => helper('append', LEDGER, 'chip', decision, 'why', `${evidence}; priority: P1; repro: steps`, 'offered');
@@ -4073,6 +4073,40 @@ test('chips cleanup lists the idle card sessions of landed tasks to archive and 
   assert.ok(out.includes(`task_a1 Fix part 0: 📦 [fix(app): keep the \\[caret\\] in place](https://diffshub.com/acme/app/commit/${sha})`), 'the report links the named commit by its subject');
   assert.match(out, /task_b1 Fix part 1: no commit named/);
   assert.doesNotMatch(out, /task_[cde]1/, 'a working, checkout or pinned session is left alone');
+});
+
+test('chips cleanup keeps the worktree of an archived card session that a live session or the session running cleanup reuses', () => {
+  const { LEDGER, dir, helper, offerHere, root, run, worktree } = linkedWorktree('trunk', 'here');
+  const card = (name) => {
+    const path = join(realpathSync(root), '.claude', 'worktrees', name);
+    mkdirSync(path, { recursive: true });
+    return path;
+  };
+  const sessions = [
+    { sessionId: 's1', title: 'archived card', cwd: card('reused'), isArchived: true, isRunning: false },
+    { sessionId: 's2', title: 'archived card', cwd: worktree, isArchived: true, isRunning: false },
+    { sessionId: 's3', title: 'archived card', cwd: card('left'), isArchived: true, isRunning: false },
+    { sessionId: 's4', title: 'new session', cwd: join(card('reused'), 'packages'), isArchived: false, isRunning: true },
+  ];
+  for (const [n, session] of sessions.slice(0, 3).entries()) {
+    const task = `task_${'abc'[n]}1 Fix part ${n}`;
+    assert.equal(offerHere(task, `writes: src/${n}.ts; topic: part-${n}`).status, 0);
+    assert.equal(helper('append', LEDGER, 'chip', task, 'why', `session: ${session.sessionId}`, 'started').status, 0);
+    assert.equal(helper('append', LEDGER, 'chip', task, 'why', 'evidence', 'landed').status, 0);
+  }
+  const list = join(root, 'docs/plans/artifacts/sessions.json');
+  writeFileSync(list, JSON.stringify(sessions));
+  const removesOnlyLeft = new RegExp(`Remove \\(1\\)[^\\n]*\\n {2}node \\.agents/skills/cleanup/scripts/scan\\.mjs --repo \\. --remove ${card('left').replace(/[.*+?^${}()|[\]\\/]/gu, '\\$&')}\\n`);
+  const out = helper('chips', 'cleanup', '--sessions', list, '--session', 'lead').stdout;
+  assert.match(out, removesOnlyLeft, 'only the folder no session works in is removed');
+  assert.doesNotMatch(out, /task_[ab]1/, 'a folder a live session or the cleanup session works in is not cleaned up');
+  const runtime = join(dir, 'bin', 'claude');
+  mkdirSync(dirname(runtime), { recursive: true });
+  symlinkSync(process.execPath, runtime);
+  const launcher = join(dir, 'launch.mjs');
+  writeFileSync(launcher, "import { spawnSync } from 'node:child_process';\nconst [cwd, ...args] = process.argv.slice(2);\nprocess.exit(spawnSync(process.execPath, args, { cwd, stdio: 'inherit' }).status);\n");
+  const fromCheckout = run(runtime, [launcher, root, join(HELPERS, 'decisions-check.mjs'), 'chips', 'cleanup', '--sessions', list, '--session', 'lead'], worktree).stdout;
+  assert.match(fromCheckout, removesOnlyLeft, "run from the main checkout, cleanup still keeps the folder its runtime process works in");
 });
 
 test('a task that waits on a landed patch starts once a commit after the landing holds each path that patch touches', () => {
