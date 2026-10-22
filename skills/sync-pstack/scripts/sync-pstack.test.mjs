@@ -5708,3 +5708,12 @@ test("setup moves the rows at the ledger's former path into the ledger, so next 
   assert.equal(next(), moved, 'no session start commits to next');
   assert.equal(run('git', ['-C', main, 'status', '--porcelain']).stdout, '');
 });
+
+test('setup refuses a flag where --install or --env needs its value, so a chained command stops', () => {
+  const { dir, run } = sandbox();
+  for (const args of [['--install'], ['--install', '--env'], ['--install', '--hook'], ['--env', '--hook']]) {
+    const result = run(process.execPath, [join(HELPERS, 'setup.mjs'), ...args], dir);
+    assert.equal(result.status, 2, `setup.mjs ${args.join(' ')} exits 2`);
+    assert.match(result.stderr, /^Usage: node \.agents\/pstack\/setup\.mjs/);
+  }
+});
