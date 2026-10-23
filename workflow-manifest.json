@@ -150,7 +150,7 @@
       "mode": 493
     },
     "skills/chips/SKILL.md": {
-      "sha256": "1808da9636da4466bbef84d103e5a7140074009ef1f48f893185acb0b2555653",
+      "sha256": "5dec431ad300ae9d269dffbe645780e837c4932c31a4a0f5150049d194b39e56",
       "mode": 420
     },
     "skills/cleanup/SKILL.md": {
@@ -274,7 +274,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "0b09f88b42f8711b1d7d68007463a11de5ff9d40a358047d6abf8d798e346700",
+      "sha256": "ede3aa5f54a8e5031a7208cebf78e02dd3fd2f0f4cee3d802b89704facf0e85b",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/checkout.mjs": {
@@ -366,7 +366,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/chips.md": {
-      "sha256": "786174da8b73aa0d22c983360aa1f3c5d3a432422053dfda690e5b2e73ffa281",
+      "sha256": "338f0321adb6d56868ba0423a7576983249ce989922c2ce9ef83ea17b31644fe",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/close.md": {
@@ -410,7 +410,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/time.md": {
-      "sha256": "7b9a12a1d0036bb7c01593544f54bc1dd1826f9717c531532680604c3a86f533",
+      "sha256": "91f7f1c8c2e8b27641c2eb868e890431e7e33c80cb638b192dc45f77b50b2b79",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/title.md": {
@@ -434,7 +434,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/tasks.mjs": {
-      "sha256": "0c18c14b8451707e7877fe227d261d6a17fa7a964114c71f88814d1e35b4e058",
+      "sha256": "5074192b6eb4b9fb95197a6eeec437d26040d7e5731d23c5def6d7e4364fd354",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/title.mjs": {
@@ -490,7 +490,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "5d944dbc73bd52225cf046e25471b072fd21a3eba5b5dcc2e5521a48075a80c0",
+      "sha256": "a434ae3801140acdf0abb83f4d93bbb153158b5cfdd07866bfaee12fcb000ebd",
       "mode": 420
     },
     "skills/sync-pstack/scripts/trunk.test.mjs": {

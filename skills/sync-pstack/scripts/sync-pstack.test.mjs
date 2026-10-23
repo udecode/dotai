@@ -2720,7 +2720,7 @@ test('decisions-check takes a chip offer only with a plain title, a topic and th
 test('decisions-check takes a new chip finding only when this checkout holds the evidence it cites', () => {
   const { LEDGER, helper, root } = chipLedger();
   const log = 'docs/plans/artifacts/probe/base-a1.log';
-  const offerCiting = (finding) => helper('append', LEDGER, 'chip', 'task_a1 Fix the stale badge', finding, 'writes: README.md; topic: docs; priority: P3', 'offered');
+  const offerCiting = (finding) => helper('append', LEDGER, 'chip', 'task_a1 Fix the stale badge', finding, 'writes: README.md; topic: docs; priority: P3; via: verdict', 'offered');
   const missing = offerCiting(`the badge links a dead page (${log})`);
   assert.equal(missing.status, 1, 'an offer citing a log only another worktree holds');
   assert.match(missing.stderr, /the finding cites docs\/plans\/artifacts\/probe\/base-a1\.log, which this checkout lacks/);
@@ -3528,12 +3528,16 @@ test('decisions-check takes a P0 or P1 claim only with its evidence', () => {
   merge('break b');
   const head = spawnSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
   assert.equal(bare('task_b1 Fix b', `writes: b.md; topic: two; priority: P0; regressed: ${head}`).status, 0, 'a regression names its commit');
-  assert.equal(bare('task_c1 Fix c', 'writes: c.md; topic: three; priority: P2').status, 0, 'P2 needs no evidence');
+  const lower = bare('task_c1 Fix c', 'writes: c.md; topic: three; priority: P2');
+  assert.equal(lower.status, 1, 'a P2 offer outside a verdict, babysit or time route');
+  assert.match(lower.stderr, /a run offers a task only for a new P0 or P1 finding[^\n]*list this P2 finding in the plan's Open work/);
+  assert.match(bare('task_c1 Fix c', 'writes: c.md; topic: three; priority: P3; via: review').stderr, /via: is verdict, babysit or time/);
+  assert.equal(bare('task_c1 Fix c', 'writes: c.md; topic: three; priority: P2; via: verdict').status, 0, 'P2 needs no evidence, only its route');
   assert.match(chip('task_c1 Fix c', 'updated', 'priority: P0').stderr, /a P0 task is broken now/, 'a raise to P0 without evidence');
   assert.equal(chip('task_c1 Fix c', 'updated', 'priority: P0; repro: type then reload loses the text').status, 0, 'a raise to P0 with its repro');
   assert.equal(chip('task_c1 Fix c', 'folded', 'priority: P3').status, 0);
   assert.match(helper('chips', 'brief', 'task_c1').stdout, /Priority: P0\./, 'a folded finding never lowers the priority');
-  assert.equal(offer('task_d1 Fix d', 'd.md', 'topic: four; priority: P2; card: d1; session: s1').status, 0);
+  assert.equal(offer('task_d1 Fix d', 'd.md', 'topic: four; priority: P2; via: verdict; card: d1; session: s1').status, 0);
   assert.equal(chip('task_d1 Fix d', 'updated', 'priority: P3').status, 0, 'a carded task takes a new priority');
   assert.match(chip('task_d1 Fix d', 'updated', 'topic: five').stderr, /holds card d1, which cannot change/);
   assert.match(helper('chips', 'brief', 'task_b1').stdout, /Priority: P0\.[\s\S]*Regressed in: [0-9a-f]+/);
@@ -3542,11 +3546,11 @@ test('decisions-check takes a P0 or P1 claim only with its evidence', () => {
 test('chips lists P0 and P1 in full, counts the rest and cards at most 10, highest priority first', () => {
   const { batch, chips } = chipLedger();
   const rows = [];
-  for (let n = 0; n < 6; n += 1) rows.push([`task_p${n} Fix p${n}`, 'offered', `writes: p${n}.md; topic: p2-${n}; priority: P2`]);
-  for (let n = 0; n < 4; n += 1) rows.push([`task_t${n} Tune t${n}`, 'offered', `writes: t${n}.md; topic: p3-${n}; priority: P3`]);
+  for (let n = 0; n < 6; n += 1) rows.push([`task_p${n} Fix p${n}`, 'offered', `writes: p${n}.md; topic: p2-${n}; priority: P2; via: verdict`]);
+  for (let n = 0; n < 4; n += 1) rows.push([`task_t${n} Tune t${n}`, 'offered', `writes: t${n}.md; topic: p3-${n}; priority: P3; via: verdict`]);
   rows.push(['task_b1 Fix the lost save', 'offered', 'writes: b.md; topic: save; priority: P0; repro: type then reload loses the text']);
   rows.push(['task_c1 Fix the cursor', 'offered', 'writes: c.md; topic: cursor; priority: P1; repro: click past the end']);
-  rows.push(['task_h1 Fix held', 'offered', 'writes: h.md; topic: held; priority: P2; card: h1; session: s1']);
+  rows.push(['task_h1 Fix held', 'offered', 'writes: h.md; topic: held; priority: P2; via: verdict; card: h1; session: s1']);
   const written = batch(rows);
   assert.equal(written.status, 0, written.stderr);
   const board = chips().stdout;
@@ -3565,8 +3569,8 @@ test('chips lists P0 and P1 in full, counts the rest and cards at most 10, highe
 test('a brief says whether the board has its task Ready, Waiting or Started, whatever its priority', () => {
   const { batch, chip, chips } = chipLedger();
   const written = batch([
-    ['task_p1 Fix p', 'offered', 'writes: p.md; topic: p; priority: P2'],
-    ['task_w1 Fix w', 'offered', 'writes: w.md; topic: w; priority: P3; waits: task:task_p1'],
+    ['task_p1 Fix p', 'offered', 'writes: p.md; topic: p; priority: P2; via: verdict'],
+    ['task_w1 Fix w', 'offered', 'writes: w.md; topic: w; priority: P3; via: verdict; waits: task:task_p1'],
   ]);
   assert.equal(written.status, 0, written.stderr);
   assert.doesNotMatch(chips().stdout, /task_p1 {2}Fix p/, 'the board shows a P2 task only as a count');
@@ -3578,8 +3582,8 @@ test('a brief says whether the board has its task Ready, Waiting or Started, wha
   assert.equal(chip('task_p1 Fix p', 'started', 'session: s1').status, 0);
   assert.match(chips('brief', 'task_p1').stdout, /^State: Started\.$/mu);
   const outside = batch([
-    ['task_o1 Fix the other repo', 'offered', 'writes: /elsewhere/repo/x.md; topic: o1; priority: P2'],
-    ['task_o2 Tune the other repo', 'offered', 'writes: /elsewhere/repo/x.md; topic: o2; priority: P2'],
+    ['task_o1 Fix the other repo', 'offered', 'writes: /elsewhere/repo/x.md; topic: o1; priority: P2; via: verdict'],
+    ['task_o2 Tune the other repo', 'offered', 'writes: /elsewhere/repo/x.md; topic: o2; priority: P2; via: verdict'],
   ]);
   assert.equal(outside.status, 0, outside.stderr);
   assert.match(chips('brief', 'task_o1').stdout, /^State: Ready\.$/mu);
@@ -3590,11 +3594,11 @@ test('chips ranks a task with the most urgent open task that waits on it', () =>
   const { batch, chip, chips } = chipLedger();
   const written = batch([
     ['task_a1 Fix the lost save', 'offered', 'writes: a.md; topic: save; priority: P0; repro: type then reload loses the text; waits: task:task_b1'],
-    ['task_b1 Tune the index', 'offered', 'writes: b.md; topic: index; priority: P2; waits: task:task_c1'],
-    ['task_c1 Measure the index', 'offered', 'writes: c.md; topic: measure; priority: P3'],
+    ['task_b1 Tune the index', 'offered', 'writes: b.md; topic: index; priority: P2; via: verdict; waits: task:task_c1'],
+    ['task_c1 Measure the index', 'offered', 'writes: c.md; topic: measure; priority: P3; via: verdict'],
     ['task_d1 Fix the cursor', 'offered', 'writes: d.md; topic: cursor; priority: P1; repro: click past the end; waits: task:task_e1'],
-    ['task_e1 Probe the cursor', 'offered', 'writes: e.md; topic: probe; priority: P3'],
-    ['task_f1 Tidy the toolbar', 'offered', 'writes: f.md; topic: toolbar; priority: P2; waits: task:task_g1'],
+    ['task_e1 Probe the cursor', 'offered', 'writes: e.md; topic: probe; priority: P3; via: verdict'],
+    ['task_f1 Tidy the toolbar', 'offered', 'writes: f.md; topic: toolbar; priority: P2; via: verdict; waits: task:task_g1'],
     ['task_g1 Fix the toolbar focus', 'offered', 'writes: g.md; topic: focus; priority: P1; repro: tab past the last button'],
   ]);
   assert.equal(written.status, 0, written.stderr);
@@ -3611,8 +3615,8 @@ test('chips ranks a task with the most urgent open task that waits on it', () =>
 test('chips raises a task through waits logged after it, never from a started task, and shows its own priority once nothing more urgent waits', () => {
   const { batch, chip, chips } = chipLedger();
   const written = batch([
-    ['task_m1 Measure the index', 'offered', 'writes: m.md; topic: measure; priority: P3'],
-    ['task_n1 Tune the index', 'offered', 'writes: n.md; topic: index; priority: P2; waits: task:task_m1'],
+    ['task_m1 Measure the index', 'offered', 'writes: m.md; topic: measure; priority: P3; via: verdict'],
+    ['task_n1 Tune the index', 'offered', 'writes: n.md; topic: index; priority: P2; via: verdict; waits: task:task_m1'],
     ['task_o1 Fix the lost save', 'offered', 'writes: o.md; topic: save; priority: P0; repro: type then reload loses the text; waits: task:task_n1'],
   ]);
   assert.equal(written.status, 0, written.stderr);
@@ -3628,7 +3632,7 @@ test('chips raises a task through waits logged after it, never from a started ta
 
 test("a card stays when its task's priority changes, because its session prints the current brief", () => {
   const { chip, chips, offer } = chipLedger();
-  assert.equal(offer('task_d1 Tune the index', 'd.md', 'topic: index; priority: P2; card: c1; session: s1').status, 0);
+  assert.equal(offer('task_d1 Tune the index', 'd.md', 'topic: index; priority: P2; via: verdict; card: c1; session: s1').status, 0);
   assert.equal(chip('task_w1 Fix the lost save', 'offered', 'writes: w.md; topic: save; priority: P0; repro: type then reload loses the text; waits: task:task_d1').status, 0);
   assert.match(chips('brief', 'task_d1').stdout, /^\[P0\] Tune the index\n/, 'the brief shows the raised priority');
   assert.doesNotMatch(chips('--session', 's1').stdout, /withdraw task_d1/, 'a raised priority withdraws no card');
