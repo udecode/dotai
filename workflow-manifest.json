@@ -322,7 +322,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/lead.mjs": {
-      "sha256": "979b224a2bd434b951b53e3d9e1ab8653510cea603a5ffbe7fae591008d43dc7",
+      "sha256": "1bc64f6e92c717a1543e92e6de4ed6a4375ce0b3c146aa7f46a76f2bd998a72c",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/levels.mjs": {
@@ -478,7 +478,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/lead.test.mjs": {
-      "sha256": "172163004901576f40a8e983a61a0161f638dd3953fe00ce0b68780536b8426e",
+      "sha256": "37322497d579ffe69199e41af9ea9fa3bb9ddaaf1c44ad658ecd063e0d8470d0",
       "mode": 420
     },
     "skills/sync-pstack/scripts/page-files.test.mjs": {
