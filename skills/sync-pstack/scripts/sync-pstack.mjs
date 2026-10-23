@@ -1127,13 +1127,28 @@ export function verify(root) {
     }
   }
 
+  // A line's code spans count only where every Markdown reader pairs its
+  // backticks the same way: single backticks, an even count, no escape, HTML,
+  // table cell or link destination that could claim one, and no span left open
+  // earlier in its paragraph.
+  const linkTargets = (text) => {
+    let closed = true;
+    return text.split(/\r\n?|\n/u).flatMap((line) => {
+      if (!line.trim()) closed = true;
+      const ticks = [...line.matchAll(/`+/gu)];
+      const plain = ticks.every(([tick]) => tick.length === 1) && ticks.length % 2 === 0 && !/[\\<|]|\]\([^)]*`/u.test(line);
+      const spans = closed && plain ? ticks.flatMap((tick, index) => (index % 2 === 0 ? [[tick.index, ticks[index + 1].index]] : [])) : [];
+      closed &&= plain;
+      return [...line.matchAll(/\]\(([^)\s#]+)(?:#[^)]*)?\)/gu)].filter((link) => !spans.some(([start, end]) => start < link.index && link.index < end)).map((link) => link[1]);
+    });
+  };
+
   // In a project that generates skills from rules, only rule-backed skills are
   // its own; a vendored skill's links point into its upstream repository.
   const owned = localSkills(root).filter((name) => (rules.length > 0 ? rules.includes(name) : !lock[name]));
   for (const name of owned) {
     for (const path of markdownFiles(join(root, '.agents/skills', name))) {
-      const text = readFileSync(path, 'utf8').replace(/```[\s\S]*?```/gu, '');
-      for (const [, target] of text.matchAll(/\]\(([^)\s#]+)(?:#[^)]*)?\)/gu)) {
+      for (const target of linkTargets(readFileSync(path, 'utf8').replace(/```[\s\S]*?```/gu, ''))) {
         if (/^(?:[a-z]+:|\/|<)/u.test(target)) continue;
         const resolved = resolve(dirname(path), target);
         const inSkills = resolved.startsWith(join(root, '.agents')) || resolved.startsWith(join(root, '.claude')) || target.endsWith('SKILL.md');

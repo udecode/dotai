@@ -1235,6 +1235,28 @@ test('verify fails a setup that cut a typed command, left dead links or retired 
   assert.match(result.stdout, /block or helpers differ/);
 });
 
+test('verify reads no link inside inline code', () => {
+  const { dir, home, cli } = sandbox();
+  const root = setupFixture(dir, home);
+  writeFileSync(join(root, '.agents/skills/feature/SKILL.md'), '---\nname: feature\n---\n# Feature\n\nPlan it with [Task](../task/SKILL.md). One at a time reads `link[ref v2]("ab")`.\n');
+  const deadLinks = {
+    'double-backticks.md': ['Wrap code in `` ` `` and see [Gone](../gone/SKILL.md) per `rule`.\n', '../gone/SKILL.md'],
+    'double-run.md': ['``a`b`` [Gone](../gone/SKILL.md) `tail`\n', '../gone/SKILL.md'],
+    'escaped.md': ['Type \\` then [Gone](../gone/SKILL.md) and `x`.\n', '../gone/SKILL.md'],
+    'wrapped-span.md': ['See `foo\nbar` and [Gone](../gone/SKILL.md) and `x`.\n', '../gone/SKILL.md'],
+    'tick-in-destination.md': ['[Gone](../task`old`/SKILL.md)\n', '../task`old`/SKILL.md'],
+    'table-cell.md': ['| a | b |\n| --- | --- |\n| `x [Gone](../gone/SKILL.md) | y` |\n', '../gone/SKILL.md'],
+  };
+  for (const [file, [text]] of Object.entries(deadLinks)) writeFileSync(join(root, '.agents/skills/feature', file), text);
+  writeFileSync(join(root, '.agents/skills/feature/no-link.md'), '[Gone]`example`(../gone/SKILL.md)\n');
+  const result = cli('verify', root);
+  const wrong = [
+    ...Object.entries(deadLinks).filter(([file, [, target]]) => !result.stdout.includes(`.agents/skills/feature/${file}: dead link ${target}`)).map(([file]) => `missed ${file}`),
+    ...['dead link "ab"', 'no-link.md'].filter((text) => result.stdout.includes(text)).map((text) => `reported ${text}`),
+  ];
+  assert.deepEqual(wrong, []);
+});
+
 test('verify accepts a typed command the owner dropped', () => {
   const { dir, home, cli } = sandbox();
   const root = setupFixture(dir, home);

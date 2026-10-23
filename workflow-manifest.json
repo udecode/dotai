@@ -486,11 +486,11 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.mjs": {
-      "sha256": "04e00a03fabb3c98b2087490f335b9e266f34387dc088f3c642b23fddc1ffb60",
+      "sha256": "22316d20435e88e320e7ee702303aaff9a6c41f33f5447b75d7452cefcc45efb",
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "a434ae3801140acdf0abb83f4d93bbb153158b5cfdd07866bfaee12fcb000ebd",
+      "sha256": "bbd4d503b61cb660f1f6d7d5b66fdee45359322d10b502c99a19984ef3c27b29",
       "mode": 420
     },
     "skills/sync-pstack/scripts/trunk.test.mjs": {
