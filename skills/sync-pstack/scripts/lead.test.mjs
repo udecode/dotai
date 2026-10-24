@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { bashCommandOf, claudeInvocationRun, claudeSessionRun, invocationRun, ranAs } from '../assets/pstack/lead.mjs';
+import { asDarwinPsPrints, bashCommandOf, claudeInvocationRun, claudeSessionRun, invocationRun, ranAs } from '../assets/pstack/lead.mjs';
 
 const identity = { runtime: 'codex', thread: 'child', session: 'parent', invocation: 'exec-12345678-1234-1234-1234-123456789abc' };
 const meta = { type: 'session_meta', payload: { id: 'child', session_id: 'parent', parent_thread_id: 'parent' } };
@@ -100,6 +101,22 @@ test('a recorded command ran only as itself or with whole words added', () => {
   assert.ok(ranAs('git status', 'rtk git status'));
   assert.ok(!ranAs('ls', 'ls && node .agents/pstack/decisions-check.mjs append log --from queue'), 'a short command inside a long one is not it');
   assert.ok(!ranAs('git status && ls', 'ls && git status'), 'reordered words are another command');
+});
+
+test('a recorded command reads as macOS ps prints its control characters', () => {
+  assert.equal(asDarwinPsPrints("cat > q.tsv <<'EOF'\r\na\tb\u001b\u007f\nEOF"), "cat > q.tsv <<'EOF'^M\\012a\\011b^[^?\\012EOF");
+  assert.equal(asDarwinPsPrints(String.raw`printf '\012'`), String.raw`printf '\012'`, 'a typed backslash prints as itself');
+});
+
+test('macOS ps prints a multi-line command as the matcher reads it', { skip: process.platform !== 'darwin' && 'ps prints argv this way only on macOS' }, () => {
+  const command = `: 'a\rb\u001bc\u007fd'\tx\nps -ww -o command= -p $$`;
+  const argv = execFileSync('/bin/sh', ['-c', `true && eval '${command.replaceAll("'", `'"'"'`)}'`], { encoding: 'utf8' });
+  assert.ok(ranAs(asDarwinPsPrints(command), bashCommandOf(argv)));
+});
+
+test("a typed escape in this command never matches another agent's call", () => {
+  const foreign = { transcript: 'agent-x.jsonl', text: JSON.stringify({ type: 'assistant', effort: 'low', timestamp: 'f', message: { model: 'claude-opus-5-5', content: [{ type: 'tool_use', id: 'f', name: 'Bash', input: { command: "printf '%s' 'a b'; node lead.mjs" } }] } }) };
+  unknown(claudeInvocationRun([foreign], String.raw`printf '%s' 'a\012b'; node lead.mjs`));
 });
 
 test('a finished Claude run reads its last record whole, whatever its characters', () => {
