@@ -107,6 +107,130 @@ test('land rebases and pushes again when next moves while its checks run', () =>
   assert.deepEqual(git(remote, 'log', '--format=%s', 'main..next').split('\n'), ['feat(a): change a', 'docs(d): land elsewhere']);
 });
 
+// GitHub's empty GH006 is the GH006 line followed by a bare `remote: error:` line.
+function declinePushes(remote, count, reasons = ['']) {
+  const hook = join(remote, 'hooks', 'pre-receive');
+  const lines = reasons.map((reason) => `echo "error: ${reason}" >&2\n`).join('');
+  writeFileSync(
+    hook,
+    `#!/bin/sh\ncount=$(cat "$GIT_DIR/declines" 2>/dev/null || echo 0)\n[ "$count" -gt 0 ] || exit 0\necho $((count - 1)) > "$GIT_DIR/declines"\necho "error: GH006: Protected branch update failed for refs/heads/next." >&2\n${lines}exit 1\n`
+  );
+  chmodSync(hook, 0o755);
+  writeFileSync(join(remote, 'declines'), `${count}\n`);
+}
+const NO_WAIT = { PSTACK_LAND_WAIT_SCALE: '0' };
+
+test('land pushes again when GitHub declines with an empty GH006, and fails at once on a GH006 that gives a reason', () => {
+  const { remote, clone, base, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  for (const scale of ['', 'Infinity', '-1']) {
+    assert.equal(helper('land.mjs', clone, [], { PSTACK_LAND_WAIT_SCALE: scale }).status, 2, `the wait scale "${scale}" is refused`);
+  }
+  declinePushes(remote, 2);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD)], NO_WAIT);
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(run.stdout, /empty GH006; pushing again in 1 min \(retry 1 of 5\)[\s\S]*\(retry 2 of 5\)/);
+  assert.equal(git(remote, 'log', '-1', '--format=%s', 'next'), 'feat(a): change a');
+
+  declinePushes(remote, 1, ['', 'Changes must be made through a pull request.']);
+  writeFileSync(join(clone, 'a.txt'), 'three\n');
+  const refused = helper('land.mjs', clone, ['--message', message('feat(a): change a again\n\nWhy.\n\nBeyond the ask: none')], NO_WAIT);
+  assert.equal(refused.status, 1);
+  assert.doesNotMatch(refused.stdout, /pushing again/, 'a reason after a blank error line is still a reason, so it is not retried');
+  assert.match(refused.stderr, /Changes must be made through a pull request/);
+  assert.equal(git(remote, 'rev-list', '--count', `${base}..next`), '1');
+});
+
+test('land stops pushing again once another wait would end past 55 minutes into the run', () => {
+  const { dir, remote, clone, base, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const late = join(dir, 'late.mjs');
+  writeFileSync(late, 'const now = performance.now.bind(performance);\nperformance.now = () => now() + 56 * 60_000;\n');
+  declinePushes(remote, 1);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD)], { ...NO_WAIT, NODE_OPTIONS: `--import ${late}` });
+  assert.equal(run.status, 75, run.stderr);
+  assert.doesNotMatch(run.stdout, /pushing again/);
+  assert.match(run.stderr, /declined the push to next with an empty GH006 once, over the 56 minutes land\.mjs has run[\s\S]*run land\.mjs again with the same --check options and no --message/);
+  assert.equal(git(remote, 'rev-parse', 'next'), base);
+});
+
+test('a rerun after every push was declined skips the checks only while it would push the same tree, parent and message', () => {
+  const { dir, remote, clone, base, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const ran = join(dir, 'ran');
+  const check = ['--check', `echo run >> ${ran}`];
+  const runs = () => readFileSync(ran, 'utf8').trim().split('\n').length;
+  declinePushes(remote, 99);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const first = helper('land.mjs', clone, ['--message', message(GOOD), ...check], NO_WAIT);
+  assert.equal(first.status, 75, first.stderr);
+  assert.match(first.stderr, /declined the push to next with an empty GH006 6 times[\s\S]*skips the checks unless origin\/next has moved since this run last rebased onto it/);
+  assert.equal(git(remote, 'rev-parse', 'next'), base, 'nothing lands while GitHub declines');
+
+  assert.equal(helper('land.mjs', clone, ['--message', message('feat(a): change a differently\n\nWhy.\n\nBeyond the ask: none'), ...check], NO_WAIT).status, 75);
+  assert.equal(runs(), 2, 'a new message runs the checks again');
+  writeFileSync(join(clone, 'a.txt'), 'three\n');
+  assert.equal(helper('land.mjs', clone, check, NO_WAIT).status, 75);
+  assert.equal(runs(), 3, 'a changed tree runs the checks again');
+
+  declinePushes(remote, 0);
+  const rerun = helper('land.mjs', clone, check, NO_WAIT);
+  assert.equal(rerun.status, 0, rerun.stderr);
+  assert.match(rerun.stdout, /pushes without running the checks again/);
+  assert.equal(runs(), 3, 'the unchanged commit lands without its checks');
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'three');
+});
+
+test('a rerun runs the checks again when next moved under an unchanged tree', () => {
+  const { remote, clone, message, elsewhere } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const check = ['--check', 'git diff --quiet origin/next -- a.txt'];
+  declinePushes(remote, 99);
+  writeFileSync(join(clone, 'b.txt'), 'two\n');
+  assert.equal(helper('land.mjs', clone, ['--message', message(GOOD), ...check], NO_WAIT).status, 75);
+
+  declinePushes(remote, 0);
+  git(elsewhere('a.txt', 'two\n', 'fix(a): land elsewhere'), 'push', '--quiet', 'origin', 'HEAD:next');
+  declinePushes(remote, 99);
+  git(clone, 'fetch', '--quiet', 'origin');
+  git(clone, 'rebase', '--quiet', 'origin/next');
+  writeFileSync(join(clone, 'a.txt'), 'one\n');
+  git(clone, 'commit', '--quiet', '-am', 'put a back');
+
+  const rerun = helper('land.mjs', clone, ['--message', message(GOOD), ...check], NO_WAIT);
+  assert.equal(rerun.status, 1, 'the same tree and message on a new parent is checked again, and this check now fails');
+  assert.match(rerun.stderr, /check failed: git diff --quiet origin\/next -- a\.txt/);
+  assert.equal(git(remote, 'log', '-1', '--format=%s', 'next'), 'fix(a): land elsewhere');
+});
+
+test('a rerun after next moved and every push was declined pushes the rebased commit without its checks', () => {
+  const { dir, remote, clone, message, elsewhere } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const ran = join(dir, 'ran');
+  const other = elsewhere('d.txt', 'theirs\n', 'docs(d): land elsewhere');
+  const landOther = `git -C ${other} push --quiet origin HEAD:next`;
+  const startDeclining = `echo 99 > ${join(remote, 'declines')}`;
+  const check = ['--check', `echo run >> ${ran} && ${landOther} && ${startDeclining}`];
+  declinePushes(remote, 0);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const first = helper('land.mjs', clone, ['--message', message(GOOD), ...check], NO_WAIT);
+  assert.equal(first.status, 75, first.stderr);
+  assert.match(first.stdout, /origin\/next moved; rebasing and pushing again/);
+
+  declinePushes(remote, 0);
+  const rerun = helper('land.mjs', clone, check, NO_WAIT);
+  assert.equal(rerun.status, 0, rerun.stderr);
+  assert.match(rerun.stdout, /pushes without running the checks again/);
+  assert.equal(readFileSync(ran, 'utf8').trim().split('\n').length, 1);
+  assert.deepEqual(git(remote, 'log', '--format=%s', 'main..next').split('\n'), ['feat(a): change a', 'docs(d): land elsewhere']);
+});
+
 test('land stops on a rebase conflict with the conflicting paths, and reruns without --message once it is resolved', () => {
   const { remote, clone, message, elsewhere } = trunk();
   const session = { CLAUDE_CODE_HOST_SESSION_ID: 'local_s1' };
