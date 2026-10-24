@@ -5176,6 +5176,15 @@ test('decisions-check append names the stage a batch moves the log into', () => 
   assert.match(append('verify', 'Prove the helper').stdout, /Stage: Verify\./);
 });
 
+test('decisions-check append counts a bug fix row as the build a panel round reviews', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app');
+  const append = (phase, decision) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', phase, decision, 'why', 'evidence', 'recorded'], root);
+  append('repro', 'Reproduce the report');
+  assert.match(append('fix', 'Merge the ranges').stdout, /Stage: Build\./);
+  assert.match(append('panel', 'seats opus').stdout, /Stage: Code review\./, 'a panel round after a fix row reviews the code');
+});
+
 test('decisions-check append names the stage when a batch leaves the stage and comes back to it', () => {
   const { dir, run } = sandbox();
   const root = project(dir, 'app');
