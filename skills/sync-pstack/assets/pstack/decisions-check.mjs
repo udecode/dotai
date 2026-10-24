@@ -33,7 +33,7 @@
 //        <ledger> defaults to <plans>/artifacts/suggested-tasks.decisions.tsv in trunk
 //        delivery and <plans>/suggested-tasks.decisions.tsv otherwise,
 //        --fetch refreshes the remote branches that PR waits read, and --session names
-//        this session, so it cards only the tasks it owns and the ship-list tasks, and each card it does not hold
+//        this session, so it cards only the tasks it owns, and each card it does not hold
 //        gets a check item instead of a withdraw problem)
 //        node .agents/pstack/decisions-check.mjs chips all --session <id> [--sessions <file>] [<ledger>]
 //        (lists every priority, also cards the tasks no session owns, and with the session

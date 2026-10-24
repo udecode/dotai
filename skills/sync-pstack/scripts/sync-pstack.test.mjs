@@ -3696,7 +3696,7 @@ test('chips offers each open item of the ship list as a P1 task with the waits t
   assert.match(chips().stdout, /No ship list: [^\n]*ship\.mjs failed/);
 });
 
-test('no session owns a ship-list task, so any session cards it', () => {
+test('no session owns a ship-list task, so only chips all cards it', () => {
   const { chip, chips, offer, root } = chipLedger();
   writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ branch: 'next', chips: { ship: [process.execPath, 'ship.mjs'] } }));
   writeFileSync(join(root, 'ship.mjs'), "import { readFileSync } from 'node:fs';\nprocess.stdout.write(readFileSync('ship.json', 'utf8'));\n");
@@ -3709,8 +3709,10 @@ test('no session owns a ship-list task, so any session cards it', () => {
   assert.equal(offer('task_s1 Settle review item r1', 'docs/plans', 'topic: review-r1; priority: P1; ship: r1; session: s2').status, 0);
   assert.equal(offer('task_s2 Settle review item r2', 'docs/plans', 'topic: review-r2; priority: P1; ship: r2').status, 0);
   const own = chips('--session', 's1').stdout;
-  assert.match(own, /Do, card pass \(2\)\n {2}card task_s1:[^\n]*\n {2}card task_s2:/, 'a ship task an older offer gave to s2 is cardable from s1');
-  assert.match(own, /Other owners \(1\)\n {2}session s2 {2}1 open: task_a1\n/, 'the ship task is not listed under another owner');
+  assert.doesNotMatch(own, /card task_s/, 'a plain board cards no ship task');
+  assert.doesNotMatch(chips().stdout, /card task_s/, 'a board read with no session id cards no ship task');
+  assert.match(own, /Other owners \(2\)\n {2}session s2 {2}1 open: task_a1\n {2}no owner {2}2 open: task_s1, task_s2\n/, 'a ship task shows as one no session owns');
+  assert.match(chips('all', '--session', 's1').stdout, /Do, card pass \(2\)\n {2}card task_s1:[^\n]*\n {2}card task_s2:/, 'chips all cards a ship task, even one an older offer gave to s2');
   assert.equal(chip('task_s1 Settle review item r1', 'carded', 'card: c1; session: s1').status, 0);
   assert.equal(chip('task_s1 Settle review item r1', 'uncarded', 'card: c1').status, 0);
   assert.equal(chip('task_s1 Settle review item r1', 'updated', 'session: s1').status, 0);
