@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { asDarwinPsPrints, bashCommandOf, claudeInvocationRun, claudeSessionRun, invocationRun, ranAs } from '../assets/pstack/lead.mjs';
 
+const LEAD = fileURLToPath(new URL('../assets/pstack/lead.mjs', import.meta.url));
 const identity = { runtime: 'codex', thread: 'child', session: 'parent', invocation: 'exec-12345678-1234-1234-1234-123456789abc' };
 const meta = { type: 'session_meta', payload: { id: 'child', session_id: 'parent', parent_thread_id: 'parent' } };
 const context = { type: 'turn_context', payload: { turn_id: 'turn', model: 'gpt-6.1-sol', effort: 'high' } };
@@ -88,6 +90,51 @@ test('the running Claude call is the open one whose recorded command it runs', (
   const recorded = `echo 'it'"'"'s' "x'y" >/dev/null; ps -ww -o command= -p $$ | rg -o "eval .{0,120}"`;
   const rewritten = claude([bash('e', 'xhigh', recorded)], 'session.jsonl');
   assert.equal(claudeInvocationRun([rewritten], recorded.replace('| rg', '| rtk rg')).run?.at, 'e', 'a hook that adds words still runs the recorded command');
+});
+
+// lead.mjs takes its runtime from the nearest ancestor process named claude, starting at its parent, so runtime.mjs
+// runs under a node linked as claude and starts lead.mjs as its child.
+function leadInSession(records) {
+  const home = mkdtempSync(join(tmpdir(), 'lead-main-'));
+  const session = '11111111-2222-4333-8444-555555555555';
+  mkdirSync(join(home, '.claude', 'projects', 'p'), { recursive: true });
+  writeFileSync(join(home, '.claude', 'projects', 'p', `${session}.jsonl`), `${records.map((record) => JSON.stringify(record)).join('\n')}\n`);
+  symlinkSync(process.execPath, join(home, 'claude'));
+  writeFileSync(join(home, 'runtime.mjs'), "import { spawnSync } from 'node:child_process';\nprocess.exit(spawnSync(process.execPath, [process.argv[2]], { stdio: 'inherit' }).status ?? 1);\n");
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(CLAUDE|CODEX)/u.test(key)));
+  return spawnSync(join(home, 'claude'), [join(home, 'runtime.mjs'), LEAD], { encoding: 'utf8', env: { ...env, HOME: home, CLAUDE_CODE_SESSION_ID: session } });
+}
+const runsAt = (records, message) => assert.equal(leadInSession(records).stdout.trim(), 'claude-opus-5-5 @xhigh', message);
+const ended = (records, message) => assert.equal(leadInSession(records).status, 1, message);
+const bashCall = (id, input) => ({ type: 'assistant', effort: 'xhigh', timestamp: id, message: { model: 'claude-opus-5-5', content: [{ type: 'tool_use', id, name: 'Bash', input }] } });
+const resultOf = (id, content, extra = {}) => ({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: id, content, ...extra }] } });
+const noticeFor = (id, output = '/tmp/b1.output') => `<task-notification>\n<task-id>b1</task-id>\n<tool-use-id>${id}</tool-use-id>\n<output-file>${output}</output-file>\n<status>completed</status>\n</task-notification>`;
+
+test('a background Bash call stays open until its task notification names it', () => {
+  const started = [bashCall('bg', { command: 'pnpm test', run_in_background: true }), resultOf('bg', 'Command running in background with ID: b1.')];
+  runsAt(started, 'a background call runs past its immediate result');
+  ended([...started, { type: 'user', message: { content: noticeFor('bg') } }], 'its notification ends it');
+  ended([...started, { type: 'user', message: { content: [{ type: 'text', text: noticeFor('bg') }] } }], 'a notification in a text block ends it too');
+  runsAt([...started, { type: 'user', message: { content: noticeFor('other') } }], "another call's notification leaves it open");
+  ended([bashCall('bg', { command: 'pnpm test', run_in_background: true }), resultOf('bg', 'Command running in background with ID: b1.', { is_error: true })], 'a background call that failed to start ends at its result');
+  ended([bashCall('fg', { command: 'pnpm test' }), resultOf('fg', 'done')], 'a foreground call still ends at its result');
+});
+
+test('a background call also ends at a queued notification or at the exit line of its output file', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'lead-output-'));
+  const output = join(dir, 'b1.output');
+  // The start result and the notification shapes are copied from Claude Code 2.1.308 transcripts.
+  const startedAt = (path) => [bashCall('bg', { command: 'pnpm test', run_in_background: true }), resultOf('bg', `Command running in background with ID: b1. Output is being written to: ${path}. You will be notified when it completes.`, { is_error: false })];
+  const started = startedAt(output);
+  writeFileSync(output, 'still going\n');
+  runsAt(started, 'a call whose output has no exit line runs');
+  ended([...started, { type: 'attachment', attachment: { type: 'queued_command', commandMode: 'task-notification', prompt: noticeFor('bg', output) } }], 'a queued-command notification ends it');
+  ended([...started, { type: 'queue-operation', operation: 'enqueue', content: noticeFor('bg', output) }], 'a queued notification ends it');
+  for (const [tail, message] of [['\n[exited with code 0]\n', 'the exit line ends it'], ['\n[killed]\n', 'a kill ends it']]) {
+    writeFileSync(output, `still going\n${tail}`);
+    ended(started, message);
+  }
+  ended(startedAt(join(dir, 'gone.output')), 'a call whose output file is gone has ended');
 });
 
 test('a Bash call reads its command from the shell Claude Code runs it in', () => {

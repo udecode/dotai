@@ -5108,6 +5108,7 @@ test('decisions-check records verified runtime identity and an unknown boundary 
   assert.equal(unknown.status, 0, unknown.stderr);
   assert.match(unknown.stderr, /unknown lead boundary/);
   assert.deepEqual(leads(), ['gpt-6.1-sol @high', 'unknown']);
+  assert.match(read(root, 'docs/plans/plan.decisions.tsv'), /\tlead\tunknown\truntime identity could not be verified because CODEX_TOOL_CALL_ID holds no exec call id\t/, 'the unknown lead row names its miss');
   assert.equal(append({ CODEX_TOOL_CALL_ID: '' }).status, 0);
   assert.deepEqual(leads(), ['gpt-6.1-sol @high', 'unknown']);
   assert.equal(append().status, 0);
