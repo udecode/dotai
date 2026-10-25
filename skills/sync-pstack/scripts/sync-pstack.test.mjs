@@ -5445,7 +5445,7 @@ const worktree = (git, dir, name) => {
   return realpathSync(join(dir, name));
 };
 
-test("plan-page binds a checkout to its own Page: line while only it moved from the fork point's, else to origin's, and lists other worktrees' lines", () => {
+test("plan-page binds a checkout to its own Page: line while only it moved from the fork point's or origin's line is one the clone found gone, else to origin's", () => {
   const { dir, run } = sandbox();
   const topic = (url) => STAGE_TOPIC.replace('https://claude.ai/artifact/stage', url);
   const { root, git } = pushed(dir, 'app', { 'docs/plans/topics/stage.md': topic('https://claude.ai/artifact/a'), 'docs/plans/live.md': stagePlan('Live', 'building') });
@@ -5462,10 +5462,10 @@ test("plan-page binds a checkout to its own Page: line while only it moved from 
   assert.equal(JSON.parse(render(behind, '--rail').stdout).page, 'https://claude.ai/artifact/c', "a worktree that has not pulled uses origin's line");
   const plain = render(behind);
   assert.equal(plain.status, 0, plain.stderr);
-  const lines = plain.stdout.split('\n');
-  assert.ok(lines.includes('Page: https://claude.ai/artifact/c (publish through page-stop.mjs)'), plain.stdout);
-  assert.ok(lines.includes(`Page in ${rebound}: https://claude.ai/artifact/b`), plain.stdout);
-  assert.ok(!lines.some((line) => line.startsWith(`Page in ${realpathSync(root)}:`)), 'a worktree on the same line is not listed');
+  assert.equal(plain.stdout.split('\n')[0], 'Page: https://claude.ai/artifact/c (publish through page-stop.mjs)', plain.stdout);
+  writeFileSync(join(root, '.git/pstack-pages-gone'), 'https://claude.ai/artifact/c\n');
+  assert.equal(JSON.parse(render(rebound, '--rail').stdout).page, 'https://claude.ai/artifact/b', "a rebind stands once the clone found origin's line gone, so the next publish does not make another page");
+  assert.equal(JSON.parse(render(behind, '--rail').stdout).page, 'https://claude.ai/artifact/c', 'a checkout that never rebound still tries the gone line, and its failed publish makes the new page');
 });
 
 test('importing plan-page.mjs runs no CLI', () => {

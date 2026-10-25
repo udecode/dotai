@@ -92,7 +92,7 @@ Write `.agents/pstack.json`. The script adds `synced` on the first apply. This e
 | `pushBranches` | `true` in `user` delivery to let the lead commit and push every branch except `branch` and `protected`, a PR head branch included. Optional; off by default. |
 | `lintFix` | The last check a completed task runs. Required. |
 | `check` | The broad check for a settled change, used by the Tests and Commit rules. Required. |
-| `plans` | The directory for plans and decision logs, used by the Plans rule and its helpers. Required unless `plans` is skipped. |
+| `plans` | The directory for plans and decision logs, used by the Plans rule and its helpers. Required unless `plans` is skipped. The project wires `page-stop.mjs --hook` as a Claude Code `PostToolUseFailure` hook on `Artifact` in its `.claude/settings.json`, so that when a publish fails because the page no longer opens, the hook tells the lead to rerun with `--new`. |
 | `reviews` | The work that runs a panel, `architect` or an arena without asking, as rows `{ "id": "<kebab-case>", "rule": "<one sentence>" }`, such as `{ "id": "pr", "rule": "Before a PR is opened, its diff gets a panel." }`. The block lists each row, and a project playbook that runs one of those tools cites its row as `(reviews: <id>)`. Optional; an empty list leaves every panel to the user's word. |
 | `proof` | The project's proof skill: pstack's driver skill for reproducing and verifying, and the replacement for its swarm lanes. Optional. |
 | `glossary` | A glossary file whose words agents use. Optional. |

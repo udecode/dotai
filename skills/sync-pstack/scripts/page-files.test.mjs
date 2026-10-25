@@ -12,7 +12,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = join(HERE, 'fixtures/page-files');
 const { CODE_VERSION, page, pageFile, parsePageFile, runBody, runHeader, slugOf, viewerCode } = await import(pathToFileURL(join(HERE, '../assets/pstack/plan-page.mjs')).href);
 
-const { cli: pageStop } = await import(pathToFileURL(join(HERE, '../assets/pstack/page-stop.mjs')).href);
+const { cli: pageStop, hook: pageHook } = await import(pathToFileURL(join(HERE, '../assets/pstack/page-stop.mjs')).href);
 
 const fixture = (name) => readFileSync(join(FIXTURES, name), 'utf8');
 const sha256 = (data) => createHash('sha256').update(data).digest('hex');
@@ -325,6 +325,7 @@ test('after a refusal, --base composes on the live page, an old page lists only 
   assert.deepEqual(runsOf(call), [['2026-02-01-live.one', 4], ['other.two', 3]], "the other run stays and the stop's serial follows the highest");
   assert.deepEqual(parsePageFile(readFileSync(call.file_path, 'utf8')).list.map(({ slug, stage }) => [slug, stage]), [['2026-02-01-live', 'build'], ['2026-01-01-other', 'plan review']], 'the highest serial leads');
   assert.ok(!call.files.some((path) => path.startsWith('code/')), 'the live page already has this viewer code');
+  assert.ok(stop.lines.some((line) => line.includes('again with --new')), 'a publish to a page names the --new rerun for a page that no longer opens');
   writeFileSync(refused, wrap('<title>Old</title>\n<main>An old page.</main>\n'));
   const old = pageStop(['stage', live, '--session', 'one', '--base', refused], CLAUDE);
   assert.match(old.lines[0], /^The base lists no runs/u);
@@ -332,6 +333,27 @@ test('after a refusal, --base composes on the live page, an old page lists only 
   assert.ok(callOf(old.lines).files.includes('code/1.js'));
   const fresh = pageStop(['stage', live, '--session', 'one', '--new'], CLAUDE);
   assert.equal(callOf(fresh.lines).url, undefined);
-  assert.ok(fresh.lines.some((line) => line.startsWith('This publish makes the page')));
+  assert.ok(fresh.lines.some((line) => line.includes('replace `Page: https://claude.ai/artifact/stage`')), 'a new page replaces the link that no longer opens');
+  assert.ok(!fresh.lines.some((line) => line.includes('--base') || line.includes('--new')), 'a new page has no live page to compose on or lose');
+  assert.equal(readFileSync(join(root, '.git/pstack-pages-gone'), 'utf8'), 'https://claude.ai/artifact/stage\n', 'the clone records the replaced link as gone');
   assert.equal(pageStop(['stage', live, '--session', 'one', '--base', join(root, 'missing.html')], CLAUDE).code, 2);
+});
+
+test('the hook sends a failed publish of a plan page that no longer opens to --new, and ignores every other failure', () => {
+  const { live } = project();
+  const call = callOf(pageStop(['stage', live, '--session', 'one'], CLAUDE).lines);
+  const gone = {
+    session_id: 'one',
+    hook_event_name: 'PostToolUseFailure',
+    tool_name: 'Artifact',
+    tool_input: call,
+    error: '<artifact-deleted url="https://claude.ai/artifact/stage"/> artifact not found — it may have been deleted, or it has not been shared with you.',
+  };
+  const context = pageHook(gone).hookSpecificOutput.additionalContext;
+  assert.match(context, /Do not ask the user/u);
+  assert.match(context, /page-stop\.mjs stop docs\/plans\/2026-02-01-live\.md --new/u);
+  assert.equal(pageHook({ ...gone, session_id: 'two' }), null, "another session's publish is not this run's page");
+  assert.equal(pageHook({ ...gone, error: 'the page changed since you read it' }), null);
+  assert.equal(pageHook({ ...gone, tool_name: 'Bash' }), null);
+  assert.equal(pageHook({ ...gone, tool_input: { file_path: '/tmp/page.html' } }), null, 'a page outside the plan pages is not a plan page');
 });
