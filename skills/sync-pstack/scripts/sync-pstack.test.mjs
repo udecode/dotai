@@ -470,6 +470,20 @@ test('cross runs a Codex seat read-only on the model and effort it names', () =>
   assert.match(seat.stdout, /^exec --ignore-user-config --ignore-rules .* -m gpt-6-astra -c model_reasoning_effort=high --disable hooks --sandbox read-only /);
 });
 
+test('cross prints a whole reply longer than a pipe buffer before it exits', () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'codex'), '#!/bin/sh\nwhile [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; *) shift ;; esac; done\nhead -c 200000 /dev/zero | tr "\\000" a > "$out"\n', { mode: 0o755 });
+  const seat = spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', '--model', 'gpt-6-astra', 'review it'], {
+    cwd: dir,
+    encoding: 'utf8',
+    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '' },
+  });
+  assert.equal(seat.status, 0, seat.stderr);
+  assert.equal(seat.stdout.trim().length, 200000, 'a piped reply keeps every byte past 65,536');
+});
+
 test("cross caps a seat's effort at the project's maxEffort, and runs a seat with no effort at the cap", () => {
   const { dir, home } = sandbox();
   const bin = join(dir, 'bin');
@@ -3586,6 +3600,21 @@ test('chips lists P0 and P1 in full, counts the rest and cards at most 10, highe
   const full = chips('all', '--session', 's1').stdout;
   assert.match(full, /Ready, P2 \([0-9]+\)\n {2}task_/);
   assert.match(full, /Ready, P3 \(4\)/);
+});
+
+test('within a priority, chips lists and cards first a task whose repro names a public issue, never above a higher priority', () => {
+  const { batch, chips } = chipLedger();
+  const written = batch([
+    ['task_a1 Fix a', 'offered', 'writes: a.md; topic: a; priority: P0; repro: type then reload loses the text'],
+    ['task_b1 Fix b', 'offered', 'writes: b.md; topic: b; priority: P0; repro: acme#12 Repro 1 holds the steps'],
+    ['task_d1 Fix d', 'offered', 'writes: d.md; topic: d; priority: P1; repro: paste &#12; then undo'],
+    ['task_c1 Fix c', 'offered', 'writes: c.md; topic: c; priority: P1; repro: https://github.com/acme/app/issues/7 holds the steps'],
+  ]);
+  assert.equal(written.status, 0, written.stderr);
+  const board = chips().stdout;
+  assert.match(board, /Ready, P0 \(2\)\n {2}task_b1 [^\n]*\n {2}task_a1 /, 'the P0 that names an issue first');
+  assert.match(board, /Ready, P1 \(2\)\n {2}task_c1 [^\n]*\n {2}task_d1 /, 'an issues URL counts, and an HTML entity does not');
+  assert.match(board, /Do, card pass \(4\)\n {2}card task_b1:[^\n]*\n {2}card task_a1:[^\n]*\n {2}card task_c1:/, 'an issue-backed P1 stays below every P0');
 });
 
 test('a brief says whether the board has its task Ready, Waiting or Started, whatever its priority', () => {
