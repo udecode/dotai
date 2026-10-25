@@ -773,6 +773,49 @@ test('cross passes a prompt that starts with dashes as the prompt, and gives up 
   const hung = cross(['--to', 'codex', '--timeout', '1', 'review it']);
   assert.equal(hung.status, 1);
   assert.ok(Date.now() - started < 15000, `took ${Date.now() - started} ms`);
+  assert.match(hung.stderr, /^no answer within 1 seconds: /mu);
+});
+
+test('cross reports a runtime that exits on its deadline as out of time, not as its exit code', () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'codex'), "#!/bin/sh\ntrap 'exit 143' TERM\nsleep 30 &\nwait\n", { mode: 0o755 });
+  const late = spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', '--timeout', '1', 'review it'], {
+    cwd: dir,
+    encoding: 'utf8',
+    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '' },
+  });
+  assert.equal(late.status, 1);
+  assert.match(late.stderr, /^no answer within 1 seconds: /mu, late.stderr);
+});
+
+test('cross reports an answer a runtime writes once its deadline stops it as out of time', () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'codex'), "#!/bin/sh\nwhile [ $# -gt 0 ]; do case \"$1\" in -o) out=\"$2\"; shift 2 ;; *) shift ;; esac; done\ntrap 'echo late answer > \"$out\"; exit 0' TERM\nsleep 30 &\nwait\n", { mode: 0o755 });
+  const late = spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', '--timeout', '1', 'review it'], {
+    cwd: dir,
+    encoding: 'utf8',
+    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '' },
+  });
+  assert.equal(late.status, 1, late.stdout);
+  assert.match(late.stderr, /^no answer within 1 seconds: /mu, late.stderr);
+});
+
+test('cross keeps the exit code of a runtime that failed before its deadline while a child it left holds the pipes', () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'codex'), '#!/bin/sh\nsleep 30 &\necho own failure >&2\nexit 7\n', { mode: 0o755 });
+  const failed = spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', '--timeout', '1', 'review it'], {
+    cwd: dir,
+    encoding: 'utf8',
+    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '' },
+  });
+  assert.equal(failed.status, 1);
+  assert.match(failed.stderr, /^exit 7: own failure$/mu, failed.stderr);
 });
 
 test('cross reports why a runtime failed when it prints the reason on stdout', () => {

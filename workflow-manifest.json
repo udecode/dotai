@@ -294,7 +294,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/cross.mjs": {
-      "sha256": "afbdf71fbbc3424896d4fa75bf49429864c186f7402a75ee7cd027cee7777a25",
+      "sha256": "b4fd9c4df3cb9fbafd9f5c5b587d487fb43026a5daaa3ac2873c73917a70796d",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/cua-steps.mjs": {
@@ -490,7 +490,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "a32aa9a27b5d8203b3488cc553965e63ad0a241f4038e6b22e3e5cc1a0e738ae",
+      "sha256": "db72350c2813891b2869312070c84ebbf155b32188c06637c9606e9a7bc02ceb",
       "mode": 420
     },
     "skills/sync-pstack/scripts/trunk.test.mjs": {
