@@ -571,6 +571,10 @@ test('guard denies an agent force-push or delete of next or main and passes ever
     'echo "$(git push -f origin next)"',
     'git push origin --delete next',
     'git push origin :main',
+    "bash -e -c 'git push --force origin HEAD:next'",
+    "bash -c -- 'git push -f origin main'",
+    'git push --force origin :',
+    "git push --force origin 'refs/heads/n*:refs/heads/n*'",
   ];
   for (const command of denied) {
     const decision = guard(command);
@@ -582,6 +586,8 @@ test('guard denies an agent force-push or delete of next or main and passes ever
     'git push --force origin HEAD',
     "git commit -m 'never git push -f origin next'",
     "cat <<'EOF'\ngit push -f origin next\nEOF",
+    "bash -e -c 'git push --force origin task'",
+    "git push --force origin 'refs/tags/*:refs/tags/*'",
   ];
   for (const command of passed) assert.equal(guard(command), null, command);
   git(clone, 'switch', '--quiet', 'next');

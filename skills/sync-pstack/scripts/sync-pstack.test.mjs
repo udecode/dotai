@@ -3608,13 +3608,15 @@ test('within a priority, chips lists and cards first a task whose repro names a 
     ['task_a1 Fix a', 'offered', 'writes: a.md; topic: a; priority: P0; repro: type then reload loses the text'],
     ['task_b1 Fix b', 'offered', 'writes: b.md; topic: b; priority: P0; repro: acme#12 Repro 1 holds the steps'],
     ['task_d1 Fix d', 'offered', 'writes: d.md; topic: d; priority: P1; repro: paste &#12; then undo'],
+    ['task_f1 Fix f', 'offered', 'writes: f.md; topic: f; priority: P1; repro: load fixtures/issues/12.json then save'],
     ['task_c1 Fix c', 'offered', 'writes: c.md; topic: c; priority: P1; repro: https://github.com/acme/app/issues/7 holds the steps'],
+    ['task_e1 Fix e', 'offered', 'writes: e.md; topic: e; priority: P1; repro: #8 Repro 2 holds the steps'],
   ]);
   assert.equal(written.status, 0, written.stderr);
   const board = chips().stdout;
   assert.match(board, /Ready, P0 \(2\)\n {2}task_b1 [^\n]*\n {2}task_a1 /, 'the P0 that names an issue first');
-  assert.match(board, /Ready, P1 \(2\)\n {2}task_c1 [^\n]*\n {2}task_d1 /, 'an issues URL counts, and an HTML entity does not');
-  assert.match(board, /Do, card pass \(4\)\n {2}card task_b1:[^\n]*\n {2}card task_a1:[^\n]*\n {2}card task_c1:/, 'an issue-backed P1 stays below every P0');
+  assert.match(board, /Ready, P1 \(4\)\n {2}task_c1 [^\n]*\n {2}task_e1 [^\n]*\n {2}task_d1 [^\n]*\n {2}task_f1 /, 'an issues URL and a bare #<number> count, and an HTML entity and an issues path do not');
+  assert.match(board, /Do, card pass \(6\)\n {2}card task_b1:[^\n]*\n {2}card task_a1:[^\n]*\n {2}card task_c1:/, 'an issue-backed P1 stays below every P0');
 });
 
 test('a brief says whether the board has its task Ready, Waiting or Started, whatever its priority', () => {
