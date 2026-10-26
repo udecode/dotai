@@ -220,7 +220,7 @@ test('switching delivery to trunk and back swaps the shared-checkout files for t
   const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
   const pstack = (name) => join(root, '.agents/pstack', name);
   const sharedCheckout = ['codex-build.md', 'freeze.mjs', 'mutate.mjs', 'reply.mjs', ...['close', 'codex', 'trails'].map((name) => `rules/${name}.md`)];
-  const landing = ['guard.mjs', 'land.mjs', 'review.mjs', 'setup.mjs', 'rules/land.md'];
+  const landing = ['guard.mjs', 'land.mjs', 'replay.mjs', 'review.mjs', 'setup.mjs', 'rules/land.md'];
   const everywhere = ['cross.mjs', 'decisions-check.mjs', 'lead.mjs', 'levels.mjs', 'plan-open.mjs', 'plan-page.mjs', 'proof.mjs', 'status.mjs', 'tasks.mjs', 'rules/chips.md', 'rules/panel.md', 'rules/pages.md', 'rules/title.md', 'checkout.mjs', 'reread.mjs', 'rules/long-runs.md'];
   const deliver = (delivery) => {
     writeFileSync(join(root, '.agents/pstack.json'), `${JSON.stringify({ ...JSON.parse(read(root, '.agents/pstack.json')), delivery }, null, 2)}\n`);
@@ -754,6 +754,47 @@ test('a stopped cross run stops the runtime it launched', async () => {
   await new Promise((resolve) => cross.on('exit', resolve));
   await new Promise((resolve) => setTimeout(resolve, 500));
   assert.throws(() => process.kill(pid, 0), /ESRCH/, 'the launched runtime outlived its stopped parent');
+});
+
+test('a stopped cross run kills a runtime that ignores SIGTERM, and deletes its folders', async () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  const temp = join(dir, 'temp');
+  mkdirSync(bin);
+  mkdirSync(temp);
+  const pidFile = join(dir, 'codex.pid');
+  writeFileSync(join(bin, 'codex'), `#!/bin/sh\ntrap '' TERM\necho $$ > ${pidFile}\nwhile :; do sleep 1; done\n`, { mode: 0o755 });
+  const cross = spawn(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', '--reach', 'review it'], {
+    cwd: dir,
+    env: { ...process.env, HOME: home, TMPDIR: temp, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '' },
+  });
+  const deadline = Date.now() + 10000;
+  while (!existsSync(pidFile) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 50));
+  const pid = Number(readFileSync(pidFile, 'utf8'));
+  cross.kill('SIGTERM');
+  await new Promise((resolve) => cross.on('exit', resolve));
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  assert.throws(() => process.kill(pid, 0), /ESRCH/, 'a runtime that ignores SIGTERM outlived its stopped parent');
+  assert.deepEqual(readdirSync(temp), []);
+});
+
+test('cross deletes its answer and scratch folders once a run ends', () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  const temp = join(dir, 'temp');
+  mkdirSync(bin);
+  mkdirSync(temp);
+  writeFileSync(join(bin, 'codex'), '#!/bin/sh\nwhile [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; *) shift ;; esac; done\necho "No findings." > "$out"\n', { mode: 0o755 });
+  for (const lane of [[], ['--reach']]) {
+    const seat = spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', ...lane, 'review it'], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: { ...process.env, HOME: home, TMPDIR: temp, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '' },
+    });
+    assert.equal(seat.status, 0, seat.stderr);
+    assert.equal(seat.stdout.trim(), 'No findings.');
+    assert.deepEqual(readdirSync(temp), [], lane.join(' '));
+  }
 });
 
 test('cross passes a prompt that starts with dashes as the prompt, and gives up on a runtime that ignores its timeout', () => {

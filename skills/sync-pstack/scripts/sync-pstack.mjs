@@ -48,6 +48,7 @@ const HELPER_FILES = {
   'lead.mjs': [],
   'mutate.mjs': ['delivery!=trunk'],
   'proof.mjs': [],
+  'replay.mjs': ['delivery=trunk'],
   'reply.mjs': ['delivery!=trunk'],
   'reread.mjs': [],
   'seats.mjs': [],
