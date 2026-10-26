@@ -2688,13 +2688,27 @@ test('decisions-check takes a panel finding only with a severity, after a seats 
   assert.equal(append('critical The seat writes files', 'applied: read-only').status, 1, 'a finding before any seats row');
   assert.equal(append('seats opus, codex:gpt-6.1-sol @xhigh', 'recorded').status, 0);
   assert.equal(append('The seat writes files', 'applied: read-only').status, 1, 'a finding without a severity');
-  assert.equal(append('critical The seat writes files', 'recorded').status, 1, 'a finding with no disposition');
-  assert.equal(append('critical The seat writes files', 'applied').status, 1, 'a disposition with no reason');
-  assert.equal(append('critical The seat writes files', 'applied: read-only').status, 0);
+  assert.equal(append('critical [opus]: The seat writes files', 'recorded').status, 1, 'a finding with no disposition');
+  assert.equal(append('critical [opus]: The seat writes files', 'applied').status, 1, 'a disposition with no reason');
+  const unnamed = append('critical The seat writes files', 'applied: read-only');
+  assert.equal(unnamed.status, 1, 'a critical finding that names no seat');
+  assert.match(unnamed.stderr, /critical \[<seat>, \.\.\.\]: .*opus, gpt-6\.1-sol or lead/);
+  assert.equal(append('critical [opus, gpt-6-astra]: The seat writes files', 'applied: read-only').status, 1, 'a seat off the round\'s roster');
+  assert.equal(append('critical [opus, codex:gpt-6.1-sol @xhigh]: The seat writes files', 'applied: read-only').status, 0, 'seats from the roster');
+  assert.equal(append('critical [lead]: The fallback hides a missing seat', 'applied: the fallback names it').status, 0, 'the lead');
+  assert.equal(append('critical [opus, lead]: The seat writes files', 'applied: read-only').status, 1, 'the lead beside a seat');
   assert.equal(append('warning The fallback lists stale sessions', 'deferred: outside the ask').status, 1, 'a deferral with no owner');
   assert.equal(append('warning The fallback lists stale sessions', 'deferred: outside the ask, owner:').status, 1, 'a deferral with an empty owner');
-  assert.equal(append('critical The seat writes files', 'deferred: later, owner: user').status, 1, 'a deferred critical finding');
+  assert.equal(append('critical [opus]: The seat writes files', 'deferred: later, owner: user').status, 1, 'a deferred critical finding');
   assert.equal(append('warning The fallback lists stale sessions', 'deferred: outside the ask, owner: user in docs/plans/next.md').status, 0);
+  assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'log.decisions.tsv'], root).status, 0, 'a whole-log check reads the roster too');
+  assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', 'writing', 'deslop on the round 1 fixes', 'why', 'evidence', 'recorded'], root).status, 0);
+  assert.equal(append('seats gpt-6-astra @xhigh', 'recorded').status, 0);
+  assert.equal(append('critical [opus]: The seat writes files', 'applied: read-only').status, 1, 'a seat of an earlier round only');
+  assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', 'writing', 'deslop on the round 2 fixes', 'why', 'evidence', 'recorded'], root).status, 0);
+  assert.equal(append('seats gpt-6-astra @xhigh, codex:gpt-6.1-sol @xhigh missing', 'recorded').status, 0);
+  assert.equal(append('critical [gpt-6.1-sol]: The seat writes files', 'applied: read-only').status, 1, 'a seat the seats row marks missing');
+  assert.equal(append('critical [gpt-6-astra]: The seat writes files', 'applied: read-only').status, 0, 'a seat that answered beside a missing one');
 });
 
 test('decisions-check takes an open panel finding only with its patch and owner', () => {
@@ -2702,10 +2716,10 @@ test('decisions-check takes an open panel finding only with its patch and owner'
   const root = project(dir, 'app');
   const append = (decision, result) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', 'panel', decision, 'why', 'the seat\'s probe; proof: none', result], root);
   assert.equal(append('seats opus', 'recorded').status, 0);
-  assert.equal(append('critical The guard drops real typing', 'open: the fix adds code past the cap').status, 1, 'an open finding with no patch or owner');
-  assert.equal(append('critical The guard drops real typing', 'open: past the cap, patch: fix.patch').status, 1, 'an open finding with no owner');
-  assert.equal(append('critical The guard drops real typing', 'open: past the cap, owner: user').status, 1, 'an open finding with no patch');
-  const ok = append('critical The guard drops real typing', 'open: past the cap, patch: scratch/fix.patch, owner: user');
+  assert.equal(append('critical [opus]: The guard drops real typing', 'open: the fix adds code past the cap').status, 1, 'an open finding with no patch or owner');
+  assert.equal(append('critical [opus]: The guard drops real typing', 'open: past the cap, patch: fix.patch').status, 1, 'an open finding with no owner');
+  assert.equal(append('critical [opus]: The guard drops real typing', 'open: past the cap, owner: user').status, 1, 'an open finding with no patch');
+  const ok = append('critical [opus]: The guard drops real typing', 'open: past the cap, patch: scratch/fix.patch, owner: user');
   assert.equal(ok.status, 0, ok.stderr);
 });
 
@@ -2714,7 +2728,7 @@ test("decisions-check takes a later round's seats row only after a writing row",
   const root = project(dir, 'app');
   const append = (phase, decision, result = 'recorded') => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', phase, decision, 'why', 'evidence', result], root);
   assert.equal(append('panel', 'seats opus').status, 0, 'the first round');
-  assert.equal(append('panel', 'critical The guard drops typing', 'applied: the guard reads the composition flag').status, 0);
+  assert.equal(append('panel', 'critical [opus]: The guard drops typing', 'applied: the guard reads the composition flag').status, 0);
   const unwritten = append('panel', 'seats opus');
   assert.equal(unwritten.status, 1, 'a second round whose fixes had no writing pass');
   assert.match(unwritten.stderr, /needs a writing row/);
@@ -2725,7 +2739,7 @@ test("decisions-check takes a later round's seats row only after a writing row",
     return run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', '--from', name], root);
   };
   assert.equal(batch('written.tsv', [['writing', 'unslop on the round 2 fixes', 'why', 'evidence', 'recorded'], ['panel', 'seats opus', 'why', 'evidence', 'recorded']]).status, 0, 'a queued writing row before the next round');
-  const skipped = batch('skipped.tsv', [['writing', 'unslop on the round 3 fixes', 'why', 'evidence', 'recorded'], ['panel', 'seats opus', 'why', 'evidence', 'recorded'], ['panel', 'critical The guard drops typing', 'why', 'evidence', 'applied: fixed'], ['panel', 'seats opus', 'why', 'evidence', 'recorded']]);
+  const skipped = batch('skipped.tsv', [['writing', 'unslop on the round 3 fixes', 'why', 'evidence', 'recorded'], ['panel', 'seats opus', 'why', 'evidence', 'recorded'], ['panel', 'critical [opus]: The guard drops typing', 'why', 'evidence', 'applied: fixed'], ['panel', 'seats opus', 'why', 'evidence', 'recorded']]);
   assert.equal(skipped.status, 1, 'a queued round with no writing row after the previous one');
   assert.match(skipped.stderr, /\(new row 4\): a later round's seats row/);
   writeFileSync(join(root, 'old.decisions.tsv'), 'ts\tphase\tdecision\twhy\tevidence\tresult\n2026-10-06T10:00:00Z\tpanel\tseats opus\twhy\tevidence\trecorded\n2026-10-06T11:00:00Z\tpanel\tseats opus\twhy\tevidence\trecorded\n');
@@ -4604,7 +4618,7 @@ test('decisions-check append --from writes every queued row or none', () => {
     return run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', '--from', 'queued.tsv'], root);
   };
   const seats = ['panel', 'seats opus, codex:gpt-6.1-sol @xhigh', 'round 1', 'frozen abc1234', 'recorded'];
-  const finding = ['panel', 'critical The seat writes files', 'seat probe', 'reran the probe', 'applied: read-only flag'];
+  const finding = ['panel', 'critical [opus]: The seat writes files', 'seat probe', 'reran the probe', 'applied: read-only flag'];
 
   const refused = queue([seats, ['panel', 'superseded the earlier finding', 'why', 'evidence', 'superseded']]);
   assert.equal(refused.status, 1);
@@ -5770,6 +5784,136 @@ test('levels refuses a missing log, a flag with no value, and a round the models
   const seats = run(['--lead', 'claude-opus-5-5 @xhigh', '--seats', 'opus @high, codex:gpt-6-astra @high, codex:gpt-6.1-sol @xhigh', 'log.tsv']);
   assert.equal(seats.status, 0, seats.stderr);
   assert.match(seats.stdout, /^ {2}at line 7: panel /mu);
+});
+
+const SCORE_LOG = 'docs/plans/2026-01-01-a.decisions.tsv';
+
+function scorecard(rows, args = []) {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', {
+    files: { [SCORE_LOG]: ['ts\tphase\tdecision\twhy\tevidence\tresult', ...rows.map(([decision, result = 'applied: fixed']) => `2026-01-01T00:00:00Z\tpanel\t${decision}\twhy\tevidence\t${result}`)].join('\n') + '\n' },
+  });
+  return run(process.execPath, [join(HELPERS, 'scorecard.mjs'), ...args], root);
+}
+
+const placed = (result) => result.stdout.trim().split('\n').map((line) => line.split('\t')[1]);
+
+test('scorecard counts each seat a critical row names in brackets, and the lead', () => {
+  const result = scorecard([
+    ['seats opus, codex:gpt-6-astra @xhigh, codex:gpt-6.1-sol @xhigh', 'recorded'],
+    ['critical [opus, codex:gpt-6-astra @xhigh]: the guard drops typing'],
+    ['critical [gpt-6.1-sol]: the cache outlives a remount', 'dismissed: the remount clears it'],
+    ['critical [lead]: the fallback hides a missing seat'],
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^\| opus \| 1 \| 1 \| 1 \| 0 \| 0 \| 0 \| 0 \|$/mu);
+  assert.match(result.stdout, /^\| gpt-6-astra \| 1 \| 1 \| 1 \| 0 \| 0 \| 0 \| 0 \|$/mu);
+  assert.match(result.stdout, /^\| gpt-6\.1-sol \| 1 \| 1 \| 0 \| 1 \| 0 \| 0 \| 0 \|$/mu);
+  assert.match(result.stdout, /^\| lead \| - \| 1 \| 1 \| 0 \| 0 \| 0 \| 1 \|$/mu, 'an applied critical the lead alone raised');
+  assert.match(result.stdout, /^3 of 3 critical rows placed; 0 unplaced\.$/mu);
+});
+
+test('scorecard maps seat letters and numbers to their round\'s roster order', () => {
+  const result = scorecard(
+    [
+      ['seats gpt-6.1-sol @xhigh, opus, codex:gpt-6-astra @xhigh', 'recorded'],
+      ['critical (B, C): the guard drops typing'],
+      ['critical (seat 1): the cache outlives a remount'],
+      ['critical (seat A, its finding 3): the cache outlives a remount'],
+      ['critical (seats B and C, each its finding 1): the guard drops typing'],
+      ['seats opus, codex:gpt-6-astra @xhigh missing, codex:gpt-6.1-sol @xhigh', 'recorded'],
+      ['critical (seat 3): the cache outlives a remount'],
+      ['critical (B): the guard drops typing'],
+      ['critical (gpt-6-astra, sol): the guard drops typing'],
+    ],
+    ['--rows'],
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(placed(result), ['opus, gpt-6-astra', 'gpt-6.1-sol', 'gpt-6.1-sol', 'opus, gpt-6-astra', 'gpt-6.1-sol', 'unplaced', 'gpt-6.1-sol']);
+});
+
+test('scorecard credits a stand-in seat to the model that ran, not the seat it replaced', () => {
+  const result = scorecard(
+    [
+      ["seats opus, codex:gpt-6-astra @xhigh missing, opus same-family in astra's place", 'recorded'],
+      ['critical the guard drops typing (opus for gpt-6-astra)'],
+    ],
+    ['--rows'],
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(placed(result), ['opus']);
+});
+
+test('scorecard credits every model a critical row names, whatever severity it names it at', () => {
+  const result = scorecard(
+    [
+      ['seats claude-opus-5-5 @high, gpt-6-astra @xhigh, gpt-6.1-sol @xhigh', 'recorded'],
+      ['critical the guard drops typing (astra, sol; opus as a warning)'],
+      ['critical (gpt-6-astra, gpt-6.1-sol; warning from opus): the relay tunnels CDP'],
+      ['critical (opus 2b, astra 2, sol #4): the relay drops frames'],
+      ['critical (sol; astra in part; opus as a nit): the fix still accepts +?'],
+    ],
+    ['--rows'],
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(placed(result), ['gpt-6-astra, gpt-6.1-sol, opus', 'gpt-6-astra, gpt-6.1-sol, opus', 'opus, gpt-6-astra, gpt-6.1-sol', 'gpt-6.1-sol, gpt-6-astra, opus']);
+});
+
+test('scorecard reads a bracketed seat list that says a seat raised the issue at a lower severity', () => {
+  const result = scorecard(
+    [
+      ['seats opus @xhigh, gpt-6-astra @xhigh, gpt-6.1-sol @xhigh', 'recorded'],
+      ['critical [gpt-6-astra, gpt-6.1-sol; opus as warning]: refusals checked only the first line'],
+    ],
+    ['--rows'],
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(placed(result), ['gpt-6-astra, gpt-6.1-sol, opus']);
+});
+
+test('scorecard lists a critical row it cannot place instead of crediting a seat', () => {
+  const result = scorecard([
+    ['seats opus, codex:gpt-6.1-sol @xhigh', 'recorded'],
+    ['critical (sol): the cache outlives a remount'],
+    ['critical the parser drops rows'],
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^1 of 2 critical rows placed; 1 unplaced, such as:\n- docs\/plans\/2026-01-01-a\.decisions\.tsv:4$/mu);
+  assert.match(result.stdout, /^\| opus \| 1 \| 0 \|/mu);
+});
+
+test('scorecard counts fixes by whether they name the commit that introduced the bug, and whether a panel reviewed that commit', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', { config: { branch: 'next', plans: 'docs/plans' } });
+  const at = (days) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  const land = (message, days, files = {}) => {
+    for (const [path, text] of Object.entries(files)) {
+      mkdirSync(dirname(join(root, path)), { recursive: true });
+      writeFileSync(join(root, path), text);
+    }
+    run('git', ['add', '-A'], root);
+    const when = at(days);
+    spawnSync('git', ['-C', root, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', message], { env: { ...process.env, GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when } });
+    return run('git', ['rev-parse', 'HEAD'], root).stdout.trim();
+  };
+  const header = 'ts\tphase\tdecision\twhy\tevidence\tresult\n';
+  const seats = '2026-01-01T00:00:00Z\tpanel\tseats opus\twhy\tevidence\trecorded\n';
+  const reviewed = land('feat(a): add a\n\nPlan: docs/plans/2026-01-01-a.md', 4, { 'docs/plans/2026-01-01-a.md': '# A\n', 'docs/plans/2026-01-01-a.decisions.tsv': header + seats });
+  const unreviewed = land('feat(b): add b\n\nPlan: docs/plans/2026-01-01-b.md', 2, { 'docs/plans/2026-01-01-b.md': '# B\n', 'docs/plans/2026-01-01-b.decisions.tsv': header });
+  land('docs(b): review b late', 1, { 'docs/plans/2026-01-01-b.decisions.tsv': header + seats });
+  land(`fix(a): repair a and b\n\nIntroduced-by: ${reviewed}\nIntroduced-by: ${unreviewed}`, 0);
+  land('fix: repair c\n\nIntroduced-by: none', 0);
+  land('fix(d)!: repair d', 0);
+  land('feat(e): add e', 0);
+  land(`fix(revert): undo session aaaaaaaa\n\nIntroduced-by: ${reviewed}`, 0);
+  run('git', ['checkout', '-q', '-b', 'side', 'HEAD~1'], root);
+  land('fix(f): repair f', 0);
+  run('git', ['checkout', '-q', '-'], root);
+  run('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'merge', '-q', '--no-ff', '-m', 'Merge pull request #1 from side', 'side'], root);
+  run('git', ['update-ref', 'refs/remotes/origin/next', 'HEAD'], root);
+  const result = run(process.execPath, [join(HELPERS, 'scorecard.mjs')], root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^\| \d{4}-W\d{2} \| 4 \| 1 \(25%\) \| 1 \(25%\) \| 2 \| 3\.0 \| 1 of 2 \| 1 \|$/mu, 'a merged fix counts, none gets its share, and a revert counts only as a revert');
 });
 
 test('an effort: high row lowers a stored (xhigh) title, and a design question stays at xhigh', () => {

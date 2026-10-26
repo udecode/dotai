@@ -301,7 +301,7 @@ test('land stops on a rebase conflict with the conflicting paths, and reruns wit
   assert.equal(stopped.status, 1);
   assert.match(stopped.stderr, /conflicts in:\n {2}a\.txt\n/);
   assert.equal(git(remote, 'show', 'next:a.txt'), 'theirs');
-  assert.match(helper('land.mjs', clone).stderr, /a rebase or merge is in progress/);
+  assert.match(helper('land.mjs', clone).stderr, /a rebase, merge or revert is in progress/);
 
   writeFileSync(join(clone, 'a.txt'), 'both\n');
   git(clone, 'add', 'a.txt');
@@ -656,6 +656,140 @@ test('review lists a tier and weakened tests, needs no review for skipped paths,
   helper('review.mjs', clone, ['--done', 's4']);
   assert.equal(reviewed(), tip);
   assert.match(helper('review.mjs', clone).stdout, /^No commits with public changes or weakened tests to review/);
+});
+
+const ONE = 'local_aaaaaaaa-1111';
+const TWO = 'local_aaaaaaaa-1111-2';
+
+function sessions() {
+  const repo = trunk();
+  const { dir, clone, message } = repo;
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const land = (files, subject, session) => {
+    for (const [path, text] of Object.entries(files)) writeFileSync(join(clone, path), text);
+    const run = helper('land.mjs', clone, ['--message', message(`${subject}\n\nWhy.\n\nBeyond the ask: none`)], { CLAUDE_CODE_HOST_SESSION_ID: session });
+    assert.equal(run.status, 0, run.stderr);
+    return git(clone, 'rev-parse', 'HEAD');
+  };
+  const first = land({ 'a.txt': 'two\n', 'c.txt': 'c\n' }, 'feat(a): one changes a', ONE);
+  const second = land({ 'b.txt': 'two\n' }, 'feat(b): two changes b', TWO);
+  const worktree = join(dir, 'worktree');
+  git(clone, 'worktree', 'add', '--quiet', '-b', 'undo', worktree, second);
+  const third = land({ 'c.txt': 'c again\n', 'd.txt': 'd\n' }, 'feat(d): one changes c and adds d', ONE);
+  return { ...repo, land, worktree, first, third };
+}
+
+test('review --revert lands one fix commit that undoes every commit of a session and keeps the others', () => {
+  const { remote, worktree, first, third } = sessions();
+
+  const run = helper('review.mjs', worktree, ['--revert', ONE]);
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(git(remote, 'rev-list', '--count', `${third}..next`), '1', 'the revert lands as one commit');
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'one');
+  assert.equal(git(remote, 'ls-tree', '--name-only', 'next', '--', 'c.txt', 'd.txt'), '');
+  assert.equal(git(remote, 'show', 'next:b.txt'), 'two', 'a session whose id only starts with the reverted one keeps its commit');
+  const body = git(remote, 'log', '-1', '--format=%B', 'next');
+  assert.equal(body.split('\n')[0], 'fix(revert): undo session aaaaaaaa');
+  assert.match(body, /^Beyond the ask: none$/mu);
+  assert.deepEqual([...body.matchAll(/^Introduced-by: (\S+)$/gmu)].map(([, sha]) => sha).sort(), [first, third].sort());
+});
+
+test('review --revert in a clone that delivers by PR opens one whose body has a Why and a Verification that names the checks', () => {
+  const { dir, clone, worktree } = sessions();
+  git(clone, 'config', '--unset', 'pstack.delivery');
+
+  const run = helper('review.mjs', worktree, ['--revert', ONE, '--check', 'true'], stubGh(dir));
+  assert.equal(run.status, 0, run.stderr);
+  const body = readFileSync(join(dir, 'gh-body'), 'utf8');
+  assert.match(body, /^## Why\n\nReverts every commit session /mu);
+  assert.match(body, /^## Verification\n\nland\.mjs ran `true` on the reverted tree before landing it\.$/mu);
+});
+
+test('review --revert stops on a conflict before its last commit, land refuses until the revert is continued, and then lands it whole', () => {
+  const { remote, worktree, land } = sessions();
+  const tip = land({ 'd.txt': 'd elsewhere\n' }, 'feat(d): three changes d', 'cccccccc');
+
+  const stopped = helper('review.mjs', worktree, ['--revert', ONE]);
+  assert.equal(stopped.status, 1);
+  assert.match(stopped.stderr, /conflicts in:\n {2}d\.txt\n/);
+  assert.equal(git(remote, 'rev-parse', 'next'), tip, 'nothing is pushed');
+
+  git(worktree, 'rm', '--quiet', 'd.txt');
+  const message = stopped.stderr.match(/--message ([^\s`]+)/u)[1];
+  const early = helper('land.mjs', worktree, ['--message', message]);
+  assert.equal(early.status, 1, 'a revert with commits left to apply');
+  assert.match(early.stderr, /a rebase, merge or revert is in progress/);
+  assert.equal(git(remote, 'rev-parse', 'next'), tip, 'nothing is pushed before the revert is continued');
+
+  git(worktree, 'revert', '--continue');
+  const landed = helper('land.mjs', worktree, ['--message', message]);
+  assert.equal(landed.status, 0, landed.stderr);
+  assert.equal(git(remote, 'rev-list', '--count', `${tip}..next`), '1');
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'one');
+  assert.equal(git(remote, 'show', 'next:b.txt'), 'two');
+  assert.equal(git(remote, 'ls-tree', '--name-only', 'next', '--', 'c.txt', 'd.txt'), '');
+});
+
+test('review --revert refuses a session no commit on next names in full', () => {
+  const { remote, worktree, third } = sessions();
+  const run = helper('review.mjs', worktree, ['--revert', 'aaaaaaaa']);
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /no commit on origin\/next has the line Session: aaaaaaaa/);
+  assert.equal(git(remote, 'rev-parse', 'next'), third);
+});
+
+test('review --revert refuses the main checkout', () => {
+  const { remote, clone, third } = sessions();
+  const run = helper('review.mjs', clone, ['--revert', ONE]);
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /not in the main checkout/);
+  assert.equal(git(remote, 'rev-parse', 'next'), third);
+});
+
+test('review --revert refuses a worktree with uncommitted changes, which the revert would carry', () => {
+  const { remote, worktree, third } = sessions();
+  writeFileSync(join(worktree, 'e.txt'), 'e\n');
+  const run = helper('review.mjs', worktree, ['--revert', ONE]);
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /uncommitted changes/);
+  assert.equal(git(remote, 'rev-parse', 'next'), third);
+});
+
+test('review --revert refuses a worktree with commits next lacks, which the revert would carry', () => {
+  const { remote, worktree, third } = sessions();
+  writeFileSync(join(worktree, 'e.txt'), 'e\n');
+  git(worktree, 'add', 'e.txt');
+  git(worktree, 'commit', '--quiet', '-m', 'local');
+  const run = helper('review.mjs', worktree, ['--revert', ONE]);
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /HEAD has commits that origin\/next lacks/);
+  assert.equal(git(remote, 'rev-parse', 'next'), third);
+});
+
+test('review --revert refuses a session that landed a merge commit', () => {
+  const { remote, clone, worktree } = sessions();
+  git(clone, 'switch', '--quiet', '-c', 'side', 'HEAD~1');
+  writeFileSync(join(clone, 'e.txt'), 'e\n');
+  git(clone, 'add', 'e.txt');
+  git(clone, 'commit', '--quiet', '-m', 'side');
+  git(clone, 'switch', '--quiet', 'task');
+  git(clone, 'merge', '--quiet', '--no-ff', 'side', '-m', 'feat(e): merge side', '-m', `Beyond the ask: none\n\nSession: ${ONE}`);
+  git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
+  const tip = git(clone, 'rev-parse', 'HEAD');
+
+  const run = helper('review.mjs', worktree, ['--revert', ONE]);
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /merge commit/);
+  assert.equal(git(remote, 'rev-parse', 'next'), tip);
+});
+
+test('review --revert leaves the revert local and pushes nothing when a check fails', () => {
+  const { remote, worktree, third } = sessions();
+  const run = helper('review.mjs', worktree, ['--revert', ONE, '--check', 'false']);
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /check failed: false/);
+  assert.equal(git(remote, 'rev-parse', 'next'), third);
+  assert.equal(git(worktree, 'log', '-1', '--format=%s'), 'fix(revert): undo session aaaaaaaa');
 });
 
 test('guard denies an agent force-push or delete of next or main and passes every other command', () => {
