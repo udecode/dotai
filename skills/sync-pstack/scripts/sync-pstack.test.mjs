@@ -4823,11 +4823,34 @@ test('proof waits while other sessions hold the whole core pool and runs once a 
   const exited = new Promise((done) => proof.on('exit', done));
 
   await until(() => stderr.includes('waiting'));
-  assert.match(stderr, /proof\.mjs queued: waiting for 1 of this machine's cores; \d+ of \d+ cores held by other session/);
+  assert.match(stderr, /proof\.mjs queued: waiting for 0\.5 of this machine's cores; \d+ of \d+ cores held by other session/);
   assert.equal(proof.exitCode, null, 'a proof ran while the pool was full');
   rmSync(join(dir, `tmp/pstack-slots/${process.pid}.json`));
   assert.equal(await exited, 0);
   assert.match(read(dir, 'run/queued-a1.log'), /\nran\nexit=0\n$/);
+});
+
+test('a proof that arrives later never takes the cores an earlier, larger waiter needs', async () => {
+  const { dir, env, args } = corePool('sync-pstack-proof-order-', [{ pid: process.pid, cores: 1 }]);
+  const start = (name, cores) => {
+    const argv = args(name, `echo ${name}`);
+    argv.splice(argv.indexOf('--'), 0, '--cores', String(cores));
+    const proof = spawn(process.execPath, argv, { cwd: dir, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    proof.stderr.setEncoding('utf8');
+    proof.waited = '';
+    proof.stderr.on('data', (chunk) => (proof.waited += chunk));
+    proof.exited = new Promise((done) => proof.on('exit', done));
+    return proof;
+  };
+
+  const large = start('large', 2 * availableParallelism());
+  await until(() => large.waited.includes('waiting'));
+  const small = start('small', 1);
+  await until(() => small.waited.includes('waiting') || small.exitCode !== null);
+  assert.equal(small.exitCode, null, 'a one-core proof took a free core that an earlier waiter needed');
+  assert.match(small.waited, /proof\.mjs small: waiting for 0\.5 of this machine's cores; 1 of \d+ cores held by other session \(\d+, 1\), and \d+ asked for by 1 earlier waiter$/m);
+  rmSync(join(dir, `tmp/pstack-slots/${process.pid}.json`));
+  assert.deepEqual(await Promise.all([large.exited, small.exited]), [0, 0]);
 });
 
 test('proof frees the share of a holder that died without releasing it', () => {
@@ -4838,7 +4861,7 @@ test('proof frees the share of a holder that died without releasing it', () => {
 });
 
 test('a proof started inside a proof runs on its parent share instead of waiting for one', () => {
-  const { dir, env, args } = corePool('sync-pstack-proof-nested-', [{ pid: process.pid, cores: availableParallelism() - 1 }]);
+  const { dir, env, args } = corePool('sync-pstack-proof-nested-', [{ pid: process.pid, cores: availableParallelism() - 0.5 }]);
   const inner = args('inner', 'true').map((arg) => `'${arg}'`).join(' ');
 
   assert.equal(spawnSync(process.execPath, args('outer', `'${process.execPath}' ${inner}`), { cwd: dir, env, encoding: 'utf8', timeout: 20_000 }).status, 0);

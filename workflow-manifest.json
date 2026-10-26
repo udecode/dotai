@@ -346,7 +346,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/proof.mjs": {
-      "sha256": "72c5dcba202b352ade20859744cbed88b451530f11d8a9328d7dc9273a05c056",
+      "sha256": "a037e1d4789f33df116e3b2fbcd1082ba5f497523cd0f1a32509dc51ec015ccd",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/reply.mjs": {
@@ -410,7 +410,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/time.md": {
-      "sha256": "da4484cb7408ba822cef8052830ce027aa46e4ce652a906cd5eb16902a1cefea",
+      "sha256": "f2435045d70c8b3bf7bb289f39e0a57c06a94c2e679db2b0a40065bcf5e53df6",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/title.md": {
@@ -494,7 +494,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "f31301d94fee1308895dcc29bd81aaa4fd94e017fb7022933c025fec9f7c37a8",
+      "sha256": "c53190d848208cb55d21a9835905461ebdce97cc5712c9b2161761239b5302b5",
       "mode": 420
     },
     "skills/sync-pstack/scripts/trunk.test.mjs": {
