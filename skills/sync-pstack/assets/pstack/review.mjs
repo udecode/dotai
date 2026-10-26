@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Installed by the sync-pstack skill.
-// Usage: node .agents/pstack/review.mjs [--tier <tier>] [--net <session>] | --mark | --done <session> | --revert <session> [--check <command>]...
+// Usage: node .agents/pstack/review.mjs [--tier <tier>] [--net <session>] | --mark | --done <session> | --revert <session> [--stage] [--check <command>]...
 // Lists the commits on origin/<branch>, the branch .agents/pstack.json names,
 // since refs/pstack/reviewed, oldest first and grouped by the session each
 // commit's `Session:` line names, with a DiffsHub link to each, the plan the
@@ -32,7 +32,8 @@
 // `fix(revert)` commit with an `Introduced-by:` line per reverted commit. It
 // runs only in a clean worktree, never the main checkout, with no commit the
 // branch lacks, and fast-forwards a worktree that is behind. It refuses a
-// merge commit, and on a conflict it stops with the revert in progress.
+// merge commit, and on a conflict it stops with the revert in progress. With
+// --stage it stops once the revert is staged and prints the land.mjs command.
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -44,7 +45,7 @@ const REF = 'refs/pstack/reviewed';
 const FIRST = 20;
 const TIERS = ['public', 'internal'];
 const USAGE =
-  'Usage: node .agents/pstack/review.mjs [--tier public|internal|all] [--net <session>] | --mark | --done <session> | --revert <session> [--check <command>]...';
+  'Usage: node .agents/pstack/review.mjs [--tier public|internal|all] [--net <session>] | --mark | --done <session> | --revert <session> [--stage] [--check <command>]...';
 const GLOB = { '**/': '(?:.*/)?', '**': '.*', '*': '[^/]*', '?': '[^/]' };
 
 const fail = (message, code = 1) => {
@@ -64,13 +65,13 @@ const checks = [];
 for (let at = 0; at < args.length; at += 1) {
   const flag = args[at].replace(/^--/u, '');
   if (flag === 'check' && args[at + 1] !== undefined) checks.push(args[++at]);
-  else if (!['tier', 'net', 'done', 'mark', 'revert'].includes(flag) || flag in flags) fail(USAGE, 2);
-  else if (flag === 'mark') flags.mark = true;
+  else if (!['tier', 'net', 'done', 'mark', 'revert', 'stage'].includes(flag) || flag in flags) fail(USAGE, 2);
+  else if (flag === 'mark' || flag === 'stage') flags[flag] = true;
   else if (args[at + 1] === undefined) fail(USAGE, 2);
   else flags[flag] = args[++at];
 }
-if ((flags.mark || flags.done !== undefined || flags.revert !== undefined) && Object.keys(flags).length > 1) fail(USAGE, 2);
-if (checks.length > 0 && flags.revert === undefined) fail(USAGE, 2);
+if ((flags.mark || flags.done !== undefined || flags.revert !== undefined) && Object.keys(flags).filter((flag) => flag !== 'stage').length > 1) fail(USAGE, 2);
+if ((checks.length > 0 || flags.stage) && flags.revert === undefined) fail(USAGE, 2);
 process.chdir(must('rev-parse', '--show-toplevel'));
 const { branch, plans = 'docs/plans', reviewPaths } = JSON.parse(readFileSync('.agents/pstack.json', 'utf8'));
 const tier = flags.tier ?? (reviewPaths ? 'public' : 'all');
@@ -291,6 +292,10 @@ function revert(session) {
         'The revert is still in progress and nothing was pushed. Resolve those paths, `git add` them and run `GIT_EDITOR=true git revert --continue`, which reverts the rest; ' +
         `then run \`node .agents/pstack/land.mjs --message ${file}\` with the same --check values, which lands them as one commit. \`git revert --abort\` drops the whole revert.`
     );
+  }
+  if (flags.stage) {
+    console.log(`Session ${session}'s ${ours.length} commit(s) are reverted and staged, and nothing was pushed. Review \`git diff --cached\`, then land it with \`node .agents/pstack/land.mjs --message ${file}${checks.map((check) => ` --check '${check.replaceAll("'", "'\\''")}'`).join('')}\`.`);
+    process.exit(0);
   }
   const land = spawnSync(process.execPath, [fileURLToPath(new URL('land.mjs', import.meta.url)), '--message', file, ...checks.flatMap((check) => ['--check', check])], {
     stdio: 'inherit',

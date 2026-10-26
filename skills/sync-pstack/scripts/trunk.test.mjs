@@ -694,6 +694,23 @@ test('review --revert lands one fix commit that undoes every commit of a session
   assert.deepEqual([...body.matchAll(/^Introduced-by: (\S+)$/gmu)].map(([, sha]) => sha).sort(), [first, third].sort());
 });
 
+test('review --revert --stage stages the revert, pushes nothing, and lands with the command it prints', () => {
+  const { remote, worktree, third } = sessions();
+
+  const staged = helper('review.mjs', worktree, ['--revert', ONE, '--stage', '--check', 'true']);
+  assert.equal(staged.status, 0, staged.stderr);
+  assert.equal(git(remote, 'rev-parse', 'next'), third, 'nothing is pushed');
+  assert.deepEqual(git(worktree, 'diff', '--cached', '--name-only').split('\n').sort(), ['a.txt', 'c.txt', 'd.txt']);
+  const [, message, check] = staged.stdout.match(/land\.mjs --message (\S+) --check '([^']+)'/u);
+  assert.equal(check, 'true');
+
+  const landed = helper('land.mjs', worktree, ['--message', message, '--check', check]);
+  assert.equal(landed.status, 0, landed.stderr);
+  assert.equal(git(remote, 'rev-list', '--count', `${third}..next`), '1');
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'one');
+  assert.equal(helper('review.mjs', worktree, ['--stage']).status, 2, '--stage needs --revert');
+});
+
 test('review --revert in a clone that delivers by PR opens one whose body has a Why and a Verification that names the checks', () => {
   const { dir, clone, worktree } = sessions();
   git(clone, 'config', '--unset', 'pstack.delivery');
