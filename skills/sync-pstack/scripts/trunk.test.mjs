@@ -19,6 +19,7 @@ const ENV = {
   CLAUDE_CODE_HOST_SESSION_ID: '',
   CLAUDE_CODE_SESSION_ID: '',
   CODEX_SESSION_ID: '',
+  PSTACK_SLOT: '1',
 };
 const GOOD = 'feat(a): change a\n\nWhy a changes.\n\nBeyond the ask: none';
 const PR = 'feat(a): change a\n\n## Why\n\nWhy a changes.\n\n## Verification\n\n- a.txt reads two.\n\nBeyond the ask: none';
@@ -95,16 +96,55 @@ test('land squashes the task, lints its changed files and pushes next as one com
   assert.equal(git(clone, 'status', '--porcelain'), '');
 });
 
-test('land rebases and pushes again when next moves while its checks run', () => {
-  const { remote, clone, message, elsewhere } = trunk();
+test('land rebases, checks again and pushes when next moves while its checks run', () => {
+  const { dir, remote, clone, message, elsewhere } = trunk();
   git(clone, 'config', 'pstack.delivery', 'push');
+  const ran = join(dir, 'ran');
   const other = elsewhere('d.txt', 'theirs\n', 'docs(d): land elsewhere');
   writeFileSync(join(clone, 'a.txt'), 'two\n');
 
-  const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', `git -C ${other} push --quiet origin HEAD:next`]);
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', `echo run >> ${ran} && git -C ${other} push --quiet origin HEAD:next`]);
   assert.equal(run.status, 0, run.stderr);
   assert.match(run.stdout, /origin\/next moved; rebasing and pushing again \(retry 1 of 3\)/);
+  assert.equal(readFileSync(ran, 'utf8').trim().split('\n').length, 2, 'the rebased commit is checked before it is pushed');
   assert.deepEqual(git(remote, 'log', '--format=%s', 'main..next').split('\n'), ['feat(a): change a', 'docs(d): land elsewhere']);
+});
+
+test('land keeps a rebased commit local and unrecorded when the commit next gained while its checks ran breaks them', () => {
+  const { dir, remote, clone, message, elsewhere } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const ran = join(dir, 'ran');
+  const runs = () => readFileSync(ran, 'utf8').trim().split('\n').length;
+  const other = elsewhere('d.txt', 'theirs\n', 'docs(d): land elsewhere');
+  const check = ['--check', `echo run >> ${ran} && git -C ${other} push --quiet origin HEAD:next && ! { test -e c.txt && test -e d.txt; }`];
+  writeFileSync(join(clone, 'c.txt'), 'mine\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), ...check]);
+  assert.equal(run.status, 1, 'c.txt passes the check alone and fails it beside d.txt');
+  assert.match(run.stdout, /origin\/next moved; rebasing and pushing again/);
+  assert.match(run.stderr, /check failed: .*; the squashed commit stays local/);
+  assert.deepEqual(git(remote, 'log', '--format=%s', 'main..next').split('\n'), ['docs(d): land elsewhere']);
+  assert.equal(git(clone, 'rev-parse', 'HEAD^'), git(remote, 'rev-parse', 'next'), 'the commit stays rebased onto the new next');
+
+  assert.equal(helper('land.mjs', clone, check).status, 1);
+  assert.equal(runs(), 3, 'the failed recheck recorded nothing, so a rerun checks again');
+  assert.deepEqual(git(remote, 'log', '--format=%s', 'main..next').split('\n'), ['docs(d): land elsewhere']);
+});
+
+test('land checks again and pushes nothing when a check fails on the tree an earlier run recorded', () => {
+  const { remote, clone, message } = trunk({ lint: true });
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const check = ['--check', 'test -z "$FAIL"'];
+  declinePushes(remote, 1, ['', 'Pushes are paused.']);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  assert.equal(helper('land.mjs', clone, ['--message', message(GOOD), ...check]).status, 1, 'the push is declined after the checks pass and land.mjs records the commit');
+
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  assert.equal(helper('land.mjs', clone, check, { FAIL: '1' }).status, 1, 'the lint fix turns the edit back into the recorded tree, where the check now fails');
+  const rerun = helper('land.mjs', clone, check, { FAIL: '1' });
+  assert.equal(rerun.status, 1, 'the failed check left no record that lets a rerun skip it');
+  assert.match(rerun.stderr, /check failed: test -z "\$FAIL"/);
+  assert.equal(git(remote, 'log', '-1', '--format=%s', 'next'), 'base');
 });
 
 // GitHub's empty GH006 is the GH006 line followed by a bare `remote: error:` line.
@@ -158,6 +198,25 @@ test('land stops pushing again once another wait would end past 55 minutes into 
   assert.equal(git(remote, 'rev-parse', 'next'), base);
 });
 
+test('land exits 75 with the commit local when checking a rebased commit again would end past 55 minutes into the run', () => {
+  const { dir, remote, clone, message, elsewhere } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const startsBeforeDeadline = 10_000;
+  const checkSeconds = 6;
+  const late = join(dir, 'late.mjs');
+  writeFileSync(late, `const now = performance.now.bind(performance);\nperformance.now = () => now() + 55 * 60_000 - ${startsBeforeDeadline};\n`);
+  const ran = join(dir, 'ran');
+  const other = elsewhere('d.txt', 'theirs\n', 'docs(d): land elsewhere');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const check = `echo run >> ${ran} && git -C ${other} push --quiet origin HEAD:next && sleep ${checkSeconds}`;
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', check], { NODE_OPTIONS: `--import ${late}` });
+  assert.equal(run.status, 75, run.stderr);
+  assert.match(run.stderr, /origin\/next moved, and checking the rebased commit again would end past 55 minutes into the run[\s\S]*run land\.mjs again with the same --check options and no --message/);
+  assert.equal(readFileSync(ran, 'utf8').trim().split('\n').length, 1, 'the rebased commit is not checked');
+  assert.deepEqual(git(remote, 'log', '--format=%s', 'main..next').split('\n'), ['docs(d): land elsewhere']);
+});
+
 test('a rerun after every push was declined skips the checks only while it would push the same tree, parent and message', () => {
   const { dir, remote, clone, base, message } = trunk();
   git(clone, 'config', 'pstack.delivery', 'push');
@@ -208,7 +267,7 @@ test('a rerun runs the checks again when next moved under an unchanged tree', ()
   assert.equal(git(remote, 'log', '-1', '--format=%s', 'next'), 'fix(a): land elsewhere');
 });
 
-test('a rerun after next moved and every push was declined pushes the rebased commit without its checks', () => {
+test('a rerun after next moved and every push was declined pushes the checked rebased commit without its checks', () => {
   const { dir, remote, clone, message, elsewhere } = trunk();
   git(clone, 'config', 'pstack.delivery', 'push');
   const ran = join(dir, 'ran');
@@ -227,7 +286,7 @@ test('a rerun after next moved and every push was declined pushes the rebased co
   const rerun = helper('land.mjs', clone, check, NO_WAIT);
   assert.equal(rerun.status, 0, rerun.stderr);
   assert.match(rerun.stdout, /pushes without running the checks again/);
-  assert.equal(readFileSync(ran, 'utf8').trim().split('\n').length, 1);
+  assert.equal(readFileSync(ran, 'utf8').trim().split('\n').length, 2, 'the first run checks before and after its rebase, and the rerun checks nothing');
   assert.deepEqual(git(remote, 'log', '--format=%s', 'main..next').split('\n'), ['feat(a): change a', 'docs(d): land elsewhere']);
 });
 
@@ -433,6 +492,56 @@ test('land refuses a message without a Conventional subject or a Beyond the ask 
   assert.equal(git(clone, 'status', '--porcelain'), 'M a.txt');
 });
 
+const FIX = 'fix(a): repair a\n\nBeyond the ask: none';
+for (const [name, args, refusal] of [
+  ['names no commit that introduced its bug', ({ message }) => ['--message', message(FIX)], /names no commit that introduced its bug/],
+  ['leaves its Introduced-by line empty', ({ message }) => ['--message', message(`${FIX}\nIntroduced-by: `)], /an `Introduced-by:` line has no value/],
+  ['names an unknown commit', ({ message }) => ['--message', message(`${FIX}\nIntroduced-by: 0123456789abcdef0123456789abcdef01234567`)], /Introduced-by: 0123456789abcdef0123456789abcdef01234567 names no commit/],
+  [
+    'names a commit next does not contain',
+    ({ clone, message }) => ['--message', message(`${FIX}\nIntroduced-by: ${git(clone, 'commit-tree', '-p', 'HEAD', '-m', 'local only', 'HEAD^{tree}')}`)],
+    /Introduced-by: \w+ names a commit origin\/next does not contain/,
+  ],
+  ['names a commit beside none', ({ base, message }) => ['--message', message(`${FIX}\nIntroduced-by: none\nIntroduced-by: ${base}`)], /`Introduced-by: none` cannot stand beside another `Introduced-by:` line/],
+  ['writes no space after the colon, which review.mjs would read as Beyond the ask text', ({ message }) => ['--message', message(`${FIX}\nIntroduced-by:none`)], /with a space after the colon/],
+  ['writes a tab after the colon', ({ message }) => ['--message', message(`${FIX}\nIntroduced-by:\tnone`)], /with a space after the colon/],
+  ['names a known commit in capitals', ({ base, message }) => ['--message', message(`${FIX}\nIntroduced-by: ${base.toUpperCase()}`)], /is not a lowercase sha of 7 to 40 characters/],
+  ['names a known commit with its subject', ({ base, message }) => ['--message', message(`${FIX}\nIntroduced-by: ${base.slice(0, 12)} ("base")`)], /is not a lowercase sha of 7 to 40 characters/],
+  [
+    'reruns without --message from a HEAD that names no cause',
+    ({ clone }) => {
+      git(clone, 'commit', '--quiet', '-am', FIX);
+      return [];
+    },
+    /names no commit that introduced its bug/,
+  ],
+]) {
+  test(`land refuses a fix that ${name}`, () => {
+    const lane = trunk();
+    git(lane.clone, 'config', 'pstack.delivery', 'push');
+    writeFileSync(join(lane.clone, 'a.txt'), 'two\n');
+
+    const run = helper('land.mjs', lane.clone, args(lane));
+    assert.equal(run.status, 1);
+    assert.match(run.stderr, refusal);
+    assert.equal(git(lane.remote, 'rev-parse', 'next'), lane.base);
+  });
+}
+
+test('land takes a fix that names a commit on next or none, and any other type without the line', () => {
+  const { remote, clone, base, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const landed = (text) => {
+    writeFileSync(join(clone, 'a.txt'), `${text}\n`);
+    const run = helper('land.mjs', clone, ['--message', message(text)]);
+    assert.equal(run.status, 0, run.stderr);
+    assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), text);
+  };
+  landed(GOOD);
+  landed(`fix(a)!: repair a\n\nBeyond the ask: none\nIntroduced-by: ${base}\nIntroduced-by: ${git(remote, 'rev-parse', '--short', 'next')}`);
+  landed('fix: repair a again\n\nBeyond the ask: none\nIntroduced-by: none');
+});
+
 test('land refuses a PR whose body is the commit body without Why and Verification text, and puts the task commits back', () => {
   const { dir, remote, clone, message } = trunk();
   writeFileSync(join(clone, 'a.txt'), 'two\n');
@@ -464,7 +573,7 @@ test('review groups the commits to review by session, --done marks one session r
     return git(clone, 'rev-parse', 'HEAD');
   };
   const one = land('one.txt', 'feat(a): one', 'Beyond the ask: none\n\nSession: local_s1\nPlan: docs/plans/2026-10-17-x.md');
-  land('two.txt', 'fix(b): two', 'No plan here.\n\nBeyond the ask: renamed c\n\nSession: s2');
+  land('two.txt', 'fix(b): two', `No plan here.\n\nBeyond the ask: renamed c\nIntroduced-by: ${one}\n\nSession: s2`);
   const three = land('three.txt', 'docs(a): three', 'See docs/plans/2026-10-17-x.md.\n\nBeyond the ask: none\n\nSession: local_s1');
   const four = land('four.txt', 'chore: four', 'Beyond the ask: none');
   git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
