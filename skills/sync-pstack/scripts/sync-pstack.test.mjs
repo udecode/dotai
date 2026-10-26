@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { appendFileSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { availableParallelism, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -4774,6 +4774,47 @@ test('proof logs the exit of a command that outlives its parent proof.mjs', asyn
   proof.kill('SIGKILL');
   await until(() => read(dir, 'run/orphan-a1.log').includes('exit='));
   assert.match(read(dir, 'run/orphan-a1.log'), /\nready\n\nproof\.mjs ended before its command\nexit=0\n$/);
+});
+
+// A scratch TMPDIR gives each test its own core pool, so the machine's real proofs neither block it nor count in it.
+const corePool = (prefix, holders) => {
+  const dir = mkdtempSync(join(tmpdir(), prefix));
+  const env = { ...process.env, TMPDIR: join(dir, 'tmp') };
+  delete env.PSTACK_SLOT;
+  mkdirSync(join(dir, 'tmp/pstack-slots'), { recursive: true });
+  for (const holder of holders) writeFileSync(join(dir, `tmp/pstack-slots/${holder.pid}.json`), JSON.stringify({ label: 'other session', ...holder }));
+  const args = (name, command) => [join(HELPERS, 'proof.mjs'), '--dir', join(dir, 'run'), '--name', name, '--timeout', '30', '--', command];
+  return { dir, env, args };
+};
+
+test('proof waits while other sessions hold the whole core pool and runs once a share frees', async () => {
+  const { dir, env, args } = corePool('sync-pstack-proof-pool-', [{ pid: process.pid, cores: availableParallelism() }]);
+  const proof = spawn(process.execPath, args('queued', 'echo ran'), { cwd: dir, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  let stderr = '';
+  proof.stderr.on('data', (chunk) => (stderr += chunk));
+  const exited = new Promise((done) => proof.on('exit', done));
+
+  await until(() => stderr.includes('waiting'));
+  assert.match(stderr, /proof\.mjs queued: waiting for 1 of this machine's cores; \d+ of \d+ cores held by other session/);
+  assert.equal(proof.exitCode, null, 'a proof ran while the pool was full');
+  rmSync(join(dir, `tmp/pstack-slots/${process.pid}.json`));
+  assert.equal(await exited, 0);
+  assert.match(read(dir, 'run/queued-a1.log'), /\nran\nexit=0\n$/);
+});
+
+test('proof frees the share of a holder that died without releasing it', () => {
+  const { pid } = spawnSync('true');
+  const { dir, env, args } = corePool('sync-pstack-proof-dead-', [{ pid, cores: availableParallelism() }]);
+
+  assert.equal(spawnSync(process.execPath, args('after-crash', 'true'), { cwd: dir, env, encoding: 'utf8', timeout: 20_000 }).status, 0);
+});
+
+test('a proof started inside a proof runs on its parent share instead of waiting for one', () => {
+  const { dir, env, args } = corePool('sync-pstack-proof-nested-', [{ pid: process.pid, cores: availableParallelism() - 1 }]);
+  const inner = args('inner', 'true').map((arg) => `'${arg}'`).join(' ');
+
+  assert.equal(spawnSync(process.execPath, args('outer', `'${process.execPath}' ${inner}`), { cwd: dir, env, encoding: 'utf8', timeout: 20_000 }).status, 0);
+  assert.match(read(dir, 'run/inner-a1.log'), /exit=0\n$/);
 });
 
 test('proof fails a timed-out command that exits 0 on its timeout signal', () => {
