@@ -4161,20 +4161,34 @@ test('chips cleanup lists the idle card sessions of landed tasks to archive and 
     { sessionId: 's3', title: 'working card', cwd: card('c'), isArchived: false, isRunning: true },
     { sessionId: 's4', title: 'checkout session', cwd: realpathSync(root), isArchived: false, isRunning: false },
     { sessionId: 's5', title: 'pinned card', cwd: card('e'), isArchived: false, isRunning: false, pinned: true },
+    { sessionId: 's6', title: 'card holder', cwd: card('f'), isArchived: false, isRunning: false },
   ];
   for (const [n, session] of sessions.entries()) {
-    const task = `task_${'abcde'[n]}1 Fix part ${n}`;
+    const task = `task_${'abcdef'[n]}1 Fix part ${n}`;
     assert.equal(offer(task, `src/${n}.ts`, `topic: part-${n}`).status, 0);
     assert.equal(chip(task, 'started', `session: ${session.sessionId}`).status, 0);
     assert.equal(chip(task, 'landed', n === 0 ? `commit: ${sha}` : 'evidence').status, 0);
+  }
+  const [aging, started] = ['task_g1 Fix a bug part 5 found', 'task_h1 Fix another bug part 5 found'];
+  for (const [n, task] of [aging, started].entries()) {
+    assert.equal(offer(task, `src/found-${n}.ts`, `topic: found-${n}; session: s6`).status, 0);
+    assert.equal(chip(task, 'carded', `card: task_${n}f6f6f6f; session: s6`).status, 0);
   }
   writeFileSync(join(root, 'sessions.json'), JSON.stringify(sessions));
   const out = chips('cleanup', '--sessions', 'sessions.json').stdout;
   assert.match(out, /^Archive \(1\)[^\n]*\n {2}s1 {2}idle card\n/u, 'only the idle, unpinned card session is archived');
   assert.match(out, new RegExp(`Remove \\(1\\)[^\\n]*\\n {2}node \\.agents/skills/cleanup/scripts/scan\\.mjs --repo \\. --remove ${card('b').replace(/[.*+?^${}()|[\]\\/]/gu, '\\$&')}\\n`), 'the archived card worktree is removed');
+  assert.match(out, /^Keep \(1\)[^\n]*\n {2}s6 {2}card holder: holds task_g1's card task_0f6f6f6f, task_h1's card task_1f6f6f6f\n/mu, 'a card session that holds a card nobody started is kept, since archiving it drops the card');
   assert.ok(out.includes(`task_a1 Fix part 0: 📦 [fix(app): keep the \\[caret\\] in place](https://diffshub.com/acme/app/commit/${sha})`), 'the report links the named commit by its subject');
   assert.match(out, /task_b1 Fix part 1: no commit named/);
+  assert.match(out, /task_f1 Fix part 5: no commit named/, 'a kept session still reports its landed task');
   assert.doesNotMatch(out, /task_[cde]1/, 'a working, checkout or pinned session is left alone');
+  assert.equal(chip(started, 'started', 'session: s7').status, 0);
+  assert.match(chips('cleanup', '--sessions', 'sessions.json').stdout, /^Keep \(1\)[^\n]*\n {2}s6 {2}card holder: holds task_g1's card task_0f6f6f6f\n/mu, 'a started card no longer keeps its session');
+  const ledger = join(root, 'docs/plans/suggested-tasks.decisions.tsv');
+  const weekOld = new Date(Date.now() - 8 * 86_400_000).toISOString();
+  writeFileSync(ledger, readFileSync(ledger, 'utf8').replace(/^\S+(\tchip\ttask_g1 [^\n]*\tcarded)$/mu, `${weekOld}$1`));
+  assert.match(chips('cleanup', '--sessions', 'sessions.json').stdout, /^Archive \(2\)[^\n]*\n {2}s1 {2}idle card\n {2}s6 {2}card holder\n/u, 'a card the app dropped after a week, dismissed or not, no longer keeps its session');
 });
 
 test('chips cleanup keeps the worktree of an archived card session that a live session or the session running cleanup reuses', () => {

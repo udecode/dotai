@@ -150,7 +150,7 @@
       "mode": 493
     },
     "skills/chips/SKILL.md": {
-      "sha256": "000ed0ce0ebc445dea14a17151128b7249ffadfa15c4e44f94e9ef2afec14945",
+      "sha256": "d3f9e2e9ffa6fad6adcde626187649abbba8f153d0b7f7be46c813e3a2213282",
       "mode": 420
     },
     "skills/cleanup/SKILL.md": {
@@ -274,7 +274,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "ede3aa5f54a8e5031a7208cebf78e02dd3fd2f0f4cee3d802b89704facf0e85b",
+      "sha256": "d7b46a4b0c77b0b925c14f7da2a8bbd153b232c55992f5af037bb4a72f645f77",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/checkout.mjs": {
@@ -302,7 +302,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
-      "sha256": "b57b04229a7566937b8e2f06f9a870dee4b4350e8d8e121ab287cdd8077c850d",
+      "sha256": "15778e9c49991debb9fdd3876f0d1b0a3fc562e0c36d4a0301677f19d5a30d2a",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/freeze.mjs": {
@@ -366,7 +366,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/chips.md": {
-      "sha256": "0d0b1c1e16b7eb48cab50cba9993ba82730ec94b9a7715d6e4e218b0cf7b7c0a",
+      "sha256": "64fe79d0a53721d14fb9bd57924e24b126e994d8391a0caffc8cbf482f6c4c2b",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/close.md": {
@@ -434,7 +434,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/tasks.mjs": {
-      "sha256": "09fb5eb2b7de01dd9165522305c9fe599cde636f6aaf1d2304081c1e3d771f58",
+      "sha256": "fdaaa23ebf8d6a4bd282aef10d07a6b9f4b9eb26c34818b0abb747a19d17891d",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/title.mjs": {
@@ -490,7 +490,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "9729743c78ae59574480becd701ecdc1d698e599c024735ff1866e0e8bde2c00",
+      "sha256": "2333e8e6cd67fd0bb0693cf7eab185fd665a393a7ad0dd7a85d5b71586ec3450",
       "mode": 420
     },
     "skills/sync-pstack/scripts/trunk.test.mjs": {
