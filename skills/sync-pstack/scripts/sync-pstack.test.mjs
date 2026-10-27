@@ -6095,6 +6095,26 @@ test('setup keeps the ignored ledger in step with refs/pstack/ledger on origin a
   assert.equal(run('git', ['-C', main, 'status', '--porcelain']).stdout, '');
 });
 
+test("setup keeps the ledger on the companion repository's origin once the checkout holds its git directory", () => {
+  const { clone, run, seed, setup } = ledgerRemote();
+  const ledger = 'docs/plans/artifacts/suggested-tasks.decisions.tsv';
+  const main = clone('main');
+  const companion = join(dirname(seed), 'companion.git');
+  run('git', ['init', '-q', '--bare', companion]);
+  run('git', ['-C', main, 'init', '-q', '--bare', '.git-private']);
+  run('git', ['--git-dir', join(main, '.git-private'), 'remote', 'add', 'origin', companion]);
+  const config = JSON.parse(readFileSync(join(main, '.agents/pstack.json'), 'utf8'));
+  writeFileSync(join(main, '.agents/pstack.json'), JSON.stringify({ ...config, companion: { dir: '.git-private', list: '.gitprivate' } }));
+  mkdirSync(join(main, 'docs/plans/artifacts'), { recursive: true });
+  writeFileSync(join(main, ledger), 'team row\n');
+
+  const started = setup(main);
+  assert.equal(started.status, 0, started.stderr);
+  assert.match(started.stdout, /pushed 1 ledger row\(s\)/);
+  assert.equal(run('git', ['--git-dir', companion, 'show', 'refs/pstack/ledger:suggested-tasks.decisions.tsv']).stdout, 'team row\n');
+  assert.notEqual(spawnSync('git', ['-C', main, 'ls-remote', '--exit-code', 'origin', 'refs/pstack/ledger']).status, 0, 'the public origin gets no ledger');
+});
+
 test("setup moves the rows at the ledger's former path into the ledger, so next can trade that file for a link", () => {
   const former = 'docs/plans/suggested-tasks.decisions.tsv';
   const { clone, next, onRef, run, seed, setup } = ledgerRemote({ [former]: 'row 0\n' });

@@ -96,6 +96,99 @@ test('land squashes the task, lints its changed files and pushes next as one com
   assert.equal(git(clone, 'status', '--porcelain'), '');
 });
 
+// Splits the trunk: next gains .gitprivate, which the clone's git ignores
+// through core.excludesFile, and the companion repository .git-private, with
+// its own bare remote, tracks a.spec from its first commit.
+function split(fixture) {
+  const { dir, clone } = fixture;
+  writeFileSync(join(clone, '.gitprivate'), '*.spec\n');
+  writeFileSync(join(clone, '.gitignore'), '.env\n.env.local\nnode_modules\n/.git-private\n');
+  const config = JSON.parse(readFileSync(join(clone, '.agents/pstack.json'), 'utf8'));
+  config.companion = { dir: '.git-private', list: '.gitprivate', migrate: 'node migrate.mjs', detach: 'node detach.mjs' };
+  writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify(config));
+  git(clone, 'add', '--all');
+  git(clone, 'commit', '--quiet', '-m', 'split');
+  git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
+  git(clone, 'fetch', '--quiet', 'origin');
+  git(clone, 'config', 'core.excludesFile', join(clone, '.gitprivate'));
+  const remote = join(dir, 'companion.git');
+  git(dir, 'init', '--quiet', '--bare', '--initial-branch=next', remote);
+  git(clone, 'init', '--quiet', '--bare', '.git-private');
+  const side = (...args) => git(clone, '--git-dir=.git-private', '--work-tree=.', ...args);
+  side('config', 'core.bare', 'false');
+  side('remote', 'add', 'origin', remote);
+  writeFileSync(join(clone, 'a.spec'), 'one\n');
+  side('add', '--force', 'a.spec');
+  side('commit', '--quiet', '-m', 'start');
+  side('push', '--quiet', 'origin', 'HEAD:next');
+  side('fetch', '--quiet', 'origin');
+  return { companion: remote, side };
+}
+
+test('land commits, checks and pushes the companion half after the first, and a companion-only task lands alone', () => {
+  const fixture = trunk();
+  const { remote, clone, message } = fixture;
+  const { companion, side } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  writeFileSync(join(clone, 'a.spec'), 'two\n');
+  writeFileSync(join(clone, 'b.spec'), 'new\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', 'test "$(cat b.spec)" = new']);
+  assert.equal(run.status, 0, run.stderr);
+  const landed = git(remote, 'rev-parse', 'next');
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'two');
+  assert.equal(git(remote, 'ls-tree', '--name-only', 'next', '--', 'a.spec', 'b.spec'), '', 'no companion file lands here');
+  assert.equal(git(companion, 'show', 'next:a.spec'), 'two');
+  assert.equal(git(companion, 'show', 'next:b.spec'), 'new', 'a new file the list names lands in the companion');
+  assert.equal(git(companion, 'log', '-1', '--format=%B', 'next'), `${GOOD}\nLands-With: ${landed}`);
+  assert.equal(side('status', '--porcelain', '--untracked-files=no'), '');
+
+  writeFileSync(join(clone, 'a.spec'), 'three\n');
+  const alone = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  assert.equal(alone.status, 0, alone.stderr);
+  assert.equal(git(remote, 'rev-parse', 'next'), landed, 'a companion-only task adds nothing here');
+  assert.equal(git(companion, 'show', 'next:a.spec'), 'three');
+  assert.match(git(companion, 'log', '-1', '--format=%B', 'next'), new RegExp(`Lands-With: ${landed}$`, 'u'));
+});
+
+test('land pushes a refused companion commit first on its next run', () => {
+  const fixture = trunk();
+  const { remote, clone, message } = fixture;
+  const { companion } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const hook = join(companion, 'hooks/pre-receive');
+  writeFileSync(hook, '#!/bin/sh\nexit 1\n');
+  chmodSync(hook, 0o755);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  writeFileSync(join(clone, 'a.spec'), 'two\n');
+
+  const refused = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  assert.equal(refused.status, 75, refused.stderr);
+  const landed = git(remote, 'rev-parse', 'next');
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'two', 'the first commit lands before the companion push');
+  writeFileSync(hook, '#!/bin/sh\nexit 0\n');
+
+  const rerun = helper('land.mjs', clone);
+  assert.equal(rerun.status, 0, rerun.stderr);
+  assert.equal(git(remote, 'rev-parse', 'next'), landed, 'the rerun lands nothing new here');
+  assert.equal(git(companion, 'show', 'next:a.spec'), 'two');
+});
+
+test('land stops a branch cut before the companion list existed and names the migrate command', () => {
+  const fixture = trunk();
+  const { clone, message } = fixture;
+  git(clone, 'branch', 'old');
+  split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  git(clone, '--git-dir=.git', 'switch', '--quiet', 'old');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /cut before \.gitprivate existed on origin\/next.*Run `node migrate\.mjs`/su);
+});
+
 test('land rebases, checks again and pushes when next moves while its checks run', () => {
   const { dir, remote, clone, message, elsewhere } = trunk();
   git(clone, 'config', 'pstack.delivery', 'push');
@@ -911,6 +1004,53 @@ test('guard denies an agent gh pr create into next or with no base, and passes a
     "cat <<'EOF'\ngh pr create\nEOF",
   ];
   for (const command of passed) assert.equal(guard(command), null, command);
+});
+
+test('guard denies a command that would delete or overwrite the companion files, and passes the rest', () => {
+  const fixture = trunk();
+  const { dir, clone } = fixture;
+  const old = git(clone, 'rev-parse', 'HEAD');
+  split(fixture);
+  const session = join(dir, 'session');
+  const plain = join(dir, 'plain');
+  git(clone, 'worktree', 'add', '--quiet', '--detach', session);
+  git(clone, 'worktree', 'add', '--quiet', '--detach', plain);
+  writeFileSync(join(session, '.git-private'), 'gitdir: elsewhere\n');
+  const guard = (command, cwd = clone) => {
+    const run = spawnSync(process.execPath, [join(clone, '.agents/pstack/guard.mjs')], {
+      input: JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd }),
+      encoding: 'utf8',
+      env: ENV,
+    });
+    assert.equal(run.status, 0, run.stderr);
+    return run.stdout ? JSON.parse(run.stdout).hookSpecificOutput : null;
+  };
+  const denied = {
+    'git clean -fdx': /git clean -x or -X/u,
+    'git clean -fX': /git clean -x or -X/u,
+    'git --git-dir=.git-private --work-tree=. clean -fd': /deletes every public file/u,
+    [`git checkout ${old}`]: /has no \.gitprivate/u,
+    [`git switch --detach ${old}`]: /has no \.gitprivate/u,
+    [`cd x && git reset --hard ${old}`]: /has no \.gitprivate/u,
+    [`git rebase ${old}`]: /has no \.gitprivate/u,
+    [`git worktree remove --force ${session}`]: /Run `node detach\.mjs` inside/u,
+  };
+  for (const [command, reason] of Object.entries(denied)) {
+    const decision = guard(command);
+    assert.equal(decision?.permissionDecision, 'deny', command);
+    assert.match(decision.permissionDecisionReason, reason, command);
+  }
+  const passed = [
+    'git clean -fd',
+    'git clean -ndx',
+    'git switch --detach origin/next',
+    `git checkout ${old} -- a.txt`,
+    'git reset --hard HEAD',
+    `git worktree remove --force ${plain}`,
+    'git --git-dir=.git-private --work-tree=. status',
+  ];
+  for (const command of passed) assert.equal(guard(command), null, command);
+  assert.equal(guard('git clean -fdx', plain), null, 'a checkout without the companion directory has nothing of it to lose');
 });
 
 test("guard denies the app's base-branch sync with the rebase to run instead, and passes other tools", () => {
