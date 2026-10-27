@@ -585,6 +585,28 @@ test('land refuses a message without a Conventional subject or a Beyond the ask 
   assert.equal(git(clone, 'status', '--porcelain'), 'M a.txt');
 });
 
+test('land refuses a closing keyword right before an issue reference, and lands a message that names the issue as <repo>#<N>', () => {
+  const { remote, clone, base, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  for (const [text, name] of [
+    ['feat(a): change a\n\nRan triage fix #5228 on it.\n\nBeyond the ask: none\n', 'remote'],
+    ['docs(a): resolve #12\n\nBeyond the ask: none\n', 'remote'],
+    ['feat(a): change a\n\nCloses: udecode/plate#12\n\nBeyond the ask: none\n', 'plate'],
+    ['feat(a): change a\n\nFixed https://github.com/udecode/plate-private/issues/5228 here.\n\nBeyond the ask: none\n', 'plate-private'],
+  ]) {
+    const run = helper('land.mjs', clone, ['--message', message(text)]);
+    assert.equal(run.status, 1, text);
+    assert.match(run.stderr, new RegExp(`closes an issue .*write \`${name}#<N>\``, 'u'), text);
+  }
+  assert.equal(git(remote, 'rev-parse', 'next'), base);
+
+  const run = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\nRan triage fix remote#5228; see #12, prefix #7, fixture/plate#12, fix #3b82f6.\n\nBeyond the ask: none\n')]);
+  assert.equal(run.status, 0, run.stderr);
+  assert.notEqual(git(remote, 'rev-parse', 'next'), base);
+});
+
 const FIX = 'fix(a): repair a\n\nBeyond the ask: none';
 for (const [name, args, refusal] of [
   ['names no commit that introduced its bug', ({ message }) => ['--message', message(FIX)], /names no commit that introduced its bug/],

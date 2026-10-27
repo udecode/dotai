@@ -76,7 +76,7 @@
 <!-- # adds -->
 - **Git.** Before a nontrivial edit, check only `git branch --show-current`.
 <!-- if protected -->
-  Never edit from `{{protected}}`. This clone's `origin/HEAD` points at `origin/{{branch}}`, because the desktop app cuts each new worktree from `origin/HEAD`. `git remote set-head origin --auto` points it at the remote's default branch, so never run it.
+  Never edit from `{{protected}}`. This clone's `origin/HEAD` points at `origin/{{branch}}`, because the desktop app cuts new worktrees from it. `git remote set-head origin --auto` follows the remote's default, which need not be `{{branch}}`, so never run it.
   Before a session gets its own worktree, a suggested task's card included, the lead runs `node .agents/pstack/head.mjs`, which points `origin/HEAD` back at `origin/{{branch}}` when it has moved.
 <!-- end -->
 <!-- if delivery=push|user -->
