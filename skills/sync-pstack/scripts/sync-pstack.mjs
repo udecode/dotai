@@ -76,6 +76,7 @@ export const RULE_FILES = {
   'land.md': ['delivery=trunk'],
   'linked.md': [],
   'long-runs.md': ['long-runs'],
+  'messages.md': [],
   'pages.md': ['plans'],
   'panel.md': [],
   'reflect.md': [],

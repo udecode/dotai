@@ -160,12 +160,7 @@
   This project's reviews list is empty, so panels run only where a pstack step calls for them or on the user's word.
 <!-- end -->
 <!-- # overrides poteto-mode/SKILL.md "Reversible work and external actions" -->
-- **Messages and shared resources.** Who can read a message decides its stop, not its channel. A message that anyone outside the team can read, such as a send to customers, an email to a client, or a comment, review, label or close on a public repository's issue or PR, needs explicit authorization from the active request. A PR, its title and its body opened under the Delivery rule are not such a message. A message only team members can read, and shared quota, proceed without asking, as pstack's Autonomy says; a private repository or tracker grants nothing by itself. A message that waits for authorization, or that the runtime's own instructions refuse, goes as a draft under the page's Needs you, or in the reply when there is no page. The owner sends it, and the run keeps going. A "can we X?" question gets a measured answer and a proposal, not the action. An access grant is approved per target and runs as its own command; never widen an approved grant to a new target.
-<!-- if delivery=user -->
-<!-- if pushBranches -->
-  The comment the Delivery rule keeps on another person's PR is not such a message either, because like a PR body it reports the lead's own delivery.
-<!-- end -->
-<!-- end -->
+- **Messages and shared resources.** A "can we X?" question gets a measured answer and a proposal, not the action. Before you send or draft a message another person can read, such as an email, a chat message, or a comment, review, label or close on an issue or PR, before you spend shared quota, and before you run an access grant, read `.agents/pstack/rules/messages.md` in full.
 <!-- # overrides poteto-mode/playbooks/babysit.md "Dismiss noise with the concrete disproof on the thread." -->
 <!-- section tests -->
 <!-- # overrides poteto-mode/playbooks/bug-fix.md "Stage the commits so the failing repro lands before the fix in git history." -->
@@ -257,6 +252,8 @@
 - **Principles in replies.** pstack's principle skills still apply. Read the leaf skill for any principle a decision rests on, as poteto-mode's Principles list says. Only the rule to name each principle in the reply is dropped; name one only when it explains a choice the reader would otherwise question.
 <!-- # adds -->
 - **Links in replies.** A reply or report names each file, commit, PR, issue and page in its text without a link, and ends with one list of those links, local ones such as files and sessions first, then external ones (owner's word, 2026-10-21). A page is `📄 <url>`, a commit `📦 [<subject>](https://diffshub.com/<owner>/<repo>/commit/<sha>)`, or `📦 [<repo>: <subject>](...)` outside the current repository, and a PR or issue `[owner/repo#123](<url>)`, so the owner tells them apart at a glance (owner's word, 2026-10-20). A reply with no links has no list.
+<!-- # adds -->
+- **Closing summary.** A reply that ends a turn and runs past about 150 words gives its detail first. It ends, just above its link list, with a summary that opens with a bold **Summary.** and follows the shape of the `pstack:ketchup` skill's Write the reply section. Its first sentence names what waits on the owner or says nothing does. Then it gives one line per thing the owner asked for, with its state, such as done, running, failed or not checked, and each call the owner must make, with the lead's pick and its risk (owner's word, 2026-10-27).
 <!-- # adds -->
 - **Blocked.** For an unclear tool or access failure, allow two informed attempts or ten minutes, whichever comes first. Then finish a bounded repair, ask once for the exact human action under the page's Needs you, or move to other ready work.
 <!-- # overrides reflect/SKILL.md "prints the first path whose opening typed prompt carries the fragment" -->

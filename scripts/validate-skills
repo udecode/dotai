@@ -72,7 +72,7 @@ for skill_dir in "${skill_dirs[@]}"; do
 done
 
 # Every session rereads the rendered pstack block on each call, so its budget only goes down: lower it whenever the largest render shrinks.
-if ! budget="$(node "$SKILLS_DIR/sync-pstack/scripts/block-budget.mjs" 29300)"; then
+if ! budget="$(node "$SKILLS_DIR/sync-pstack/scripts/block-budget.mjs" 29250)"; then
   echo "$budget" | tail -1
   fail=1
 fi
