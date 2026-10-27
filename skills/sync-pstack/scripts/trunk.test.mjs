@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -87,7 +87,7 @@ test('land squashes the task, lints its changed files and pushes next as one com
   const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', 'test -f c.txt']);
   assert.equal(run.status, 0, run.stderr);
   assert.equal(git(remote, 'rev-list', '--count', `${base}..next`), '1', 'two commits and an untracked file land as one commit');
-  assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), GOOD);
+  assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), `${GOOD}\n\nLead: unknown`);
   assert.equal(git(remote, 'show', 'next:a.txt'), 'TWO', 'the lint fix of a changed file lands in the commit');
   assert.equal(git(remote, 'show', 'next:e.txt'), 'MORE');
   assert.equal(git(remote, 'show', 'next:c.txt'), 'NEW');
@@ -141,7 +141,7 @@ test('land commits, checks and pushes the companion half after the first, and a 
   assert.equal(git(remote, 'ls-tree', '--name-only', 'next', '--', 'a.spec', 'b.spec'), '', 'no companion file lands here');
   assert.equal(git(companion, 'show', 'next:a.spec'), 'two');
   assert.equal(git(companion, 'show', 'next:b.spec'), 'new', 'a new file the list names lands in the companion');
-  assert.equal(git(companion, 'log', '-1', '--format=%B', 'next'), `${GOOD}\nLands-With: ${landed}`);
+  assert.equal(git(companion, 'log', '-1', '--format=%B', 'next'), `${GOOD}\n\nLead: unknown\nLands-With: ${landed}`);
   assert.equal(side('status', '--porcelain', '--untracked-files=no'), '');
 
   writeFileSync(join(clone, 'a.spec'), 'three\n');
@@ -401,7 +401,7 @@ test('land stops on a rebase conflict with the conflicting paths, and reruns wit
   git(clone, 'rebase', '--continue');
   const landed = helper('land.mjs', clone, [], session);
   assert.equal(landed.status, 0, landed.stderr);
-  assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), `${GOOD}\n\nSession: local_s1`, 'the rerun keeps one Session: line');
+  assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), `${GOOD}\n\nSession: local_s1\nLead: unknown`, 'the rerun keeps one Session: line');
   assert.equal(git(remote, 'show', 'next:a.txt'), 'both');
 });
 
@@ -488,16 +488,129 @@ test('land names the one dated plan the task changes, and no plan when it change
   writeFileSync(join(clone, 'docs/plans/2026-10-18-x.decisions.tsv'), 'row\n');
   writeFileSync(join(clone, 'docs/plans/topics/x.md'), '# X\n');
   assert.equal(helper('land.mjs', clone, ['--message', message(GOOD)]).status, 0);
-  assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), `${GOOD}\n\nPlan: docs/plans/2026-10-18-x.md`);
+  assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), `${GOOD}\n\nPlan: docs/plans/2026-10-18-x.md\nLead: unknown`);
 
   writeFileSync(join(clone, 'docs/plans/topics/x.md'), '# X again\n');
   assert.equal(helper('land.mjs', clone, ['--message', message(GOOD)]).status, 0);
-  assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), GOOD, 'a subject file alone names no plan');
+  assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), `${GOOD}\n\nLead: unknown`, 'a subject file alone names no plan');
 
   writeFileSync(join(clone, 'docs/plans/2026-10-18-x.md'), '# X closed\n');
   writeFileSync(join(clone, 'docs/plans/2026-10-18-y.md'), '# Y\n');
   assert.equal(helper('land.mjs', clone, ['--message', message(GOOD)]).status, 0);
-  assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), GOOD, 'two plans name none');
+  assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), `${GOOD}\n\nLead: unknown`, 'two plans name none');
+});
+
+// Puts next's config on sourceless: ['owner'] in trunk delivery, with one card in the ledger, and returns the env of a gh whose login is the one given, or that fails when it is empty.
+function sourceless(fixture) {
+  const { dir, clone } = fixture;
+  const config = JSON.parse(readFileSync(join(clone, '.agents/pstack.json'), 'utf8'));
+  writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify({ ...config, delivery: 'trunk', sourceless: ['owner'] }));
+  writeFileSync(join(clone, '.gitignore'), '.env\n.env.local\nnode_modules\ndocs/plans/artifacts\n');
+  git(clone, 'commit', '--quiet', '-am', 'sourceless');
+  git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
+  git(clone, 'fetch', '--quiet', 'origin');
+  mkdirSync(join(clone, 'docs/plans/artifacts'), { recursive: true });
+  writeFileSync(join(clone, 'docs/plans/artifacts/suggested-tasks.decisions.tsv'), '2026-10-24T10:00:00Z\tchip\tt_1a2b3c4d Fix a\tWhy a breaks.\twrites: a.txt; topic: a; kind: fix; waits: none\toffered\n');
+  const bin = join(dir, 'login-bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'gh'), '#!/bin/sh\n[ -n "$GH_LOGIN" ] || { echo "not logged in" >&2; exit 1; }\necho "$GH_LOGIN"\n');
+  chmodSync(join(bin, 'gh'), 0o755);
+  return (login) => ({ PATH: `${bin}:${process.env.PATH}`, GH_LOGIN: login });
+}
+
+test('land refuses a commit that names no source of this project unless the gh login is one next lists as sourceless', () => {
+  const fixture = trunk();
+  const { dir, remote, clone, message } = fixture;
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const as = sourceless(fixture);
+  const base = git(remote, 'rev-parse', 'next');
+  const body = (line) => `feat(a): change a\n\n${line}\n\nBeyond the ask: none`;
+  let count = 0;
+  const change = () => writeFileSync(join(clone, 'a.txt'), `change ${(count += 1)}\n`);
+  const refused = (text, env, why) => {
+    const run = helper('land.mjs', clone, ['--message', message(text)], env);
+    assert.equal(run.status, 1, `${why}: ${run.stderr}`);
+    return run.stderr;
+  };
+
+  change();
+  git(clone, 'commit', '--quiet', '-am', 'wip');
+  const task = git(clone, 'rev-parse', 'HEAD');
+  assert.match(refused(GOOD, as('teammate'), 'no source'), /names no source, and only owner land without one, not teammate\. A source is an issue of remote written as/);
+  assert.equal(git(remote, 'rev-parse', 'next'), base, 'a refused land pushes nothing');
+  assert.equal(git(clone, 'rev-parse', 'HEAD'), task, 'a refused land puts HEAD back');
+  for (const line of ['Step #3 of the list.', 'Ports C#1 behavior.', 'See https://github.com/someone/else/issues/12.', 'Runs card t_00000000.', 'Plan: none']) {
+    assert.match(refused(body(line), as('teammate'), line), /names no source/);
+  }
+  assert.match(refused(GOOD, as(''), 'gh fails'), /gh api user failed: not logged in/);
+  assert.match(refused(GOOD, { PATH: '/usr/bin:/bin' }, 'no gh'), /gh api user failed: spawnSync gh ENOENT/);
+  assert.equal(git(clone, 'rev-parse', 'HEAD'), task, 'a missing gh puts HEAD back');
+  const config = JSON.parse(readFileSync(join(clone, '.agents/pstack.json'), 'utf8'));
+  writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify({ ...config, sourceless: undefined }));
+  assert.match(refused(GOOD, as('teammate'), 'own config'), /names no source/, "next's config wins over the task's copy");
+  git(clone, 'checkout', '--', '.agents/pstack.json');
+
+  const owner = basename(dir).toLowerCase();
+  for (const line of ['Repairs remote#12.', `Repairs ${owner}/remote#12.`, 'Runs card t_1a2b3c4d.', `See https://github.com/${owner}/remote/issues/12.`]) {
+    const landed = helper('land.mjs', clone, ['--message', message(body(line))], as('teammate'));
+    assert.equal(landed.status, 0, `${line}: ${landed.stderr}`);
+    change();
+  }
+  writeFileSync(join(clone, 'docs/plans/2026-10-28-x.md'), '# X\n');
+  assert.equal(helper('land.mjs', clone, ['--message', message(GOOD)], as('teammate')).status, 0, 'a changed plan is a source');
+  change();
+  assert.equal(helper('land.mjs', clone, ['--message', message(body('Plan: docs/plans/2026-10-28-x.md'))], as('teammate')).status, 0, 'a Plan: line naming a plan that exists is a source');
+  change();
+  const landed = helper('land.mjs', clone, ['--message', message(GOOD)], as('owner'));
+  assert.equal(landed.status, 0, landed.stderr);
+  assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), `${GOOD}\n\nLead: unknown`);
+});
+
+test('a rerun checks the source of the companion commit it pushes and writes its Lead line again', () => {
+  const fixture = trunk();
+  const { clone } = fixture;
+  const as = sourceless(fixture);
+  const { companion, side } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const before = git(companion, 'rev-parse', 'next');
+  const landed = git(clone, 'rev-parse', 'HEAD');
+  const pending = (line) => `feat(a): change a\n\n${line}\n\nBeyond the ask: none\n\nLead: claude-opus-5-5 @max\nLands-With: ${landed}`;
+  writeFileSync(join(clone, 'a.spec'), 'two\n');
+  side('commit', '--quiet', '-am', pending('Why a changes.'));
+
+  const refused = helper('land.mjs', clone, [], as('teammate'));
+  assert.equal(refused.status, 1, refused.stderr);
+  assert.match(refused.stderr, /names no source/);
+  assert.equal(git(companion, 'rev-parse', 'next'), before, 'a refused rerun pushes nothing');
+
+  side('commit', '--quiet', '--amend', '-m', pending('Repairs companion#3.'));
+  const pushed = helper('land.mjs', clone, [], as('teammate'));
+  assert.equal(pushed.status, 0, pushed.stderr);
+  assert.equal(git(companion, 'log', '-1', '--format=%B', 'next'), `feat(a): change a\n\nRepairs companion#3.\n\nBeyond the ask: none\n\nLands-With: ${landed}\nLead: unknown`);
+});
+
+test('land ends the commit with the Lead line of the session that runs it, in place of one written in the message', () => {
+  const { clone, remote, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  const home = mkdtempSync(join(tmpdir(), 'land-lead-'));
+  const session = '11111111-2222-4333-8444-555555555555';
+  mkdirSync(join(home, '.claude', 'projects', 'p'), { recursive: true });
+  const call = { type: 'assistant', effort: 'high', timestamp: 't', message: { model: 'claude-opus-5-5', content: [{ type: 'tool_use', id: 'land', name: 'Bash', input: { command: 'node .agents/pstack/land.mjs' } }] } };
+  writeFileSync(join(home, '.claude', 'projects', 'p', `${session}.jsonl`), `${JSON.stringify(call)}\n`);
+  symlinkSync(process.execPath, join(home, 'claude'));
+  writeFileSync(join(home, 'runtime.mjs'), "import { spawnSync } from 'node:child_process';\nprocess.exit(spawnSync(process.execPath, process.argv.slice(2), { stdio: 'inherit' }).status ?? 1);\n");
+  const landUnderClaude = (file) => spawnSync(join(home, 'claude'), [join(home, 'runtime.mjs'), join(HELPERS, 'land.mjs'), '--message', file], { cwd: clone, encoding: 'utf8', env: { ...ENV, HOME: home, CLAUDE_CODE_SESSION_ID: session } });
+
+  const landed = landUnderClaude(message(`${GOOD}\nLead: claude-opus-5-5 @max`));
+  assert.equal(landed.status, 0, landed.stderr);
+  assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), `${GOOD}\n\nSession: ${session}\nLead: claude-opus-5-5 @high`);
+
+  writeFileSync(join(clone, 'a.txt'), 'three\n');
+  const outside = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  assert.equal(outside.status, 0, outside.stderr);
+  assert.match(outside.stderr, /the commit says `Lead: unknown`, because /);
+  assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), `${GOOD}\n\nLead: unknown`);
 });
 
 // A gh on PATH that records its arguments and the body file, then prints a PR URL.
@@ -529,7 +642,7 @@ test('land pushes a topic branch and opens a PR into next when the clone has no 
   const run = helper('land.mjs', clone, ['--message', message(PR)], stubGh(dir));
   assert.equal(run.status, 0, run.stderr);
   assert.equal(git(remote, 'rev-parse', 'next'), base, 'next does not move in PR mode');
-  assert.equal(git(remote, 'log', '-1', '--format=%B', 'task'), PR, 'the commit keeps its section headings');
+  assert.equal(git(remote, 'log', '-1', '--format=%B', 'task'), `${PR}\n\nLead: unknown`, 'the commit keeps its section headings');
   assert.equal(git(remote, 'log', '-1', '--format=%s', 'task'), 'feat(a): change a');
   assert.deepEqual(ghArgs(dir).slice(0, 9), ['pr', 'create', '--base', 'next', '--head', 'task', '--title', 'feat(a): change a', '--body-file']);
   assert.equal(ghArgs(dir).length, 10, 'a direct clone names no other repository');
@@ -639,7 +752,7 @@ test('land in a direct clone without push access says to fork and add upstream',
 
   const run = helper('land.mjs', clone, ['--message', message(PR)], stubGh(dir));
   assert.equal(run.status, 1);
-  assert.match(run.stderr, /^land\.mjs: this clone cannot push to origin: fork the repository, .*add the canonical repository as `upstream`/u);
+  assert.match(run.stderr, /^land\.mjs: this clone cannot push to origin: fork the repository, .*add the canonical repository as `upstream`/mu);
   assert.equal(existsSync(join(dir, 'gh-args')), false, 'no PR is opened');
 });
 
@@ -725,7 +838,7 @@ test('land takes a fix that names a commit on next or none, and any other type w
     writeFileSync(join(clone, 'a.txt'), `${text}\n`);
     const run = helper('land.mjs', clone, ['--message', message(text)]);
     assert.equal(run.status, 0, run.stderr);
-    assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), text);
+    assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), `${text}\n\nLead: unknown`);
   };
   landed(GOOD);
   landed(`fix(a)!: repair a\n\nBeyond the ask: none\nIntroduced-by: ${base}\nIntroduced-by: ${git(remote, 'rev-parse', '--short', 'next')}`);
