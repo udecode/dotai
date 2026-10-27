@@ -368,6 +368,14 @@ function validate(config) {
   ) {
     throw new Error('reviewPaths must map skip, tests and public to lists of globs');
   }
+  const generated = config.generated;
+  if (
+    generated !== undefined &&
+    (!Array.isArray(generated) ||
+      generated.some((entry) => typeof entry?.command !== 'string' || !entry.command.trim() || !Array.isArray(entry.paths) || entry.paths.length === 0 || entry.paths.some((glob) => typeof glob !== 'string' || !glob)))
+  ) {
+    throw new Error('generated must list entries of { "paths": [<globs>], "command": "<command>" }, each with at least one glob');
+  }
 }
 
 export function locateBlock(text) {

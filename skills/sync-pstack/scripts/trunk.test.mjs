@@ -405,6 +405,81 @@ test('land stops on a rebase conflict with the conflicting paths, and reruns wit
   assert.equal(git(remote, 'show', 'next:a.txt'), 'both');
 });
 
+function seedGeneratedConflict(fixture, command = 'node gen.mjs') {
+  const { clone } = fixture;
+  git(clone, 'config', 'pstack.delivery', 'push');
+  writeFileSync(join(clone, 'gen.mjs'), "import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';\nmkdirSync('gen', { recursive: true });\nwriteFileSync('gen/out.txt', ['a.txt', 'b.txt'].map((file) => readFileSync(file, 'utf8')).join(''));\n");
+  const config = JSON.parse(readFileSync(join(clone, '.agents/pstack.json'), 'utf8'));
+  config.generated = [{ paths: ['gen/**'], command }];
+  writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify(config));
+  const edit = (dir, path, text) => {
+    writeFileSync(join(dir, path), text);
+    assert.equal(spawnSync(process.execPath, ['gen.mjs'], { cwd: dir }).status, 0);
+  };
+  edit(clone, 'a.txt', 'one\n');
+  git(clone, 'add', '--all');
+  git(clone, 'commit', '--quiet', '-m', 'generate');
+  git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
+  git(clone, 'fetch', '--quiet', 'origin');
+  const other = join(fixture.dir, 'other-generated');
+  git(fixture.dir, 'clone', '--quiet', '--branch', 'next', fixture.remote, other);
+  edit(other, 'a.txt', 'two\n');
+  git(other, 'commit', '--quiet', '-am', 'fix(a): land elsewhere');
+  git(other, 'push', '--quiet', 'origin', 'HEAD:next');
+  return edit;
+}
+
+test('land rebuilds generated output when a rebase conflicts only there, and lands both sides of its sources', () => {
+  const fixture = trunk();
+  const { remote, clone, message } = fixture;
+  const edit = seedGeneratedConflict(fixture);
+  edit(clone, 'b.txt', 'three\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(run.stdout, /takes origin\/next's side of them and rebuilds them/);
+  assert.equal(git(remote, 'show', 'next:gen/out.txt'), 'two\nthree', 'the output holds both sides');
+  assert.deepEqual(git(remote, 'log', '--format=%s', '-2', 'next').split('\n'), ['feat(a): change a', 'fix(a): land elsewhere']);
+});
+
+test('land stops without rebuilding when a source conflicts beside the generated output, and says how to rebuild it', () => {
+  const fixture = trunk();
+  const { remote, clone, message } = fixture;
+  const edit = seedGeneratedConflict(fixture);
+  edit(clone, 'a.txt', 'mine\n');
+
+  const stopped = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  assert.equal(stopped.status, 1);
+  assert.match(stopped.stderr, /conflicts in:\n {2}a\.txt\n {2}gen\/out\.txt\n/);
+  assert.match(stopped.stderr, /gen\/out\.txt is generated: .*`node gen\.mjs`/);
+  assert.match(git(clone, 'diff', '--name-only', '--diff-filter=U'), /gen\/out\.txt/, 'the output stays unresolved for the lead');
+  assert.equal(git(remote, 'show', 'next:gen/out.txt'), 'two\none');
+});
+
+test('land stops when the rebuild changes a file outside the generated paths, even one the command staged', () => {
+  const fixture = trunk();
+  const { remote, clone, message } = fixture;
+  const edit = seedGeneratedConflict(fixture, 'node gen.mjs && echo stray > stray.txt && git add stray.txt');
+  edit(clone, 'b.txt', 'three\n');
+
+  const stopped = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  assert.equal(stopped.status, 1);
+  assert.match(stopped.stderr, /also changed files outside its generated paths:\n {2}stray\.txt\n/);
+  assert.equal(git(remote, 'show', 'next:gen/out.txt'), 'two\none');
+});
+
+test('land puts the conflicts back when the rebuild command fails', () => {
+  const fixture = trunk();
+  const { clone, message } = fixture;
+  const edit = seedGeneratedConflict(fixture, 'node gen.mjs && exit 3');
+  edit(clone, 'b.txt', 'three\n');
+
+  const stopped = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  assert.equal(stopped.status, 1);
+  assert.match(stopped.stderr, /failed, so land\.mjs put the conflicts back/);
+  assert.match(git(clone, 'diff', '--name-only', '--diff-filter=U'), /gen\/out\.txt/, 'a lead who continues cannot land the stale side by accident');
+});
+
 test('land names the one dated plan the task changes, and no plan when it changes two or only a subject file', () => {
   const { remote, clone, message } = trunk();
   git(clone, 'config', 'pstack.delivery', 'push');
