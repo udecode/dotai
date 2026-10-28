@@ -4398,6 +4398,29 @@ test('decisions-check refuses a fourth panel round until a built: or another rou
   assert.equal(append('panel', 'seats opus').status, 0, 'an another round: row allows the next round');
 });
 
+test('decisions-check refuses a new trunk step while an earlier one is built and not landed', () => {
+  const { dir, run } = sandbox();
+  const append = (root, phase, decision) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', phase, decision, 'why', 'evidence', 'recorded'], root);
+  const root = project(dir, 'app', { config: { ...CONFIG, delivery: 'trunk' } });
+  assert.equal(append(root, 'build', 'built: step 1 parser.mjs').status, 0);
+  assert.equal(append(root, 'build', 'built: step 2 lexer.mjs').status, 0, 'before any landing the steps may land together');
+  assert.equal(append(root, 'delivery', 'step 1 landed as abc1234').status, 0);
+  const stuck = append(root, 'build', 'built: step 3 printer.mjs');
+  assert.equal(stuck.status, 1);
+  assert.match(stuck.stderr, /starts step 3 while step 2 is built and not landed/);
+  assert.equal(append(root, 'build', 'built: step 2 round 1 fixes in lexer.mjs').status, 0, 'more work on the step in flight');
+  assert.equal(append(root, 'delivery', 'step 2 landed as def5678').status, 0);
+  assert.equal(append(root, 'build', 'built: step 3a printer.mjs').status, 0);
+  assert.equal(append(root, 'delivery', 'step 3 landed as 0a1b2c3').status, 0);
+  assert.equal(append(root, 'build', 'built: step 3b formatter.mjs').status, 1, 'step 3 landing does not land step 3a');
+  assert.equal(append(root, 'delivery', 'step 3a dropped: folded into step 3b').status, 0);
+  assert.equal(append(root, 'build', 'built: step 3b formatter.mjs').status, 0);
+
+  const pr = project(dir, 'lib');
+  for (const [phase, decision] of [['build', 'built: step 1 a.mjs'], ['delivery', 'step 1 landed as abc1234'], ['build', 'built: step 2 b.mjs']]) assert.equal(append(pr, phase, decision).status, 0);
+  assert.equal(append(pr, 'build', 'built: step 3 c.mjs').status, 0, 'outside trunk delivery steps build in parallel');
+});
+
 test('decisions-check requires scope on a proven row and leaves committed rows alone', () => {
   const { dir, run } = sandbox();
   const header = 'ts\tphase\tdecision\twhy\tevidence\tresult';

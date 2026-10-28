@@ -302,7 +302,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
-      "sha256": "00c1f6e478cd095eef01c8cdcbccb32fc2231c0c77de969887990d965aabed71",
+      "sha256": "43d20efa5b735a9411981f1899808fca943c4e45370aca5e0f528b80d06259a1",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/freeze.mjs": {
@@ -394,7 +394,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/long-runs.md": {
-      "sha256": "3630d68d5de9fa864ac06f129897a2c341711f0a3a0e6374a1cc11319e6cd2bf",
+      "sha256": "2731444a4718ac235fad66d0d777e28c0c6c78743adf2d121fe5ac64860740f8",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/messages.md": {
@@ -506,7 +506,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "fc7e0eef8e1ba472390c10f3504381debf9c1500abc923a4ab612cb340844931",
+      "sha256": "b42f7453af10e77fd788837bef967e1354b50ef600139cd342c6812d32d0e6f8",
       "mode": 420
     },
     "skills/sync-pstack/scripts/trunk.test.mjs": {
