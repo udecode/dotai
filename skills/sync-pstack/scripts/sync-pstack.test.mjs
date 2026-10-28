@@ -89,6 +89,13 @@ function project(dir, name, { config, agents, settings, files = {} } = {}) {
 
 const read = (root, path) => readFileSync(join(root, path), 'utf8');
 const readJson = (root, path) => JSON.parse(read(root, path));
+const reviewItems = (stdout) => stdout.split('the write needs --dispositions')[1].split('\n').slice(1).filter((line) => line.startsWith('    ')).map((line) => line.trim());
+// Writes a dispositions file that marks every item of the bump report as touching no rule.
+const disposeAll = (cli, root, tag, dir) => {
+  const tsv = join(dir, 'dispositions.tsv');
+  writeFileSync(tsv, reviewItems(cli('apply', root, '--tag', tag, '--dry-run').stdout).map((item) => `${item}\tnone\tno rule names it`).join('\n'));
+  return tsv;
+};
 
 test('the CLI runs when invoked through a symlinked install', () => {
   const { dir, run } = sandbox();
@@ -384,7 +391,7 @@ test('a bump refuses when pstack dropped the step a playbook anchors on, and sho
   assert.equal(cli('apply', root, '--tag', 'v0.9.53', '--force').status, 1);
 
   writeFileSync(join(root, '.agents/playbooks/bug-fix.md'), change('Reproduce on the same surface'));
-  assert.equal(cli('apply', root, '--tag', 'v0.9.53').status, 0);
+  assert.equal(cli('apply', root, '--tag', 'v0.9.53', '--dispositions', disposeAll(cli, root, 'v0.9.53', dir)).status, 0);
 });
 
 test('verify flags a playbook that extends a missing pstack playbook, a change with no anchor, and an override pstack no longer says', () => {
@@ -1031,25 +1038,79 @@ test('a bump prints the pstack diff of anchored files even when every anchor hol
   assert.match(result.stdout, /^ +-2\. Plan the fix and review the diff\.$/m);
 });
 
-test('a bump also diffs changed skills the shared rules name without a note and lists the rest', () => {
-  const upstream = pstackRepo(mkdtempSync(join(tmpdir(), 'sync-pstack-upstream-')), {
-    'v0.9.52': { 'ketchup/SKILL.md': 'Give the catch-up as text.\n' },
-    'v0.9.53': { 'ketchup/SKILL.md': 'Give the catch-up as slides.\n', 'unnamed-skill/SKILL.md': 'New.\n' },
-  });
-  const { dir, cli } = sandbox({ upstream });
-  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
+const BUMP = {
+  'v0.9.52': { 'thermos/SKILL.md': 'Review in two lanes.\n', '../agents/comment-sicko.md': 'Never edit.\n' },
+  'v0.9.53': { 'thermos/SKILL.md': 'Review in three lanes.\n', '../agents/comment-sicko.md': 'Edit freely.\n', 'unnamed-skill/SKILL.md': 'New.\n' },
+};
+const bumpProject = (dir, config = CONFIG) =>
+  project(dir, 'app', { config, agents: '# App\n', files: { '.agents/rules/qa.mdc': 'Run `pstack:thermos` on each slice.\n' } });
+test('a bump diffs anchored files, agents included, and skills the project rules name, and counts the rest', () => {
+  const { dir, cli } = sandbox({ upstream: pstackRepo(mkdtempSync(join(tmpdir(), 'sync-pstack-upstream-')), BUMP) });
+  const root = bumpProject(dir);
   cli('apply', root);
   const result = cli('apply', root, '--tag', 'v0.9.53', '--dry-run');
   assert.equal(result.status, 0, result.stdout);
-  assert.match(result.stdout, /pstack changed in skills the shared rules name without a note/);
-  assert.match(result.stdout, /^ +-Give the catch-up as text\.$/m);
-  assert.match(result.stdout, /pstack changed files the shared rules neither anchor nor name[^\n]*\n +unnamed-skill: 1 added$/m);
+  assert.match(result.stdout, /pstack changed in files this project anchors on[^\n]*\n(?: +[^\n]*\n)*? +-Never edit\.$/m);
+  assert.match(result.stdout, /pstack changed in skills the shared or project rules name without a note[^\n]*\n(?: +[^\n]*\n)*? +-Review in two lanes\.$/m);
+  assert.match(result.stdout, /pstack changed files no rule anchors or names[^\n]*\n +unnamed-skill: 1 added$/m);
+  const items = reviewItems(result.stdout);
+  assert.ok(items.some((item) => /^\.\.\/agents\/comment-sicko\.md @@ /.test(item)), items.join('\n'));
+  assert.ok(items.some((item) => /^thermos\/SKILL\.md @@ /.test(item)), items.join('\n'));
+  assert.ok(items.includes('unnamed-skill: 1 added'), items.join('\n'));
+});
+
+test('a bump writes only once every item of its report has a disposition with a reason', () => {
+  const { dir, cli } = sandbox({ upstream: pstackRepo(mkdtempSync(join(tmpdir(), 'sync-pstack-upstream-')), BUMP) });
+  const root = bumpProject(dir);
+  cli('apply', root);
+  const items = reviewItems(cli('apply', root, '--tag', 'v0.9.53', '--dry-run').stdout);
+  const tsv = join(dir, 'dispositions.tsv');
+  const refused = (pattern) => {
+    const result = cli('apply', root, '--tag', 'v0.9.53', '--dispositions', tsv);
+    assert.equal(result.status, 1, result.stdout);
+    assert.match(result.stdout, pattern);
+    assert.equal(readJson(root, '.agents/pstack.json').tag, 'v0.9.52');
+  };
+  const missing = cli('apply', root, '--tag', 'v0.9.53');
+  assert.equal(missing.status, 1, missing.stdout);
+  assert.match(missing.stdout, /refused pstack dispositions: pstack changed between the tags; read the bump report and pass --dispositions/);
+  writeFileSync(tsv, items.slice(1).map((item) => `${item}\tnone\tno rule names it`).join('\n'));
+  refused(/1 item\(s\) in the bump report have no row/);
+  writeFileSync(tsv, items.map((item, index) => `${item}\t${index === 0 ? 'ignored' : 'none'}\tno rule names it`).join('\n'));
+  refused(/has disposition "ignored", which is not one of none, covered, noted, rewritten, dropped/);
+  writeFileSync(tsv, items.map((item, index) => `${item}\tnone\t${index === 0 ? '' : 'no rule names it'}`).join('\n'));
+  refused(/gives no reason for "none"/);
+  writeFileSync(tsv, items.map((item) => `${item}\tnone\tno rule names it`).join('\n'));
+  const written = cli('apply', root, '--tag', 'v0.9.53', '--dispositions', tsv);
+  assert.equal(written.status, 0, written.stdout);
+  assert.equal(readJson(root, '.agents/pstack.json').tag, 'v0.9.53');
+});
+
+test('a bump from a pinned tag upstream lacks refuses and keeps the pin', () => {
+  const { dir, cli } = sandbox({ upstream: pstackRepo(mkdtempSync(join(tmpdir(), 'sync-pstack-upstream-')), BUMP) });
+  const root = bumpProject(dir, { ...CONFIG, tag: 'v0.9.40' });
+  cli('apply', root);
+  const result = cli('apply', root, '--tag', 'v0.9.53');
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stdout, /refused pstack diff: cannot compare pstack v0\.9\.40 with v0\.9\.53: .*has no tag v0\.9\.40/);
+  assert.equal(readJson(root, '.agents/pstack.json').tag, 'v0.9.40');
+});
+
+test('apply --tag at the pinned tag still refuses a note whose text pstack lacks', () => {
+  const upstream = pstackRepo(mkdtempSync(join(tmpdir(), 'sync-pstack-upstream-')), { 'v0.9.52': { 'ketchup/SKILL.md': ABSENT } });
+  const { dir, cli } = sandbox({ upstream });
+  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
+  const result = cli('apply', root, '--tag', 'v0.9.52');
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stdout, /refused pstack anchors: the block relies on ketchup\/SKILL\.md, which pstack v0\.9\.52 no longer has/);
+  assert.equal(existsSync(join(root, '.agents/pstack')), false);
 });
 
 test('namesSkill matches a skill the rules cite, not a bare word', () => {
   assert.equal(namesSkill('the `pstack:ketchup` skill', 'ketchup'), true);
   assert.equal(namesSkill('run `/setup-pstack` first', 'setup-pstack'), true);
   assert.equal(namesSkill('the `how explorer` role', 'how'), true);
+  assert.equal(namesSkill('run the **arena** skill', 'arena'), true);
   assert.equal(namesSkill('overrides interrogate/SKILL.md "x"', 'interrogate'), true);
   assert.equal(namesSkill('say how it works', 'how'), false);
   assert.equal(namesSkill('`setup-pstack-extra`', 'setup-pstack'), false);
@@ -1303,6 +1364,7 @@ test('every block rule says how it relates to pstack, and a rule whose marker is
   const stripped = TEMPLATE.replace(/^<!-- # adds -->\n(?=- \*\*Blocked\.\*\*)/mu, '');
   assert.notEqual(stripped, TEMPLATE);
   assert.deepEqual(unmarkedRules(stripped), ['Blocked']);
+  assert.deepEqual(unmarkedRules('<!-- # relies ketchup/SKILL.md "## Write the reply" -->\n- **Probe.** Follow that reply format.'), []);
 });
 
 test('discover flags skills added in the last two weeks, even untyped ones', () => {
