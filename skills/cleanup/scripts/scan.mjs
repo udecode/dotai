@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Judges each linked worktree of a repository, and each Next.js cache folder
 // within four levels of its checkout and of each worktree not marked safe, as
-// safe, ask or keep.
+// safe, ask or keep. A build output stays, and its dev and cache folders are
+// judged instead.
 //
 //   node scan.mjs [--repo <checkout> | --repos <folder>] [--sessions <file>] [--json] [--no-sizes] [--delete]
 //   node scan.mjs --brief [--repo <checkout>]
@@ -31,9 +32,10 @@
 // --repos runs the scan, or --delete, on each checkout directly in a folder
 // that has linked worktrees.
 // In a pstack project the scan also judges each run folder in
-// <plans>/artifacts/: --delete strips its installs and builds once nothing
-// wrote it for a day and deletes it once nothing wrote it for a week, unless
-// the ledger or a decision log changed that week names it.
+// <plans>/artifacts/, and in any checkout each folder in an ignored .tmp/:
+// --delete strips its installs and builds once nothing wrote it for a day and
+// deletes it once nothing wrote it for a week, unless the ledger or a decision
+// log changed that week names it or a clone in it holds commits no remote has.
 // --brief prints one line, or nothing, counting the unlocked agent worktrees and
 // the checkout caches cleanup could remove that show no git or cache writes for
 // three days. --landed exits 0 only when every change and ignored file of one
@@ -52,13 +54,14 @@
 import { execFileSync, execSync } from 'node:child_process';
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 const HOUR = 3_600_000;
 const WEEK = 7 * 24;
 const BUILD_OUTPUT = /^\.next(-plite)?$/u;
+const BUILD_PARTS = ['dev', 'cache'];
 const PORT_CACHE = /^\.next(-plite)?-\d+$/u;
 const CACHE = /^\.next(-|$)/u;
 const SKIP_DIRS = new Set(['node_modules', '.git', '.claude', '.turbo']);
@@ -85,6 +88,13 @@ const statOrNull = (path) => {
   }
 };
 const newestMtime = (paths) => Math.max(0, ...paths.map(statOrNull).filter(Boolean).map((stat) => stat.mtimeMs));
+const entriesOf = (dir) => {
+  try {
+    return readdirSync(dir).map((name) => join(dir, name));
+  } catch {
+    return [];
+  }
+};
 // git gc's reflog expire rewrites the logs/HEAD of every worktree at once, so
 // the clock reads the time of its newest entry rather than the file's.
 function reflogTime(admin) {
@@ -179,7 +189,7 @@ export function classifyCache(facts) {
   const name = basename(facts.path);
   if (facts.held === null) return ['keep', 'lsof could not tell whether a server holds it'];
   if (facts.held) return ['keep', 'a running server holds its lock'];
-  if (BUILD_OUTPUT.test(name)) return ['keep', 'a build output, which next start may serve'];
+  if (isBuildPart(facts.path)) return facts.hoursIdle < 24 ? ['keep', 'used in the last day'] : ['safe', 'next dev or next build recreates it, and nothing used it for a day'];
   if (facts.production && facts.hoursIdle < WEEK) return ['keep', 'a production build used this week, which next start may serve'];
   if (PORT_CACHE.test(name) && facts.hoursIdle < WEEK) return ['keep', 'the next dev server on its port reuses it'];
   if (facts.hoursIdle < 1) return ['keep', 'written in the last hour'];
@@ -348,15 +358,27 @@ function findCaches(root, depth, worktrees) {
   return found;
 }
 
-const cacheLocks = (path) => [join(path, 'dev', 'lock'), join(path, 'lock')];
+const isBuildPart = (path) => BUILD_PARTS.includes(basename(path)) && BUILD_OUTPUT.test(basename(dirname(path)));
+
+// next start serves a build output's own files, so only its dev and cache
+// folders, which Next recreates, can go.
+const cacheRows = (path) => (BUILD_OUTPUT.test(basename(path)) ? BUILD_PARTS.map((part) => join(path, part)).filter(existsSync) : [path]);
+
+const cacheLocks = (path) => {
+  const owner = isBuildPart(path) ? dirname(path) : path;
+  return [join(owner, 'dev', 'lock'), join(owner, 'lock')];
+};
+
+function cacheMtime(path) {
+  if (!isBuildPart(path)) return newestMtime([path, join(path, 'dev'), join(path, 'BUILD_ID'), ...cacheLocks(path)]);
+  // A dev server rewrites its manifests up to two levels down, which leaves
+  // the folder's own mtime alone.
+  const children = entriesOf(path);
+  return newestMtime([path, ...children, ...children.flatMap(entriesOf), join(dirname(path), 'BUILD_ID'), ...cacheLocks(path)]);
+}
 
 function cacheFacts(path, now) {
-  return {
-    path,
-    held: held(cacheLocks(path)),
-    production: existsSync(join(path, 'BUILD_ID')),
-    hoursIdle: (now - newestMtime([path, join(path, 'dev'), join(path, 'BUILD_ID'), ...cacheLocks(path)])) / HOUR,
-  };
+  return { path, held: held(cacheLocks(path)), production: existsSync(join(path, 'BUILD_ID')), hoursIdle: (now - cacheMtime(path)) / HOUR };
 }
 
 function sessionFor(path, sessions) {
@@ -469,46 +491,71 @@ function saveUnreached(main, entry) {
 
 const RUN_BUILDS = /^(node_modules|\.turbo|\.next(-.*)?)$/u;
 
+const ignoresTmp = (main) => {
+  try {
+    git(main, ['check-ignore', '-q', '.tmp/']);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 // The run folders sit in the main checkout so they outlive the worktrees that
 // write them. The suggested-task ledger beside them names the ones an open
 // task still reads, and a decision log changed this week names the ones a new
 // row may still cite as proof, which decisions-check requires to exist.
 function runFolders(main, now) {
   const root = runRoot(main);
-  const dir = root && join(main, root);
-  if (!dir || !existsSync(dir)) return { root, folders: [], cited: '' };
-  const entries = readdirSync(dir, { withFileTypes: true });
-  const ledgers = entries.filter((entry) => entry.isFile() && entry.name.endsWith('.tsv')).map((entry) => join(dir, entry.name));
+  const roots = [root, ignoresTmp(main) ? '.tmp' : null].filter((each) => each && existsSync(join(main, each)));
+  const folders = roots.flatMap((each) => readdirSync(join(main, each), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => join(main, each, entry.name)));
+  if (!roots.includes(root)) return { main, folders, cited: '' };
+  const dir = join(main, root);
+  const ledgers = readdirSync(dir, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith('.tsv')).map((entry) => join(dir, entry.name));
   const plans = join(main, dirname(root));
   const logs = readdirSync(plans).filter((name) => name.endsWith('.decisions.tsv')).map((name) => join(plans, name)).filter((path) => now - (statOrNull(path)?.mtimeMs ?? 0) < WEEK * HOUR);
   const cited = [...ledgers, ...logs].map((path) => readFileSync(path, 'utf8')).join('\n');
-  return { root, folders: entries.filter((entry) => entry.isDirectory()).map((entry) => join(dir, entry.name)), cited };
+  return { main, folders, cited };
 }
 
 // Files only, because removing an install changes its parent folder's mtime.
 function runWalk(path) {
   const builds = [];
+  const repos = [];
   let newest = statOrNull(path)?.mtimeMs ?? 0;
   const visit = (dir) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const child = join(dir, entry.name);
+      if (entry.name === '.git') repos.push(dir);
       if (entry.isDirectory() && RUN_BUILDS.test(entry.name)) builds.push(child);
-      else if (entry.isDirectory()) visit(child);
+      else if (entry.isDirectory() && entry.name !== '.git') visit(child);
       else newest = Math.max(newest, statOrNull(child)?.mtimeMs ?? 0);
     }
   };
   visit(path);
-  return { builds, newest };
+  return { builds, newest, repos };
+}
+
+function aheadOfRemote(repo) {
+  const admin = adminDir(repo);
+  // A worktree link whose repository is gone has no commits left to lose.
+  if (admin && !existsSync(admin)) return false;
+  try {
+    if (!git(repo, ['remote'])) return false;
+    return Number(git(repo, ['rev-list', '--count', 'HEAD', '--branches', '--not', '--remotes'])) > 0;
+  } catch {
+    return true;
+  }
 }
 
 function runFacts(path, context, run) {
-  const { builds, newest } = runWalk(path);
+  const { builds, newest, repos } = runWalk(path);
   return {
     builds,
-    cited: run.cited.includes(join(run.root, basename(path))),
+    cited: run.cited.includes(relative(run.main, path)),
     hoursQuiet: (context.now - newest) / HOUR,
     nested: nestedIn(path, context.worktrees),
     processes: context.cwds === null ? null : context.cwds.filter((cwd) => within(cwd, path)).length,
+    ahead: repos.filter(aheadOfRemote),
   };
 }
 
@@ -519,8 +566,10 @@ export function classifyRun(facts) {
   if (facts.processes === null) return ['keep', 'lsof could not list the processes working in it'];
   if (facts.processes > 0) return ['keep', `${facts.processes} running processes work in it`];
   if (facts.hoursQuiet < 24) return ['keep', 'something wrote it in the last day'];
-  if (expires) return ['safe', 'nothing wrote it for a week, and neither the ledger nor a decision log changed this week names it', 'expire'];
-  return ['safe', 'its installs and builds go; its logs stay', 'strip'];
+  const clone = facts.ahead[0];
+  if (expires && !clone) return ['safe', 'nothing wrote it for a week, and neither the ledger nor a decision log changed this week names it', 'expire'];
+  if (facts.builds.length > 0) return ['safe', clone ? `its installs and builds go; it stays, because a clone in it holds commits no remote has: ${clone}` : 'its installs and builds go; its logs stay', 'strip'];
+  return ['ask', `nothing wrote it for a week, but a clone in it holds commits no remote has: ${clone}`];
 }
 
 const runBytes = (path, action, builds) => (action === 'strip' ? builds.reduce((sum, build) => sum + (sizeOf(build) ?? 0), 0) : sizeOf(path));
@@ -571,7 +620,7 @@ export function scan({ repo, sessions = [], sizes = true, now = Date.now() }) {
   }
   const goes = items.filter((item) => item.kind === 'worktree' && item.verdict === 'safe').map((item) => item.path);
   const roots = [main, ...context.worktrees.filter((entry) => existsSync(entry.path) && !goes.includes(entry.path)).map((entry) => entry.path)];
-  for (const path of new Set(roots.flatMap((root) => findCaches(root, 3, context.worktrees)))) {
+  for (const path of new Set(roots.flatMap((root) => findCaches(root, 3, context.worktrees)).flatMap(cacheRows))) {
     const [verdict, reason] = classifyCache(cacheFacts(path, now));
     items.push({ kind: 'cache', path, verdict, reason, bytes: sizes ? sizeOf(path) : null });
   }
@@ -768,8 +817,8 @@ export function brief({ repo, now = Date.now(), days = 3 }) {
     const admin = !('locked' in entry) && existsSync(entry.path) && roots.some((root) => within(entry.path, root)) ? adminDir(entry.path) : null;
     return admin && stale(adminMtime(admin));
   }).length;
-  const caches = findCaches(main, 3, worktrees).filter((path) => {
-    const mtime = newestMtime([path, join(path, 'dev'), join(path, 'BUILD_ID')]);
+  const caches = findCaches(main, 3, worktrees).flatMap(cacheRows).filter((path) => {
+    const mtime = cacheMtime(path);
     return stale(mtime) && classifyCache({ path, held: false, production: existsSync(join(path, 'BUILD_ID')), hoursIdle: (now - mtime) / HOUR })[0] === 'safe';
   }).length;
   if (idle + caches === 0) return '';
@@ -789,7 +838,7 @@ function render({ items, removed }) {
     return sized.length === 0 ? `${group.length}` : `${group.length} (${gib(sized.reduce((sum, item) => sum + item.bytes, 0))})`;
   };
   lines.push('', `safe ${total('safe')}, ask ${total('ask')}, keep ${total('keep')}`);
-  if (removed) lines.push(`removed ${removed.length} items, ${gib(removed.reduce((sum, item) => sum + (item.bytes ?? 0), 0))} by du, which counts shared hard links again`);
+  if (removed) lines.push(`removed ${removed.length} items, ${gib(removed.reduce((sum, item) => sum + (item.bytes ?? 0), 0))} by du, which counts shared hard links and APFS clones again`);
   const patches = (removed ?? []).filter((item) => item.patch);
   if (patches.length > 0) lines.push(`saved the uncommitted changes of ${patches.length} worktrees as patches in ${dirname(patches[0].patch)}`);
   const commits = (removed ?? []).filter((item) => item.commits);
