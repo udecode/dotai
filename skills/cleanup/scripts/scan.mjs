@@ -39,9 +39,10 @@
 // checkout lacks as a patch as --delete does, saves each commit no branch, tag
 // or remote reaches as a second patch, and removes it. It keeps a worktree git
 // does not list, a locked one, one outside the folders agents make worktrees
-// in, one holding another worktree, the one it runs in, one whose commits git
-// cannot list, one whose processes lsof cannot list and one git refuses to
-// remove, and exits 1 when it keeps any.
+// in, one holding another worktree, the one it runs in, one that lost its .git
+// file while holding files, one whose commits git cannot list, one whose
+// processes lsof cannot list and one git refuses to remove, and exits 1 when it
+// keeps any.
 import { execFileSync, execSync } from 'node:child_process';
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
@@ -79,6 +80,10 @@ const statOrNull = (path) => {
 };
 const newestMtime = (paths) => Math.max(0, ...paths.map(statOrNull).filter(Boolean).map((stat) => stat.mtimeMs));
 const adminMtime = (admin) => newestMtime([join(admin, 'index'), join(admin, 'HEAD'), join(admin, 'logs', 'HEAD')]);
+const holdsFiles = (path) => readdirSync(path, { withFileTypes: true }).some((entry) => !entry.isDirectory() || holdsFiles(join(path, entry.name)));
+// git marks a worktree prunable once its folder lost the .git link, and a git
+// command run there reads whichever repository encloses the folder instead.
+const unlinked = (entry) => 'prunable' in entry && existsSync(entry.path);
 
 function cwdProcesses() {
   try {
@@ -123,6 +128,7 @@ function usageVerdict(facts) {
   if (!facts.session && facts.scratchHoursQuiet === null && facts.hoursIdle < 24) return ['keep', 'no session claims it, and it changed in the last day'];
   if (!facts.agentMade) return ['ask', 'it sits outside the folders agents make worktrees in'];
   if (facts.nested) return ['ask', `another worktree lives inside it: ${facts.nested}`];
+  if (facts.unlinked) return facts.empty ? ['safe', 'git lost its link to it and it holds no files'] : ['ask', 'git lost its link to it, so the scan cannot read the files in it'];
   return null;
 }
 
@@ -366,6 +372,8 @@ function usageFacts(main, entry, context) {
   return {
     locked: 'locked' in entry ? entry.locked : null,
     missing,
+    unlinked: unlinked(entry),
+    empty: unlinked(entry) && !holdsFiles(path),
     invoking: context.here.some((dir) => within(dir, path)),
     processes: context.cwds === null ? null : context.cwds.filter((cwd) => within(cwd, path)).length,
     session: sessionFor(path, context.sessions),
@@ -384,7 +392,7 @@ function heldCaches(path, worktrees) {
 // Removing a worktree deletes its HEAD reflog, so a commit made on a detached
 // HEAD and left behind by a later switch or reset is lost unless a ref reaches it.
 function unreachedList(main, entry, options, reflog = true) {
-  const history = reflog ? execFileSync('git', ['--no-optional-locks', 'reflog', 'show', '--format=%H', 'HEAD'], { cwd: entry.path, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }) : '';
+  const history = reflog && !unlinked(entry) ? execFileSync('git', ['--no-optional-locks', 'reflog', 'show', '--format=%H', 'HEAD'], { cwd: entry.path, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }) : '';
   const tips = [...new Set([entry.HEAD, ...history.split('\n')].filter(Boolean))];
   const input = [...tips, '--not', '--branches', '--tags', '--remotes', ''].join('\n');
   return execFileSync('git', ['--no-optional-locks', 'rev-list', ...options, '--ignore-missing', '--stdin'], { cwd: main, encoding: 'utf8', input, stdio: ['pipe', 'pipe', 'ignore'] });
@@ -475,7 +483,7 @@ export function scan({ repo, sessions = [], sizes = true, now = Date.now() }) {
   const items = [];
   for (const entry of context.worktrees) {
     const [verdict, reason] = judgeWorktree(main, entry, context);
-    items.push({ kind: 'worktree', path: entry.path, verdict, reason, bytes: sizes && existsSync(entry.path) ? sizeOf(entry.path) : null });
+    items.push({ kind: 'worktree', path: entry.path, verdict, reason, bytes: sizes && existsSync(entry.path) ? sizeOf(entry.path) : null, unlinked: unlinked(entry) });
   }
   const goes = items.filter((item) => item.verdict === 'safe').map((item) => item.path);
   const roots = [main, ...context.worktrees.filter((entry) => existsSync(entry.path) && !goes.includes(entry.path)).map((entry) => entry.path)];
@@ -509,7 +517,9 @@ function savePatch(main, path) {
 // A card's landing patch already holds what the checkout matches, so only a
 // worktree with changes the checkout lacks gets a patch.
 function removeFolder(main, item) {
-  if (item.kind === 'worktree' && existsSync(item.path)) item.patch = compareWithCheckout(main, item.path, new Map()).unlanded > 0 ? savePatch(main, item.path) : null;
+  if (item.kind === 'worktree' && existsSync(item.path) && !item.unlinked) item.patch = compareWithCheckout(main, item.path, new Map()).unlanded > 0 ? savePatch(main, item.path) : null;
+  // git refuses to remove a folder without its .git link but drops the record of a gone one.
+  if (item.unlinked) rmSync(item.path, { force: true, recursive: true });
   if (item.kind === 'worktree') {
     const companion = companionOf(main);
     if (companion?.dir && companion.detach && existsSync(join(item.path, companion.dir))) execSync(companion.detach, { cwd: item.path, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -596,6 +606,7 @@ function removalRefusal(main, listed, path) {
   const nested = nestedIn(path, listed);
   if (nested) return `another worktree lives inside it: ${nested}`;
   if (within(real(process.cwd()), path)) return 'this command runs in it';
+  if (unlinked(entry) && holdsFiles(path)) return 'git lost its link to it, so it cannot save the files in it';
   if (unreachedCommits(main, entry) === null) return unreachedReason(null);
   return null;
 }
@@ -610,7 +621,7 @@ export function removeLanded({ repo, worktrees }) {
     const pids = processesIn(path);
     if (pids === null) return { path, removed: false, reason: 'lsof could not list the processes working in it' };
     stopProcesses(pids);
-    const item = { kind: 'worktree', path };
+    const item = { kind: 'worktree', path, unlinked: unlinked(listed.find((each) => each.path === path)) };
     try {
       const commits = saveUnreached(main, listed.find((each) => each.path === path));
       removeFolder(main, item);

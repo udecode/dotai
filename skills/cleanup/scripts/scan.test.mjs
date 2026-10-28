@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -327,6 +327,32 @@ test('a worktree whose folder is gone loses only its record', () => {
   deleteSafe({ repo: f.main, sessions: f.sessions });
   assert.ok(!execFileSync('git', ['worktree', 'list'], { cwd: f.main, encoding: 'utf8' }).includes(`${f.archived} `), 'git no longer lists it');
   assert.ok(existsSync(`${f.archived}-moved`), 'the moved folder stays');
+});
+
+test('a worktree that lost its .git link goes when it holds no files and is asked about otherwise', () => {
+  const f = fixture();
+  rmSync(f.archived, { recursive: true });
+  mkdirSync(join(f.archived, 'packages', 'p'), { recursive: true });
+  rmSync(join(f.orphan, '.git'));
+  assert.equal(verdictOf(f, f.archived), 'safe');
+  assert.equal(verdictOf(f, f.orphan), 'ask');
+  deleteSafe({ repo: f.main, sessions: f.sessions });
+  assert.ok(!git(f.main, 'worktree', 'list').includes(`${f.archived} `), 'git no longer lists the empty one');
+  assert.ok(!existsSync(f.archived), 'its empty folder is gone');
+  assert.ok(existsSync(join(f.orphan, 'a.txt')), 'the one holding files stays');
+});
+
+test('--remove keeps a worktree that lost its .git link while it holds files', () => {
+  const f = fixture();
+  rmSync(f.archived, { recursive: true });
+  mkdirSync(f.archived);
+  rmSync(join(f.orphan, '.git'));
+  const [kept, removed] = removeLanded({ repo: f.main, worktrees: [f.orphan, f.archived] });
+  assert.equal(kept.removed, false);
+  assert.match(kept.reason, /lost its link/u);
+  assert.equal(removed.removed, true, removed.reason);
+  assert.ok(!existsSync(f.archived), 'the empty folder is gone');
+  assert.ok(!git(f.main, 'worktree', 'list').includes(`${f.archived} `), 'git no longer lists it');
 });
 
 test('the session-start hint counts only folders with no writes for three days that cleanup could remove', () => {
