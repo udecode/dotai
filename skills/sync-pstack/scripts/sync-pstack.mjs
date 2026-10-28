@@ -269,12 +269,17 @@ function upstream() {
       at(tag);
       return (git(cache, 'ls-tree', '--name-only', `${tag}:${UPSTREAM_SKILLS}/${dir}`) ?? '').split('\n').filter(Boolean);
     },
-    diff: (from, to, path) => gitRaw(cache, 'diff', '--no-color', from, to, '--', `${UPSTREAM_SKILLS}/${path}`)?.trimEnd() || null,
-    changed: (from, to) =>
-      (git(cache, 'diff', '--name-status', '--no-renames', from, to, '--', UPSTREAM_SKILLS) ?? '').split('\n').filter(Boolean).map((line) => {
+    diff: (from, to, path) => gitRaw(cache, 'diff', '--no-color', from, to, '--', join(UPSTREAM_SKILLS, path))?.trimEnd() || null,
+    changed(from, to) {
+      at(from);
+      at(to);
+      const listed = git(cache, 'diff', '--name-status', '--no-renames', from, to, '--', ...UPSTREAM_TEXT);
+      if (listed === null) throw new Error(`git diff ${from} ${to} failed`);
+      return listed.split('\n').filter(Boolean).map((line) => {
         const [status, path] = line.split('\t');
-        return { status, path: path.slice(UPSTREAM_SKILLS.length + 1) };
-      }),
+        return { status, path: relative(UPSTREAM_SKILLS, path) };
+      });
+    },
     version() {
       ensure();
       const fetched = spawnSync('git', ['-C', cache, 'fetch', '-q', url, 'HEAD'], { encoding: 'utf8' });
