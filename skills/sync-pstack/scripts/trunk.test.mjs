@@ -482,6 +482,26 @@ test('a rerun after every push was declined skips the checks only while it would
   assert.equal(git(remote, 'show', 'next:a.txt'), 'three');
 });
 
+test('a rerun runs the checks again on a recorded commit under an assignment the config lists in freshEnv', () => {
+  const { dir, remote, clone, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const ran = join(dir, 'ran');
+  const check = ['--check', `echo run >> ${ran}`];
+  const runs = () => readFileSync(ran, 'utf8').trim().split('\n').length;
+  const config = JSON.parse(readFileSync(join(clone, '.agents/pstack.json'), 'utf8'));
+  writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify({ ...config, freshEnv: ['FORCE_CHECKS=true'] }));
+  declinePushes(remote, 99);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  assert.equal(helper('land.mjs', clone, ['--message', message(GOOD), ...check], NO_WAIT).status, 75);
+
+  assert.equal(helper('land.mjs', clone, check, { ...NO_WAIT, FORCE_CHECKS: 'false' }).status, 75);
+  assert.equal(runs(), 1, 'another value of the variable keeps the record');
+  const forced = helper('land.mjs', clone, check, { ...NO_WAIT, FORCE_CHECKS: 'true' });
+  assert.equal(forced.status, 75, forced.stderr);
+  assert.match(forced.stdout, /FORCE_CHECKS=true is set, so land\.mjs runs the checks again/);
+  assert.equal(runs(), 2, 'the listed assignment checks the recorded commit again');
+});
+
 test('a rerun runs the checks again when next moved under an unchanged tree', () => {
   const { remote, clone, message, elsewhere } = trunk();
   git(clone, 'config', 'pstack.delivery', 'push');

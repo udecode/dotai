@@ -364,6 +364,9 @@ function validate(config) {
   if (config.sourceless !== undefined && (!Array.isArray(config.sourceless) || config.sourceless.length === 0 || config.sourceless.some((login) => typeof login !== 'string' || login === ''))) {
     throw new Error('sourceless must be a list of GitHub logins');
   }
+  if (config.freshEnv !== undefined && (!Array.isArray(config.freshEnv) || config.freshEnv.some((assignment) => typeof assignment !== 'string' || !/^[A-Za-z_]\w*=/u.test(assignment)))) {
+    throw new Error('freshEnv must be a list of NAME=value assignments');
+  }
   const paths = config.reviewPaths;
   if (
     paths !== undefined &&
