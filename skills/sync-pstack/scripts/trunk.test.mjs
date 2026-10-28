@@ -569,12 +569,12 @@ test('land stops on a rebase conflict with the conflicting paths, and reruns wit
   assert.equal(git(remote, 'show', 'next:a.txt'), 'both');
 });
 
-function seedGeneratedConflict(fixture, command = 'node gen.mjs') {
+function seedGeneratedConflict(fixture, command = 'node gen.mjs', entry = {}) {
   const { clone } = fixture;
   git(clone, 'config', 'pstack.delivery', 'push');
   writeFileSync(join(clone, 'gen.mjs'), "import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';\nmkdirSync('gen', { recursive: true });\nwriteFileSync('gen/out.txt', ['a.txt', 'b.txt'].map((file) => readFileSync(file, 'utf8')).join(''));\n");
   const config = JSON.parse(readFileSync(join(clone, '.agents/pstack.json'), 'utf8'));
-  config.generated = [{ paths: ['gen/**'], command }];
+  config.generated = [{ paths: ['gen/**'], command, ...entry }];
   writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify(config));
   const edit = (dir, path, text) => {
     writeFileSync(join(dir, path), text);
@@ -642,6 +642,49 @@ test('land puts the conflicts back when the rebuild command fails', () => {
   assert.equal(stopped.status, 1);
   assert.match(stopped.stderr, /failed, so land\.mjs put the conflicts back/);
   assert.match(git(clone, 'diff', '--name-only', '--diff-filter=U'), /gen\/out\.txt/, 'a lead who continues cannot land the stale side by accident');
+});
+
+test('land rebuilds an always entry after a clean rebase that left its output stale, and folds it into the task commit', () => {
+  const fixture = trunk();
+  const { remote, clone, message } = fixture;
+  seedGeneratedConflict(fixture, 'node gen.mjs', { always: true });
+  writeFileSync(join(clone, 'b.txt'), 'three\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  assert.equal(run.status, 0, run.stderr);
+  assert.doesNotMatch(run.stdout, /conflicts only in generated paths/, 'the rebase applied cleanly');
+  assert.match(run.stdout, /rebuilt gen\/out\.txt after the rebase/);
+  assert.equal(git(remote, 'show', 'next:gen/out.txt'), 'two\nthree');
+  assert.deepEqual(git(remote, 'log', '--format=%s', '-2', 'next').split('\n'), ['feat(a): change a', 'fix(a): land elsewhere']);
+});
+
+test('land runs an always entry once when the rebase already rebuilt it', () => {
+  const fixture = trunk();
+  const { remote, clone, message, dir } = fixture;
+  const ran = join(dir, 'ran');
+  const edit = seedGeneratedConflict(fixture, `echo run >> ${ran} && node gen.mjs`, { always: true });
+  edit(clone, 'b.txt', 'three\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(run.stdout, /conflicts only in generated paths/);
+  assert.equal(readFileSync(ran, 'utf8'), 'run\n');
+  assert.equal(git(remote, 'show', 'next:gen/out.txt'), 'two\nthree');
+});
+
+test('land runs the config landChecks before each --check, and a --check it already holds once', () => {
+  const { dir, remote, clone, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const ran = join(dir, 'ran');
+  const config = JSON.parse(readFileSync(join(clone, '.agents/pstack.json'), 'utf8'));
+  config.landChecks = [`echo always >> ${ran}`];
+  writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify(config));
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', `echo named >> ${ran}`, '--check', `echo always >> ${ran}`]);
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(readFileSync(ran, 'utf8'), 'always\nnamed\n');
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'two');
 });
 
 test('land names the one dated plan the task changes, and no plan when it changes two or only a subject file', () => {
