@@ -151,9 +151,18 @@
 <!-- # overrides arena/SKILL.md "the candidates by path label" -->
 <!-- # overrides arena/SKILL.md "If the candidates converge on one shape, that is strong agreement." -->
 <!-- # overrides interrogate/SKILL.md "Findings two or more models raised independently are the highest signal." -->
-- **Panel review.** A pstack panel, `/pstack:interrogate` with the configured seats, runs without asking for the work this project's reviews list names and wherever a pstack playbook step or skill calls for it, such as a contested design. `architect` and arena run the same way, such as for Feature's design exploration or a fix that crosses a function boundary. On the user's word, "panel" runs a panel on the current plan or diff, "arena" runs an arena bakeoff of the current artifact, and "full" runs `architect`, then a panel on the plan and another on the diff. Before you launch any panel, `architect` or arena seat, or log a panel row, read `.agents/pstack/rules/panel.md` in full; it holds the Panel review and Review rules.
+<!-- # overrides poteto-mode/SKILL.md "Contested design → the **interrogate** skill (multi-model adversarial) before shipping." -->
+<!-- # overrides poteto-mode/playbooks/feature.md "`architect` for parallel design exploration." -->
+<!-- # overrides poteto-mode/playbooks/feature.md "If the design is contested, `interrogate` before shipping." -->
+<!-- # overrides poteto-mode/playbooks/opening-a-pr.md "A subagent that opens a PR runs `interrogate`" -->
+<!-- # overrides poteto-mode/playbooks/orchestrate.md "A contested decomposition or one-way door goes through the arena skill before the pilot." -->
+<!-- # overrides blast-radius/SKILL.md "For a big or wide change, run it as an `arena`." -->
+<!-- # overrides figure-it-out/SKILL.md "For one-way-door design decisions, run the **architect** skill (it runs **arena**)." -->
+<!-- # overrides babysit/SKILL.md "Use `interrogate` before opening if the diff is contested" -->
+<!-- # overrides architect/SKILL.md "For adversarial pressure on the design before implementing, run the **interrogate** skill on the synthesized sketch." -->
+- **Panel review.** A pstack panel, `/pstack:interrogate` with the configured seats, runs without asking for the work this project's reviews list names and wherever a pstack playbook step or skill calls for it, such as a contested design. `architect` and arena run the same way, such as for Feature's design exploration or a fix that crosses a function boundary. A change to agent prose alone gets none of them, except as `.agents/pstack/rules/panel.md` says. On the user's word, "panel" runs a panel on the current plan or diff, "arena" runs an arena bakeoff of the current artifact, and "full" runs `architect`, then a panel on the plan and another on the diff. Before you launch any panel, `architect` or arena seat, or log a panel row, read `.agents/pstack/rules/panel.md` in full; it holds the Panel review and Review rules.
 <!-- if reviewList -->
-  A row of the reviews list triggers only the tool and stage it names, so a row that names a panel on the diff does not by itself run `architect` or a panel on the plan; a pstack step's own trigger still runs them. The reviews list, each row named by its id:
+  The reviews list, each row named by its id:
 {{reviewList}}
 <!-- end -->
 <!-- if !reviewList -->
@@ -184,7 +193,7 @@
 <!-- # overrides poteto-mode/playbooks/multi-phase-plan.md "Run `node skills/poteto-mode/scripts/check-plan.mjs <plan.md>` from the installed plugin" -->
 - **Plan pages.** Before you draft or change a plan, in plan mode or a plan file, and at every stop that hands back work with a plan, read `.agents/pstack/rules/pages.md` in full; it holds what the page and the hand-back reply contain.
 <!-- if delivery=trunk -->
-  In Claude Code, each append to a plan's decision log and each `Status:` change also runs `node .agents/pstack/page-stop.mjs stage <plan>` in the same command.
+  In Claude Code, each append to a plan's decision log and each `Status:` change also runs `node .agents/pstack/page-stop.mjs stage <plan>` in the same command, except from a plan's close edit before its last land.mjs run until that run exits 0, as `.agents/pstack/rules/land.md` says.
 <!-- end -->
 <!-- # overrides poteto-mode/playbooks/prototype.md "let the user pick directions before building" -->
 <!-- # overrides poteto-mode/playbooks/worktree-cleanup.md "`wip`, `untracked`, `ignored`, `reflog`, locked, and in-use pause" -->
