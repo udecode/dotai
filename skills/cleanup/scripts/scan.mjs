@@ -30,6 +30,10 @@
 // companion repository's uncommitted work there; a failed detach keeps it.
 // --repos runs the scan, or --delete, on each checkout directly in a folder
 // that has linked worktrees.
+// In a pstack project the scan also judges each run folder in
+// <plans>/artifacts/: --delete strips its installs and builds once nothing
+// wrote it for a day and deletes it once nothing wrote it for a week, unless
+// the ledger or a decision log changed that week names it.
 // --brief prints one line, or nothing, counting the unlocked agent worktrees and
 // the checkout caches cleanup could remove that show no git or cache writes for
 // three days. --landed exits 0 only when every change and ignored file of one
@@ -463,6 +467,64 @@ function saveUnreached(main, entry) {
   return file;
 }
 
+const RUN_BUILDS = /^(node_modules|\.turbo|\.next(-.*)?)$/u;
+
+// The run folders sit in the main checkout so they outlive the worktrees that
+// write them. The suggested-task ledger beside them names the ones an open
+// task still reads, and a decision log changed this week names the ones a new
+// row may still cite as proof, which decisions-check requires to exist.
+function runFolders(main, now) {
+  const root = runRoot(main);
+  const dir = root && join(main, root);
+  if (!dir || !existsSync(dir)) return { root, folders: [], cited: '' };
+  const entries = readdirSync(dir, { withFileTypes: true });
+  const ledgers = entries.filter((entry) => entry.isFile() && entry.name.endsWith('.tsv')).map((entry) => join(dir, entry.name));
+  const plans = join(main, dirname(root));
+  const logs = readdirSync(plans).filter((name) => name.endsWith('.decisions.tsv')).map((name) => join(plans, name)).filter((path) => now - (statOrNull(path)?.mtimeMs ?? 0) < WEEK * HOUR);
+  const cited = [...ledgers, ...logs].map((path) => readFileSync(path, 'utf8')).join('\n');
+  return { root, folders: entries.filter((entry) => entry.isDirectory()).map((entry) => join(dir, entry.name)), cited };
+}
+
+// Files only, because removing an install changes its parent folder's mtime.
+function runWalk(path) {
+  const builds = [];
+  let newest = statOrNull(path)?.mtimeMs ?? 0;
+  const visit = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const child = join(dir, entry.name);
+      if (entry.isDirectory() && RUN_BUILDS.test(entry.name)) builds.push(child);
+      else if (entry.isDirectory()) visit(child);
+      else newest = Math.max(newest, statOrNull(child)?.mtimeMs ?? 0);
+    }
+  };
+  visit(path);
+  return { builds, newest };
+}
+
+function runFacts(path, context, run) {
+  const { builds, newest } = runWalk(path);
+  return {
+    builds,
+    cited: run.cited.includes(join(run.root, basename(path))),
+    hoursQuiet: (context.now - newest) / HOUR,
+    nested: nestedIn(path, context.worktrees),
+    processes: context.cwds === null ? null : context.cwds.filter((cwd) => within(cwd, path)).length,
+  };
+}
+
+export function classifyRun(facts) {
+  const expires = facts.hoursQuiet >= WEEK && !facts.cited;
+  if (!expires && facts.builds.length === 0) return null;
+  if (facts.nested) return ['keep', `a worktree lives inside it: ${facts.nested}`];
+  if (facts.processes === null) return ['keep', 'lsof could not list the processes working in it'];
+  if (facts.processes > 0) return ['keep', `${facts.processes} running processes work in it`];
+  if (facts.hoursQuiet < 24) return ['keep', 'something wrote it in the last day'];
+  if (expires) return ['safe', 'nothing wrote it for a week, and neither the ledger nor a decision log changed this week names it', 'expire'];
+  return ['safe', 'its installs and builds go; its logs stay', 'strip'];
+}
+
+const runBytes = (path, action, builds) => (action === 'strip' ? builds.reduce((sum, build) => sum + (sizeOf(build) ?? 0), 0) : sizeOf(path));
+
 const cleanupFacts = (main, entry, worktrees) => ({ heldCaches: heldCaches(entry.path, worktrees), repos: nestedRepos(entry.path, statusEntries(entry.path)), unreached: unlandedCommits(main, entry) });
 
 function contentFacts(main, entry, worktrees) {
@@ -499,7 +561,15 @@ export function scan({ repo, sessions = [], sizes = true, now = Date.now() }) {
     const [verdict, reason] = judgeWorktree(main, entry, context);
     items.push({ kind: 'worktree', path: entry.path, verdict, reason, bytes: sizes && existsSync(entry.path) ? sizeOf(entry.path) : null, unlinked: unlinked(entry) });
   }
-  const goes = items.filter((item) => item.verdict === 'safe').map((item) => item.path);
+  const run = runFolders(main, now);
+  for (const path of run.folders) {
+    const facts = runFacts(path, context, run);
+    const verdict = classifyRun(facts);
+    if (!verdict) continue;
+    const [kept, reason, action] = verdict;
+    items.push({ kind: 'run', path, verdict: kept, reason, action, bytes: sizes ? runBytes(path, action, facts.builds) : null });
+  }
+  const goes = items.filter((item) => item.kind === 'worktree' && item.verdict === 'safe').map((item) => item.path);
   const roots = [main, ...context.worktrees.filter((entry) => existsSync(entry.path) && !goes.includes(entry.path)).map((entry) => entry.path)];
   for (const path of new Set(roots.flatMap((root) => findCaches(root, 3, context.worktrees)))) {
     const [verdict, reason] = classifyCache(cacheFacts(path, now));
@@ -562,7 +632,25 @@ function rejudgeWorktree(repo, main, sessions, path) {
 export function deleteSafe({ repo, sessions = [], now = Date.now() }) {
   const { main, items } = scan({ repo, sessions, sizes: false, now });
   const removed = [];
+  const run = runFolders(main, Date.now());
   for (const item of items.filter((each) => each.verdict === 'safe')) {
+    if (item.kind === 'run') {
+      const facts = runFacts(item.path, contextFor(repo, main, sessions, Date.now()), run);
+      const [verdict, reason, action] = classifyRun(facts) ?? ['keep', 'nothing left to remove'];
+      if (verdict !== 'safe') {
+        Object.assign(item, { verdict, reason: `kept at removal: ${reason}` });
+        continue;
+      }
+      Object.assign(item, { action, reason, bytes: runBytes(item.path, action, facts.builds) });
+      try {
+        for (const path of action === 'strip' ? facts.builds : [item.path]) rmSync(path, { force: true, recursive: true });
+      } catch (error) {
+        Object.assign(item, { verdict: 'ask', reason: `removal failed: ${String(error.message).split('\n')[0]}` });
+        continue;
+      }
+      removed.push(item);
+      continue;
+    }
     item.bytes = sizeOf(item.path);
     const [verdict, reason] = item.kind === 'cache' ? classifyCache(cacheFacts(item.path, Date.now())) : rejudgeWorktree(repo, main, sessions, item.path);
     if (verdict !== 'safe') {

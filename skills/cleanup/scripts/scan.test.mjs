@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -194,6 +194,44 @@ function pstackFixture() {
   writeFileSync(join(f.main, '.git', 'info', 'exclude'), '.source/\ndocs/plans/artifacts/\n');
   return f;
 }
+
+function ageTree(path, days) {
+  if (statSync(path).isDirectory()) for (const name of readdirSync(path)) ageTree(join(path, name), days);
+  age(path, days);
+}
+
+test('run folders lose their installs and builds after a quiet day and go after a quiet week unless the ledger or a decision log changed this week names them', () => {
+  const f = pstackFixture();
+  const runs = join(f.main, 'docs', 'plans', 'artifacts');
+  const run = (name, days) => {
+    mkdirSync(join(runs, name, 'export', 'node_modules', 'dep'), { recursive: true });
+    mkdirSync(join(runs, name, 'export', '.next', 'cache'), { recursive: true });
+    writeFileSync(join(runs, name, 'proof.log'), 'exit 0\n');
+    writeFileSync(join(runs, name, 'export', 'node_modules', 'dep', 'index.js'), '\n');
+    ageTree(join(runs, name), days);
+    return join(runs, name);
+  };
+  const old = run('old', 10);
+  const cited = run('cited', 10);
+  const active = run('active', 10);
+  const stale = run('stale', 10);
+  const quiet = run('quiet', 3);
+  const fresh = run('fresh', 0);
+  writeFileSync(join(runs, 'suggested-tasks.decisions.tsv'), 'chip\tt1\tproof: docs/plans/artifacts/cited/proof.log\t\toffered\n');
+  writeFileSync(join(f.main, 'docs', 'plans', 'active.decisions.tsv'), 'build\tx\ty\tproof: docs/plans/artifacts/active/proof.log\tpartial\n');
+  writeFileSync(join(f.main, 'docs', 'plans', 'stale.decisions.tsv'), 'build\tx\ty\tproof: docs/plans/artifacts/stale/proof.log\tpartial\n');
+  age(join(f.main, 'docs', 'plans', 'stale.decisions.tsv'), 10);
+  const byPath = Object.fromEntries(scan({ repo: f.main, sessions: f.sessions, sizes: false }).items.filter((item) => item.kind === 'run').map((item) => [item.path, `${item.verdict} ${item.action ?? ''}`.trim()]));
+  assert.deepEqual(byPath, { [old]: 'safe expire', [stale]: 'safe expire', [cited]: 'safe strip', [active]: 'safe strip', [quiet]: 'safe strip', [fresh]: 'keep' });
+  deleteSafe({ repo: f.main, sessions: f.sessions });
+  assert.ok(!existsSync(old), 'a run folder quiet for a week goes');
+  for (const kept of [cited, active, quiet]) {
+    assert.ok(existsSync(join(kept, 'proof.log')), 'a stripped run folder keeps its logs');
+    assert.ok(!existsSync(join(kept, 'export', 'node_modules')) && !existsSync(join(kept, 'export', '.next')), 'a stripped run folder loses its installs and builds');
+  }
+  assert.ok(existsSync(join(fresh, 'export', 'node_modules')), 'a run folder written today keeps everything');
+  assert.ok(existsSync(join(runs, 'suggested-tasks.decisions.tsv')), 'the ledger stays');
+});
 
 test('--landed in a pstack project passes generated output and asks only about run artifacts the checkout lacks', () => {
   const f = pstackFixture();
