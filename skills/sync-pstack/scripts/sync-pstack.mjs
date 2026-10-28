@@ -21,7 +21,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ask } from '../assets/pstack/cross.mjs';
 import { EFFORTS } from '../assets/pstack/lead.mjs';
@@ -100,6 +100,8 @@ const DAY = 24 * 60 * 60 * 1000;
 const SWITCHES = { '--force': 'force', '--dry-run': 'dryRun', '--json': 'json', '--offline': 'offline', '--allow-dirty': 'allowDirty' };
 const PLAYBOOKS = '.agents/playbooks';
 const UPSTREAM_SKILLS = 'plugins/pstack/skills';
+// Agents and hooks hold text the rules lean on too; a note names them as ../agents/<file> or ../hooks/<file>.
+const UPSTREAM_TEXT = [UPSTREAM_SKILLS, 'plugins/pstack/agents', 'plugins/pstack/hooks'];
 const CHANGE = /^\s*[-*]\s+\*\*(?:After|Before|Replace|In)\*\*\s+"([^"]+)"/u;
 const CHANGE_VERB = /^\s*[-*]\s+\*\*(?:After|Before|Replace|In)\*\*/u;
 const OVERRIDES = /^<!-- # (overrides|relies) (\S+) "([^"]+)" -->$/u;
@@ -263,7 +265,7 @@ function upstream() {
   return {
     file(tag, path) {
       at(tag);
-      return gitRaw(cache, 'show', `${tag}:${UPSTREAM_SKILLS}/${path}`);
+      return gitRaw(cache, 'show', `${tag}:${join(UPSTREAM_SKILLS, path)}`);
     },
     names(tag, dir) {
       at(tag);
@@ -296,32 +298,75 @@ const anchoredPaths = (root) => [
   ]),
 ];
 
-// A skill the shared templates name, as `name`, `/name`, pstack:name or name/SKILL.md, whose rules may lean on it without a note.
+// A skill the rules name, as `name`, `/name`, **name**, pstack:name or name/SKILL.md, whose rules may lean on it without a note.
 export const namesSkill = (templates, skill) => {
   const name = skill.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-  return new RegExp(`(?:\`/?(?:pstack:)?${name}[\` ]|pstack:${name}(?![\\w-])|(?<![\\w-])${name}/SKILL\\.md)`, 'u').test(templates);
+  return new RegExp(`(?:\`/?(?:pstack:)?${name}[\` ]|\\*\\*${name}\\*\\*|pstack:${name}(?![\\w-])|(?<![\\w-])${name}/SKILL\\.md)`, 'u').test(templates);
+};
+
+const projectRules = (root) =>
+  [join(root, 'AGENTS.md'), ...markdownFiles(join(root, PLAYBOOKS)), ...markdownFiles(join(root, '.agents/rules'))]
+    .filter((path) => existsSync(path))
+    .map((path) => readFileSync(path, 'utf8'));
+
+export const DISPOSITIONS = ['none', 'covered', 'noted', 'rewritten', 'dropped'];
+
+// One review item per diff hunk of an anchored or named file, and one per counted group.
+const hunkIds = (path, text) => {
+  const ids = text.split('\n').flatMap((line) => line.match(/^@@ [^@]+ @@/u) ?? []).map((header) => `${path} ${header}`);
+  return ids.length > 0 ? ids : [path];
 };
 
 function bumpDiff(root, from, to) {
   const source = upstream();
   const anchored = new Set(anchoredPaths(root));
-  const templates = sharedTemplates().join('\n');
+  const rules = [...sharedTemplates(), ...projectRules(root)].join('\n');
   const named = [];
   const counts = new Map();
   for (const { status, path } of source.changed(from, to)) {
     if (anchored.has(path)) continue;
-    const skill = path.split('/')[0];
-    if (path.endsWith('.md') && namesSkill(templates, skill)) named.push(path);
+    const parts = path.split('/');
+    const group = parts[0] === '..' ? parts.slice(0, 2).join('/') : parts[0];
+    const subject = parts[0] === '..' ? basename(path, '.md') : parts[0];
+    if (path.endsWith('.md') && namesSkill(rules, subject)) named.push(path);
     else {
       const verb = { A: 'added', D: 'deleted' }[status] ?? 'changed';
-      const byVerb = counts.get(skill) ?? new Map();
-      counts.set(skill, byVerb.set(verb, (byVerb.get(verb) ?? 0) + 1));
+      const byVerb = counts.get(group) ?? new Map();
+      counts.set(group, byVerb.set(verb, (byVerb.get(verb) ?? 0) + 1));
     }
   }
-  const other = [...counts].map(([skill, byVerb]) => `${skill}: ${[...byVerb].map(([verb, n]) => `${n} ${verb}`).join(', ')}`);
-  const diffs = (paths) => paths.map((path) => source.diff(from, to, path)).filter(Boolean).join('\n') || null;
-  const result = { anchored: diffs([...anchored]), named: diffs(named), other };
-  return result.anchored || result.named || other.length > 0 ? result : null;
+  const other = [...counts].map(([group, byVerb]) => `${group}: ${[...byVerb].map(([verb, n]) => `${n} ${verb}`).join(', ')}`);
+  const diffs = (paths) => paths.map((path) => ({ path, text: source.diff(from, to, path) })).filter((entry) => entry.text);
+  const anchoredDiffs = diffs([...anchored]);
+  const namedDiffs = diffs(named);
+  if (anchoredDiffs.length === 0 && namedDiffs.length === 0 && other.length === 0) return null;
+  const joined = (entries) => entries.map((entry) => entry.text).join('\n') || null;
+  const ids = [...[...anchoredDiffs, ...namedDiffs].flatMap(({ path, text }) => hunkIds(path, text)), ...other];
+  return { from, to, anchored: joined(anchoredDiffs), named: joined(namedDiffs), other, ids };
+}
+
+export function dispositionProblems(ids, file) {
+  const shape = `one tab-separated row per item: its id, then ${DISPOSITIONS.join(', ')}, then the reason`;
+  if (!file) return [`pstack changed between the tags; read the bump report and pass --dispositions <tsv> with ${shape}`];
+  if (!existsSync(file)) return [`${file} does not exist; write it with ${shape}`];
+  const rows = new Map(
+    readFileSync(file, 'utf8')
+      .split('\n')
+      .filter((line) => line.trim())
+      .map((line) => {
+        const [id, word, ...reason] = line.split('\t');
+        return [id, { word, reason: reason.join(' ').trim() }];
+      }),
+  );
+  const problems = [];
+  const missing = ids.filter((id) => !rows.has(id));
+  if (missing.length > 0) problems.push(`${missing.length} item(s) in the bump report have no row in ${file}: ${missing.slice(0, 10).join('; ')}${missing.length > 10 ? '; ...' : ''}`);
+  for (const id of ids.filter((item) => rows.has(item))) {
+    const { word, reason } = rows.get(id);
+    if (!DISPOSITIONS.includes(word)) problems.push(`"${id}" has disposition "${word}", which is not one of ${DISPOSITIONS.join(', ')}`);
+    else if (!reason) problems.push(`"${id}" gives no reason for "${word}"`);
+  }
+  return problems;
 }
 
 export const overrideAnchors = (template) =>
@@ -561,7 +606,7 @@ function olderSource(stored) {
 // Plans the writes that bring a project to its config; writes them only when
 // nothing was refused. A block or helper whose hash differs from the last sync
 // was edited in the project, and is kept until --force.
-export function apply(root, { tag, force = false, write = true } = {}) {
+export function apply(root, { tag, force = false, write = true, dispositions } = {}) {
   const configPath = join(root, CONFIG);
   if (!existsSync(configPath)) throw new Error(`${configPath} is missing; set the project up first`);
   const stored = readJson(configPath);
@@ -574,9 +619,16 @@ export function apply(root, { tag, force = false, write = true } = {}) {
   const older = olderSource(stored);
   if (older && !force) refusals.push({ path: 'shared source', reason: older });
   let pstackDiff = null;
-  if (tag && tag !== stored.tag) {
-    for (const problem of anchorProblems(root, tag)) refusals.push({ path: 'pstack anchors', forceable: false, ...problem });
-    pstackDiff = bumpDiff(root, stored.tag, tag);
+  if (tag) for (const problem of anchorProblems(root, tag)) refusals.push({ path: 'pstack anchors', forceable: false, ...problem });
+  if (tag && stored.tag && tag !== stored.tag) {
+    try {
+      pstackDiff = bumpDiff(root, stored.tag, tag);
+    } catch (error) {
+      refusals.push({ path: 'pstack diff', forceable: false, reason: `cannot compare pstack ${stored.tag} with ${tag}: ${error.message}` });
+    }
+    if (pstackDiff && write) {
+      for (const reason of dispositionProblems(pstackDiff.ids, dispositions)) refusals.push({ path: 'pstack dispositions', forceable: false, reason });
+    }
   }
 
   const agentsPath = join(root, 'AGENTS.md');
@@ -1109,7 +1161,7 @@ export function* markdownFiles(dir) {
 }
 
 const RULE = /^- \*\*([^*]+?)\.\*\*/u;
-const MARKER = /^<!-- # (?:overrides |adds -->)/u;
+const MARKER = /^<!-- # (?:overrides |relies |adds -->)/u;
 
 const markedAbove = (lines, index) => {
   for (let above = index - 1; above >= 0 && lines[above].startsWith('<!--'); above -= 1) if (MARKER.test(lines[above])) return true;
@@ -1135,7 +1187,7 @@ export function verify(root) {
     const result = apply(root, { write: false });
     if (result.changes.length > 0 || result.refusals.length > 0) problems.push('pstack block or helpers differ from the shared source; run `apply`');
     problems.push(...anchorProblems(root, config.tag).map((problem) => problem.reason));
-    for (const name of unmarkedRules(readFileSync(TEMPLATE, 'utf8'))) problems.push(`block rule "${name}" has no overrides note or adds marker`);
+    for (const name of unmarkedRules(readFileSync(TEMPLATE, 'utf8'))) problems.push(`block rule "${name}" has no overrides or relies note and no adds marker`);
     problems.push(...reviewProblems(root, config));
   }
   const codex = codexDocLimit();
@@ -1350,13 +1402,15 @@ function report({ root, changes, refusals, pstackDiff }, mode) {
       lines.push(pstackDiff.anchored.replace(/^/gmu, '    '));
     }
     if (pstackDiff.named) {
-      lines.push('  pstack changed in skills the shared rules name without a note; check each change against the rules that name them:');
+      lines.push('  pstack changed in skills the shared or project rules name without a note; check each change against the rules that name them:');
       lines.push(pstackDiff.named.replace(/^/gmu, '    '));
     }
     if (pstackDiff.other.length > 0) {
-      lines.push('  pstack changed files the shared rules neither anchor nor name; check each against the block:');
+      lines.push(`  pstack changed files no rule anchors or names; list a group's files with git diff --name-status ${pstackDiff.from} ${pstackDiff.to} in ${upstreamUrl()}:`);
       lines.push(...pstackDiff.other.map((line) => `    ${line}`));
     }
+    lines.push(`  the write needs --dispositions <tsv> with one tab-separated row per item: its id, then ${DISPOSITIONS.join(', ')}, then the reason:`);
+    lines.push(...pstackDiff.ids.map((id) => `    ${id}`));
   }
   for (const refusal of refusals) {
     lines.push(`  refused ${refusal.path}: ${refusal.reason}`);
@@ -1378,7 +1432,8 @@ const HELP = `Usage: node sync-pstack.mjs <command> [options]
   discover <project>               Facts for the setup interview, as JSON. Read-only.
   status [project...]              State of pstack projects; finds local ones when none are named. Read-only.
   apply <project>                  Render the block, helpers and plugin pin from <project>/${CONFIG}.
-                                   A bump refuses when pstack dropped text an override or playbook anchors on.
+                                   A bump refuses when pstack dropped text an override or playbook anchors on, and
+                                   writes only with --dispositions covering every item of its bump report.
   check <project>                  Exit 1 when apply would change anything. Read-only.
   verify <project>                 Exit 1 when typed commands or modes, skill links, retired names, public skills,
                                    the block or pstack anchors are broken. Read-only.
@@ -1393,6 +1448,7 @@ const HELP = `Usage: node sync-pstack.mjs <command> [options]
 
   --tag <tag>     apply and sync: pin this tag
   --dry-run       apply, sync and user-pin: show the changes, write nothing
+  --dispositions <tsv>  apply and sync: one row per bump-report item, its id, a disposition and the reason
   --force         apply and sync: overwrite a block or helper edited since the last sync, or render
                   from a source older than the project's last sync
   --allow-dirty   sync: write files that have uncommitted edits
@@ -1414,6 +1470,7 @@ function main(argv) {
     else if (arg === '--session') flags.session = rest[++index];
     else if (arg === '--out') flags.out = resolve(rest[++index]);
     else if (arg === '--installed') flags.installed = resolve(rest[++index]);
+    else if (arg === '--dispositions') flags.dispositions = resolve(rest[++index]);
     else if (SWITCHES[arg]) flags[SWITCHES[arg]] = true;
     else if (arg.startsWith('--')) throw new Error(`Unknown option ${arg}`);
     else positional.push(arg);
@@ -1472,7 +1529,7 @@ function main(argv) {
       console.error(source());
       const root = one();
       const blocked = flags.dryRun ? [] : trunkMain(root);
-      const result = apply(root, { tag: flags.tag, force: flags.force, write: !flags.dryRun && blocked.length === 0 });
+      const result = apply(root, { tag: flags.tag, force: flags.force, write: !flags.dryRun && blocked.length === 0, dispositions: flags.dispositions });
       result.refusals.unshift(...blocked);
       console.info(report(result, flags.dryRun ? 'dry-run' : 'write'));
       return result.refusals.length > 0 ? 1 : 0;
@@ -1499,7 +1556,7 @@ function main(argv) {
         }
         try {
           const blocked = preflight(root, flags);
-          const result = apply(root, { tag, force: flags.force, write: !flags.dryRun && blocked.length === 0 });
+          const result = apply(root, { tag, force: flags.force, write: !flags.dryRun && blocked.length === 0, dispositions: flags.dispositions });
           result.refusals.unshift(...blocked);
           failed += result.refusals.length > 0 ? 1 : 0;
           console.info(report(result, flags.dryRun ? 'dry-run' : 'write'));

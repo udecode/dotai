@@ -502,7 +502,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.mjs": {
-      "sha256": "feb5fe63fe05b94136eb638bce7c2fbcb8a7813e86789fd025b36fb2f0352bc1",
+      "sha256": "48c9020fb973e0e1d0ca3d99795e88665f30d4df50b295384902c2a0efaf76ba",
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
