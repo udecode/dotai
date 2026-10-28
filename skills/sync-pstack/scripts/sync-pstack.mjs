@@ -102,7 +102,7 @@ const PLAYBOOKS = '.agents/playbooks';
 const UPSTREAM_SKILLS = 'plugins/pstack/skills';
 const CHANGE = /^\s*[-*]\s+\*\*(?:After|Before|Replace|In)\*\*\s+"([^"]+)"/u;
 const CHANGE_VERB = /^\s*[-*]\s+\*\*(?:After|Before|Replace|In)\*\*/u;
-const OVERRIDES = /^<!-- # overrides (\S+) "([^"]+)" -->$/u;
+const OVERRIDES = /^<!-- # (overrides|relies) (\S+) "([^"]+)" -->$/u;
 
 const sha = (text) => createHash('sha256').update(text).digest('hex');
 const flat = (text) => text.replace(/\s+/gu, ' ');
@@ -270,6 +270,11 @@ function upstream() {
       return (git(cache, 'ls-tree', '--name-only', `${tag}:${UPSTREAM_SKILLS}/${dir}`) ?? '').split('\n').filter(Boolean);
     },
     diff: (from, to, path) => gitRaw(cache, 'diff', '--no-color', from, to, '--', `${UPSTREAM_SKILLS}/${path}`)?.trimEnd() || null,
+    changed: (from, to) =>
+      (git(cache, 'diff', '--name-status', '--no-renames', from, to, '--', UPSTREAM_SKILLS) ?? '').split('\n').filter(Boolean).map((line) => {
+        const [status, path] = line.split('\t');
+        return { status, path: path.slice(UPSTREAM_SKILLS.length + 1) };
+      }),
     version() {
       ensure();
       const fetched = spawnSync('git', ['-C', cache, 'fetch', '-q', url, 'HEAD'], { encoding: 'utf8' });
@@ -286,15 +291,38 @@ const anchoredPaths = (root) => [
   ]),
 ];
 
+// A skill the shared templates name, as `name`, `/name`, pstack:name or name/SKILL.md, whose rules may lean on it without a note.
+export const namesSkill = (templates, skill) => {
+  const name = skill.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+  return new RegExp(`(?:\`/?(?:pstack:)?${name}[\` ]|pstack:${name}(?![\\w-])|(?<![\\w-])${name}/SKILL\\.md)`, 'u').test(templates);
+};
+
 function bumpDiff(root, from, to) {
   const source = upstream();
-  return anchoredPaths(root).map((path) => source.diff(from, to, path)).filter(Boolean).join('\n') || null;
+  const anchored = new Set(anchoredPaths(root));
+  const templates = sharedTemplates().join('\n');
+  const named = [];
+  const counts = new Map();
+  for (const { status, path } of source.changed(from, to)) {
+    if (anchored.has(path)) continue;
+    const skill = path.split('/')[0];
+    if (path.endsWith('.md') && namesSkill(templates, skill)) named.push(path);
+    else {
+      const verb = { A: 'added', D: 'deleted' }[status] ?? 'changed';
+      const byVerb = counts.get(skill) ?? new Map();
+      counts.set(skill, byVerb.set(verb, (byVerb.get(verb) ?? 0) + 1));
+    }
+  }
+  const other = [...counts].map(([skill, byVerb]) => `${skill}: ${[...byVerb].map(([verb, n]) => `${n} ${verb}`).join(', ')}`);
+  const diffs = (paths) => paths.map((path) => source.diff(from, to, path)).filter(Boolean).join('\n') || null;
+  const result = { anchored: diffs([...anchored]), named: diffs(named), other };
+  return result.anchored || result.named || other.length > 0 ? result : null;
 }
 
 export const overrideAnchors = (template) =>
   template.split('\n').flatMap((line) => {
     const match = line.trim().match(OVERRIDES);
-    return match ? [{ path: match[1], anchor: match[2] }] : [];
+    return match ? [{ kind: match[1], path: match[2], anchor: match[3] }] : [];
   });
 
 export function anchorProblems(root, tag) {
@@ -306,11 +334,13 @@ export function anchorProblems(root, tag) {
   };
   const problems = [];
   try {
-    for (const { path, anchor } of overrideAnchors(sharedTemplates().join('\n'))) {
+    for (const { kind, path, anchor } of overrideAnchors(sharedTemplates().join('\n'))) {
       const text = read(path);
-      if (text === null) problems.push({ reason: `the block overrides ${path}, which pstack ${tag} no longer has` });
+      const verb = kind === 'relies' ? 'relies on' : 'overrides';
+      if (text === null) problems.push({ reason: `the block ${verb} ${path}, which pstack ${tag} no longer has` });
       else if (!flat(text).includes(flat(anchor))) {
-        problems.push({ reason: `the block overrides "${anchor}" in ${path}, which pstack ${tag} no longer says; rewrite or drop that override` });
+        const fix = kind === 'relies' ? 'rewrite the rule that depends on it' : 'rewrite or drop that override';
+        problems.push({ reason: `the block ${verb} "${anchor}" in ${path}, which pstack ${tag} no longer says; ${fix}` });
       }
     }
     for (const playbook of projectPlaybooks(root)) {
@@ -1310,8 +1340,18 @@ function source() {
 function report({ root, changes, refusals, pstackDiff }, mode) {
   const lines = [root];
   if (pstackDiff && mode !== 'check') {
-    lines.push('  pstack changed in files this project anchors on; read it for steps that kept their quoted text:');
-    lines.push(pstackDiff.replace(/^/gmu, '    '));
+    if (pstackDiff.anchored) {
+      lines.push('  pstack changed in files this project anchors on; read it for steps that kept their quoted text:');
+      lines.push(pstackDiff.anchored.replace(/^/gmu, '    '));
+    }
+    if (pstackDiff.named) {
+      lines.push('  pstack changed in skills the shared rules name without a note; check each change against the rules that name them:');
+      lines.push(pstackDiff.named.replace(/^/gmu, '    '));
+    }
+    if (pstackDiff.other.length > 0) {
+      lines.push('  pstack changed files the shared rules neither anchor nor name; check each against the block:');
+      lines.push(...pstackDiff.other.map((line) => `    ${line}`));
+    }
   }
   for (const refusal of refusals) {
     lines.push(`  refused ${refusal.path}: ${refusal.reason}`);

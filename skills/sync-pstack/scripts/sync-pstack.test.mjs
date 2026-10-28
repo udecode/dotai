@@ -5,7 +5,7 @@ import { availableParallelism, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { hintModes, overrideAnchors, render, sharedTemplates, unmarkedRules } from './sync-pstack.mjs';
+import { hintModes, namesSkill, overrideAnchors, render, sharedTemplates, unmarkedRules } from './sync-pstack.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SCRIPT = join(HERE, 'sync-pstack.mjs');
@@ -389,7 +389,7 @@ test('a bump refuses when pstack dropped the step a playbook anchors on, and sho
 
 test('verify flags a playbook that extends a missing pstack playbook, a change with no anchor, and an override pstack no longer says', () => {
   const upstream = pstackRepo(mkdtempSync(join(tmpdir(), 'sync-pstack-upstream-')), {
-    'v0.9.52': { 'poteto-mode/playbooks/feature.md': ABSENT, 'poteto-mode/playbooks/triage.md': '1. Sort it.\n' },
+    'v0.9.52': { 'poteto-mode/playbooks/feature.md': ABSENT, 'interrogate/SKILL.md': ABSENT, 'poteto-mode/playbooks/triage.md': '1. Sort it.\n' },
   });
   const { dir, cli } = sandbox({ upstream });
   const root = project(dir, 'app', {
@@ -406,6 +406,7 @@ test('verify flags a playbook that extends a missing pstack playbook, a change w
   assert.match(result.stdout, /\.agents\/playbooks\/ship\.md extends `shipping-v2`, which pstack v0\.9\.52 does not have/);
   assert.match(result.stdout, /\.agents\/playbooks\/fix\.md has a change with no straight-quoted pstack text to anchor on/);
   assert.match(result.stdout, /the block overrides poteto-mode\/playbooks\/feature\.md, which pstack v0\.9\.52 no longer has/);
+  assert.match(result.stdout, /the block relies on interrogate\/SKILL\.md, which pstack v0\.9\.52 no longer has/);
   assert.match(result.stdout, /pstack v0\.9\.52 has the triage playbook, which PSTACK_PLAYBOOKS in the plan-page renderer lacks/);
   assert.doesNotMatch(result.stdout, /has the bug-fix playbook/);
 });
@@ -1028,6 +1029,30 @@ test('a bump prints the pstack diff of anchored files even when every anchor hol
   const result = cli('apply', root, '--tag', 'v0.9.53', '--dry-run');
   assert.equal(result.status, 0, result.stdout);
   assert.match(result.stdout, /^ +-2\. Plan the fix and review the diff\.$/m);
+});
+
+test('a bump also diffs changed skills the shared rules name without a note and lists the rest', () => {
+  const upstream = pstackRepo(mkdtempSync(join(tmpdir(), 'sync-pstack-upstream-')), {
+    'v0.9.52': { 'ketchup/SKILL.md': 'Give the catch-up as text.\n' },
+    'v0.9.53': { 'ketchup/SKILL.md': 'Give the catch-up as slides.\n', 'unnamed-skill/SKILL.md': 'New.\n' },
+  });
+  const { dir, cli } = sandbox({ upstream });
+  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
+  cli('apply', root);
+  const result = cli('apply', root, '--tag', 'v0.9.53', '--dry-run');
+  assert.equal(result.status, 0, result.stdout);
+  assert.match(result.stdout, /pstack changed in skills the shared rules name without a note/);
+  assert.match(result.stdout, /^ +-Give the catch-up as text\.$/m);
+  assert.match(result.stdout, /pstack changed files the shared rules neither anchor nor name[^\n]*\n +unnamed-skill: 1 added$/m);
+});
+
+test('namesSkill matches a skill the rules cite, not a bare word', () => {
+  assert.equal(namesSkill('the `pstack:ketchup` skill', 'ketchup'), true);
+  assert.equal(namesSkill('run `/setup-pstack` first', 'setup-pstack'), true);
+  assert.equal(namesSkill('the `how explorer` role', 'how'), true);
+  assert.equal(namesSkill('overrides interrogate/SKILL.md "x"', 'interrogate'), true);
+  assert.equal(namesSkill('say how it works', 'how'), false);
+  assert.equal(namesSkill('`setup-pstack-extra`', 'setup-pstack'), false);
 });
 
 test('status flags an upstream VERSION ahead of the newest tag', () => {
