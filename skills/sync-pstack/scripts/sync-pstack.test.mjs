@@ -89,7 +89,11 @@ function project(dir, name, { config, agents, settings, files = {} } = {}) {
 
 const read = (root, path) => readFileSync(join(root, path), 'utf8');
 const readJson = (root, path) => JSON.parse(read(root, path));
-const reviewItems = (stdout) => stdout.split('the write needs --dispositions')[1].split('\n').slice(1).filter((line) => line.startsWith('    ')).map((line) => line.trim());
+const reviewItems = (stdout) => {
+  const lines = stdout.split('the write needs --dispositions')[1].split('\n').slice(1);
+  const end = lines.findIndex((line) => !line.startsWith('    '));
+  return lines.slice(0, end < 0 ? lines.length : end).map((line) => line.trim());
+};
 // Writes a dispositions file that marks every item of the bump report as touching no rule.
 const disposeAll = (cli, root, tag, dir) => {
   const tsv = join(dir, 'dispositions.tsv');

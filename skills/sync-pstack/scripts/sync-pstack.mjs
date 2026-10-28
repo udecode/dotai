@@ -309,7 +309,7 @@ const projectRules = (root) =>
     .filter((path) => existsSync(path))
     .map((path) => readFileSync(path, 'utf8'));
 
-export const DISPOSITIONS = ['none', 'covered', 'noted', 'rewritten', 'dropped'];
+const DISPOSITIONS = ['none', 'covered', 'noted', 'rewritten', 'dropped'];
 
 // One review item per diff hunk of an anchored or named file, and one per counted group.
 const hunkIds = (path, text) => {
@@ -345,7 +345,7 @@ function bumpDiff(root, from, to) {
   return { from, to, anchored: joined(anchoredDiffs), named: joined(namedDiffs), other, ids };
 }
 
-export function dispositionProblems(ids, file) {
+function dispositionProblems(ids, file) {
   const shape = `one tab-separated row per item: its id, then ${DISPOSITIONS.join(', ')}, then the reason`;
   if (!file) return [`pstack changed between the tags; read the bump report and pass --dispositions <tsv> with ${shape}`];
   if (!existsSync(file)) return [`${file} does not exist; write it with ${shape}`];
