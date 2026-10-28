@@ -108,6 +108,32 @@ test('only folders no open session, process or server uses are marked safe', asy
   }
 });
 
+test('a gc that rewrites every reflog today does not reset a worktree idle for days', () => {
+  const f = fixture();
+  const admin = git(f.orphan, 'rev-parse', '--absolute-git-dir').trim();
+  const log = join(admin, 'logs', 'HEAD');
+  const old = Math.floor((Date.now() - 3 * DAY) / 1000);
+  writeFileSync(log, readFileSync(log, 'utf8').replace(/> \d+ /gu, `> ${old} `));
+  for (const file of ['index', 'HEAD']) age(join(admin, file), 3);
+  const unclaimed = f.sessions.filter((session) => session.cwd !== f.orphan);
+  assert.equal(verdictOf({ ...f, sessions: unclaimed }, f.orphan), 'safe');
+});
+
+test('--repos judges each checkout in a folder that has linked worktrees', () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'cleanup-repos-')));
+  for (const name of ['with', 'without']) {
+    mkdirSync(join(root, name));
+    git(join(root, name), 'init', '-q', '-b', 'next');
+    git(join(root, name), '-c', 'user.email=t@example.com', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'base');
+  }
+  git(join(root, 'with'), 'worktree', 'add', '-q', '-b', 'w', join(root, 'with-w'));
+  mkdirSync(join(root, 'plain'));
+  const out = execFileSync('node', [SCAN, '--repos', root, '--no-sizes'], { cwd: root, encoding: 'utf8' });
+  assert.ok(out.includes(`## ${join(root, 'with')}\n`), out);
+  assert.ok(out.includes(join(root, 'with-w')), out);
+  assert.ok(!out.includes(join(root, 'without')), out);
+});
+
 test('a worktree outside the folders agents use is asked about even when an archived session owned it', () => {
   const facts = { agentMade: false, heldCaches: 0, hoursIdle: 48, invoking: false, locked: null, missing: false, nested: null, processes: 0, repos: 0, scratchHoursQuiet: null, session: { state: null, title: 'done' }, unreached: 0 };
   assert.equal(classifyWorktree(facts)[0], 'ask');

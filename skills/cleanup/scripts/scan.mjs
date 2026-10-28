@@ -3,7 +3,7 @@
 // within four levels of its checkout and of each worktree not marked safe, as
 // safe, ask or keep.
 //
-//   node scan.mjs [--repo <checkout>] [--sessions <file>] [--json] [--no-sizes] [--delete]
+//   node scan.mjs [--repo <checkout> | --repos <folder>] [--sessions <file>] [--json] [--no-sizes] [--delete]
 //   node scan.mjs --brief [--repo <checkout>]
 //   node scan.mjs --landed <worktree>
 //   node scan.mjs [--repo <checkout>] --remove <worktree>...
@@ -28,6 +28,8 @@
 // config names a `companion` and a worktree holds `companion.dir`, removing
 // that worktree first runs `companion.detach` in it, which saves the
 // companion repository's uncommitted work there; a failed detach keeps it.
+// --repos runs the scan, or --delete, on each checkout directly in a folder
+// that has linked worktrees.
 // --brief prints one line, or nothing, counting the unlocked agent worktrees and
 // the checkout caches cleanup could remove that show no git or cache writes for
 // three days. --landed exits 0 only when every change and ignored file of one
@@ -79,7 +81,17 @@ const statOrNull = (path) => {
   }
 };
 const newestMtime = (paths) => Math.max(0, ...paths.map(statOrNull).filter(Boolean).map((stat) => stat.mtimeMs));
-const adminMtime = (admin) => newestMtime([join(admin, 'index'), join(admin, 'HEAD'), join(admin, 'logs', 'HEAD')]);
+// git gc's reflog expire rewrites the logs/HEAD of every worktree at once, so
+// the clock reads the time of its newest entry rather than the file's.
+function reflogTime(admin) {
+  try {
+    const last = readFileSync(join(admin, 'logs', 'HEAD'), 'utf8').trimEnd().split('\n').at(-1);
+    return Number(/> (\d+) [+-]\d{4}(\t|$)/u.exec(last)?.[1] ?? 0) * 1000;
+  } catch {
+    return 0;
+  }
+}
+const adminMtime = (admin) => Math.max(newestMtime([join(admin, 'index'), join(admin, 'HEAD')]), reflogTime(admin));
 // A symlink, such as a linked node_modules, holds no work, and removal deletes
 // only the link.
 const holdsFiles = (path) => readdirSync(path, { withFileTypes: true }).some((entry) => entry.isFile() || (entry.isDirectory() && holdsFiles(join(path, entry.name))));
@@ -645,6 +657,20 @@ export function landed({ worktree }) {
   return landedVerdict(contentFacts(main, entry, worktrees));
 }
 
+// A folder that is itself a linked worktree holds a .git file, not a folder.
+export function checkoutsIn(dir) {
+  return readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && statOrNull(join(dir, entry.name, '.git'))?.isDirectory())
+    .map((entry) => real(join(dir, entry.name)))
+    .filter((main) => {
+      try {
+        return listWorktrees(main).length > 0;
+      } catch {
+        return false;
+      }
+    });
+}
+
 export function brief({ repo, now = Date.now(), days = 3 }) {
   const main = checkoutOf(repo);
   const stale = (mtime) => now - mtime > days * 24 * HOUR;
@@ -712,10 +738,12 @@ function main(argv) {
   }
   const sessionsFile = value('--sessions');
   const sessions = sessionsFile ? JSON.parse(readFileSync(sessionsFile, 'utf8')) : [];
-  const result = argv.includes('--delete')
-    ? deleteSafe({ repo, sessions })
-    : scan({ repo, sessions, sizes: !argv.includes('--no-sizes') });
-  console.log(argv.includes('--json') ? JSON.stringify(result, null, 2) : render(result));
+  const many = argv.includes('--repos');
+  const results = (many ? checkoutsIn(resolve(value('--repos'))) : [repo]).map((each) =>
+    argv.includes('--delete') ? deleteSafe({ repo: each, sessions }) : scan({ repo: each, sessions, sizes: !argv.includes('--no-sizes') })
+  );
+  if (argv.includes('--json')) console.log(JSON.stringify(many ? results : results[0], null, 2));
+  else console.log(results.map((result) => (many ? `## ${result.main}\n${render(result)}` : render(result))).join('\n\n'));
   return 0;
 }
 
