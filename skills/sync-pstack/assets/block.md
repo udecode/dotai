@@ -137,6 +137,7 @@
   Bookkeeping never takes a call of its own: a retitle, a todo update, a decision-log append, a page publish or a plan-page render goes out in the same message as the next working call, and several decision rows go in one append (owner's word, 2026-10-17).
 <!-- end -->
 <!-- # overrides how/SKILL.md "Spawn all explorers in a single message" -->
+<!-- # overrides arena/SKILL.md "The judge is never from the parent's family" -->
 - **Extraction.** The session's own model keeps every judgment: plans, designs, the code the lead writes, synthesis, explainers, judges, cross-judges, a second reader that checks extracted claims, and reflect's synthesis with every decision on what it applies. In Claude Code, a role that only finds evidence for the lead to judge runs on Codex when the models sheet gives it a `codex:<model> @<effort>` value; today that is the `how explorer` role, which gets pstack's explorer prompt. It runs through `cross.mjs --reach`, which loads the user's Codex config, connectors, web search and network but writes only a scratch folder, never the project. Before using an answer, the lead checks that it covers every source and lookup its brief asked for. A seat that fails, returns nothing, or leaves an asked-for source or lookup uncovered, reported or not, reruns once on its model for the part still missing, and the page names any gap left. In Claude Code, when the lead would otherwise read several files it has not read to find where a change goes, it asks such a seat for the spans and call sites instead, confirms the call sites with its own `git grep` of each changed symbol, then reads in full the function it changes and each caller whose behavior the change can break.
 <!-- if codexLanes -->
   A read-only fan-out reader the lead starts itself whose sources are all files on disk, such as a map, inventory or sweep lane, runs the same way on the `how explorer` line's model with `cross.mjs` and the lead's brief, which excludes build output.
@@ -145,16 +146,18 @@
 <!-- # adds -->
 - **Codex workers.** Read `.agents/pstack/rules/codex.md` in full before you write a planned change of more than a few lines or one that needs its own test loop. Read it too before a long run's mechanical slice that a command proves done, such as a codemod, a benchmark protocol run or a fix loop that ends when typecheck or lint passes, and whenever the owner says to have Codex do it. It says when Codex writes the code instead of you.
 <!-- end -->
-<!-- # overrides interrogate/SKILL.md "If the `Agent` tool rejects a configured entry" -->
-<!-- # overrides interrogate/SKILL.md "Do NOT auto-apply changes." -->
-<!-- # overrides interrogate/SKILL.md "Launch all reviewers in a single message with the `Agent` tool" -->
+<!-- # overrides arena/SKILL.md "If the `Agent` tool rejects a configured entry, run that seat on its family's default" -->
+<!-- # overrides arena/SKILL.md "or drop the seat and say so when there is none" -->
+<!-- # overrides interrogate/SKILL.md "Report the findings. Do not apply fixes." -->
+<!-- # overrides interrogate/SKILL.md "Copy the scope's uncommitted changes into each worktree." -->
+<!-- # overrides interrogate/SKILL.md "Spawn each adversary as `general-purpose`." -->
+<!-- # overrides interrogate/SKILL.md "Leave out anything you did not run." -->
+<!-- # overrides interrogate/SKILL.md "Keep a finding when the output shows the failure and the failure breaks the intent. Drop the rest." -->
 <!-- # overrides arena/SKILL.md "the candidates by path label" -->
 <!-- # overrides arena/SKILL.md "If the candidates converge on one shape, that is strong agreement." -->
-<!-- # overrides interrogate/SKILL.md "Findings two or more models raised independently are the highest signal." -->
 <!-- # overrides poteto-mode/SKILL.md "Contested design → the **interrogate** skill (multi-model adversarial) before shipping." -->
 <!-- # overrides poteto-mode/playbooks/feature.md "`architect` for parallel design exploration." -->
 <!-- # overrides poteto-mode/playbooks/feature.md "If the design is contested, `interrogate` before shipping." -->
-<!-- # overrides poteto-mode/playbooks/opening-a-pr.md "A subagent that opens a PR runs `interrogate`" -->
 <!-- # overrides poteto-mode/playbooks/orchestrate.md "A contested decomposition or one-way door goes through the arena skill before the pilot." -->
 <!-- # overrides blast-radius/SKILL.md "For a big or wide change, run it as an `arena`." -->
 <!-- # overrides figure-it-out/SKILL.md "For one-way-door design decisions, run the **architect** skill (it runs **arena**)." -->
