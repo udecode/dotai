@@ -242,24 +242,44 @@ test('run folders lose their installs and builds after a quiet day and go after 
   assert.ok(existsSync(join(runs, 'suggested-tasks.decisions.tsv')), 'the ledger stays');
 });
 
-test('scratch copies in an ignored .tmp go after a quiet week unless a clone in them holds commits no remote has', () => {
+test('scratch copies in an ignored .tmp go after a quiet week, saving uncommitted changes, unless a clone in them holds commits no remote has or git cannot read it', () => {
   const f = fixture();
   const tmp = join(f.main, '.tmp');
+  const commit = (repo, name) => {
+    writeFileSync(join(repo, name), `${name}\n`);
+    git(repo, 'add', name);
+    git(repo, '-c', 'user.email=t@example.com', '-c', 'user.name=t', 'commit', '-q', '-m', name);
+  };
   mkdirSync(join(tmp, 'copy', 'node_modules', 'dep'), { recursive: true });
   writeFileSync(join(tmp, 'copy', 'result.json'), '{}\n');
   git(tmp, 'clone', '-q', f.main, 'synced');
+  writeFileSync(join(tmp, 'synced', 'a.txt'), 'edited\n');
   git(tmp, 'clone', '-q', f.main, 'ahead');
-  writeFileSync(join(tmp, 'ahead', 'b.txt'), 'b\n');
-  git(join(tmp, 'ahead'), 'add', 'b.txt');
-  git(join(tmp, 'ahead'), '-c', 'user.email=t@example.com', '-c', 'user.name=t', 'commit', '-q', '-m', 'local only');
+  commit(join(tmp, 'ahead'), 'b.txt');
+  git(tmp, 'clone', '-q', f.main, 'stashed');
+  writeFileSync(join(tmp, 'stashed', 'a.txt'), 'shelved\n');
+  git(join(tmp, 'stashed'), '-c', 'user.email=t@example.com', '-c', 'user.name=t', 'stash', '-q');
+  mkdirSync(join(tmp, 'scratch'));
+  git(join(tmp, 'scratch'), 'init', '-q');
+  commit(join(tmp, 'scratch'), 'c.txt');
+  mkdirSync(join(tmp, 'unborn'));
+  git(join(tmp, 'unborn'), 'init', '-q');
+  writeFileSync(join(tmp, 'unborn', 'd.txt'), 'draft\n');
+  git(f.main, 'worktree', 'add', '-q', '--detach', join(tmp, 'dropped'));
+  rmSync(readFileSync(join(tmp, 'dropped', '.git'), 'utf8').replace('gitdir: ', '').trim(), { recursive: true });
   ageTree(tmp, 10);
   const runs = () => Object.fromEntries(scan({ repo: f.main, sessions: f.sessions, sizes: false }).items.filter((item) => item.kind === 'run').map((item) => [item.path, `${item.verdict} ${item.action ?? ''}`.trim()]));
   assert.deepEqual(runs(), {}, 'a .tmp git does not ignore is left alone');
   writeFileSync(join(f.main, '.git', 'info', 'exclude'), '.tmp/\n');
-  assert.deepEqual(runs(), { [join(tmp, 'copy')]: 'safe expire', [join(tmp, 'synced')]: 'safe expire', [join(tmp, 'ahead')]: 'ask' });
-  deleteSafe({ repo: f.main, sessions: f.sessions });
+  assert.deepEqual(runs(), { [join(tmp, 'copy')]: 'safe expire', [join(tmp, 'synced')]: 'safe expire', [join(tmp, 'ahead')]: 'ask', [join(tmp, 'stashed')]: 'ask', [join(tmp, 'scratch')]: 'ask', [join(tmp, 'unborn')]: 'safe expire', [join(tmp, 'dropped')]: 'ask' });
+  const { removed } = deleteSafe({ repo: f.main, sessions: f.sessions });
   assert.ok(!existsSync(join(tmp, 'copy')) && !existsSync(join(tmp, 'synced')), 'quiet copies go');
-  assert.ok(existsSync(join(tmp, 'ahead', 'b.txt')), 'a clone with commits no remote has stays');
+  const [patch] = removed.find((item) => item.path === join(tmp, 'synced')).patches;
+  assert.match(readFileSync(patch, 'utf8'), /^\+edited$/mu, "the clone's uncommitted change is saved before it goes");
+  const [draft] = removed.find((item) => item.path === join(tmp, 'unborn')).patches;
+  assert.match(readFileSync(draft, 'utf8'), /^\+draft$/mu, 'a clone with no commit yet goes with its files saved');
+  assert.ok(existsSync(join(tmp, 'ahead', 'b.txt')) && existsSync(join(tmp, 'scratch', 'c.txt')), 'a clone with commits no remote has stays, a remoteless one included');
+  assert.ok(existsSync(join(tmp, 'dropped', 'a.txt')), 'a worktree copy whose repository dropped it stays');
 });
 
 test('--landed in a pstack project passes generated output and asks only about run artifacts the checkout lacks', () => {

@@ -35,7 +35,10 @@
 // <plans>/artifacts/, and in any checkout each folder in an ignored .tmp/:
 // --delete strips its installs and builds once nothing wrote it for a day and
 // deletes it once nothing wrote it for a week, unless the ledger or a decision
-// log changed that week names it or a clone in it holds commits no remote has.
+// log changed that week names it or a clone in it holds commits no remote has
+// or git cannot list its commits.
+// Before deleting it, --delete saves each clone's uncommitted changes as a
+// patch, as it does for a worktree.
 // --brief prints one line, or nothing, counting the unlocked agent worktrees and
 // the checkout caches cleanup could remove that show no git or cache writes for
 // three days. --landed exits 0 only when every change and ignored file of one
@@ -77,6 +80,15 @@ const git = (cwd, args) =>
     maxBuffer: Number.POSITIVE_INFINITY,
     stdio: ['ignore', 'pipe', 'pipe'],
   }).replace(/\n+$/u, '');
+
+const resolves = (cwd, ref) => {
+  try {
+    git(cwd, ['rev-parse', '--verify', '--quiet', ref]);
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 const real = (path) => (existsSync(path) ? realpathSync.native(path) : resolve(path));
 const within = (path, root) => path === root || path.startsWith(root + sep);
@@ -453,14 +465,7 @@ function unlandedCommits(main, entry, reflog = true) {
   try {
     const commits = unreachedList(main, entry, ['--no-merges'], reflog).split('\n').filter(Boolean);
     if (commits.length === 0) return 0;
-    const bases = ['HEAD', '@{upstream}'].filter((ref) => {
-      try {
-        git(main, ['rev-parse', '--verify', '--quiet', ref]);
-        return true;
-      } catch {
-        return false;
-      }
-    });
+    const bases = ['HEAD', '@{upstream}'].filter((ref) => resolves(main, ref));
     const trees = bases.map((ref) => new Map(git(main, ['ls-tree', '-r', '-z', ref]).split('\0').filter(Boolean).map((line) => [line.slice(line.indexOf('\t') + 1), line.split(' ')[2].split('\t')[0]])));
     return commits.filter((sha) => {
       const date = git(main, ['show', '-s', '--format=%cI', sha]).trim();
@@ -535,15 +540,11 @@ function runWalk(path) {
   return { builds, newest, repos };
 }
 
-function aheadOfRemote(repo) {
-  const admin = adminDir(repo);
-  // A worktree link whose repository is gone has no commits left to lose.
-  if (admin && !existsSync(admin)) return false;
+function holdReason(repo) {
   try {
-    if (!git(repo, ['remote'])) return false;
-    return Number(git(repo, ['rev-list', '--count', 'HEAD', '--branches', '--not', '--remotes'])) > 0;
+    return Number(git(repo, ['rev-list', '--count', '--all', '--not', '--remotes'])) > 0 ? `a clone in it holds commits no remote has: ${repo}` : null;
   } catch {
-    return true;
+    return `git cannot list the commits of a clone in it: ${repo}`;
   }
 }
 
@@ -555,7 +556,8 @@ function runFacts(path, context, run) {
     hoursQuiet: (context.now - newest) / HOUR,
     nested: nestedIn(path, context.worktrees),
     processes: context.cwds === null ? null : context.cwds.filter((cwd) => within(cwd, path)).length,
-    ahead: repos.filter(aheadOfRemote),
+    held: repos.map(holdReason).filter(Boolean),
+    repos,
   };
 }
 
@@ -566,10 +568,10 @@ export function classifyRun(facts) {
   if (facts.processes === null) return ['keep', 'lsof could not list the processes working in it'];
   if (facts.processes > 0) return ['keep', `${facts.processes} running processes work in it`];
   if (facts.hoursQuiet < 24) return ['keep', 'something wrote it in the last day'];
-  const clone = facts.ahead[0];
-  if (expires && !clone) return ['safe', 'nothing wrote it for a week, and neither the ledger nor a decision log changed this week names it', 'expire'];
-  if (facts.builds.length > 0) return ['safe', clone ? `its installs and builds go; it stays, because a clone in it holds commits no remote has: ${clone}` : 'its installs and builds go; its logs stay', 'strip'];
-  return ['ask', `nothing wrote it for a week, but a clone in it holds commits no remote has: ${clone}`];
+  const hold = facts.held[0];
+  if (expires && !hold) return ['safe', 'nothing wrote it for a week, and neither the ledger nor a decision log changed this week names it', 'expire'];
+  if (facts.builds.length > 0) return ['safe', hold ? `its installs and builds go; it stays, because ${hold}` : 'its installs and builds go; its logs stay', 'strip'];
+  return ['ask', `nothing wrote it for a week, but ${hold}`];
 }
 
 const runBytes = (path, action, builds) => (action === 'strip' ? builds.reduce((sum, build) => sum + (sizeOf(build) ?? 0), 0) : sizeOf(path));
@@ -636,9 +638,9 @@ function savePatch(main, path) {
   const env = { ...process.env, GIT_INDEX_FILE: `${name}.index` };
   const run = (args) => execFileSync('git', ['--no-optional-locks', ...args], { cwd: path, encoding: 'utf8', env, maxBuffer: Number.POSITIVE_INFINITY, stdio: ['ignore', 'pipe', 'pipe'] });
   try {
-    run(['read-tree', 'HEAD']);
+    if (resolves(path, 'HEAD')) run(['read-tree', 'HEAD']);
     run(['add', '-A']);
-    const patch = run(['diff', '--cached', '--binary', 'HEAD']);
+    const patch = run(['diff', '--cached', '--binary']);
     if (!patch) return null;
     writeFileSync(`${name}.patch`, patch);
     return `${name}.patch`;
@@ -692,6 +694,7 @@ export function deleteSafe({ repo, sessions = [], now = Date.now() }) {
       }
       Object.assign(item, { action, reason, bytes: runBytes(item.path, action, facts.builds) });
       try {
+        if (action === 'expire') item.patches = facts.repos.map((repo) => savePatch(main, repo)).filter(Boolean);
         for (const path of action === 'strip' ? facts.builds : [item.path]) rmSync(path, { force: true, recursive: true });
       } catch (error) {
         Object.assign(item, { verdict: 'ask', reason: `removal failed: ${String(error.message).split('\n')[0]}` });
@@ -841,6 +844,8 @@ function render({ items, removed }) {
   if (removed) lines.push(`removed ${removed.length} items, ${gib(removed.reduce((sum, item) => sum + (item.bytes ?? 0), 0))} by du, which counts shared hard links and APFS clones again`);
   const patches = (removed ?? []).filter((item) => item.patch);
   if (patches.length > 0) lines.push(`saved the uncommitted changes of ${patches.length} worktrees as patches in ${dirname(patches[0].patch)}`);
+  const clones = (removed ?? []).flatMap((item) => item.patches ?? []);
+  if (clones.length > 0) lines.push(`saved the uncommitted changes of ${clones.length} clones as patches in ${dirname(clones[0])}`);
   const commits = (removed ?? []).filter((item) => item.commits);
   if (commits.length > 0) lines.push(`saved the unreached commits of ${commits.length} worktrees as patches in ${dirname(commits[0].commits)}`);
   return lines.join('\n');
