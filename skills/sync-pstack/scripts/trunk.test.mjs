@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { test } from 'node:test';
@@ -122,7 +122,15 @@ function split(fixture) {
   side('commit', '--quiet', '-m', 'start');
   side('push', '--quiet', 'origin', 'HEAD:next');
   side('fetch', '--quiet', 'origin');
-  return { companion: remote, side };
+  const sideElsewhere = (path, text, subject) => {
+    const other = join(dir, `side-${Math.random().toString(36).slice(2)}`);
+    git(dir, 'clone', '--quiet', '--branch', 'next', remote, other);
+    writeFileSync(join(other, path), text);
+    git(other, 'add', '--all');
+    git(other, 'commit', '--quiet', '-m', subject);
+    return other;
+  };
+  return { companion: remote, side, sideElsewhere };
 }
 
 test('land commits, checks and pushes the companion half after the first, and a companion-only task lands alone', () => {
@@ -152,7 +160,7 @@ test('land commits, checks and pushes the companion half after the first, and a 
   assert.match(git(companion, 'log', '-1', '--format=%B', 'next'), new RegExp(`Lands-With: ${landed}$`, 'u'));
 });
 
-test('land pushes a refused companion commit first on its next run', () => {
+test('land pushes a refused companion commit on its next run', () => {
   const fixture = trunk();
   const { remote, clone, message } = fixture;
   const { companion } = split(fixture);
@@ -173,6 +181,142 @@ test('land pushes a refused companion commit first on its next run', () => {
   assert.equal(rerun.status, 0, rerun.stderr);
   assert.equal(git(remote, 'rev-parse', 'next'), landed, 'the rerun lands nothing new here');
   assert.equal(git(companion, 'show', 'next:a.spec'), 'two');
+});
+
+test('land rebases the companion onto its origin/next before checking a task that changes only this checkout, and records its tree', () => {
+  const fixture = trunk();
+  const { dir, remote, clone, message } = fixture;
+  const { companion, sideElsewhere } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const ran = join(dir, 'ran');
+  const runs = () => readFileSync(ran, 'utf8').trim().split('\n').length;
+  const theirs = sideElsewhere('a.spec', 'theirs\n', 'test(a): land elsewhere');
+  git(theirs, 'push', '--quiet', 'origin', 'HEAD:next');
+  const check = ['--check', `echo run >> ${ran} && grep -q theirs a.spec`];
+  declinePushes(remote, 99);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const first = helper('land.mjs', clone, ['--message', message(GOOD), ...check], NO_WAIT);
+  assert.equal(first.status, 75, `the check reads the companion's origin/next: ${first.stderr}`);
+
+  writeFileSync(join(theirs, 'c.spec'), 'c\n');
+  git(theirs, 'add', 'c.spec');
+  git(theirs, 'commit', '--quiet', '-m', 'test(c): land elsewhere');
+  git(theirs, 'push', '--quiet', 'origin', 'HEAD:next');
+  declinePushes(remote, 0);
+  const rerun = helper('land.mjs', clone, check, NO_WAIT);
+  assert.equal(rerun.status, 0, rerun.stderr);
+  assert.equal(runs(), 2, 'a companion that moved since the recorded check runs the checks again');
+  assert.equal(readFileSync(join(clone, 'c.spec'), 'utf8'), 'c\n');
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'two');
+  assert.equal(git(companion, 'log', '-1', '--format=%s', 'next'), 'test(c): land elsewhere', 'a task that changes no companion file pushes no companion commit');
+});
+
+test('land exits 75 when the companion moves while its checks run, and the rerun rebases, checks and pushes the companion commit', () => {
+  const fixture = trunk();
+  const { dir, remote, clone, message } = fixture;
+  const { companion, sideElsewhere } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const ran = join(dir, 'ran');
+  const once = join(dir, 'once');
+  const theirs = sideElsewhere('c.spec', 'c\n', 'test(c): land elsewhere');
+  const check = ['--check', `echo run >> ${ran} && { test -e ${once} || { touch ${once} && git -C ${theirs} push --quiet origin HEAD:next; }; }`];
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  writeFileSync(join(clone, 'a.spec'), 'two\n');
+
+  const first = helper('land.mjs', clone, ['--message', message(GOOD), ...check]);
+  assert.equal(first.status, 75, first.stderr);
+  assert.match(first.stderr, /run land\.mjs again with no --message; it rebases and checks that commit, then pushes it/);
+  const landed = git(remote, 'rev-parse', 'next');
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'two');
+  assert.equal(git(companion, 'log', '-1', '--format=%s', 'next'), 'test(c): land elsewhere', 'no unchecked companion commit is pushed');
+
+  const rerun = helper('land.mjs', clone, check);
+  assert.equal(rerun.status, 0, rerun.stderr);
+  assert.equal(readFileSync(ran, 'utf8').trim().split('\n').length, 2, 'the rebased companion commit is checked before it is pushed');
+  assert.equal(git(remote, 'rev-parse', 'next'), landed, 'the rerun lands nothing new here');
+  assert.deepEqual(git(companion, 'log', '-2', '--format=%s', 'next').split('\n'), ['feat(a): change a', 'test(c): land elsewhere']);
+  assert.equal(git(companion, 'show', 'next:a.spec'), 'two');
+  assert.match(git(companion, 'log', '-1', '--format=%B', 'next'), new RegExp(`^Lands-With: ${landed}$`, 'mu'));
+});
+
+test('the companion amend that adds the Lands-With line takes no work staged after the checks', () => {
+  const fixture = trunk();
+  const { clone, message } = fixture;
+  const { companion, side } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const hook = join(clone, '.git/hooks/pre-push');
+  writeFileSync(hook, '#!/bin/sh\necho late > a.spec\ngit --git-dir=.git-private --work-tree=. add a.spec\n');
+  chmodSync(hook, 0o755);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  writeFileSync(join(clone, 'a.spec'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(git(companion, 'show', 'next:a.spec'), 'two', 'the edit staged during the push stays out of the companion commit');
+  assert.equal(side('diff', '--cached', '--name-only'), 'a.spec', 'it stays staged');
+});
+
+test('land leaves out a new file the companion list names when this clone ignores it locally', () => {
+  const fixture = trunk();
+  const { clone, message } = fixture;
+  const { companion } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  writeFileSync(join(clone, '.git/info/exclude'), 'scratch/\n');
+  mkdirSync(join(clone, 'scratch'));
+  writeFileSync(join(clone, 'scratch/x.spec'), 'local\n');
+  writeFileSync(join(clone, 'a.spec'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(git(companion, 'show', 'next:a.spec'), 'two');
+  assert.equal(git(companion, 'ls-tree', '-r', '--name-only', 'next', '--', 'scratch'), '', 'a path .git/info/exclude ignores is not companion work');
+});
+
+test('a checkout that holds the companion lands in push mode when pstack.delivery is unset, and refuses another mode or a missing companion', () => {
+  const fixture = trunk();
+  const { dir, remote, clone, message } = fixture;
+  const { companion } = split(fixture);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  writeFileSync(join(clone, 'a.spec'), 'two\n');
+
+  const landed = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  assert.equal(landed.status, 0, landed.stderr);
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'two');
+  assert.equal(git(companion, 'show', 'next:a.spec'), 'two');
+
+  git(clone, 'config', 'pstack.delivery', 'pr');
+  writeFileSync(join(clone, 'a.txt'), 'three\n');
+  const pr = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  assert.equal(pr.status, 1);
+  assert.match(pr.stderr, /\.git-private lands only in push mode/);
+
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const tree = join(dir, 'tree');
+  git(clone, 'worktree', 'add', '--quiet', '-b', 'other', tree, 'origin/next');
+  writeFileSync(join(tree, 'a.txt'), 'four\n');
+  const before = git(remote, 'rev-parse', 'next');
+  const missing = helper('land.mjs', tree, ['--message', message(GOOD)]);
+  assert.equal(missing.status, 1);
+  assert.match(missing.stderr, /this checkout has no \.git-private.*attach the companion repository first/s);
+  assert.equal(git(remote, 'rev-parse', 'next'), before, 'nothing lands without the companion half');
+});
+
+test('land takes a fix whose Introduced-by names a landed companion commit, and refuses one the companion has not landed', () => {
+  const fixture = trunk();
+  const { remote, clone, message } = fixture;
+  const { companion, side } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const start = git(companion, 'rev-parse', 'next');
+  const local = side('commit-tree', '-p', 'HEAD', '-m', 'local only', 'HEAD^{tree}');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const refused = helper('land.mjs', clone, ['--message', message(`fix(a): repair a\n\nBeyond the ask: none\nIntroduced-by: ${local}`)]);
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /Introduced-by: \w+ names a commit origin\/next or \.git-private's origin\/next does not contain/);
+  const landed = helper('land.mjs', clone, ['--message', message(`fix(a): repair a\n\nBeyond the ask: none\nIntroduced-by: ${start}`)]);
+  assert.equal(landed.status, 0, landed.stderr);
+  assert.match(git(remote, 'log', '-1', '--format=%B', 'next'), new RegExp(`^Introduced-by: ${start}$`, 'mu'));
 });
 
 test('land stops a branch cut before the companion list existed and names the migrate command', () => {
@@ -536,10 +680,13 @@ test('land refuses a commit that names no source of this project unless the gh l
   change();
   git(clone, 'commit', '--quiet', '-am', 'wip');
   const task = git(clone, 'rev-parse', 'HEAD');
-  assert.match(refused(GOOD, as('teammate'), 'no source'), /names no source, and only owner land without one, not teammate\. A source is an issue of remote written as/);
+  const bare = refused(GOOD, as('teammate'), 'no source');
+  assert.match(bare, /names no source, and only owner land without one, not teammate\. A source is an issue of remote written as/);
+  assert.doesNotMatch(bare, /Lead: unknown/, 'the refusal comes before the lead lookup, which can wait a minute');
   assert.equal(git(remote, 'rev-parse', 'next'), base, 'a refused land pushes nothing');
   assert.equal(git(clone, 'rev-parse', 'HEAD'), task, 'a refused land puts HEAD back');
-  for (const line of ['Step #3 of the list.', 'Ports C#1 behavior.', 'See https://github.com/someone/else/issues/12.', 'Runs card t_00000000.', 'Plan: none']) {
+  const notPlans = ['Plan: none', 'Plan: a.txt', 'Plan: .', 'Plan: docs/plans', 'Plan: docs/plans/artifacts/suggested-tasks.decisions.tsv'];
+  for (const line of ['Step #3 of the list.', 'Ports C#1 behavior.', 'See https://github.com/someone/else/issues/12.', 'Runs card t_00000000.', ...notPlans]) {
     assert.match(refused(body(line), as('teammate'), line), /names no source/);
   }
   assert.match(refused(GOOD, as(''), 'gh fails'), /gh api user failed: not logged in/);
@@ -548,7 +695,7 @@ test('land refuses a commit that names no source of this project unless the gh l
   const config = JSON.parse(readFileSync(join(clone, '.agents/pstack.json'), 'utf8'));
   writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify({ ...config, sourceless: undefined }));
   assert.match(refused(GOOD, as('teammate'), 'own config'), /names no source/, "next's config wins over the task's copy");
-  git(clone, 'checkout', '--', '.agents/pstack.json');
+  git(clone, 'checkout', 'HEAD', '--', '.agents/pstack.json');
 
   const owner = basename(dir).toLowerCase();
   for (const line of ['Repairs remote#12.', `Repairs ${owner}/remote#12.`, 'Runs card t_1a2b3c4d.', `See https://github.com/${owner}/remote/issues/12.`]) {
@@ -561,6 +708,8 @@ test('land refuses a commit that names no source of this project unless the gh l
   change();
   assert.equal(helper('land.mjs', clone, ['--message', message(body('Plan: docs/plans/2026-10-28-x.md'))], as('teammate')).status, 0, 'a Plan: line naming a plan that exists is a source');
   change();
+  rmSync(join(clone, 'docs/plans/2026-10-28-x.md'));
+  assert.match(refused(GOOD, as('teammate'), 'a deleted plan'), /names no source/);
   const landed = helper('land.mjs', clone, ['--message', message(GOOD)], as('owner'));
   assert.equal(landed.status, 0, landed.stderr);
   assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), `${GOOD}\n\nLead: unknown`);
@@ -1103,6 +1252,94 @@ test('review --revert refuses a session that landed a merge commit', () => {
   assert.equal(git(remote, 'rev-parse', 'next'), tip);
 });
 
+function attach(clone, worktree) {
+  git(clone, 'worktree', 'add', '--quiet', '--detach', worktree, 'origin/next');
+  const target = join(mkdtempSync(join(tmpdir(), 'attach-')), 'w');
+  git(clone, '--git-dir=.git-private', 'worktree', 'add', '--quiet', '--no-checkout', '--detach', target, 'origin/next');
+  const link = readFileSync(join(target, '.git'), 'utf8');
+  writeFileSync(join(worktree, '.git-private'), link);
+  writeFileSync(join(link.replace(/^gitdir: /u, '').trim(), 'gitdir'), `${join(worktree, '.git-private')}\n`);
+  git(worktree, '--git-dir=.git-private', '--work-tree=.', 'reset', '--quiet', '--hard');
+}
+
+test('review lists the companion commits by session beside their public pair, flags their weakened tests, and moves both refs', () => {
+  const fixture = trunk();
+  const { clone } = fixture;
+  const { companion, side } = split(fixture);
+  const config = JSON.parse(readFileSync(join(clone, '.agents/pstack.json'), 'utf8'));
+  writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify({ ...config, reviewPaths: { tests: ['**/*.spec'], public: ['*.txt'] } }));
+  git(clone, 'commit', '--quiet', '-am', 'review paths');
+  git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
+  writeFileSync(join(clone, 'a.spec'), 'expect(1);\nexpect(2);\n');
+  writeFileSync(join(clone, 'b.spec'), 'expect(3);\n');
+  side('add', '--force', 'a.spec', 'b.spec');
+  side('commit', '--quiet', '-m', 'tests');
+  side('push', '--quiet', 'origin', 'HEAD:next');
+  assert.match(helper('review.mjs', clone, ['--mark']).stdout, /Marked origin\/next at \w+ as reviewed\.\nMarked \.git-private's origin\/next at \w+ as reviewed\./);
+  assert.equal(side('rev-parse', 'refs/pstack/reviewed'), git(companion, 'rev-parse', 'next'));
+
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  git(clone, 'commit', '--quiet', '-am', 'feat(a): change a', '-m', 'Beyond the ask: none\n\nSession: s1');
+  git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
+  const pub = git(clone, 'rev-parse', 'HEAD');
+  writeFileSync(join(clone, 'a.spec'), 'expect(1);\n');
+  side('commit', '--quiet', '-am', 'feat(a): change a', '-m', `Beyond the ask: none\n\nSession: s1\nLands-With: ${pub}`);
+  const pair = side('rev-parse', 'HEAD');
+  side('rm', '--quiet', 'b.spec');
+  side('commit', '--quiet', '-m', 'test(b): drop b', '-m', `Beyond the ask: none\n\nSession: s2\nLands-With: ${pub}`);
+  side('push', '--quiet', 'origin', 'HEAD:next');
+
+  const listed = helper('review.mjs', clone).stdout;
+  assert.match(listed, /^3 commit\(s\) with public changes or weakened tests to review on origin\/next/);
+  assert.match(
+    listed,
+    new RegExp(`\\n\\nSession s1\\n {2}\\w+ feat\\(a\\): change a\\n.*\\n.*\\n {4}1 public file\\(s\\): a\\.txt\\n {2}\\w+ feat\\(a\\): change a\\n {4}In \\.git-private, with ${pub.slice(0, 7)}\\n.*\\n.*\\n {4}Tests: 1 fewer expect or assert lines\\n`, 'u')
+  );
+  assert.match(listed, /\n\nSession s2\n {2}\w+ test\(b\): drop b\n {4}In \.git-private\n.*\n.*\n {4}Tests: deleted 1 test file\(s\): b\.spec/);
+
+  assert.match(helper('review.mjs', clone, ['--done', 's1']).stdout, /Marked 2 commit\(s\) of session s1 as reviewed\./);
+  assert.equal(git(clone, 'rev-parse', 'refs/pstack/reviewed'), pub);
+  assert.equal(side('rev-parse', 'refs/pstack/reviewed'), pair, "the companion's ref stops before its oldest commit still to review");
+  helper('review.mjs', clone, ['--done', 's2']);
+  assert.equal(side('rev-parse', 'refs/pstack/reviewed'), git(companion, 'rev-parse', 'next'));
+  assert.match(helper('review.mjs', clone).stdout, /^No commits with public changes or weakened tests to review/);
+});
+
+test('review --revert undoes a session in both halves and lands the pair', () => {
+  const fixture = trunk();
+  const { dir, remote, clone, message } = fixture;
+  const { companion } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const land = (files, subject, session) => {
+    for (const [path, text] of Object.entries(files)) writeFileSync(join(clone, path), text);
+    const run = helper('land.mjs', clone, ['--message', message(`${subject}\n\nWhy.\n\nBeyond the ask: none`)], { CLAUDE_CODE_HOST_SESSION_ID: session });
+    assert.equal(run.status, 0, run.stderr);
+  };
+  land({ 'a.txt': 'two\n', 'a.spec': 'two\n' }, 'feat(a): one changes a', ONE);
+  land({ 'b.txt': 'two\n', 'b.spec': 'two\n' }, 'feat(b): two changes b', TWO);
+  land({ 'c.spec': 'c\n' }, 'test(c): one adds c', ONE);
+  const ones = git(companion, 'log', '--format=%H', `--grep=^Session: ${ONE}$`, 'next').split('\n');
+  const worktree = join(dir, 'worktree');
+  attach(clone, worktree);
+  writeFileSync(join(worktree, 'a.spec'), 'dirty\n');
+  const dirty = helper('review.mjs', worktree, ['--revert', ONE]);
+  assert.equal(dirty.status, 1);
+  assert.match(dirty.stderr, /uncommitted changes/, 'the clean check covers the companion half');
+  git(worktree, '--git-dir=.git-private', '--work-tree=.', 'checkout', '--', 'a.spec');
+
+  const run = helper('review.mjs', worktree, ['--revert', ONE]);
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'one');
+  assert.equal(git(remote, 'show', 'next:b.txt'), 'two');
+  assert.equal(git(companion, 'show', 'next:a.spec'), 'one');
+  assert.equal(git(companion, 'show', 'next:b.spec'), 'two', "the other session's companion commit stays");
+  assert.equal(git(companion, 'ls-tree', '--name-only', 'next', '--', 'c.spec'), '');
+  const body = git(companion, 'log', '-1', '--format=%B', 'next');
+  assert.equal(body.split('\n')[0], 'fix(revert): undo session aaaaaaaa');
+  for (const sha of ones) assert.match(body, new RegExp(`^Introduced-by: ${sha}$`, 'mu'));
+  assert.match(body, new RegExp(`^Lands-With: ${git(remote, 'rev-parse', 'next')}$`, 'mu'));
+});
+
 test('review --revert leaves the revert local and pushes nothing when a check fails', () => {
   const { remote, worktree, third } = sessions();
   const run = helper('review.mjs', worktree, ['--revert', ONE, '--check', 'false']);
@@ -1243,7 +1480,6 @@ test('guard denies a command that would delete or overwrite the companion files,
     [`git switch --detach ${old}`]: /has no \.gitprivate/u,
     [`cd x && git reset --hard ${old}`]: /has no \.gitprivate/u,
     [`git rebase ${old}`]: /has no \.gitprivate/u,
-    [`git worktree remove --force ${session}`]: /Run `node detach\.mjs` inside/u,
   };
   for (const [command, reason] of Object.entries(denied)) {
     const decision = guard(command);
@@ -1257,6 +1493,8 @@ test('guard denies a command that would delete or overwrite the companion files,
     `git checkout ${old} -- a.txt`,
     'git reset --hard HEAD',
     `git worktree remove --force ${plain}`,
+    `git worktree remove --force ${session}`,
+    `node detach.mjs; git worktree remove --force ${session}`,
     'git --git-dir=.git-private --work-tree=. status',
   ];
   for (const command of passed) assert.equal(guard(command), null, command);

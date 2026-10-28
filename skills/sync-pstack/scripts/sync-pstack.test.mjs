@@ -6115,6 +6115,22 @@ test("setup keeps the ledger on the companion repository's origin once the check
   assert.notEqual(spawnSync('git', ['-C', main, 'ls-remote', '--exit-code', 'origin', 'refs/pstack/ledger']).status, 0, 'the public origin gets no ledger');
 });
 
+test('setup skips the ledger sync when the config names a companion the main checkout lacks, and never pushes the ledger to the public origin', () => {
+  const { clone, setup } = ledgerRemote();
+  const ledger = 'docs/plans/artifacts/suggested-tasks.decisions.tsv';
+  const main = clone('main');
+  const config = JSON.parse(readFileSync(join(main, '.agents/pstack.json'), 'utf8'));
+  writeFileSync(join(main, '.agents/pstack.json'), JSON.stringify({ ...config, companion: { dir: '.git-private', list: '.gitprivate' } }));
+  mkdirSync(join(main, 'docs/plans/artifacts'), { recursive: true });
+  writeFileSync(join(main, ledger), 'team row\n');
+
+  const started = setup(main);
+  assert.equal(started.status, 0, started.stderr);
+  assert.match(started.stdout, /^setup\.mjs: skipped the ledger sync, because this clone has no \.git-private yet$/mu);
+  assert.notEqual(spawnSync('git', ['-C', main, 'ls-remote', '--exit-code', 'origin', 'refs/pstack/ledger']).status, 0, 'the public origin gets no ledger');
+  assert.equal(readFileSync(join(main, ledger), 'utf8'), 'team row\n');
+});
+
 test("setup moves the rows at the ledger's former path into the ledger, so next can trade that file for a link", () => {
   const former = 'docs/plans/suggested-tasks.decisions.tsv';
   const { clone, next, onRef, run, seed, setup } = ledgerRemote({ [former]: 'row 0\n' });
