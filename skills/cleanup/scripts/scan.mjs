@@ -80,7 +80,9 @@ const statOrNull = (path) => {
 };
 const newestMtime = (paths) => Math.max(0, ...paths.map(statOrNull).filter(Boolean).map((stat) => stat.mtimeMs));
 const adminMtime = (admin) => newestMtime([join(admin, 'index'), join(admin, 'HEAD'), join(admin, 'logs', 'HEAD')]);
-const holdsFiles = (path) => readdirSync(path, { withFileTypes: true }).some((entry) => !entry.isDirectory() || holdsFiles(join(path, entry.name)));
+// A symlink, such as a linked node_modules, holds no work, and removal deletes
+// only the link.
+const holdsFiles = (path) => readdirSync(path, { withFileTypes: true }).some((entry) => entry.isFile() || (entry.isDirectory() && holdsFiles(join(path, entry.name))));
 // git marks a worktree prunable once its folder lost the .git link, and a git
 // command run there reads whichever repository encloses the folder instead.
 const unlinked = (entry) => 'prunable' in entry && existsSync(entry.path);

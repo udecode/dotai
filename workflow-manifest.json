@@ -158,11 +158,11 @@
       "mode": 420
     },
     "skills/cleanup/scripts/scan.mjs": {
-      "sha256": "6ee038aa07b4667eaaf24b9906ee46ce2c728b3f033efdae3e7ff5e6bf34d4b6",
+      "sha256": "83d06ede68ccfe74ec8999ec07f744d3082ed01ea2d21363ab3b7b5a95561d1f",
       "mode": 420
     },
     "skills/cleanup/scripts/scan.test.mjs": {
-      "sha256": "71fb7a01c74a323db753de829a77c4d1aa76777965db976743031deb95e587b1",
+      "sha256": "75d7be300cc0f5d6b8f6323935554b4171a09f2b996ba8a1f6a3d7f9c11d8441",
       "mode": 420
     },
     "skills/passwords/SKILL.md": {

@@ -333,12 +333,14 @@ test('a worktree that lost its .git link goes when it holds no files and is aske
   const f = fixture();
   rmSync(f.archived, { recursive: true });
   mkdirSync(join(f.archived, 'packages', 'p'), { recursive: true });
+  symlinkSync(f.main, join(f.archived, 'node_modules'));
   rmSync(join(f.orphan, '.git'));
   assert.equal(verdictOf(f, f.archived), 'safe');
   assert.equal(verdictOf(f, f.orphan), 'ask');
   deleteSafe({ repo: f.main, sessions: f.sessions });
   assert.ok(!git(f.main, 'worktree', 'list').includes(`${f.archived} `), 'git no longer lists the empty one');
   assert.ok(!existsSync(f.archived), 'its empty folder is gone');
+  assert.ok(existsSync(join(f.main, 'a.txt')), 'the symlink target stays');
   assert.ok(existsSync(join(f.orphan, 'a.txt')), 'the one holding files stays');
 });
 
