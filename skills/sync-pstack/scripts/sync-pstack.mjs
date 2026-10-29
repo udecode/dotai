@@ -68,22 +68,22 @@ const HELPER_FILES = {
 };
 const RULES = join(HELPERS, 'rules');
 export const RULE_FILES = {
-  'browser.md': ['browser'],
-  'chips.md': ['plans'],
-  'close.md': ['delivery!=trunk'],
-  'fast.md': ['fast'],
-  'codex.md': ['delivery!=trunk'],
-  'land.md': ['delivery=trunk'],
-  'linked.md': [],
-  'long-runs.md': ['long-runs'],
-  'messages.md': [],
-  'pages.md': ['plans'],
-  'panel.md': [],
-  'reflect.md': [],
-  'tests.md': ['tests'],
-  'time.md': [],
-  'title.md': [],
-  'trails.md': ['plans', 'delivery!=trunk'],
+  'browser.md': { blockRule: 'Browser drives', gates: ['browser'] },
+  'chips.md': { blockRule: 'Suggested tasks', gates: ['plans'] },
+  'close.md': { blockRule: 'Todo list and close', gates: ['delivery!=trunk'] },
+  'fast.md': { blockRule: 'Fast', gates: ['fast'] },
+  'codex.md': { blockRule: 'Codex workers', gates: ['delivery!=trunk'] },
+  'land.md': { blockRule: 'Delivery', gates: ['delivery=trunk'] },
+  'linked.md': { blockRule: 'Calls', gates: [] },
+  'long-runs.md': { blockRule: 'Long runs', gates: ['long-runs'] },
+  'messages.md': { blockRule: 'Messages and shared resources', gates: [] },
+  'pages.md': { blockRule: 'Plan pages', gates: ['plans'] },
+  'panel.md': { blockRule: 'Panel review', gates: [] },
+  'reflect.md': { blockRule: 'Improve the workflow mid-task', gates: [] },
+  'tests.md': { blockRule: 'Tests', gates: ['tests'] },
+  'time.md': { blockRule: 'Time budget', gates: [] },
+  'title.md': { blockRule: 'Session title', gates: [] },
+  'trails.md': { blockRule: 'Plans and trails', gates: ['plans', 'delivery!=trunk'] },
 };
 const isCondition = (gate) => gate.includes('=');
 const SECTION = /^<!-- section (\S+) -->$/u;
@@ -100,7 +100,6 @@ const DAY = 24 * 60 * 60 * 1000;
 const SWITCHES = { '--force': 'force', '--dry-run': 'dryRun', '--json': 'json', '--offline': 'offline', '--allow-dirty': 'allowDirty' };
 const PLAYBOOKS = '.agents/playbooks';
 const UPSTREAM_SKILLS = 'plugins/pstack/skills';
-// Agents and hooks hold text the rules lean on too; a note names them as ../agents/<file> or ../hooks/<file>.
 const UPSTREAM_TEXT = [UPSTREAM_SKILLS, 'plugins/pstack/agents', 'plugins/pstack/hooks'];
 const CHANGE = /^\s*[-*]\s+\*\*(?:After|Before|Replace|In)\*\*\s+"([^"]+)"/u;
 const CHANGE_VERB = /^\s*[-*]\s+\*\*(?:After|Before|Replace|In)\*\*/u;
@@ -278,8 +277,11 @@ function upstream() {
       const listed = git(cache, 'diff', '--name-status', '--no-renames', from, to, '--', ...UPSTREAM_TEXT);
       if (listed === null) throw new Error(`git diff ${from} ${to} failed`);
       return listed.split('\n').filter(Boolean).map((line) => {
-        const [status, path] = line.split('\t');
-        return { status, path: relative(UPSTREAM_SKILLS, path) };
+        const [status, full] = line.split('\t');
+        const path = relative(UPSTREAM_SKILLS, full);
+        const skill = full.startsWith(`${UPSTREAM_SKILLS}/`) && path.split('/')[0];
+        const folder = relative(UPSTREAM_SKILLS, UPSTREAM_TEXT.find((dir) => full.startsWith(`${dir}/`)));
+        return { status, path, group: skill || folder, subject: skill || basename(path, '.md') };
       });
     },
     version() {
@@ -298,10 +300,13 @@ const anchoredPaths = (root) => [
   ]),
 ];
 
-// A skill the rules name, as `name`, `/name`, **name**, pstack:name or name/SKILL.md, whose rules may lean on it without a note.
 export const namesSkill = (templates, skill) => {
   const name = skill.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-  return new RegExp(`(?:\`/?(?:pstack:)?${name}[\` ]|\\*\\*${name}\\*\\*|pstack:${name}(?![\\w-])|(?<![\\w-])${name}/SKILL\\.md)`, 'u').test(templates);
+  const codeSpan = `\`/?(?:pstack:)?${name}[\` ]`;
+  const bold = `\\*\\*${name}\\*\\*`;
+  const prefixed = `pstack:${name}(?![\\w-])`;
+  const skillFile = `(?<![\\w-])${name}/SKILL\\.md`;
+  return new RegExp([codeSpan, bold, prefixed, skillFile].join('|'), 'u').test(templates);
 };
 
 const projectRules = (root) =>
@@ -311,7 +316,6 @@ const projectRules = (root) =>
 
 const DISPOSITIONS = ['none', 'covered', 'noted', 'rewritten', 'dropped'];
 
-// One review item per diff hunk of an anchored or named file, and one per counted group.
 const hunkIds = (path, text) => {
   const ids = text.split('\n').flatMap((line) => line.match(/^@@ [^@]+ @@/u) ?? []).map((header) => `${path} ${header}`);
   return ids.length > 0 ? ids : [path];
@@ -323,11 +327,8 @@ function bumpDiff(root, from, to) {
   const rules = [...sharedTemplates(), ...projectRules(root)].join('\n');
   const named = [];
   const counts = new Map();
-  for (const { status, path } of source.changed(from, to)) {
+  for (const { status, path, group, subject } of source.changed(from, to)) {
     if (anchored.has(path)) continue;
-    const parts = path.split('/');
-    const group = parts[0] === '..' ? parts.slice(0, 2).join('/') : parts[0];
-    const subject = parts[0] === '..' ? basename(path, '.md') : parts[0];
     if (path.endsWith('.md') && namesSkill(rules, subject)) named.push(path);
     else {
       const verb = { A: 'added', D: 'deleted' }[status] ?? 'changed';
@@ -436,7 +437,7 @@ function validate(config) {
   const sections = new Set(sharedTemplates().flatMap(sectionsOf));
   const unknown = (config.skip ?? []).filter((id) => !sections.has(id));
   if (unknown.length > 0) throw new Error(`skip names unknown sections: ${unknown.join(', ')} (sections: ${[...sections].join(', ')})`);
-  const orphans = Object.values(RULE_FILES).flat().filter((gate) => !isCondition(gate) && !sections.has(gate));
+  const orphans = Object.values(RULE_FILES).flatMap(({ gates }) => gates).filter((gate) => !isCondition(gate) && !sections.has(gate));
   if (orphans.length > 0) throw new Error(`RULE_FILES names sections no template holds: ${orphans.join(', ')}`);
   if (config.pushBranches !== undefined && typeof config.pushBranches !== 'boolean') throw new Error('pushBranches must be true or false');
   if (config.pushBranches && config.delivery !== 'user') throw new Error('pushBranches applies only to user delivery');
@@ -652,7 +653,7 @@ export function apply(root, { tag, force = false, write = true, dispositions } =
   const offGate = (gates) => gates.find((gate) => (isCondition(gate) ? !holds(gate, config) : skipped.has(gate)));
   const files = [
     ...Object.entries(HELPER_FILES).map(([name, gates]) => [name, gates, false]),
-    ...Object.entries(RULE_FILES).map(([name, gates]) => [`rules/${name}`, gates, true]),
+    ...Object.entries(RULE_FILES).map(([name, { gates }]) => [`rules/${name}`, gates, true]),
   ];
   for (const [name, gates, rule] of files) {
     const path = `${HELPER_DIR}/${name}`;
@@ -1163,19 +1164,42 @@ export function* markdownFiles(dir) {
 const RULE = /^- \*\*([^*]+?)\.\*\*/u;
 const MARKER = /^<!-- # (?:overrides |relies |adds -->)/u;
 
-const markedAbove = (lines, index) => {
-  for (let above = index - 1; above >= 0 && lines[above].startsWith('<!--'); above -= 1) if (MARKER.test(lines[above])) return true;
+const isDirectiveOrContinuation = (line) => line.startsWith('<!--') || line.startsWith(' ');
+
+const isNoted = (lines, index, name) => {
+  for (let above = index - 1; above >= 0; above -= 1) {
+    if (MARKER.test(lines[above])) return true;
+    if (isDirectiveOrContinuation(lines[above])) continue;
+    return lines[above].match(RULE)?.[1] === name && isNoted(lines, above, name);
+  }
   return false;
 };
 
 export function unmarkedRules(template) {
   const lines = template.split('\n');
-  const marked = new Map();
+  const unmarked = new Set();
   for (const [index, line] of lines.entries()) {
     const name = line.match(RULE)?.[1];
-    if (name) marked.set(name, marked.get(name) || markedAbove(lines, index));
+    if (name && !isNoted(lines, index, name)) unmarked.add(name);
   }
-  return [...marked].filter(([, any]) => !any).map(([name]) => name);
+  return [...unmarked];
+}
+
+export function unmarkedSharedRules(
+  block = readFileSync(TEMPLATE, 'utf8'),
+  files = Object.fromEntries(Object.keys(RULE_FILES).map((name) => [name, readFileSync(join(RULES, name), 'utf8')])),
+) {
+  const unmarkedInBlock = unmarkedRules(block);
+  const inBlock = new Set(block.split('\n').flatMap((line) => line.match(RULE)?.[1] ?? []));
+  const sharesBlockRuleNotes = (file, name) => name === RULE_FILES[file].blockRule && inBlock.has(name) && !unmarkedInBlock.includes(name);
+  return [
+    ...unmarkedInBlock.map((name) => `block rule "${name}"`),
+    ...Object.entries(files).flatMap(([file, text]) =>
+      unmarkedRules(text)
+        .filter((name) => !sharesBlockRuleNotes(file, name))
+        .map((name) => `rule "${name}" in rules/${file}`),
+    ),
+  ];
 }
 
 export function verify(root) {
@@ -1187,7 +1211,7 @@ export function verify(root) {
     const result = apply(root, { write: false });
     if (result.changes.length > 0 || result.refusals.length > 0) problems.push('pstack block or helpers differ from the shared source; run `apply`');
     problems.push(...anchorProblems(root, config.tag).map((problem) => problem.reason));
-    for (const name of unmarkedRules(readFileSync(TEMPLATE, 'utf8'))) problems.push(`block rule "${name}" has no overrides or relies note and no adds marker`);
+    for (const rule of unmarkedSharedRules()) problems.push(`${rule} has no overrides or relies note and no adds marker`);
     problems.push(...reviewProblems(root, config));
   }
   const codex = codexDocLimit();

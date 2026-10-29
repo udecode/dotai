@@ -5,7 +5,7 @@ import { availableParallelism, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { hintModes, namesSkill, overrideAnchors, render, sharedTemplates, unmarkedRules } from './sync-pstack.mjs';
+import { hintModes, namesSkill, overrideAnchors, render, sharedTemplates, unmarkedRules, unmarkedSharedRules } from './sync-pstack.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SCRIPT = join(HERE, 'sync-pstack.mjs');
@@ -32,7 +32,7 @@ function pstackRepo(dir, tags) {
   const repo = join(dir, 'pstack');
   spawnSync('git', ['init', '-q', repo]);
   const base = {};
-  for (const { path, anchor } of overrideAnchors(TEMPLATE)) base[path] = `${base[path] ?? ''}${anchor}\n`;
+  for (const { path, anchor } of overrideAnchors(sharedTemplates().join('\n'))) base[path] = `${base[path] ?? ''}${anchor}\n`;
   for (const [tag, files] of Object.entries(tags)) {
     for (const path of new Set([...Object.keys(base), ...Object.keys(files)])) {
       const file = join(repo, 'plugins/pstack/skills', path);
@@ -94,8 +94,7 @@ const reviewItems = (stdout) => {
   const end = lines.findIndex((line) => !line.startsWith('    '));
   return lines.slice(0, end < 0 ? lines.length : end).map((line) => line.trim());
 };
-// Writes a dispositions file that marks every item of the bump report as touching no rule.
-const disposeAll = (cli, root, tag, dir) => {
+const writeNoneDispositions = (cli, root, tag, dir) => {
   const tsv = join(dir, 'dispositions.tsv');
   writeFileSync(tsv, reviewItems(cli('apply', root, '--tag', tag, '--dry-run').stdout).map((item) => `${item}\tnone\tno rule names it`).join('\n'));
   return tsv;
@@ -395,7 +394,7 @@ test('a bump refuses when pstack dropped the step a playbook anchors on, and sho
   assert.equal(cli('apply', root, '--tag', 'v0.9.53', '--force').status, 1);
 
   writeFileSync(join(root, '.agents/playbooks/bug-fix.md'), change('Reproduce on the same surface'));
-  assert.equal(cli('apply', root, '--tag', 'v0.9.53', '--dispositions', disposeAll(cli, root, 'v0.9.53', dir)).status, 0);
+  assert.equal(cli('apply', root, '--tag', 'v0.9.53', '--dispositions', writeNoneDispositions(cli, root, 'v0.9.53', dir)).status, 0);
 });
 
 test('verify flags a playbook that extends a missing pstack playbook, a change with no anchor, and an override pstack no longer says', () => {
@@ -1363,12 +1362,22 @@ test('audit lists a project rule sentence that repeats the block, even wrapped a
   assert.ok(JSON.parse(result.stdout).overlaps.some((overlap) => overlap.file === '.agents/rules/qa.mdc' && overlap.with === 'block'), result.stdout);
 });
 
-test('every block rule says how it relates to pstack, and a rule whose marker is removed is flagged', () => {
-  assert.deepEqual(unmarkedRules(TEMPLATE), []);
+test('every block and rule-file rule says how it relates to pstack, and a rule whose marker is removed is flagged', () => {
+  assert.deepEqual(unmarkedSharedRules(), []);
+  assert.deepEqual(unmarkedSharedRules(TEMPLATE, { 'land.md': '- **Companion repository.** Land both halves.\n' }), ['rule "Companion repository" in rules/land.md']);
+  assert.deepEqual(unmarkedSharedRules(TEMPLATE, { 'panel.md': '- **Panel review.** Seats run as the block says.\n' }), []);
   const stripped = TEMPLATE.replace(/^<!-- # adds -->\n(?=- \*\*Blocked\.\*\*)/mu, '');
   assert.notEqual(stripped, TEMPLATE);
   assert.deepEqual(unmarkedRules(stripped), ['Blocked']);
   assert.deepEqual(unmarkedRules('<!-- # relies ketchup/SKILL.md "## Write the reply" -->\n- **Probe.** Follow that reply format.'), []);
+});
+
+test('a rule-file rule shares the notes only of the block rule that points to its file, not of one that cites it', () => {
+  assert.deepEqual(unmarkedSharedRules(TEMPLATE, { 'land.md': '- **Plan pages.** Publish nothing.\n' }), ['rule "Plan pages" in rules/land.md']);
+});
+
+test('a rule that repeats a noted rule name away from it needs notes of its own', () => {
+  assert.deepEqual(unmarkedRules('<!-- # adds -->\n- **Fast.** Go.\n\nOther text.\n\n- **Fast.** Skip every gate.\n'), ['Fast']);
 });
 
 test('discover flags skills added in the last two weeks, even untyped ones', () => {
@@ -1408,15 +1417,18 @@ function setupFixture(dir, home) {
   return root;
 }
 
-test('verify fails a setup that cut a typed command, left dead links or retired names, coupled a public skill, or drifted the block', () => {
-  const { dir, home, cli } = sandbox();
+test('verify fails a setup that cut a typed command, left dead links or retired names, coupled a public skill, drifted the block, or ships a rule with no note', () => {
+  const { dir, home, run } = sandbox();
   const root = setupFixture(dir, home);
   for (const path of ['.agents/rules/task.mdc', '.agents/skills/task/SKILL.md']) rmSync(join(root, path));
   writeFileSync(join(root, '.agents/skills/sync-ui/SKILL.md'), '---\nname: sync-ui\n---\n# Sync UI\n\nClose with `node .agents/pstack/plan-open.mjs <plan>`.\n');
   writeFileSync(join(root, 'AGENTS.md'), read(root, 'AGENTS.md').replace('allow two informed attempts or ten minutes', 'allow three informed attempts or ten minutes'));
+  const shared = sharedSource(dir);
+  appendFileSync(join(shared.repo, 'skills/sync-pstack/assets/pstack/rules/land.md'), '\n- **Planted.** Land without a note.\n');
 
-  const result = cli('verify', root);
+  const result = run(process.execPath, [shared.script, 'verify', root]);
   assert.equal(result.status, 1);
+  assert.match(result.stdout, /rule "Planted" in rules\/land\.md has no overrides or relies note/);
   assert.match(result.stdout, /typed command `task` .*no longer resolves/);
   assert.match(result.stdout, /\.agents\/skills\/feature\/SKILL\.md: dead link \.\.\/task\/SKILL\.md/);
   assert.match(result.stdout, /\.agents\/rules\/feature\.mdc:6: names retired `task`/);
