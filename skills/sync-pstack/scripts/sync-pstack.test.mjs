@@ -7,6 +7,15 @@ import { test } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { hintModes, namesSkill, overrideAnchors, render, sharedTemplates, unmarkedRules, unmarkedSharedRules } from './sync-pstack.mjs';
 
+Object.assign(process.env, {
+  GIT_CONFIG_GLOBAL: '/dev/null',
+  GIT_CONFIG_NOSYSTEM: '1',
+  GIT_AUTHOR_NAME: 't',
+  GIT_AUTHOR_EMAIL: 't@t',
+  GIT_COMMITTER_NAME: 't',
+  GIT_COMMITTER_EMAIL: 't@t',
+});
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SCRIPT = join(HERE, 'sync-pstack.mjs');
 const TEMPLATE = readFileSync(join(HERE, '../assets/block.md'), 'utf8');
@@ -1055,7 +1064,7 @@ test('a bump diffs anchored files, agents included, and skills the project rules
   assert.equal(result.status, 0, result.stdout);
   assert.match(result.stdout, /pstack changed in files this project anchors on[^\n]*\n(?: +[^\n]*\n)*? +-Never edit\.$/m);
   assert.match(result.stdout, /pstack changed in skills the shared or project rules name without a note[^\n]*\n(?: +[^\n]*\n)*? +-Review in two lanes\.$/m);
-  assert.match(result.stdout, /pstack changed files no rule anchors or names[^\n]*\n +unnamed-skill: 1 added$/m);
+  assert.match(result.stdout, /pstack changed files no rule file anchors or names[^\n]*\n +unnamed-skill: 1 added$/m);
   const items = reviewItems(result.stdout);
   assert.ok(items.some((item) => /^\.\.\/agents\/comment-sicko\.md @@ /.test(item)), items.join('\n'));
   assert.ok(items.some((item) => /^thermos\/SKILL\.md @@ /.test(item)), items.join('\n'));
@@ -1350,6 +1359,53 @@ test('audit routes count whole skill names, not longer names, paths or plain com
   assert.equal(result.status, 0, result.stderr);
   const routes = Object.fromEntries(JSON.parse(result.stdout).skills.map((skill) => [skill.name, skill.routes]));
   assert.deepEqual(routes, { 'best-api': [], 'best-api-review': [], 'cross-review': ['AGENTS.md'], 'rate-limiter-flexible': ['AGENTS.md'], react: [], task: [] });
+});
+
+test('audit reads the rule files AGENTS.md names', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', {
+    agents: '# App\n\nRead CODING_STANDARDS.md.\n',
+    files: { 'CODING_STANDARDS.md': 'Use `$cross-review` for a hand-off.\n', '.agents/skills/cross-review/SKILL.md': '---\nname: cross-review\n---\n' },
+  });
+  const result = run(process.execPath, [AUDIT, root, '--json'], root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout).skills.find((skill) => skill.name === 'cross-review').routes, ['CODING_STANDARDS.md']);
+});
+
+test('audit reads a linked AGENTS.md once, outside its block, and none outside the project', () => {
+  const { dir, run, cli } = sandbox();
+  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
+  cli('apply', root);
+  writeFileSync(join(root, 'instructions.md'), read(root, 'AGENTS.md'));
+  rmSync(join(root, 'AGENTS.md'));
+  symlinkSync('instructions.md', join(root, 'AGENTS.md'));
+  const inside = run(process.execPath, [AUDIT, root, '--json'], root);
+  assert.equal(inside.status, 0, inside.stderr);
+  assert.deepEqual(JSON.parse(inside.stdout).overlaps.filter((overlap) => overlap.with === 'block').map((overlap) => overlap.file), []);
+  const outside = join(dir, 'outside.md');
+  writeFileSync(outside, '# App\n\nUse `$cross-review` for a hand-off.\n');
+  mkdirSync(join(root, '.agents/skills/cross-review'), { recursive: true });
+  writeFileSync(join(root, '.agents/skills/cross-review/SKILL.md'), '---\nname: cross-review\n---\n');
+  rmSync(join(root, 'AGENTS.md'));
+  symlinkSync(outside, join(root, 'AGENTS.md'));
+  const external = run(process.execPath, [AUDIT, root, '--json'], root);
+  assert.equal(external.status, 0, external.stderr);
+  assert.deepEqual(JSON.parse(external.stdout).skills.find((skill) => skill.name === 'cross-review').routes, []);
+});
+
+test('audit reads ../<name>/ as a skill route only in .agents/rules/', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', {
+    agents: '# App\n\nRead docs/guide.md.\n',
+    files: {
+      'docs/guide.md': 'See [the lanes](../cross-review/lanes.md).\n',
+      '.agents/rules/shipping.mdc': '---\ndescription: ship\n---\nHand off with [review](../cross-review/SKILL.md).\n',
+      '.agents/skills/cross-review/SKILL.md': '---\nname: cross-review\n---\n',
+    },
+  });
+  const result = run(process.execPath, [AUDIT, root, '--json'], root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout).skills.find((skill) => skill.name === 'cross-review').routes, ['.agents/rules/shipping.mdc']);
 });
 
 test('audit lists a project rule sentence that repeats the block, even wrapped across lines', () => {
@@ -6291,4 +6347,218 @@ test('setup refuses a flag where --install or --env needs its value, so a chaine
     assert.equal(result.status, 2, `setup.mjs ${args.join(' ')} exits 2`);
     assert.match(result.stderr, /^Usage: node \.agents\/pstack\/setup\.mjs/);
   }
+});
+
+function retiredFixture(dir, home, { agentsTail = '', files = {} } = {}) {
+  const root = setupFixture(dir, home);
+  const flow = {
+    '.agents/rules/old-flow.mdc': '---\ndescription: an old flow\n---\n# Old flow\n',
+    '.agents/skills/old-flow/SKILL.md': '---\nname: old-flow\n---\n# Old flow\n',
+  };
+  const write = (entries) => {
+    for (const [path, text] of Object.entries(entries)) {
+      mkdirSync(dirname(join(root, path)), { recursive: true });
+      writeFileSync(join(root, path), text);
+    }
+  };
+  write(flow);
+  spawnSync('git', ['-C', root, 'add', '-A']);
+  commit(root, 'old flow');
+  for (const path of Object.keys(flow)) rmSync(join(root, path));
+  appendFileSync(join(root, 'AGENTS.md'), agentsTail);
+  write(files);
+  spawnSync('git', ['-C', root, 'add', '-A']);
+  return root;
+}
+
+const literal = (text) => text.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+const retiredIn = (file) => new RegExp(`^${literal(file)}:\\d+: names retired \`old-flow\`$`, 'mu');
+
+test('verify reads each file AGENTS.md names, however the name is written', () => {
+  const { dir, home, cli } = sandbox();
+  const forms = {
+    'coding(rules).md': '[rules](coding\\(rules\\).md)',
+    'entity_rules.md': '[rules](entity&#95;rules.md)',
+    'encoded_rules.md': '[rules](encoded_rules%2Emd)',
+    'emphasis.md': 'Read _emphasis.md_ first.',
+    'dash.md': 'The code rules—dash.md—win.',
+    'hyphen.md': 'Follow the hyphen.md-listed checks.',
+    'UPPER.MD': 'Read UPPER.MD first.',
+    'policy.txt': 'Read @policy.txt.',
+    RULES: '@RULES',
+  };
+  const root = retiredFixture(dir, home, {
+    agentsTail: Object.values(forms).map((line) => `${line}\n`).join(''),
+    files: Object.fromEntries(Object.keys(forms).map((file) => [file, 'Run old-flow first.\n'])),
+  });
+  const result = cli('verify', root);
+  assert.deepEqual(Object.keys(forms).filter((file) => !retiredIn(file).test(result.stdout)), [], result.stdout);
+});
+
+test('verify reads every Markdown file under .agents/ except the skills there', () => {
+  const { dir, home, cli } = sandbox();
+  const root = retiredFixture(dir, home, { files: { '.agents/ellie/lesson.md': 'Run old-flow first.\n', '.agents/skills/feature/notes.md': 'Run old-flow first.\n' } });
+  const result = cli('verify', root);
+  assert.match(result.stdout, retiredIn('.agents/ellie/lesson.md'));
+  assert.doesNotMatch(result.stdout, retiredIn('.agents/skills/feature/notes.md'));
+});
+
+test('verify reads no file outside the project, through a symlinked AGENTS.md or a symlinked seed', () => {
+  const { dir, home, cli } = sandbox();
+  const root = retiredFixture(dir, home, { files: { 'target.md': 'Run old-flow first.\n' } });
+  const outside = join(dir, 'outside');
+  mkdirSync(outside);
+  writeFileSync(join(outside, 'AGENTS.md'), `${read(root, 'AGENTS.md')}Read target.md\nRun old-flow first.\n`);
+  writeFileSync(join(outside, 'seed.md'), 'Run old-flow first.\n');
+  rmSync(join(root, 'AGENTS.md'));
+  symlinkSync(join(outside, 'AGENTS.md'), join(root, 'AGENTS.md'));
+  mkdirSync(join(root, '.agents/team'));
+  symlinkSync(join(outside, 'seed.md'), join(root, '.agents/team/seed.md'));
+  const result = cli('verify', root);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.deepEqual(['AGENTS.md', 'target.md', '.agents/team/seed.md'].filter((file) => retiredIn(file).test(result.stdout)), [], result.stdout);
+});
+
+test('verify reads the longest file name AGENTS.md writes, not a shorter file it ends with', () => {
+  const { dir, home, cli } = sandbox();
+  const root = retiredFixture(dir, home, { agentsTail: 'Read <docs/my notes.md>.\n', files: { 'docs/my notes.md': 'Nothing old here.\n', 'notes.md': 'Run old-flow first.\n' } });
+  const result = cli('verify', root);
+  assert.equal(result.status, 0, result.stdout);
+});
+
+test('verify reads ../<name>/ as a skill link only in .agents/rules/', () => {
+  const { dir, home, cli } = sandbox();
+  const root = retiredFixture(dir, home, {
+    agentsTail: 'Read docs/guide.md.\n',
+    files: {
+      'docs/guide.md': 'See [the schema](../old-flow/schema.md).\n',
+      '.agents/rules/feature.mdc': '---\ndescription: ship a feature\n---\n# Feature\n\nPlan it with [Old](../old-flow/SKILL.md).\n',
+    },
+  });
+  const result = cli('verify', root);
+  assert.match(result.stdout, retiredIn('.agents/rules/feature.mdc'));
+  assert.doesNotMatch(result.stdout, retiredIn('docs/guide.md'));
+});
+
+test('verify reports a retired name in any other file git or the companion tracks, and still passes', () => {
+  const { dir, home, cli } = sandbox();
+  const root = retiredFixture(dir, home, { files: { 'docs/plans/old.md': 'Ran old-flow last year.\n' } });
+  const companion = ['--git-dir', join(root, '.git-companion'), '--work-tree', root];
+  spawnSync('git', [...companion, 'init', '-q']);
+  writeFileSync(join(root, 'private.txt'), 'Ran old-flow in private.\n');
+  spawnSync('git', [...companion, 'add', 'private.txt']);
+  const config = readJson(root, '.agents/pstack.json');
+  writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ ...config, companion: { dir: '.git-companion' } }, null, 2));
+  const result = cli('verify', root);
+  assert.equal(result.status, 0, result.stdout);
+  const reported = ['docs/plans/old.md', 'private.txt'].filter((file) => result.stdout.includes(`${file}:1: names retired \`old-flow\` outside the rule files`));
+  assert.deepEqual(reported, ['docs/plans/old.md', 'private.txt'], result.stdout);
+});
+
+test('verify reads a file a link in .agents/rules/ points to as a rule', () => {
+  const { dir, home, cli } = sandbox();
+  const root = retiredFixture(dir, home, { files: { '.agents/shared/current.md': '---\ndescription: ship a feature\n---\n# Feature\n\nPlan it with [Old](../old-flow/SKILL.md).\n' } });
+  symlinkSync('../shared/current.md', join(root, '.agents/rules/shipping.mdc'));
+  const result = cli('verify', root);
+  assert.match(result.stdout, retiredIn('.agents/shared/current.md'));
+});
+
+test('verify reads Markdown under .agents/ whatever the case of its extension', () => {
+  const { dir, home, cli } = sandbox();
+  const root = retiredFixture(dir, home, { files: { '.agents/team/POLICY.MD': 'Run old-flow first.\n' } });
+  assert.match(cli('verify', root).stdout, retiredIn('.agents/team/POLICY.MD'));
+});
+
+test('verify follows each folder link under .agents/ once, and only inside the project', () => {
+  const { dir, env, home } = sandbox();
+  const root = retiredFixture(dir, home, { files: { 'policies/law.md': 'Run old-flow first.\n', 'hidden/law.md': 'Run old-flow first.\n' } });
+  const outside = join(dir, 'outside');
+  mkdirSync(outside);
+  symlinkSync(join(root, 'hidden'), join(outside, 'inner'));
+  symlinkSync('../policies', join(root, '.agents/team'));
+  symlinkSync(outside, join(root, '.agents/vendor'));
+  symlinkSync('.', join(root, '.agents/loop'));
+  symlinkSync('.', join(root, '.agents/again'));
+  const result = spawnSync(process.execPath, [SCRIPT, 'verify', root], { encoding: 'utf8', env, timeout: 30_000 });
+  assert.equal(result.signal, null, 'verify ran past 30 s');
+  assert.match(result.stdout, retiredIn('policies/law.md'));
+  assert.doesNotMatch(result.stdout, retiredIn('hidden/law.md'));
+});
+
+test('verify reads each file a rule file imports with @', () => {
+  const { dir, home, cli } = sandbox();
+  const root = retiredFixture(dir, home, { agentsTail: 'Read CONTEXT.md.\n', files: { 'CONTEXT.md': 'Team rules: @.agents/team/policy.txt\n', '.agents/team/policy.txt': 'Run old-flow first.\n' } });
+  assert.match(cli('verify', root).stdout, retiredIn('.agents/team/policy.txt'));
+});
+
+test('verify reads a file a rule file imports beside itself', () => {
+  const { dir, home, cli } = sandbox();
+  const root = retiredFixture(dir, home, {
+    agentsTail: 'Read docs/CONTEXT.md.\n',
+    files: {
+      'docs/CONTEXT.md': 'Team rules: @../.agents/team/policy.txt, @./local.txt and @spare.txt\n',
+      '.agents/team/policy.txt': 'Run old-flow first.\n',
+      'docs/local.txt': 'Run old-flow first.\n',
+      'local.txt': 'Run old-flow first.\n',
+      'spare.txt': 'Run old-flow first.\n',
+    },
+  });
+  const result = cli('verify', root);
+  assert.deepEqual(['.agents/team/policy.txt', 'docs/local.txt'].filter((file) => !retiredIn(file).test(result.stdout)), [], result.stdout);
+  assert.deepEqual(['local.txt', 'spare.txt'].filter((file) => retiredIn(file).test(result.stdout)), [], result.stdout);
+});
+
+test('verify reads .agents/rules/ when .agents/skills links to it', () => {
+  const { dir, home, cli } = sandbox();
+  const root = retiredFixture(dir, home, { files: { '.agents/rules/shipping.mdc': '---\ndescription: ship\n---\nRun old-flow first.\n' } });
+  rmSync(join(root, '.agents/skills'), { recursive: true });
+  symlinkSync('rules', join(root, '.agents/skills'));
+  assert.match(cli('verify', root).stdout, retiredIn('.agents/rules/shipping.mdc'));
+});
+
+test('verify reads a rule through a folder link or an uppercase link in .agents/rules/', () => {
+  const { dir, home, cli } = sandbox();
+  const rule = '---\ndescription: ship a feature\n---\n# Feature\n\nPlan it with [Old](../old-flow/SKILL.md).\n';
+  const root = retiredFixture(dir, home, { files: { '.agents/shared/team.md': rule, '.agents/upper/current.md': rule } });
+  symlinkSync('../shared', join(root, '.agents/rules/team'));
+  symlinkSync('../upper/current.md', join(root, '.agents/rules/shipping.MDC'));
+  const result = cli('verify', root);
+  assert.deepEqual(['.agents/shared/team.md', '.agents/upper/current.md'].filter((file) => !retiredIn(file).test(result.stdout)), [], result.stdout);
+});
+
+test('verify skips a link cycle under .agents/', () => {
+  const { dir, home, cli } = sandbox();
+  const root = retiredFixture(dir, home, { files: { '.agents/team/policy.md': 'Run old-flow first.\n' } });
+  symlinkSync('b', join(root, '.agents/a'));
+  symlinkSync('a', join(root, '.agents/b'));
+  symlinkSync('self.md', join(root, '.agents/self.md'));
+  const result = cli('verify', root);
+  assert.match(result.stdout, retiredIn('.agents/team/policy.md'), result.stderr);
+});
+
+test('verify reports a retired name past a megabyte of git grep output', () => {
+  const { dir, home, cli } = sandbox();
+  const root = retiredFixture(dir, home, { files: { 'docs/history.txt': `Ran \`old-flow\` ${'x'.repeat(1_200_000)}\n`, 'RULES.txt': 'Ran old-flow once.\n' } });
+  const result = cli('verify', root);
+  assert.match(result.stdout, /^RULES\.txt:1: names retired `old-flow` outside the rule files$/mu, result.stdout);
+});
+
+test('verify fails when it cannot search the companion for retired names', () => {
+  const { dir, home, cli } = sandbox();
+  const root = retiredFixture(dir, home);
+  mkdirSync(join(root, '.git-companion'));
+  const config = readJson(root, '.agents/pstack.json');
+  writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ ...config, companion: { dir: '.git-companion' } }, null, 2));
+  const result = cli('verify', root);
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stdout, /^git grep for retired names failed in \.git-companion: /mu);
+});
+
+test('a bump diffs a skill that only a file AGENTS.md names mentions', () => {
+  const { dir, cli } = sandbox({ upstream: pstackRepo(mkdtempSync(join(tmpdir(), 'sync-pstack-upstream-')), BUMP) });
+  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n\nRead CODING_STANDARDS.md.\n', files: { 'CODING_STANDARDS.md': 'Run `pstack:thermos` on each slice.\n' } });
+  cli('apply', root);
+  const result = cli('apply', root, '--tag', 'v0.9.53', '--dry-run');
+  assert.equal(result.status, 0, result.stdout);
+  assert.match(result.stdout, /pstack changed in skills the shared or project rules name without a note[^\n]*\n(?: +[^\n]*\n)*? +-Review in two lanes\.$/m);
 });

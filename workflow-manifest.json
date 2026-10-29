@@ -162,7 +162,7 @@
       "mode": 420
     },
     "skills/cleanup/scripts/scan.test.mjs": {
-      "sha256": "40451cb8010ae65aac22987b7833e90cee9b63f9d41bc5701389c8a328920a33",
+      "sha256": "c1d708debb9766e08099bb975a7b0be78c0ef55eac81332bd5c60425b5b49563",
       "mode": 420
     },
     "skills/passwords/SKILL.md": {
@@ -266,7 +266,7 @@
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
-      "sha256": "4361e7302e0d1cee88a0af36f37dbebbdf21493662d832933a3827bf7c14b4d4",
+      "sha256": "cf87ffb93c0427949a4193c3b87c8e1015123ba323f0c0f095625c883e137f27",
       "mode": 420
     },
     "skills/sync-pstack/agents/openai.yaml": {
@@ -466,7 +466,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/audit.mjs": {
-      "sha256": "a439951c1b1e34790fd47880f30863cddc4604fb2ef2ca37f048bef8df78a8dd",
+      "sha256": "44263e77ffb865a394f9605257f6f8c51b35055ae51414cf92398f118097ca4e",
       "mode": 420
     },
     "skills/sync-pstack/scripts/block-budget.mjs": {
@@ -502,11 +502,11 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.mjs": {
-      "sha256": "1be88c6ae478d015cc0c2833ea3e06a8de6355827bb282a156c5554f7cb21f15",
+      "sha256": "e48dd3af1a18a4018adc9260cfb08dcb5c1a5c362c6d376d3744af9b1781b497",
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "90b95c7d8d88facdfe8ab4fbf103e71f5d243850d488f7966984c577beb12f59",
+      "sha256": "d39df61e238984ab280383163c0ab180073fe9af7b69b368a888d4123219c923",
       "mode": 420
     },
     "skills/sync-pstack/scripts/trunk.test.mjs": {
@@ -550,7 +550,7 @@
       "mode": 420
     },
     "skills/walkthrough/scripts/diff-baseline.test.mjs": {
-      "sha256": "4447384c1b5ca994d8a65b549a7b2620e1cffc30e7bf5ffe73fba86172e6984d",
+      "sha256": "11e2793cdbeddc4a499c02c2880cd9ee215671500220d332785c3dd0646deeb6",
       "mode": 420
     },
     "skills/worktree-workspace/SKILL.md": {
@@ -562,7 +562,7 @@
       "mode": 420
     },
     "skills/worktree-workspace/scripts/workspace.test.mjs": {
-      "sha256": "4bb89b94f84a15670d15811aea925da9c5c21e1d7333310a0834899a18188dd5",
+      "sha256": "37792529c20cc62777efd5c21628db03686a3e009dbaa341f1e95486e98ee25b",
       "mode": 420
     },
     "upstream-skills.json": {

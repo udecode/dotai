@@ -21,7 +21,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ask } from '../assets/pstack/cross.mjs';
 import { EFFORTS } from '../assets/pstack/lead.mjs';
@@ -110,8 +110,10 @@ const flat = (text) => text.replace(/\s+/gu, ' ');
 const readJson = (path) => JSON.parse(readFileSync(path, 'utf8'));
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
 
+const gitRun = (root, ...args) => spawnSync('git', ['-C', root, ...args], { encoding: 'utf8', maxBuffer: Infinity });
+
 function gitRaw(root, ...args) {
-  const result = spawnSync('git', ['-C', root, ...args], { encoding: 'utf8' });
+  const result = gitRun(root, ...args);
   return result.status === 0 ? result.stdout : null;
 }
 
@@ -309,10 +311,105 @@ export const namesSkill = (templates, skill) => {
   return new RegExp([codeSpan, bold, prefixed, skillFile].join('|'), 'u').test(templates);
 };
 
-const projectRules = (root) =>
-  [join(root, 'AGENTS.md'), ...markdownFiles(join(root, PLAYBOOKS)), ...markdownFiles(join(root, '.agents/rules'))]
-    .filter((path) => existsSync(path))
-    .map((path) => readFileSync(path, 'utf8'));
+const MARKDOWN_END = /\.mdc?(?![\p{L}\p{N}]|\.[\p{L}\p{N}])/giu;
+const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
+const IMPORT = /(?<![\p{L}\p{N}])@([^\s`'"()<>[\]{}]+)/gu;
+const XML_ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+
+const fromCodePoint = (value, reference) => (value <= 0x10ffff ? String.fromCodePoint(value) : reference);
+
+const decodeLine = (line) =>
+  line
+    .replace(/\\([!-/:-@[-`{-~])/gu, '$1')
+    .replace(/&(?:#(\d+)|#x([\da-f]+)|(amp|lt|gt|quot|apos));/giu, (reference, decimal, hex, name) =>
+      decimal ? fromCodePoint(Number(decimal), reference) : hex ? fromCodePoint(Number.parseInt(hex, 16), reference) : XML_ENTITIES[name.toLowerCase()],
+    )
+    .replace(/(?:%[\da-f]{2})+/giu, (run) => {
+      try {
+        return decodeURIComponent(run);
+      } catch {
+        return run;
+      }
+    });
+
+const longestNamedSpan = (line, earliestStart, extensionStart, stop, named) => {
+  for (let start = earliestStart; start < extensionStart; start += 1) {
+    if (start > 0 && LETTER_OR_DIGIT.test(line[start - 1])) continue;
+    const file = named(line.slice(start, stop));
+    if (file) return file;
+  }
+  return null;
+};
+
+export function projectRuleFiles(root) {
+  const real = realpathSync.native(root);
+  const inside = (target) => {
+    const rel = relative(real, target);
+    return rel.split(sep)[0] !== '..' && !isAbsolute(rel);
+  };
+  const resolved = new Map();
+  const inProject = (path) => {
+    if (!resolved.has(path)) {
+      const target = existsSync(path) ? realpathSync.native(path) : null;
+      resolved.set(path, target && inside(target) && statSync(target).isFile() ? relative(real, target) : null);
+    }
+    return resolved.get(path);
+  };
+  const named = (path, dir = root) => inProject(resolve(dir, path)) ?? inProject(join(dir, path));
+  const files = new Set();
+  const ruleContext = new Set();
+  const skills = join(root, '.agents/skills');
+  const skipped = existsSync(skills) ? realpathSync.native(skills) : null;
+  const ruleFolder = (dir) => /^\.agents\/(?:rules|playbooks)(?:\/|$)/u.test(relative(root, dir));
+  const walked = new Set();
+  const walk = (dir, rule) => {
+    const target = realpathSync.native(dir);
+    const key = `${rule} ${target}`;
+    if ((target === skipped && !ruleFolder(dir)) || walked.has(key) || !inside(target)) return;
+    walked.add(key);
+    for (const entry of readdirSync(dir)) {
+      const path = join(dir, entry);
+      if (existsSync(path) && statSync(path).isDirectory()) walk(path, rule);
+      else if (/\.mdc?$/iu.test(entry)) {
+        const file = inProject(path);
+        if (!file) continue;
+        files.add(file);
+        if (rule) ruleContext.add(file);
+      }
+    }
+  };
+  for (const [dir, rule] of [['.agents', false], ['.agents/rules', true]]) {
+    if (existsSync(join(root, dir))) walk(join(root, dir), rule);
+  }
+  const agents = inProject(join(root, 'AGENTS.md'));
+  if (agents) files.add(agents);
+  for (const current of files) {
+    const dir = current === agents ? root : dirname(join(real, current));
+    for (const raw of readFileSync(join(real, current), 'utf8').split('\n')) {
+      for (const line of new Set([raw, decodeLine(raw)])) {
+        if (current === agents) {
+          let earliestStart = 0;
+          for (const { index, 0: end } of line.matchAll(MARKDOWN_END)) {
+            const stop = index + end.length;
+            const file = longestNamedSpan(line, earliestStart, index, stop, named);
+            if (file) files.add(file);
+            earliestStart = stop;
+          }
+        }
+        for (const { 1: path } of line.matchAll(IMPORT)) {
+          const file = named(path.replace(/[.,;:!?]+$/u, ''), dir);
+          if (file) files.add(file);
+        }
+      }
+    }
+  }
+  return { agents, files: [...files].sort(), siblingLinks: (file) => file.startsWith('.agents/rules/') || ruleContext.has(file) };
+}
+
+const projectRules = (root) => {
+  const real = realpathSync.native(root);
+  return projectRuleFiles(root).files.map((file) => readFileSync(join(real, file), 'utf8'));
+};
 
 const DISPOSITIONS = ['none', 'covered', 'noted', 'rewritten', 'dropped'];
 
@@ -747,11 +844,11 @@ function pluginSkills() {
 
 const distinctiveName = (name) => /[-\d]/u.test(name);
 
-export function skillMention(name) {
+export function skillMention(name, { siblingLinks = true } = {}) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
   const end = '(?![\\w:-]|[./]\\w)';
   const invocation = `(?<![\\w./:@-])[$/]${escaped}${end}`;
-  const path = `(?:skills|rules|\\.\\.)/${escaped}(?:/|\\.mdc(?![\\w.]))`;
+  const path = `(?:skills|rules${siblingLinks ? '|\\.\\.' : ''})/${escaped}(?:/|\\.mdc(?![\\w.]))`;
   const bareName = `(?<![\\w./:@$-])${escaped}${end}`;
   return new RegExp([invocation, path, ...(distinctiveName(name) ? [bareName] : [])].join('|'), 'u');
 }
@@ -1202,8 +1299,20 @@ export function unmarkedSharedRules(
   ];
 }
 
+function trackedLines(root, config, names, problems) {
+  const companion = config.companion?.dir && existsSync(join(root, config.companion.dir)) ? [['--git-dir', join(root, config.companion.dir), '--work-tree', root]] : [];
+  return [[], ...companion].flatMap((repo) => {
+    const { status, stdout, stderr, error } = gitRun(root, ...repo, 'grep', '-z', '-n', '-I', '-F', ...names.flatMap((name) => ['-e', name]));
+    if (status === 0) return stdout.split('\n').filter(Boolean).map((hit) => hit.split('\0'));
+    // git grep exits 1 when nothing matches.
+    if (status !== 1) problems.push(`git grep for retired names failed${repo.length > 0 ? ` in ${config.companion.dir}` : ''}: ${error?.message ?? stderr.trim()}`);
+    return [];
+  });
+}
+
 export function verify(root) {
   const problems = [];
+  const notes = [];
   const rel = (path) => path.slice(root.length + 1);
   const config = existsSync(join(root, CONFIG)) ? readJson(join(root, CONFIG)) : {};
   const dropped = new Set(config.dropped ?? []);
@@ -1232,13 +1341,22 @@ export function verify(root) {
     for (const name of retired) {
       if (typed[name].all > 0) problems.push(`typed command \`${name}\` (typed ${typed[name].all} times) no longer resolves; keep a thin entry point, or list it under "dropped" in ${CONFIG} once the owner says to drop it`);
     }
-    const mentions = retired.map((name) => [name, skillMention(name)]);
-    for (const path of [join(root, 'AGENTS.md'), ...markdownFiles(rulesDir)]) {
-      if (!existsSync(path)) continue;
-      for (const [index, line] of readFileSync(path, 'utf8').split('\n').entries()) {
-        for (const [name, mention] of mentions) {
-          if (mention.test(line)) problems.push(`${rel(path)}:${index + 1}: names retired \`${name}\``);
+    const [inRules, elsewhere] = [true, false].map((siblingLinks) => retired.map((name) => [name, skillMention(name, { siblingLinks })]));
+    const real = realpathSync.native(root);
+    const { files: ruleFiles, siblingLinks } = projectRuleFiles(root);
+    const mentionsIn = (file) => (siblingLinks(file) ? inRules : elsewhere);
+    for (const file of ruleFiles) {
+      for (const [index, line] of readFileSync(join(real, file), 'utf8').split('\n').entries()) {
+        for (const [name, mention] of mentionsIn(file)) {
+          if (mention.test(line)) problems.push(`${file}:${index + 1}: names retired \`${name}\``);
         }
+      }
+    }
+    const ruleSet = new Set(ruleFiles);
+    for (const [file, number, line] of trackedLines(root, config, retired, problems)) {
+      if (ruleSet.has(file)) continue;
+      for (const [name, mention] of mentionsIn(file)) {
+        if (mention.test(line)) notes.push(`${file}:${number}: names retired \`${name}\` outside the rule files`);
       }
     }
   }
@@ -1302,7 +1420,7 @@ export function verify(root) {
       if (hit) problems.push(`public skill \`${name}\` depends on ${hit[0]} in ${rel(path)}`);
     }
   }
-  return problems;
+  return { problems, notes };
 }
 
 function usesPstack(root) {
@@ -1430,7 +1548,7 @@ function report({ root, changes, refusals, pstackDiff }, mode) {
       lines.push(pstackDiff.named.replace(/^/gmu, '    '));
     }
     if (pstackDiff.other.length > 0) {
-      lines.push(`  pstack changed files no rule anchors or names; list a group's files with git diff --name-status ${pstackDiff.from} ${pstackDiff.to} in ${upstreamUrl()}:`);
+      lines.push(`  pstack changed files no rule file anchors or names; list a group's files with git diff --name-status ${pstackDiff.from} ${pstackDiff.to} in ${upstreamUrl()}:`);
       lines.push(...pstackDiff.other.map((line) => `    ${line}`));
     }
     lines.push(`  the write needs --dispositions <tsv> with one tab-separated row per item: its id, then ${DISPOSITIONS.join(', ')}, then the reason:`);
@@ -1559,7 +1677,8 @@ function main(argv) {
       return result.refusals.length > 0 ? 1 : 0;
     }
     case 'verify': {
-      const problems = verify(one());
+      const { problems, notes } = verify(one());
+      if (notes.length > 0) console.info(`${notes.length} note(s), not failures:\n${notes.join('\n')}`);
       console.info(problems.length > 0 ? `${problems.length} problem(s):\n${problems.join('\n')}` : 'verified: typed commands and modes resolve, skill links resolve, no retired names, public skills self-contained, block in sync, pstack anchors hold');
       return problems.length > 0 ? 1 : 0;
     }

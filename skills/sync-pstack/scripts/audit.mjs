@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from 'n
 import { homedir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { discover, localSkills, locateBlock, markdownFiles, RULE_FILES, skillMention, unmarkedRules, USER_SKILL_DIRS, userTypedInvocations } from './sync-pstack.mjs';
+import { discover, localSkills, locateBlock, markdownFiles, projectRuleFiles, RULE_FILES, skillMention, unmarkedRules, USER_SKILL_DIRS, userTypedInvocations } from './sync-pstack.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DOTAI_CHECKOUT = existsSync(resolve(HERE, '../../../workflow-manifest.json')) ? resolve(HERE, '../../..') : null;
@@ -99,15 +99,12 @@ function best(sentence, corpus, byShingle, skip = () => false) {
 
 function audit(root, minScore) {
   const facts = discover(root);
-  const projectFiles = [
-    ...markdownFiles(join(root, '.agents/rules')),
-    ...markdownFiles(join(root, '.agents/playbooks')),
-    ...[...markdownFiles(join(root, '.agents'))].filter((path) => !/\/\.agents\/(?:rules|playbooks|skills|pstack)\//u.test(path)),
-  ];
+  const { agents, files, siblingLinks } = projectRuleFiles(root);
+  const projectFiles = files.filter((file) => file !== agents && !file.startsWith('.agents/pstack/')).map((file) => join(root, file));
   const project = [];
-  for (const path of [...new Set(projectFiles)]) project.push(...shingledSentences(readFileSync(path, 'utf8'), relative(root, path)));
-  if (existsSync(join(root, 'AGENTS.md'))) {
-    const text = readFileSync(join(root, 'AGENTS.md'), 'utf8');
+  for (const path of projectFiles) project.push(...shingledSentences(readFileSync(path, 'utf8'), relative(root, path)));
+  if (agents) {
+    const text = readFileSync(join(root, agents), 'utf8');
     const block = locateBlock(text);
     const lines = text.split('\n');
     const outside = block ? lines.map((line, at) => (at >= block.begin && at <= block.end ? '' : line)).join('\n') : text;
@@ -145,12 +142,12 @@ function audit(root, minScore) {
   for (const sentence of shared) compare(sentence, 'pstack');
   overlaps.sort((a, b) => b.score - a.score || a.file.localeCompare(b.file) || a.line - b.line);
 
-  const routeFiles = [join(root, 'AGENTS.md'), ...projectFiles].filter((path) => existsSync(path));
+  const routeFiles = [...(agents ? [join(root, agents)] : []), ...projectFiles];
   const routeTexts = routeFiles.map((path) => [relative(root, path), readFileSync(path, 'utf8')]);
   const routes = (name) => {
-    const pattern = skillMention(name);
+    const [inRules, elsewhere] = [true, false].map((links) => skillMention(name, { siblingLinks: links }));
     const own = (path) => path === `.agents/rules/${name}.mdc` || path.startsWith(`.agents/rules/${name}/`);
-    return routeTexts.filter(([path, text]) => !own(path) && pattern.test(text)).map(([path]) => path);
+    return routeTexts.filter(([path, text]) => !own(path) && (siblingLinks(path) ? inRules : elsewhere).test(text)).map(([path]) => path);
   };
   const dotaiCopy = (name) => join(DOTAI_CHECKOUT, 'skills', name);
   const inDotai = (name) => (DOTAI_CHECKOUT ? existsSync(join(dotaiCopy(name), 'SKILL.md')) : null);
