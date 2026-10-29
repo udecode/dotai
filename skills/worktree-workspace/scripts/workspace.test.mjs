@@ -7,6 +7,8 @@ import test from 'node:test';
 
 import { buildWorkspace } from './workspace.mjs';
 
+Object.assign(process.env, { GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' });
+
 const git = (cwd, ...args) => execFileSync('git', ['-c', 'user.email=t@example.com', '-c', 'user.name=t', ...args], { cwd, stdio: 'ignore' });
 
 test('labels each agent worktree by its latest session, adds the id only to clashing labels, and leaves out scratch worktrees', () => {

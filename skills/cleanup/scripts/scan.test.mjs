@@ -8,6 +8,8 @@ import test from 'node:test';
 
 import { brief, classifyWorktree, deleteSafe, landed, removeLanded, scan } from './scan.mjs';
 
+Object.assign(process.env, { GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' });
+
 const DAY = 86_400_000;
 const SCAN = join(dirname(fileURLToPath(import.meta.url)), 'scan.mjs');
 const BLOCK = (word) => `a\nb\nc\n${word}\nd\ne\nf\n`;
