@@ -183,6 +183,29 @@ test('land pushes a refused companion commit on its next run', () => {
   assert.equal(git(companion, 'show', 'next:a.spec'), 'two');
 });
 
+test('land refuses while companion files are missing from disk, and lands a companion deletion once it is staged', () => {
+  const fixture = trunk();
+  const { remote, clone, message } = fixture;
+  const { companion, side } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const before = git(remote, 'rev-parse', 'next');
+  const start = git(companion, 'rev-parse', 'next');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  rmSync(join(clone, 'a.spec'));
+
+  const refused = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  assert.equal(refused.status, 1, refused.stderr);
+  assert.match(refused.stderr, /1 file that \.git-private tracks is missing from disk, such as a\.spec/u);
+  assert.equal(git(remote, 'rev-parse', 'next'), before, 'nothing lands here while the companion work tree lacks its files');
+  assert.equal(git(companion, 'rev-parse', 'next'), start, 'the missing file is not landed as a deletion');
+
+  side('rm', '--quiet', '--cached', 'a.spec');
+  const staged = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  assert.equal(staged.status, 0, staged.stderr);
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'two');
+  assert.equal(git(companion, 'ls-tree', '--name-only', 'next'), '', 'a staged deletion lands in the companion');
+});
+
 test('land rebases the companion onto its origin/next before checking a task that changes only this checkout, and records its tree', () => {
   const fixture = trunk();
   const { dir, remote, clone, message } = fixture;
