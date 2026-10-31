@@ -522,7 +522,7 @@
       "mode": 420
     },
     "skills/video-transcripts/SKILL.md": {
-      "sha256": "859545b1d93d08befcac118cdcf2e44539b65b17eafb862f23aff489ff638b45",
+      "sha256": "89d8638380a7bf643c54f83368964ee119a58c8a8878254ed7a8ad177b2604fb",
       "mode": 420
     },
     "skills/video-transcripts/scripts/generate_video_transcript.sh": {
