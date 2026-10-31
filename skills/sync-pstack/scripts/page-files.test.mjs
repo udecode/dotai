@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
@@ -313,6 +313,37 @@ test("page-stop sends the page file and this run's files, sends nothing when the
   assert.deepEqual(callOf(stop.lines).files, runFiles, 'a stop sends the body again');
   assert.deepEqual(runsOf(callOf(stop.lines)), [['2026-02-01-live.one', 1]]);
   assert.equal(stop.lines.at(-1), 'Once the publish goes through, reply with 📄 https://claude.ai/artifact/stage#run-2026-02-01-live');
+});
+
+test('a stage whose plan the renderer refuses writes no file, so the stage after the fix sends the whole run', () => {
+  const { root, write, live } = project();
+  const out = join(root, 'docs/plans/artifacts/pages/stage');
+  write('docs/plans/2026-02-01-live.md', livePlan(3).replace('\n## Demo', `\n## Teach\n\n${'word '.repeat(200).trim()}\n\n## Demo`));
+  assert.throws(() => pageStop(['stage', live, '--session', 'one'], CLAUDE), /## Teach/u);
+  assert.equal(existsSync(out), false, 'the refused stage leaves no page behind');
+  write('docs/plans/2026-02-01-live.md', livePlan(3));
+  const call = callOf(pageStop(['stage', live, '--session', 'one'], CLAUDE).lines);
+  assert.deepEqual(call.files, ['runs/2026-02-01-live.one.json', 'runs/2026-02-01-live.one.html', `shots/${sha256(PNG)}.png`, 'code/1.js', 'code/1.css']);
+  write('docs/plans/2026-02-01-live.md', livePlan(3, 'Changed line').replace('\n## Demo', `\n## Teach\n\n${'word '.repeat(200).trim()}\n\n## Demo`));
+  const shown = readFileSync(join(out, 'index.html'), 'utf8');
+  assert.throws(() => pageStop(['stage', live, '--session', 'one'], CLAUDE), /## Teach/u);
+  assert.equal(readFileSync(join(out, 'index.html'), 'utf8'), shown, 'a refused stage keeps the page the last publish wrote');
+  write('docs/plans/2026-02-01-live.md', livePlan(3, 'Changed line'));
+  assert.deepEqual(callOf(pageStop(['stage', live, '--session', 'one'], CLAUDE).lines).files, ['runs/2026-02-01-live.one.json', 'runs/2026-02-01-live.one.html', `shots/${sha256(PNG)}.png`], 'the fixed plan sends its changed picks');
+});
+
+test('a refused stop keeps the last publish and takes no hand-back serial, and the stop rerun after the fix sends the body', () => {
+  const { root, write, live } = project();
+  const out = join(root, 'docs/plans/artifacts/pages/stage');
+  assert.equal(pageStop(['stage', live, '--session', 'one'], CLAUDE).code, 0);
+  const shown = readFileSync(join(out, 'index.html'), 'utf8');
+  write('docs/plans/2026-02-01-live.md', livePlan(4).replace('\n## Demo', `\n## Teach\n\n${'word '.repeat(200).trim()}\n\n## Demo`));
+  assert.throws(() => pageStop(['stop', live, '--session', 'one'], CLAUDE), /## Teach/u);
+  assert.equal(readFileSync(join(out, 'index.html'), 'utf8'), shown);
+  write('docs/plans/2026-02-01-live.md', livePlan(4));
+  const stop = callOf(pageStop(['stop', live, '--session', 'one'], CLAUDE).lines);
+  assert.deepEqual(stop.files, ['runs/2026-02-01-live.one.json', 'runs/2026-02-01-live.one.html', `shots/${sha256(PNG)}.png`]);
+  assert.deepEqual(runsOf(stop), [['2026-02-01-live.one', 1]]);
 });
 
 test('after a refusal, --base composes on the live page, an old page lists only this run, and --new makes a new page', () => {
