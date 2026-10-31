@@ -101,7 +101,7 @@
     {
       "name": "video-transcripts",
       "distribution": "bundled",
-      "description": "Transcribe a supplied local or linked video with Gemini Files API when its contents are needed as evidence.",
+      "description": "Transcribe a supplied local or linked video with Gemini and check the transcript against one frame per second, when a recording's contents are needed as evidence, such as a bug recording on an issue, PR or comment, or a question about what a video shows.",
       "category": "Communication",
       "dependencies": [],
       "capabilities": [
@@ -138,7 +138,7 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "a42302863b6201f149f69d54d08982b10e8ff543d37132351b8d3a562c93550f",
+      "sha256": "6243361e4f0879a680c64c6201c912f91cd8671141d0088bcdefc40daf4f329d",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
@@ -522,11 +522,15 @@
       "mode": 420
     },
     "skills/video-transcripts/SKILL.md": {
-      "sha256": "dd04dc2aed2053ae6ca7e03f60f8410b6a528e3a2a184ca1e5a20ed21eff0d6c",
+      "sha256": "859545b1d93d08befcac118cdcf2e44539b65b17eafb862f23aff489ff638b45",
       "mode": 420
     },
     "skills/video-transcripts/scripts/generate_video_transcript.sh": {
-      "sha256": "0f55898655e1e3c3637e2ba57eaa9e5c4bd75f4064ea78c73c18ed515d37b2f3",
+      "sha256": "cbb5a27ea0ed4b49df8abd76f43d1d90c5fa59267232fc05926bdb077dc08d4e",
+      "mode": 493
+    },
+    "skills/video-transcripts/scripts/video_frames.sh": {
+      "sha256": "48b1048d07b759a0fb17fa617a931ffd9214854073335dbc2d3ce5d1207b2be1",
       "mode": 493
     },
     "skills/walkthrough/SKILL.md": {
