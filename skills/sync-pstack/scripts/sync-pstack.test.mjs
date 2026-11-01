@@ -4359,6 +4359,29 @@ test('a landed row names each commit that delivered the task, and append refuses
   assert.equal(chip(parser, 'landed', `commit: ${sha}`).status, 0);
 });
 
+test('a landed row accepts a commit that only the companion repository holds, and cleanup links it there', () => {
+  const { chip, chips, offer, root } = chipLedger();
+  writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ branch: 'next', companion: { dir: '.git-private', list: '.gitprivate' } }));
+  spawnSync('git', ['-C', root, 'remote', 'set-url', 'origin', 'https://github.com/acme/app.git']);
+  const companion = ['--git-dir', join(root, '.git-private'), '--work-tree', root];
+  spawnSync('git', [...companion, 'init', '-q']);
+  spawnSync('git', [...companion, 'remote', 'add', 'origin', 'https://github.com/acme/app-private.git']);
+  spawnSync('git', [...companion, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'test(app): skip the case']);
+  const sha = spawnSync('git', [...companion, 'rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
+  const card = join(realpathSync(root), '.claude', 'worktrees', 'a');
+  mkdirSync(card, { recursive: true });
+  writeFileSync(join(root, 'sessions.json'), JSON.stringify([{ sessionId: 's1', title: 'idle card', cwd: card, isArchived: false, isRunning: false }]));
+  const skip = 'task_a1 Skip the parser case';
+  assert.equal(offer(skip, 'tests/p.test.ts', 'topic: parser').status, 0);
+  assert.equal(chip(skip, 'started', 'session: s1').status, 0);
+  assert.match(chip(skip, 'landed', 'commit: deadbeef1').stderr, /commit: deadbeef1 is not a commit in this checkout/);
+  assert.equal(chip(skip, 'landed', `commit: ${sha}`).status, 0);
+  assert.ok(
+    chips('cleanup', '--sessions', 'sessions.json').stdout.includes(`task_a1 Skip the parser case: 📦 [app-private: test(app): skip the case](https://diffshub.com/acme/app-private/commit/${sha})`),
+    'the report links a companion commit in the companion repository, named first'
+  );
+});
+
 test('chips cleanup lists the idle card sessions of landed tasks to archive and the worktrees of archived ones to remove, with commit links', () => {
   const { chip, chips, offer, root } = chipLedger();
   spawnSync('git', ['-C', root, 'remote', 'set-url', 'origin', 'https://github.com/acme/app.git']);
