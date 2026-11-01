@@ -65,6 +65,7 @@ const HELPER_FILES = {
   'land.mjs': ['delivery=trunk'],
   'review.mjs': ['delivery=trunk'],
   'setup.mjs': ['delivery=trunk'],
+  'writing-check.mjs': [],
 };
 const RULES = join(HELPERS, 'rules');
 export const RULE_FILES = {
@@ -84,6 +85,7 @@ export const RULE_FILES = {
   'time.md': { blockRule: 'Time budget', gates: [] },
   'title.md': { blockRule: 'Session title', gates: [] },
   'trails.md': { blockRule: 'Plans and trails', gates: ['plans', 'delivery!=trunk'] },
+  'writing.md': { blockRule: 'Writing', gates: [] },
 };
 const isCondition = (gate) => gate.includes('=');
 const SECTION = /^<!-- section (\S+) -->$/u;

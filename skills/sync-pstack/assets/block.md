@@ -256,6 +256,10 @@
 <!-- end -->
 <!-- # adds -->
 - **Session title.** When the runtime has a tool that renames the current session, read `.agents/pstack/rules/title.md` before the run's first stage and after a compaction or a resume, and retitle the session as it says whenever a stage starts or the run's state changes.
+<!-- # adds -->
+<!-- # relies bro/SKILL.md "like one human talking to another" -->
+<!-- # relies unslop/SKILL.md "## Patterns to detect and fix" -->
+- **Writing.** Read `.agents/pstack/rules/writing.md` in full before a session's first reply and after a compaction. Everything you write follows it.
 <!-- # overrides poteto-mode/SKILL.md "the **technical-writing** skill (`/technical-writing`), on top of **unslop**" -->
 <!-- # overrides poteto-mode/playbooks/opening-a-pr.md "Write every PR title, description, and commit body with `/technical-writing`" -->
 - **Writing passes.** pstack triggers four separate writing passes; run one per kind of change, once per batch of work, never once per edit. A pass counts only when its skill's text is in the current context: the lead invokes the skill for its first pass, and until the next compaction a later pass runs from that loaded text without invoking it again. A pass from memory after a compaction is not the pass, and its todo stays open. Product code gets `deslop`, then `no-comments`, once over every change since its last pass, before any review and before it is committed or handed back at the task's close, except that a panel round's fixes run `no-comments` only when their diff, `deslop`'s edits included, adds, changes or removes a comment line.
@@ -278,11 +282,6 @@
 <!-- end -->
 <!-- # overrides poteto-mode/SKILL.md "In your reply, name each principle that shaped a decision" -->
 - **Principles in replies.** pstack's principle skills still apply. Read the leaf skill for any principle a decision rests on, as poteto-mode's Principles list says. Only the rule to name each principle in the reply is dropped; name one only when it explains a choice the reader would otherwise question.
-<!-- # adds -->
-- **Links in replies.** A reply or report names each file, commit, PR, issue and page in its text without a link, and ends with one list of those links, local ones such as files and sessions first, then external ones (owner's word, 2026-10-21). A page is `📄 <url>`, a commit `📦 [<subject>](https://diffshub.com/<owner>/<repo>/commit/<sha>)`, or `📦 [<repo>: <subject>](...)` outside the current repository, and a PR or issue `[owner/repo#123](<url>)`, so the owner tells them apart at a glance (owner's word, 2026-10-20). A reply with no links has no list.
-<!-- # adds -->
-<!-- # relies ketchup/SKILL.md "## Write the reply" -->
-- **Closing summary.** A reply that ends a turn and runs past about 150 words gives its detail first. It ends, just above its link list, with a summary that opens with a bold **Summary.** and follows the shape of the `pstack:ketchup` skill's Write the reply section. Its first sentence names what waits on the owner or says nothing does. Then it gives one line per thing the owner asked for, with its state, such as done, running, failed or not checked, and each call the owner must make, with the lead's pick and its risk (owner's word, 2026-10-27).
 <!-- # adds -->
 - **Blocked.** For an unclear tool or access failure, allow two informed attempts or ten minutes, whichever comes first. Then finish a bounded repair, ask once for the exact human action under the page's Needs you, or move to other ready work.
 <!-- # overrides reflect/SKILL.md "prints the first path whose opening typed prompt carries the fragment" -->

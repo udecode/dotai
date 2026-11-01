@@ -1008,6 +1008,34 @@ test('land refuses a message without a Conventional subject or a Beyond the ask 
   assert.equal(git(clone, 'status', '--porcelain'), 'M a.txt');
 });
 
+test('land refuses a message that breaks the Writing rule, and lands one that keeps the same character in a code span', () => {
+  const { remote, clone, base, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const dashed = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\nWhy a changes — and how.\n\nBeyond the ask: none\n')]);
+  assert.equal(dashed.status, 1);
+  assert.match(dashed.stderr, /breaks the Writing rule[\s\S]*line 3, long dash "—": Why a changes/u);
+  assert.equal(git(remote, 'rev-parse', 'next'), base);
+  assert.equal(git(clone, 'status', '--porcelain'), 'M a.txt');
+
+  const literal = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\nKeeps the `—` character in a.\n\nBeyond the ask: none\n')]);
+  assert.equal(literal.status, 0, literal.stderr);
+  assert.notEqual(git(remote, 'rev-parse', 'next'), base);
+});
+
+test('a rerun lands with the Plan line the first run wrote, though the plan name holds a word the writing check flags', () => {
+  const { remote, clone, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  mkdirSync(join(clone, 'docs/plans'), { recursive: true });
+  writeFileSync(join(clone, 'docs/plans/2026-11-01-pivotal.md'), '# X\n');
+  assert.equal(helper('land.mjs', clone, ['--message', message(GOOD), '--check', 'false']).status, 1);
+
+  const rerun = helper('land.mjs', clone, ['--check', 'true']);
+  assert.equal(rerun.status, 0, rerun.stderr);
+  assert.match(git(remote, 'log', '-1', '--format=%B', 'next'), /^Plan: docs\/plans\/2026-11-01-pivotal\.md$/mu);
+});
+
 test('land refuses a closing keyword right before an issue reference, and lands a message that names the issue as <repo>#<N>', () => {
   const { remote, clone, base, message } = trunk();
   git(clone, 'config', 'pstack.delivery', 'push');
@@ -1283,6 +1311,18 @@ test('review --revert stops on a conflict before its last commit, land refuses u
   assert.equal(git(remote, 'show', 'next:a.txt'), 'one');
   assert.equal(git(remote, 'show', 'next:b.txt'), 'two');
   assert.equal(git(remote, 'ls-tree', '--name-only', 'next', '--', 'c.txt', 'd.txt'), '');
+});
+
+test('review --revert lands a session whose subject landed before the writing check', () => {
+  const { remote, clone, worktree } = sessions();
+  writeFileSync(join(clone, 'e.txt'), 'e\n');
+  git(clone, 'add', 'e.txt');
+  git(clone, 'commit', '--quiet', '-m', 'feat(e): add e — a vibrant one\n\nSession: local_bbbbbbbb-2222');
+  git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
+
+  const run = helper('review.mjs', worktree, ['--revert', 'local_bbbbbbbb-2222']);
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(git(remote, 'ls-tree', '--name-only', 'next', '--', 'e.txt'), '');
 });
 
 test('review --revert refuses a session no commit on next names in full', () => {
