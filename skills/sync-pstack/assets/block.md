@@ -28,7 +28,10 @@
 <!-- end -->
 <!-- # overrides poteto-mode/SKILL.md "The role's `@level`, or the sheet's `default effort` line, sets its starting level" -->
 <!-- # overrides poteto-mode/SKILL.md "Lower it one step for judgment and two or more steps for routine work." -->
-- **Helper effort.** In Claude Code, each Claude helper starts at the lead session's effort, capped by `maxEffort` when `.agents/pstack.json` sets one. Panel reviewers and `architect`, arena and swarm runners keep that level, because at `high` Astra's findings mostly repeated other seats'.
+<!-- # overrides poteto-mode/references/codex-tools.md "Apply poteto-mode's task adjustment to that starting level" -->
+<!-- # overrides poteto-mode/references/codex-tools.md "ask for an explicit role or `default effort` level before dispatching" -->
+<!-- # relies poteto-mode/references/codex-tools.md "scripts/codex-session-effort.mjs" -->
+- **Helper effort.** In Claude Code and in Codex, each helper starts at the lead session's effort, capped by `maxEffort` when `.agents/pstack.json` sets one. Before it dispatches, the lead reads that level. In Claude Code it runs `node .agents/pstack/lead.mjs`. In Codex it runs poteto-mode's `codex-session-effort.mjs`, then `lead.mjs` when that script prints no level. The lead passes the level explicitly, as `effort` on an `Agent` call or `reasoning_effort` on `spawn_agent`. When nothing prints a level, the lead uses `maxEffort`, or `high` when the project sets none, and never stops to ask for one. Swarm runners keep the lead's level. A panel seat or an `architect` or arena runner whose models-sheet entry names no level runs at the level `.agents/pstack/rules/panel.md` gives such a `cross.mjs` seat, which is `maxEffort` when the project sets one. A seat rerun as an `Agent` call and a code arena slot run at that level too, because at `high` Astra's findings mostly repeated other seats'.
 <!-- if delivery!=trunk -->
   Any other helper may run lower for routine work, never below its role's level in the models sheet, and `levels.mjs` still judges each seat against that sheet level.
 <!-- end -->
