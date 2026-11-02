@@ -3844,9 +3844,10 @@ test('decisions-check takes a P0 or P1 claim only with its evidence', () => {
   const head = spawnSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
   assert.equal(bare('task_b1 Fix b', `writes: b.md; topic: two; priority: P0; regressed: ${head}`).status, 0, 'a regression names its commit');
   const lower = bare('task_c1 Fix c', 'writes: c.md; topic: three; priority: P2');
-  assert.equal(lower.status, 1, 'a P2 offer outside a verdict, babysit or time route');
+  assert.equal(lower.status, 1, 'a P2 offer outside a verdict, babysit, time or hook route');
   assert.match(lower.stderr, /a run offers a task only for a new P0 or P1 finding[^\n]*list this P2 finding in the plan's Open work/);
-  assert.match(bare('task_c1 Fix c', 'writes: c.md; topic: three; priority: P3; via: review').stderr, /via: is verdict, babysit or time/);
+  assert.match(bare('task_c1 Fix c', 'writes: c.md; topic: three; priority: P3; via: review').stderr, /via: is verdict, babysit, time or hook/);
+  assert.equal(bare('task_h1 Run the due intake', 'writes: h.md; topic: intake; kind: decide; priority: P3; via: hook').status, 0, 'a project hook offers the recurring work it finds due');
   assert.equal(bare('task_c1 Fix c', 'writes: c.md; topic: three; priority: P2; via: verdict').status, 0, 'P2 needs no evidence, only its route');
   assert.match(chip('task_c1 Fix c', 'updated', 'priority: P0').stderr, /a P0 task is broken now/, 'a raise to P0 without evidence');
   assert.equal(chip('task_c1 Fix c', 'updated', 'priority: P0; repro: type then reload loses the text').status, 0, 'a raise to P0 with its repro');
