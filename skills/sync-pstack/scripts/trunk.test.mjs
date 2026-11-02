@@ -1008,6 +1008,92 @@ test('land refuses a message without a Conventional subject or a Beyond the ask 
   assert.equal(git(clone, 'status', '--porcelain'), 'M a.txt');
 });
 
+test('land --dry runs the message and Defaults refusals without committing, and a real run refuses a bad Defaults table before any check', () => {
+  const { remote, clone, base, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  mkdirSync(join(clone, 'docs/plans'), { recursive: true });
+  const plan = join(clone, 'docs/plans/2026-11-02-x.md');
+  const defaults = (impact) => `# X\n\n## Defaults\n\n| Decision | Pick | Alternative | Word | Impact |\n| --- | --- | --- | --- | --- |\n| Order | a | b | swap | ${impact} |\n`;
+  writeFileSync(plan, defaults('huge'));
+  const head = git(clone, 'rev-parse', 'HEAD');
+
+  const badSha = helper('land.mjs', clone, ['--message', message('fix(a): change a\n\nWhy a changes.\n\nIntroduced-by: abc\n\nBeyond the ask: none'), '--dry']);
+  assert.equal(badSha.status, 1);
+  assert.match(badSha.stderr, /Introduced-by: abc is not a lowercase sha/u);
+  const badImpact = helper('land.mjs', clone, ['--message', message(GOOD), '--dry']);
+  assert.equal(badImpact.status, 1);
+  assert.match(badImpact.stderr, /## Defaults in docs\/plans\/2026-11-02-x\.md gives "Order" the impact "huge"; write big, small or detail/u);
+  writeFileSync(plan, defaults('small'));
+  const passed = helper('land.mjs', clone, ['--message', message(GOOD), '--dry']);
+  assert.equal(passed.status, 0, passed.stderr);
+  assert.match(passed.stdout, /nothing was committed/u);
+  assert.equal(git(clone, 'rev-parse', 'HEAD'), head);
+  assert.equal(git(clone, 'status', '--porcelain'), '?? docs/');
+
+  writeFileSync(plan, defaults('huge'));
+  const refused = helper('land.mjs', clone, ['--message', message(GOOD), '--check', 'touch checked']);
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /gives "Order" the impact "huge"/u);
+  assert.equal(existsSync(join(clone, 'checked')), false, 'no check runs');
+  assert.equal(git(remote, 'rev-parse', 'next'), base);
+});
+
+const plan = ({ status = 'active', impact }) =>
+  `# X\n\nStatus: ${status}\n\nOne.\n\nTwo.\n\nThree.\n\nFour.\n\n## Defaults\n\n| Decision | Pick | Alternative | Word | Impact |\n| --- | --- | --- | --- | --- |\n| Order | a | b | swap | ${impact} |\n`;
+
+test('land refuses a bad Defaults table in a plan whose name git quotes, with --dry and without', () => {
+  const { remote, clone, base, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  mkdirSync(join(clone, 'docs/plans'), { recursive: true });
+  writeFileSync(join(clone, 'docs/plans/2026-11-02-café.md'), plan({ impact: 'huge' }));
+
+  const dry = helper('land.mjs', clone, ['--message', message(GOOD), '--dry']);
+  assert.equal(dry.status, 1);
+  assert.match(dry.stderr, /## Defaults in docs\/plans\/2026-11-02-café\.md gives "Order" the impact "huge"/u);
+  const real = helper('land.mjs', clone, ['--message', message(GOOD), '--check', 'touch checked']);
+  assert.equal(real.status, 1);
+  assert.match(real.stderr, /gives "Order" the impact "huge"/u);
+  assert.equal(existsSync(join(clone, 'checked')), false, 'no check runs');
+  assert.equal(git(remote, 'rev-parse', 'next'), base);
+});
+
+test('land --dry refuses a bad Defaults table in a new plan the companion owns', () => {
+  const fixture = trunk();
+  const { clone, message } = fixture;
+  split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  writeFileSync(join(clone, '.gitprivate'), '*.spec\n/docs/plans/\n');
+  mkdirSync(join(clone, 'docs/plans'), { recursive: true });
+  writeFileSync(join(clone, 'docs/plans/2026-11-02-x.md'), plan({ impact: 'huge' }));
+
+  const dry = helper('land.mjs', clone, ['--message', message(GOOD), '--dry']);
+  assert.equal(dry.status, 1, dry.stdout);
+  assert.match(dry.stderr, /## Defaults in docs\/plans\/2026-11-02-x\.md gives "Order" the impact "huge"/u);
+});
+
+test('land refuses an open plan whose Defaults table a clean rebase made bad, before any check', () => {
+  const { dir, remote, clone, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  mkdirSync(join(clone, 'docs/plans'), { recursive: true });
+  const path = 'docs/plans/2026-11-02-x.md';
+  writeFileSync(join(clone, path), plan({ status: 'executed', impact: 'small' }));
+  git(clone, 'add', '--all');
+  git(clone, 'commit', '--quiet', '-m', 'plan');
+  git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
+  const other = join(dir, 'other-plan');
+  git(dir, 'clone', '--quiet', '--branch', 'next', remote, other);
+  writeFileSync(join(other, path), plan({ status: 'executed', impact: 'huge' }));
+  git(other, 'commit', '--quiet', '-am', 'impact');
+  git(other, 'push', '--quiet', 'origin', 'HEAD:next');
+  writeFileSync(join(clone, path), plan({ status: 'active', impact: 'small' }));
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', 'touch checked']);
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /gives "Order" the impact "huge"/u);
+  assert.equal(readFileSync(join(clone, path), 'utf8'), plan({ status: 'active', impact: 'huge' }), 'the rebase merged both edits');
+  assert.equal(existsSync(join(clone, 'checked')), false, 'no check runs');
+});
+
 test('land refuses a message that breaks the Writing rule, and lands one that keeps the same character in a code span', () => {
   const { remote, clone, base, message } = trunk();
   git(clone, 'config', 'pstack.delivery', 'push');

@@ -2895,6 +2895,9 @@ test('decisions-check takes a panel finding only with a severity, after a seats 
   assert.match(unnamed.stderr, /critical \[<seat>, \.\.\.\]: .*opus, gpt-6\.1-sol or lead/);
   assert.equal(append('critical [opus, gpt-6-astra]: The seat writes files', 'applied: read-only').status, 1, 'a seat off the round\'s roster');
   assert.equal(append('critical [opus, codex:gpt-6.1-sol @xhigh]: The seat writes files', 'applied: read-only').status, 0, 'seats from the roster');
+  assert.equal(append('critical [opus, sol]: The seat writes files', 'applied: read-only').status, 0, 'the answer file name of a roster seat');
+  assert.equal(append('critical [gpt]: The seat writes files', 'applied: read-only').status, 1, 'a word that is not the last of a roster model');
+  assert.equal(append('critical [astra]: The seat writes files', 'applied: read-only').status, 1, 'the answer file name of a seat off the roster');
   assert.equal(append('critical [lead]: The fallback hides a missing seat', 'applied: the fallback names it').status, 0, 'the lead');
   assert.equal(append('critical [opus, lead]: The seat writes files', 'applied: read-only').status, 1, 'the lead beside a seat');
   assert.equal(append('warning The fallback lists stale sessions', 'deferred: outside the ask').status, 1, 'a deferral with no owner');
@@ -6080,6 +6083,16 @@ test('scorecard counts each seat a critical row names in brackets, and the lead'
   assert.match(result.stdout, /^\| gpt-6\.1-sol \| 1 \| 1 \| 0 \| 1 \| 0 \| 0 \| 0 \|$/mu);
   assert.match(result.stdout, /^\| lead \| - \| 1 \| 1 \| 0 \| 0 \| 0 \| 1 \|$/mu, 'an applied critical the lead alone raised');
   assert.match(result.stdout, /^3 of 3 critical rows placed; 0 unplaced\.$/mu);
+});
+
+test('scorecard credits a critical row that names a seat by the last word of its roster model', () => {
+  const result = scorecard([
+    ['seats opus, codex:gpt-6-luna @high', 'recorded'],
+    ['critical [luna]: the guard drops typing'],
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^\| gpt-6-luna \| 1 \| 1 \| 1 \| 0 \| 0 \| 0 \| 1 \|$/mu);
+  assert.match(result.stdout, /^1 of 1 critical rows placed; 0 unplaced\.$/mu);
 });
 
 test('scorecard maps seat letters and numbers to their round\'s roster order', () => {
