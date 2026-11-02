@@ -25,7 +25,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ask } from '../assets/pstack/cross.mjs';
 import { EFFORTS } from '../assets/pstack/lead.mjs';
-import { LEDGER, ledgerPath } from '../assets/pstack/tasks.mjs';
+import { LEDGER, ledgerPath, TASK_ID } from '../assets/pstack/tasks.mjs';
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const TEMPLATE = join(SKILL, 'assets/block.md');
@@ -844,6 +844,12 @@ function pluginSkills() {
   return null;
 }
 
+function staleProjectInstalls(tag) {
+  const installed = join(homedir(), '.claude/plugins/installed_plugins.json');
+  if (!existsSync(installed)) return [];
+  return (readJson(installed).plugins?.[PLUGIN] ?? []).filter((entry) => entry.scope === 'project' && entry.projectPath && `v${entry.version}` !== tag);
+}
+
 const distinctiveName = (name) => /[-\d]/u.test(name);
 
 export function skillMention(name, { siblingLinks = true } = {}) {
@@ -1245,9 +1251,18 @@ export function corpus(root, { session, installedDir = join(root, HELPER_DIR) } 
       transcripts[side].push(maskHelperUrls(`${header}\n${result.stdout}${result.stderr}exit ${result.status ?? result.signal}`, dir));
     }
   }
+  const known = snapshot ? readFileSync(snapshot, 'utf8') : '';
   rmSync(scratch, { recursive: true, force: true });
-  const installed = transcripts.installed.join('\n').replaceAll(scratch, '<snapshot>');
-  const bundled = transcripts.bundled.join('\n').replaceAll(scratch, '<snapshot>');
+  const maskMinted = (text) => {
+    const minted = new Map();
+    return text.replace(TASK_ID, (id) => {
+      if (known.includes(id)) return id;
+      if (!minted.has(id)) minted.set(id, `t_<new ${minted.size + 1}>`);
+      return minted.get(id);
+    });
+  };
+  const installed = maskMinted(transcripts.installed.join('\n').replaceAll(scratch, '<snapshot>'));
+  const bundled = maskMinted(transcripts.bundled.join('\n').replaceAll(scratch, '<snapshot>'));
   return { installed, bundled, incomplete, diff: diff(installed, bundled) };
 }
 
@@ -1519,6 +1534,7 @@ function userPin(tag, { write }) {
     if (write) writeFileSync(path, json(pin(settings, tag)));
     lines.push(`${write ? 'Pinned' : 'Would pin'} ${path} to ${tag}.`);
   }
+  const stale = staleProjectInstalls(tag);
   // Claude Code hides a marketplace whose settings entry and registry disagree,
   // so `marketplace update` cannot find it; adding from the pinned entry
   // rewrites the registry.
@@ -1526,6 +1542,9 @@ function userPin(tag, { write }) {
     'Then, from the home directory:',
     ...(declared ? [`  claude plugin marketplace add ${REPO}#${tag} && claude plugin update ${PLUGIN}`] : []),
     `  codex plugin marketplace remove ${MARKETPLACE} && codex plugin marketplace add ${REPO} --ref ${tag} && codex plugin add ${PLUGIN}`,
+    ...(stale.length > 0
+      ? ['A project-scope install keeps its version, so update each older one from its project:', ...stale.map((entry) => `  cd ${entry.projectPath} && claude plugin update ${PLUGIN} --scope project`)]
+      : []),
     'Codex asks to trust the pstack session hook again in /hooks when its file changed.',
     'Codex loads only the first 32 KiB of AGENTS.md unless ~/.codex/config.toml sets project_doc_max_bytes = 131072 above its first [table].',
   );

@@ -1581,6 +1581,10 @@ test('guard denies an agent force-push or delete of next or main and passes ever
     'cd x && timeout 60 git -C . push origin next --force',
     "bash -c 'git push -f origin main'",
     'echo "$(git push -f origin next)"',
+    'git -C $(pwd) push origin next --force',
+    'cat <(git push -f origin next)',
+    'echo `git push --force origin next`',
+    "eval 'git push -f origin next'",
     'git push origin --delete next',
     'git push origin :main',
     "bash -e -c 'git push --force origin HEAD:next'",
@@ -1597,6 +1601,7 @@ test('guard denies an agent force-push or delete of next or main and passes ever
     'git push -f origin task',
     'git push --force origin HEAD',
     "git commit -m 'never git push -f origin next'",
+    "git commit -m 'never `git push -f origin next`'",
     "cat <<'EOF'\ngit push -f origin next\nEOF",
     "bash -e -c 'git push --force origin task'",
     "git push --force origin 'refs/tags/*:refs/tags/*'",
@@ -1675,11 +1680,11 @@ test('guard denies a command that would delete or overwrite the companion files,
   git(clone, 'worktree', 'add', '--quiet', '--detach', session);
   git(clone, 'worktree', 'add', '--quiet', '--detach', plain);
   writeFileSync(join(session, '.git-private'), 'gitdir: elsewhere\n');
-  const guard = (command, cwd = clone) => {
+  const guard = (command, cwd = clone, env = ENV) => {
     const run = spawnSync(process.execPath, [join(clone, '.agents/pstack/guard.mjs')], {
       input: JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd }),
       encoding: 'utf8',
-      env: ENV,
+      env,
     });
     assert.equal(run.status, 0, run.stderr);
     return run.stdout ? JSON.parse(run.stdout).hookSpecificOutput : null;
@@ -1692,12 +1697,32 @@ test('guard denies a command that would delete or overwrite the companion files,
     [`git switch --detach ${old}`]: /has no \.gitprivate/u,
     [`cd x && git reset --hard ${old}`]: /has no \.gitprivate/u,
     [`git rebase ${old}`]: /has no \.gitprivate/u,
+    [`(cd ${plain}) && git clean -fdx`]: /git clean -x or -X/u,
+    [`cd ${plain} | git clean -fdx`]: /git clean -x or -X/u,
+    [`cd ${plain} || git clean -fdx`]: /git clean -x or -X/u,
+    ['cd "$PLAIN" && git clean -fdx']: /git clean -x or -X/u,
+    [`cd ${plain} && cd ${clone} && git clean -fdx`]: /git clean -x or -X/u,
+    [`cd ${plain} && sh -c 'cd ${clone}; git clean -fdx'`]: /git clean -x or -X/u,
+    [`cd ${plain}; git clean -fdx`]: /git clean -x or -X/u,
+    [`cd ${plain} && true & git clean -fdx`]: /git clean -x or -X/u,
+    [`! cd ${plain} && git clean -fdx`]: /git clean -x or -X/u,
+    [`env cd ${plain} && git clean -fdx`]: /git clean -x or -X/u,
+    [`echo $(pwd) cd ${plain} && git clean -fdx`]: /git clean -x or -X/u,
+    ['x=$(pwd) git clean -fdx']: /git clean -x or -X/u,
+    ['git -C $(pwd) clean -fdx']: /git clean -x or -X/u,
+    ['if true; then git clean -fdx; fi']: /git clean -x or -X/u,
   };
   for (const [command, reason] of Object.entries(denied)) {
     const decision = guard(command);
     assert.equal(decision?.permissionDecision, 'deny', command);
     assert.match(decision.permissionDecisionReason, reason, command);
   }
+  for (const command of [`cd ${clone}; git clean -fdx`, `cd ${clone} || exit; git clean -fdx`, `if cd ${clone}; then git clean -fdx; fi`, `git status | cd ${clone} && git clean -fdx`]) {
+    assert.equal(guard(command, plain)?.permissionDecision, 'deny', `from the plain checkout: ${command}`);
+  }
+  assert.equal(guard(`cd ${basename(clone)} && git clean -fdx`, dir)?.permissionDecision, 'deny', 'a bare name is judged where it resolves too');
+  assert.equal(guard(`cd ${basename(plain)} ${basename(clone)} && git clean -fdx`, plain)?.permissionDecision, 'deny', "zsh's two-operand cd lands in the clone");
+  assert.equal(guard(`git -C ~/${basename(clone)} clean -fdx`, plain, { ...ENV, HOME: dir })?.permissionDecision, 'deny', 'git -C expands a tilde');
   const passed = [
     'git clean -fd',
     'git clean -ndx',
@@ -1708,6 +1733,13 @@ test('guard denies a command that would delete or overwrite the companion files,
     `git worktree remove --force ${session}`,
     `node detach.mjs; git worktree remove --force ${session}`,
     'git --git-dir=.git-private --work-tree=. status',
+    `cd ${plain} && git clean -fdx`,
+    `cd ${plain} && git fetch -q origin 2>&1 && git clean -fdx`,
+    `cd ${plain} && git status |& cat && git clean -fdx`,
+    `cd -q ${plain} && git clean -fdx`,
+    `cd ${plain} && timeout 60 git reset --hard ${old}`,
+    `cd ${plain} && (git clean -fdx)`,
+    `cd ${plain} && echo "$(git clean -fdx)"`,
   ];
   for (const command of passed) assert.equal(guard(command), null, command);
   assert.equal(guard('git clean -fdx', plain), null, 'a checkout without the companion directory has nothing of it to lose');

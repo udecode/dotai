@@ -434,7 +434,7 @@ test('smoke runs each prompt in both runtimes from the project root, without CLA
   const { dir, home } = sandbox();
   const bin = join(dir, 'bin');
   mkdirSync(bin);
-  writeFileSync(join(bin, 'claude'), '#!/bin/sh\necho "progress noise" >&2\necho "claude in $(pwd) CLAUDECODE=${CLAUDECODE:-unset}: $*"\n', { mode: 0o755 });
+  writeFileSync(join(bin, 'claude'), '#!/bin/sh\necho "progress noise" >&2\necho "claude in $(pwd) CLAUDECODE=${CLAUDECODE:-unset} PSTACK_READ_ONLY=${PSTACK_READ_ONLY:-unset}: $*"\n', { mode: 0o755 });
   const codex = [
     '#!/bin/sh',
     'flags="$1 $2 $3 $4 $5 $6"',
@@ -450,7 +450,7 @@ test('smoke runs each prompt in both runtimes from the project root, without CLA
     env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1' },
   });
   assert.equal(result.status, 0, result.stderr);
-  assert.ok(result.stdout.replace(/--session-id [\da-f-]{36} /u, '').includes(`claude in ${root} CLAUDECODE=unset: -p --model opus --add-dir ${home}/.claude/plugins --permission-mode plan -- the toolbar closes`), result.stdout);
+  assert.ok(result.stdout.replace(/--session-id [\da-f-]{36} /u, '').includes(`claude in ${root} CLAUDECODE=unset PSTACK_READ_ONLY=1: -p --model opus --add-dir ${home}/.claude/plugins --permission-mode plan -- the toolbar closes`), result.stdout);
   assert.ok(result.stdout.includes(`codex in ${root} with exec --ignore-rules -m gpt-6.1-sol --sandbox read-only: the toolbar closes`), result.stdout);
   assert.doesNotMatch(result.stdout, /noise/);
 });
@@ -528,16 +528,16 @@ test('cross --bypass runs a Codex worker on the owner config with hooks and no s
   const { dir, home } = sandbox();
   const bin = join(dir, 'bin');
   mkdirSync(bin);
-  writeFileSync(join(bin, 'codex'), '#!/bin/sh\nargs="$*"\nwhile [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; *) shift ;; esac; done\necho "$args" > "$out"\n', { mode: 0o755 });
+  writeFileSync(join(bin, 'codex'), '#!/bin/sh\nargs="$*"\nwhile [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; *) shift ;; esac; done\necho "$args PSTACK_READ_ONLY=${PSTACK_READ_ONLY:-unset}" > "$out"\n', { mode: 0o755 });
   const run = (args) =>
     spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), ...args, 'research it'], {
       cwd: dir,
       encoding: 'utf8',
-      env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1' },
+      env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1', PSTACK_READ_ONLY: '1' },
     });
   const worker = run(['--to', 'codex', '--bypass']);
   assert.equal(worker.status, 0, worker.stderr);
-  assert.match(worker.stdout.trim(), /^exec -m gpt-6\.1-sol --dangerously-bypass-approvals-and-sandbox -o \S+ -- research it$/u);
+  assert.match(worker.stdout.trim(), /^exec -m gpt-6\.1-sol --dangerously-bypass-approvals-and-sandbox -o \S+ -- research it PSTACK_READ_ONLY=unset$/u, 'a worker that writes is not marked read-only');
   for (const args of [['--to', 'claude', '--bypass'], ['--to', 'codex', '--bypass', '--ignore-user-config']]) {
     const refused = run(args);
     assert.equal(refused.status, 2, args.join(' '));
@@ -991,8 +991,27 @@ test("corpus diffs the project's installed ledger helpers against this skill's c
 
   assert.match(cli('corpus', root, '--installed', join(dir, 'baseline')).stdout, /^\S+\/app\n {2}no difference$/m);
 
+  writeFileSync(installed, "import { randomBytes } from 'node:crypto';\nconsole.log(`offer t_${randomBytes(4).toString('hex')} beside t_0a1b2c3d`);\n");
+  assert.equal(cli('corpus', root, '--out', join(dir, 'minted')).status, 0);
+  assert.match(read(join(dir, 'minted'), 'corpus-app-installed.txt'), /^offer t_<new 1> beside t_0a1b2c3d$/mu, 'a freshly minted id is masked and a ledger id kept');
+
   rmSync(installed);
   assert.match(cli('corpus', root).stdout, /^ {2}-absent$/m);
+});
+
+test('user-pin prints the project-scope update for each project whose install is older than the tag', () => {
+  const { home, cli } = sandbox();
+  mkdirSync(join(home, '.claude/plugins'), { recursive: true });
+  const installs = [
+    { scope: 'user', version: '0.9.110' },
+    { scope: 'project', projectPath: '/work/old', version: '0.9.110' },
+    { scope: 'project', projectPath: '/work/current', version: '0.9.117' },
+  ];
+  writeFileSync(join(home, '.claude/plugins/installed_plugins.json'), JSON.stringify({ plugins: { 'pstack@pstack-claude': installs } }));
+  const result = cli('user-pin', '--tag', 'v0.9.117', '--dry-run');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^ {2}cd \/work\/old && claude plugin update pstack@pstack-claude --scope project$/mu);
+  assert.doesNotMatch(result.stdout, /\/work\/current/u, 'an install at the tag needs no update');
 });
 
 test('argument-hint modes are the literal words that open an alternative, outside placeholders', () => {
@@ -6037,6 +6056,8 @@ test("levels caps the lead and every seat target at the project's maxEffort", ()
   assert.match(result.stdout, /^target: lead claude-opus-5-5 @high; seats opus @high, gpt-6-astra @high, gpt-6\.1-sol @high; maxEffort high$/mu);
   assert.match(result.stdout, /^ {2}at lines 4-5: lead claude-opus-5-5 @high$/mu, 'a stretch at the cap');
   assert.match(result.stdout, /^ {2}at line 7: panel /mu, 'seats at the cap');
+  writeFileSync(join(dir, '.agents/pstack.json'), JSON.stringify({ maxEffort: 'xhigh' }));
+  assert.match(run().stdout, /^target: lead claude-opus-5-5 @xhigh; seats opus @xhigh, gpt-6-astra @high, gpt-6\.1-sol @xhigh; maxEffort xhigh$/mu, 'a seat with no effort targets maxEffort, as cross.mjs runs it');
   writeFileSync(join(dir, '.agents/pstack.json'), JSON.stringify({ maxEffort: 'huge' }));
   assert.match(run().stderr, /maxEffort is "huge", not one of low, medium, high, xhigh, max/);
 });
@@ -6347,6 +6368,17 @@ test('setup skips the ledger sync when the config names a companion the main che
   assert.match(started.stdout, /^setup\.mjs: skipped the ledger sync, because this clone has no \.git-private yet$/mu);
   assert.notEqual(spawnSync('git', ['-C', main, 'ls-remote', '--exit-code', 'origin', 'refs/pstack/ledger']).status, 0, 'the public origin gets no ledger');
   assert.equal(readFileSync(join(main, ledger), 'utf8'), 'team row\n');
+});
+
+test('setup does nothing in a read-only session, so a smoke neither pushes the ledger nor moves the branch', () => {
+  const { clone } = ledgerRemote();
+  const main = clone('main');
+  mkdirSync(join(main, 'docs/plans/artifacts'), { recursive: true });
+  writeFileSync(join(main, 'docs/plans/artifacts/suggested-tasks.decisions.tsv'), 'local row\n');
+  const started = spawnSync(process.execPath, [join(main, '.agents/pstack/setup.mjs')], { cwd: main, encoding: 'utf8', env: { ...process.env, PSTACK_READ_ONLY: '1' } });
+  assert.equal(started.status, 0, started.stderr);
+  assert.equal(started.stdout, 'setup.mjs: skipped, because this session is read-only\n');
+  assert.notEqual(spawnSync('git', ['-C', main, 'ls-remote', '--exit-code', 'origin', 'refs/pstack/ledger']).status, 0, 'origin gets no ledger row');
 });
 
 test("setup moves the rows at the ledger's former path into the ledger, so next can trade that file for a link", () => {
