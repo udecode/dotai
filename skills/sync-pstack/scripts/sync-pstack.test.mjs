@@ -2165,7 +2165,7 @@ test("plan-page names the plan of another plan's unheaded question when no quest
 test('plan-page shows the Demo, Teach and picks of an executed plan it renders on a subject page without a brief', () => {
   const { dir, run } = sandbox();
   const topic = '# Workflow\n\n## Main changes\n\n- Pages follow subjects.\n';
-  const built = '# Built\n\nStatus: executed\nTopic: workflow\n\n## Main changes\n\n- Moved the renderer.\n\n## Demo\n\n1. Open the subject page. The built plan leads.\n\n## Teach\n\nA subject page is led by the plan it renders.\n\n## Defaults\n\n| Decision | Pick | Alternative | Word | Impact |\n| --- | --- | --- | --- | --- |\n| Page lead | The rendered plan | The newest open plan | newest lead | small |\n\n## Close\n\n- Landed the renderer move.\n';
+  const built = '# Built\n\nStatus: executed\nTopic: workflow\n\n## Main changes\n\n- Moved the renderer.\n\n## Demo\n\n1. Open the subject page. The built plan leads.\n\n## Teach\n\nA subject page is led by the plan it renders.\n\n## Defaults\n\n| Decision | Pick | Alternative | Word | Impact |\n| --- | --- | --- | --- | --- |\n| Page lead | The rendered plan | The newest open plan | newest lead | big |\n\n## Close\n\n- Landed the renderer move.\n';
   const waiting = '# Waiting\n\nStatus: planning, waiting for Build now\nTopic: workflow\n\n## Open questions\n\n' + MEMO + brief();
   const root = project(dir, 'app', { files: { 'docs/plans/topics/workflow.md': topic, 'docs/plans/2026-01-01-waiting.md': waiting, 'docs/plans/2026-02-01-built.md': built } });
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-02-01-built.md'], root);
@@ -2432,7 +2432,7 @@ test('plan-page shows Teach as How it works right after the brief and before the
 
 test('plan-page shows each Defaults row as its decision over the pick in bold and the alternative marked (alt), with the word that switches it', () => {
   const { dir, run } = sandbox();
-  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Defaults\n\n| Decision | Pick | Alternative | Word |\n| --- | --- | --- | --- |\n| Page look | One line per choice. | The old table | keep table |\n`;
+  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Defaults\n\n| Decision | Pick | Alternative | Word | Impact |\n| --- | --- | --- | --- | --- |\n| Page look | One line per choice. | The old table | keep table | big |\n`;
   const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
   assert.equal(result.status, 0, result.stderr);
@@ -2441,23 +2441,34 @@ test('plan-page shows each Defaults row as its decision over the pick in bold an
   assert.ok(!html.includes('<th>Decision</th>'), 'the table no longer shows');
 });
 
-test('plan-page groups Defaults rows under Big calls, Small calls and Details when the table has an Impact column', () => {
+test('plan-page shows only the big Defaults rows and the picks marked (look) or (answer), then counts the rest, when the table has an Impact column', () => {
   const { dir, run } = sandbox();
-  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Defaults\n\n| Decision | Pick | Alternative | Word | Impact |\n| --- | --- | --- | --- | --- |\n| Button color | Blue | Green | green | detail |\n| Storage | One file | A database | database | big |\n| Sort order | Newest first | Oldest first | oldest | small |\n`;
+  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Defaults\n\n| Decision | Pick | Alternative | Word | Impact |\n| --- | --- | --- | --- | --- |\n| Button color | Blue | Green | green | detail |\n| Storage | One file | A database | database | big |\n| Sort order | Newest first | Oldest first | oldest | small |\n| Retries | Three (look) | One | one retry | small |\n`;
   const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
   assert.equal(result.status, 0, result.stderr);
   const picked = read(root, 'docs/plans/artifacts/plan.html').split('<h2>Picked for you</h2>')[1];
-  assert.match(picked, /^<h3>Big calls<\/h3><ul class="picks"><li>Storage<ul>.*?<h3>Small calls<\/h3><ul class="picks"><li>Sort order<ul>.*?<h3>Details<\/h3><ul class="picks"><li>Button color<ul>/);
+  assert.match(picked, /^<ul class="picks"><li>Storage<ul>.*?<\/ul><\/li><li>Retries<ul>.*?<\/ul><\/li><\/ul><p class="more">2 other picks stay in the plan file\.<\/p>/);
+  assert.ok(!picked.includes('Button color') && !picked.includes('Sort order'), 'a small or detail pick with no level stays in the plan file');
 });
 
-test('plan-page refuses an open plan whose Defaults impact is not big, small or detail', () => {
+test('plan-page shows only the picks marked (look) or (answer) from a Defaults table that rates no impact', () => {
+  const { dir, run } = sandbox();
+  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Defaults\n\n| Decision | Pick | Alternative | Word |\n| --- | --- | --- | --- |\n| Sort order | Newest first | Oldest first | oldest |\n| Retries | Three (look) | One | one retry |\n`;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const picked = read(root, 'docs/plans/artifacts/plan.html').split('<h2>Picked for you</h2>')[1];
+  assert.match(picked, /^<ul class="picks"><li>Retries<ul>.*?<\/ul><\/li><\/ul><p class="more">1 other pick stays in the plan file\.<\/p>/);
+});
+
+test('plan-page refuses an open plan whose Defaults impact is not big or small', () => {
   const { dir, run } = sandbox();
   const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Defaults\n\n| Decision | Pick | Alternative | Word | Impact |\n| --- | --- | --- | --- | --- |\n| Storage | One file | A database | database | high |\n`;
   const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md', '--check'], root);
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /## Defaults in .* gives "Storage" the impact "high"; write big, small or detail/);
+  assert.match(result.stderr, /## Defaults in .* gives "Storage" the impact "high"; write big or small/);
 });
 
 test('plan-page shows a Teach picture inline, with one viewer for the whole page', () => {
@@ -2519,7 +2530,7 @@ test('plan-page refuses an open plan whose Teach holds code', () => {
   assert.match(result.stderr, /## Teach in .* holds code `renderPage`/);
 });
 
-test('plan-page renders an open question as a decision memo: why it needs you, the facts, each option with what happens and its cost, the pick with its reason, and what go does', () => {
+test('plan-page renders an open question as a decision memo the owner answers in chat: why it needs you, the facts, each option with what happens and its cost, the pick marked, and its reason', () => {
   const { dir, run } = sandbox();
   const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Open questions\n\n${MEMO}`;
   const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
@@ -2529,9 +2540,8 @@ test('plan-page renders an open question as a decision memo: why it needs you, t
   const needs = html.slice(html.indexOf('Needs you'));
   const order = ['Build the memo now?', 'The renderer is shared by every project.', 'Another session changed it this morning.', 'I build it today.', 'A design mistake shows up after the build.', 'The prototype settled the design.', 'Nothing changes.', 'Needs you stays hard to read.'];
   order.forEach((text) => assert.ok(needs.includes(text), `the memo shows "${text}"`));
-  assert.ok(needs.indexOf('The prototype settled the design.') < needs.indexOf('Nothing changes.'), 'the reason sits with the pick, before the other options');
-  assert.match(needs, /<input type="radio" name="q0" value="Build now" checked>/, 'my pick starts checked');
-  assert.match(needs, /<input type="radio" name="q0" value="Hold">/, 'the other option is a radio too');
+  assert.match(needs, /<li class="pick"><b>Build now<\/b> <span class="mine">my pick<\/span> I build it today\./, 'my pick is marked');
+  assert.ok(!needs.includes('<input') && !needs.includes('<button'), 'the page holds no form to answer in');
 });
 
 test('plan-page refuses an open question that skips a memo part, accepts one with no pick, and renders an executed plan\'s old question', () => {
@@ -2550,21 +2560,6 @@ test('plan-page refuses an open question that skips a memo part, accepts one wit
   const legacy = project(dir, 'legacy', { files: { 'docs/plans/plan.md': `# Plan\n\n## Open questions\n\n${old}\n### Resolve before planning\n\n- Should the doc ship alone, or\n  with an appendix?\n` } });
   assert.equal(render(legacy).status, 0, 'a plan with no Status: line keeps its old question');
   assert.ok(read(legacy, 'docs/plans/artifacts/plan.html').includes('Should the doc ship alone, or with an appendix?'), 'a question with no options renders its text whole');
-});
-
-test('plan-page refuses an open question whose part runs past its word budget or holds more than two facts, and renders an executed plan\'s long question', () => {
-  const { dir, run } = sandbox();
-  const render = (root) => run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
-  const longFact = MEMO.replace('Another session changed it this morning.', 'Another session changed the shared renderer this morning while two other sessions were still rendering their pages.');
-  const long = render(project(dir, 'long', { files: { 'docs/plans/plan.md': `# Plan\n\nStatus: planning\n\n${brief()}## Open questions\n\n${longFact}` } }));
-  assert.equal(long.status, 1);
-  assert.match(long.stderr, /"Build" in docs\/plans\/plan\.md runs long: fact 1 at 17 words, where 15 is the most/);
-  const threeFacts = MEMO.replace('- Another session changed it this morning.\n', '- Another session changed it this morning.\n- The tests pass.\n- The corpus renders.\n');
-  const many = render(project(dir, 'many', { files: { 'docs/plans/plan.md': `# Plan\n\nStatus: planning\n\n${brief()}## Open questions\n\n${threeFacts}` } }));
-  assert.equal(many.status, 1);
-  assert.match(many.stderr, /runs long: 3 facts, where 2 is the most/);
-  const executed = render(project(dir, 'executed', { files: { 'docs/plans/plan.md': `# Plan\n\nStatus: executed\n\n## Open questions\n\n${longFact}\n## Close\n\n- Shipped.\n` } }));
-  assert.equal(executed.status, 0, executed.stderr);
 });
 
 test("plan-page shows the subject's page-lead section, marked current, when the open plan has none", () => {
@@ -2590,22 +2585,20 @@ test('plan-page refuses code in an open plan\'s brief, questions or defaults, an
   assert.equal(executed.status, 0, executed.stderr);
 });
 
-test('plan-page puts the questions that need the owner first and renders a Pick any question as checked checkboxes', () => {
+test('plan-page keeps the open questions in plan order and says what go does for a question with no pick', () => {
   const { dir, run } = sandbox();
   const safe = MEMO.replace('### Build', '### Safe one').replace('Build the memo now?', 'Ship the safe part now?').replace('Attention: look', 'Attention: safe');
-  const many = '### Lessons\n\nWhich lessons become rules?\n\nWhy it needs you: Each lesson changes every future agent.\n\nPick any.\n\n- **Test last** (recommended): Agents test after the cleanup. Cost: Slower changes.\n- **Clean messages** (recommended): Agents clean each message. Cost: One more step.\n- **Count todos**: A script counts todos. Cost: A new script.\n\nWhy I pick it: Both fixed real mistakes.\n\nAttention: look\n';
   const open = '### Order\n\nWhich page moves first?\n\nWhy it needs you: I have no reason to prefer one.\n\n- **History**: I move history today. Cost: Reads waits.\n- **Reads**: I move reads today. Cost: History waits.\n\nIf you say go: go leaves this question open.\n';
-  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Open questions\n\n${safe}\n${many}\n${open}`;
+  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Open questions\n\n${safe}\n${open}`;
   const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
   assert.equal(result.status, 0, result.stderr);
   const html = read(root, 'docs/plans/artifacts/plan.html');
-  const at = (text) => html.indexOf(text);
-  assert.ok(at('Which page moves first?') < at('Which lessons become rules?') && at('Which lessons become rules?') < at('Ship the safe part now?'), 'needs you, then worth a look, then safe');
-  assert.match(html, /<input type="checkbox" name="q1" value="Test last" checked>[\s\S]*<input type="checkbox" name="q1" value="Clean messages" checked>[\s\S]*<input type="checkbox" name="q1" value="Count todos">/);
+  assert.ok(html.indexOf('Ship the safe part now?') < html.indexOf('Which page moves first?'), 'a question with no pick does not jump ahead');
+  assert.ok(html.includes('<p class="nopick">go leaves this question open.</p>'));
 });
 
-test('plan-page refuses an open question with a pick but no Attention line, or two picks without Pick any', () => {
+test('plan-page refuses an open question with a pick but no Attention line, or two picks', () => {
   const { dir, run } = sandbox();
   const render = (name, memo) => run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], project(dir, name, { files: { 'docs/plans/plan.md': `# Plan\n\nStatus: planning\n\n${brief()}## Open questions\n\n${memo}` } }));
   const unrated = render('unrated', MEMO.replace('\nAttention: look\n', ''));
@@ -2613,7 +2606,7 @@ test('plan-page refuses an open question with a pick but no Attention line, or t
   assert.match(unrated.stderr, /"Build" in docs\/plans\/plan\.md needs Attention: safe, look or answer/);
   const twoPicks = render('two', MEMO.replace('- **Hold**:', '- **Hold** (recommended):'));
   assert.equal(twoPicks.status, 1);
-  assert.match(twoPicks.stderr, /needs at most one \(recommended\) option, or a Pick any\. line/);
+  assert.match(twoPicks.stderr, /needs at most one \(recommended\) option/);
 });
 
 test('plan-page ends a superseded plan\'s rail at its status word instead of Ship', () => {

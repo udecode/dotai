@@ -1022,7 +1022,7 @@ test('land --dry runs the message and Defaults refusals without committing, and 
   assert.match(badSha.stderr, /Introduced-by: abc is not a lowercase sha/u);
   const badImpact = helper('land.mjs', clone, ['--message', message(GOOD), '--dry']);
   assert.equal(badImpact.status, 1);
-  assert.match(badImpact.stderr, /## Defaults in docs\/plans\/2026-11-02-x\.md gives "Order" the impact "huge"; write big, small or detail/u);
+  assert.match(badImpact.stderr, /## Defaults in docs\/plans\/2026-11-02-x\.md gives "Order" the impact "huge"; write big or small/u);
   writeFileSync(plan, defaults('small'));
   const passed = helper('land.mjs', clone, ['--message', message(GOOD), '--dry']);
   assert.equal(passed.status, 0, passed.stderr);

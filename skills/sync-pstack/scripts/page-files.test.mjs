@@ -24,13 +24,7 @@ const plain = (value) => (value === undefined ? undefined : JSON.parse(JSON.stri
 function viewer() {
   const context = {};
   vm.runInNewContext(viewerCode().js, context);
-  const api = context.pstackViewer;
-  const wrapped = Object.fromEntries(Object.entries(api).map(([name, fn]) => [name, (...args) => plain(fn(...args))]));
-  wrapped.draftStore = (storage) => {
-    const store = api.draftStore(storage);
-    return { read: (name) => plain(store.read(name)), write: (name, value) => store.write(name, value) };
-  };
-  return wrapped;
+  return Object.fromEntries(Object.entries(context.pstackViewer).map(([name, fn]) => [name, (...args) => plain(fn(...args))]));
 }
 
 const SENT_STAGES = { 'probe-a': 'Build', 'probe-b': 'Plan' };
@@ -51,8 +45,8 @@ test('pageFile sorts entries by key, one per line, and parsePageFile reads its r
   assert.deepEqual(block.split('\n').map((line) => JSON.parse(line.replace(/,$/u, '')).key), ['probe-a.s-one', 'probe-b.s-two'], 'each entry sits on its own line');
   assert.doesNotMatch(block, /<\/script/u);
   const empty = pageFile({ title: 'Empty', subject: 'empty', runs: [] });
-  assert.match(empty, /\{"v":1,"code":1,"subject":"empty","runs":\[\n\]\}\n/u);
-  assert.match(empty, /<link rel="stylesheet" href="code\/1\.css">\n[\s\S]*<script src="code\/1\.js"><\/script>\n$/u);
+  assert.ok(empty.includes(`{"v":1,"code":${CODE_VERSION},"subject":"empty","runs":[\n]}\n`));
+  assert.match(empty, new RegExp(`<link rel="stylesheet" href="code/${CODE_VERSION}\\.css">\\n[\\s\\S]*<script src="code/${CODE_VERSION}\\.js"></script>\\n$`, 'u'));
   assert.equal(parsePageFile(empty).ok, true);
 });
 
@@ -208,49 +202,12 @@ test('a body links each picture as a shots/ file and holds its own questions and
   assert.deepEqual(Object.keys(head), ['v', 'code', 'key', 'session', 'plan', 'slug', 'title', 'status', 'state', 'stage', 'occurrence', 'since', 'at', 'steps', 'asks', 'picks', 'handback']);
   assert.deepEqual([head.key, head.plan, head.slug, head.title, head.status, head.state, head.stage, head.since, head.handback], [key, 'docs/plans/2026-02-01-live.md', '2026-02-01-live', 'Live', 'building: step 3', 'working', 'Build', '2026-10-18T12:00:00.000Z', 3]);
   assert.deepEqual(head.steps, { done: 1, total: 2 });
-  const digests = [...html.matchAll(/data-digest="([0-9a-f]{64})"/gu)].map(([, digest]) => digest);
-  assert.deepEqual(head.asks, [{ title: 'Build', digest: digests[0] }], "the header's question digest is the one the body carries");
+  assert.deepEqual(head.asks.map(({ title }) => title), ['Build'], 'the header names its own open questions');
   write('docs/plans/2026-02-01-live.md', livePlan(3).replace('Inline (safe)', 'Linked (safe)'));
   assert.equal(runHeader(live, { session: 's' }).picks, head.picks, 'a safe pick is not in the digest');
   write('docs/plans/2026-02-01-live.md', livePlan(3, 'Every stage'));
   assert.notEqual(runHeader(live, { session: 's' }).picks, head.picks, 'a look pick is');
   assert.equal(head.picks, sha256(['Line | Live line (look) | Republish | republish | big', 'Link | Anchor (answer) | Bare | bare | small'].join('\n')));
-});
-
-test('two bodies of one plan keep separate inputs and copied answers', () => {
-  const { live } = project();
-  const { answerText } = viewer();
-  const one = runBody(live, { key: '2026-02-01-live.one' }).html;
-  const two = runBody(live, { key: '2026-02-01-live.two' }).html;
-  const names = (html) => new Set([...html.matchAll(/<input [^>]*name="([^"]+)"/gu)].map(([, name]) => name));
-  assert.deepEqual([...names(one)], ['2026-02-01-live.one:q0']);
-  assert.deepEqual([...names(two)], ['2026-02-01-live.two:q0'], 'radio groups of two bodies never merge');
-  const digest = one.match(/data-asks="([0-9a-f]{12})"/u)[1];
-  const ask = (chosen) => [{ title: 'Build', multi: false, defaults: ['Build now'], chosen }];
-  assert.deepEqual(answerText({ subject: 'stage', slug: '2026-02-01-live', digest, asks: ask(['Build now']) }), { state: 'default', text: `go stage/2026-02-01-live @${digest}` });
-  assert.deepEqual(answerText({ subject: 'stage', slug: '2026-02-01-live', digest, asks: ask(['Hold']) }), { state: 'changed', text: `go stage/2026-02-01-live @${digest}, except Build: Hold` });
-  assert.deepEqual(answerText({ subject: 'stage', slug: '2026-02-01-live', digest, asks: ask([]) }), { state: 'missing', text: 'Answer Build' });
-});
-
-test('drafts are keyed by subject, key and question digest, and a storage that throws loses only the draft', () => {
-  const { draftKey, draftStore } = viewer();
-  const keys = [draftKey('stage', 'live.one', 'd1'), draftKey('stage', 'live.two', 'd1'), draftKey('stage', 'live.one', 'd2'), draftKey('other', 'live.one', 'd1')];
-  assert.equal(new Set(keys).size, 4);
-  const saved = new Map();
-  const store = draftStore({ getItem: (name) => saved.get(name) ?? null, setItem: (name, value) => saved.set(name, value) });
-  store.write(keys[0], ['Hold']);
-  assert.deepEqual([store.read(keys[0]), store.read(keys[1])], [['Hold'], null]);
-  const broken = draftStore({
-    getItem: () => {
-      throw new Error('SecurityError');
-    },
-    setItem: () => {
-      throw new Error('QuotaExceededError');
-    },
-  });
-  assert.doesNotThrow(() => broken.write(keys[0], ['Hold']));
-  assert.equal(broken.read(keys[0]), null);
-  assert.equal(draftStore(null).read(keys[0]), null, 'no storage at all');
 });
 
 test('a render without options keeps the whole local page and matches the body apart from its pictures', () => {
@@ -278,8 +235,7 @@ test('a render without options keeps the whole local page and matches the body a
 test('the viewer code file carries the model the tests run and the page styles in both themes', () => {
   const { version, js, css } = viewerCode();
   assert.equal(version, CODE_VERSION);
-  assert.deepEqual(Object.keys(viewer()).sort(), ['answerText', 'draftKey', 'draftStore', 'parseHash', 'viewerModel']);
-  assert.match(js, /navigator\.clipboard\?\.writeText/u);
+  assert.deepEqual(Object.keys(viewer()).sort(), ['parseHash', 'viewerModel']);
   assert.match(js, /addEventListener\('hashchange'/u);
   assert.match(css, /^@import url\("https:\/\/fonts\.googleapis\.com\//u);
   assert.match(css, /@media \(prefers-color-scheme: dark\) \{ :root:not\(\[data-theme="light"\]\)/u);
@@ -288,11 +244,14 @@ test('the viewer code file carries the model the tests run and the page styles i
 });
 
 const CLAUDE = { CLAUDECODE: '1' };
+const QUIET = 'Nothing to send: between stops the page changes only for a new or changed open question or (look) or (answer) pick';
 const callOf = (lines) => JSON.parse(lines.find((line) => line.startsWith('Artifact ')).slice('Artifact '.length));
 const runsOf = (call) => parsePageFile(readFileSync(call.file_path, 'utf8')).data.runs.map(({ key, handback }) => [key, handback]);
 
-test("page-stop sends the page file and this run's files, sends nothing when the stage did not move, and a stop takes the next serial and prints the reply link", () => {
+test("page-stop sends the page file and this run's files, sends nothing between stops unless a question or costly pick changed, and a stop takes the next serial and prints the reply link", () => {
   const { root, write, live } = project();
+  write('docs/plans/quiet.md', `# Quiet\n\nStatus: building\n\n${BRIEF}\n## Main changes\n\n- Quiet.\n`);
+  assert.deepEqual(pageStop(['stage', join(root, 'docs/plans/quiet.md'), '--session', 'one'], CLAUDE).lines, [QUIET], 'a run that asks the owner nothing waits for its first stop');
   assert.match(pageStop(['stage', live], {}).lines[0], /outside Claude Code/u);
   assert.equal(pageStop(['stage', live], CLAUDE).code, 2, 'a session id is required');
   const first = pageStop(['stage', live, '--session', 'one'], CLAUDE);
@@ -301,14 +260,14 @@ test("page-stop sends the page file and this run's files, sends nothing when the
   const call = callOf(first.lines);
   assert.deepEqual([call.url, call.file_path, call.root], ['https://claude.ai/artifact/stage', join(out, 'index.html'), out]);
   const runFiles = ['runs/2026-02-01-live.one.json', 'runs/2026-02-01-live.one.html', `shots/${sha256(PNG)}.png`];
-  assert.deepEqual(call.files, [...runFiles, 'code/1.js', 'code/1.css'], 'the first publish sends the body, its picture and the viewer code');
+  assert.deepEqual(call.files, [...runFiles, `code/${CODE_VERSION}.js`, `code/${CODE_VERSION}.css`], 'the first publish sends the body, its picture and the viewer code');
   assert.equal(first.lines[0], `Read in full, and view each picture, before you send: ${['index.html', ...call.files].map((path) => join(out, path)).join(' ')}`);
   assert.deepEqual(runsOf(call), [['2026-02-01-live.one', null]]);
   assert.deepEqual(parsePageFile(readFileSync(call.file_path, 'utf8')).list, [{ slug: '2026-02-01-live', title: 'Live', stage: 'build' }]);
   assert.ok(!first.lines.some((line) => line.includes('#run-')), 'a stage prints no reply');
-  assert.deepEqual(pageStop(['stage', live, '--session', 'one'], CLAUDE).lines, ['Nothing to send: the page already shows this stage']);
+  assert.deepEqual(pageStop(['stage', live, '--session', 'one'], CLAUDE).lines, [QUIET]);
   write('docs/plans/2026-02-01-live.md', livePlan(4));
-  assert.deepEqual(callOf(pageStop(['stage', live, '--session', 'one'], CLAUDE).lines).files, ['runs/2026-02-01-live.one.json'], 'a new status sends only the header');
+  assert.deepEqual(pageStop(['stage', live, '--session', 'one'], CLAUDE).lines, [QUIET], 'a new status or stage alone waits for the next stop');
   const stop = pageStop(['stop', live, '--session', 'one'], CLAUDE);
   assert.deepEqual(callOf(stop.lines).files, runFiles, 'a stop sends the body again');
   assert.deepEqual(runsOf(callOf(stop.lines)), [['2026-02-01-live.one', 1]]);
@@ -323,7 +282,7 @@ test('a stage whose plan the renderer refuses writes no file, so the stage after
   assert.equal(existsSync(out), false, 'the refused stage leaves no page behind');
   write('docs/plans/2026-02-01-live.md', livePlan(3));
   const call = callOf(pageStop(['stage', live, '--session', 'one'], CLAUDE).lines);
-  assert.deepEqual(call.files, ['runs/2026-02-01-live.one.json', 'runs/2026-02-01-live.one.html', `shots/${sha256(PNG)}.png`, 'code/1.js', 'code/1.css']);
+  assert.deepEqual(call.files, ['runs/2026-02-01-live.one.json', 'runs/2026-02-01-live.one.html', `shots/${sha256(PNG)}.png`, `code/${CODE_VERSION}.js`, `code/${CODE_VERSION}.css`]);
   write('docs/plans/2026-02-01-live.md', livePlan(3, 'Changed line').replace('\n## Demo', `\n## Teach\n\n${'word '.repeat(200).trim()}\n\n## Demo`));
   const shown = readFileSync(join(out, 'index.html'), 'utf8');
   assert.throws(() => pageStop(['stage', live, '--session', 'one'], CLAUDE), /## Teach/u);
@@ -346,6 +305,23 @@ test('a refused stop keeps the last publish and takes no hand-back serial, and t
   assert.deepEqual(runsOf(stop), [['2026-02-01-live.one', 1]]);
 });
 
+test('removing the last question publishes, so do its reruns after a refused publish, and a quiet plan the renderer refuses still fails its stage', () => {
+  const { root, write } = project();
+  const plan = join(root, 'docs/plans/asking.md');
+  const asking = (questions) => `# Asking\n\nStatus: building\n\n${BRIEF}\n## Main changes\n\n- Asking.\n${questions ? `\n## Open questions\n\n${MEMO}` : ''}`;
+  const publishes = (lines) => lines.some((line) => line.startsWith('Artifact '));
+  write('docs/plans/asking.md', asking(true));
+  assert.ok(publishes(pageStop(['stage', plan, '--session', 'one'], CLAUDE).lines));
+  const livePage = join(root, 'live.html');
+  writeFileSync(livePage, wrap(readFileSync(join(root, 'docs/plans/artifacts/pages/asking/index.html'), 'utf8')));
+  write('docs/plans/asking.md', asking(false));
+  assert.ok(publishes(pageStop(['stage', plan, '--session', 'one'], CLAUDE).lines), 'removing the last question publishes');
+  assert.ok(publishes(pageStop(['stage', plan, '--session', 'one', '--base', livePage], CLAUDE).lines), 'the --base rerun after the tool refused that publish sends it again');
+  assert.ok(publishes(pageStop(['stage', plan, '--session', 'one', '--new'], CLAUDE).lines), 'so does the --new rerun');
+  write('docs/plans/broken.md', `# Broken\n\nStatus: building\n\n${BRIEF}\n## Teach\n\n${'word '.repeat(200).trim()}\n\n## Main changes\n\n- Broken.\n`);
+  assert.throws(() => pageStop(['stage', join(root, 'docs/plans/broken.md'), '--session', 'one'], CLAUDE), /## Teach/u, 'a run that asks nothing still learns its plan does not render');
+});
+
 test('after a refusal, --base composes on the live page, an old page lists only this run, and --new makes a new page', () => {
   const { root, live } = project();
   const other = { key: 'other.two', session: 'two', plan: 'docs/plans/2026-01-01-other.md', slug: '2026-01-01-other', title: 'Other', added: '2026-10-01T00:00:00Z', at: '2026-10-01T00:00:00Z', handback: 3, done: false };
@@ -361,7 +337,7 @@ test('after a refusal, --base composes on the live page, an old page lists only 
   const old = pageStop(['stage', live, '--session', 'one', '--base', refused], CLAUDE);
   assert.match(old.lines[0], /^The base lists no runs/u);
   assert.deepEqual(runsOf(callOf(old.lines)), [['2026-02-01-live.one', null]]);
-  assert.ok(callOf(old.lines).files.includes('code/1.js'));
+  assert.ok(callOf(old.lines).files.includes(`code/${CODE_VERSION}.js`));
   const fresh = pageStop(['stage', live, '--session', 'one', '--new'], CLAUDE);
   assert.equal(callOf(fresh.lines).url, undefined);
   assert.ok(fresh.lines.some((line) => line.includes('replace `Page: https://claude.ai/artifact/stage`')), 'a new page replaces the link that no longer opens');
