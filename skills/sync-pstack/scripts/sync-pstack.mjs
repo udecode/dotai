@@ -1477,21 +1477,32 @@ function candidates(roots) {
 
 function targets(projects, roots) {
   if (projects.length > 0) return { found: projects, held: [] };
-  const held = (root) => existsSync(join(root, CONFIG)) && readJson(join(root, CONFIG)).autoSync === false;
+  const held = (root) => readConfig(root).config?.autoSync === false;
   const all = candidates(roots);
   return { found: all.filter((root) => !held(root)), held: all.filter(held) };
 }
 
 const heldLines = (held) => held.map((root) => `${root}\n  held: autoSync is false; name it to sync`);
 
+function readConfig(root) {
+  const path = join(root, CONFIG);
+  if (!existsSync(path)) return {};
+  try {
+    return { config: readJson(path) };
+  } catch (error) {
+    return { error: `${CONFIG}: ${error.message}` };
+  }
+}
+
 function projectState(root, plugin) {
-  const state = { path: root, managed: existsSync(join(root, CONFIG)) };
+  const { config, error } = readConfig(root);
+  const state = { path: root, managed: config !== undefined, unreadable: error !== undefined };
+  if (error) state.error = error;
   try {
     const settingsPath = join(root, '.claude/settings.json');
     state.pin = existsSync(settingsPath) ? (readJson(settingsPath).extraKnownMarketplaces?.[MARKETPLACE]?.source?.ref ?? null) : null;
     state.vendored = plugin ? localSkills(root).filter((name) => plugin.includes(name)).length : null;
     if (state.managed) {
-      const config = readJson(join(root, CONFIG));
       Object.assign(state, { tag: config.tag, delivery: config.delivery, skip: config.skip ?? [], source: config.synced?.source?.slice(0, 7) ?? null });
       const { changes, refusals } = apply(root, { write: false });
       state.drift = [...refusals.map((refusal) => `${refusal.path} edited`), ...changes.map((change) => `${change.path} stale`)];
@@ -1697,7 +1708,9 @@ function main(argv) {
       for (const state of list) {
         const facts = state.managed
           ? `managed tag=${state.tag} delivery=${state.delivery} skip=[${state.skip.join(',')}] source=${state.source ?? 'unknown'} drift=${state.drift?.length ? state.drift.join('; ') : 'none'}`
-          : 'unmanaged';
+          : state.unreadable
+            ? 'unreadable config'
+            : 'unmanaged';
         console.info(`${state.path}\n  ${facts} pin=${state.pin ?? 'none'} vendored=${state.vendored ?? 'unknown'}${state.error ? ` error=${state.error}` : ''}`);
       }
       for (const line of heldLines(held)) console.info(line);

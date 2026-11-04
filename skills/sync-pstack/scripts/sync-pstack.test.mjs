@@ -3088,7 +3088,7 @@ test('in a trunk project a linked worktree writes the main checkout ledger, cite
   assert.match(brief, /land the task yourself from it with node \.agents\/pstack\/land\.mjs/);
   assert.match(brief, /scan\.mjs --landed <your worktree's absolute path>\. When it exits 0/, 'the landed scan guards the worktree removal');
   assert.match(brief, /holds the change\. Last, stop each server/, 'the landing steps run before the review title');
-  assert.match(brief, /carry the outcome to its next \/chips\. Once the task has landed or its PR is open, where your runtime can rename this session, make your last call of that turn, after the worktree removal and the report, the one that titles your session 👀 <name>, with no count, as [^\n]*\/\.agents\/pstack\/rules\/title\.md says[^\n]*\. When a later message has you work again, title the session with your current stage before your first step\./, 'a landed card session takes the review title last, and drops it when it works again');
+  assert.match(brief, /carry the outcome to its next \/chips\. Once the task has landed or its PR is open, where your runtime can rename this session, title your session 👀 <name>, with no count, in the same message as your last other call, the worktree removal when you remove it, and after that call, as [^\n]*\/\.agents\/pstack\/rules\/title\.md says[^\n]*\. When a later message has you work again, title the session with your current stage before your first step\./, 'a landed card session takes the review title in its last message, after the removal, and drops it when it works again');
   assert.doesNotMatch(brief, /git diff --cached|apply --check|\/wt\b|cd \/|outside the checkout/, 'no patch landing, checkout cd, worktree path or outside-path wait');
   mkdirSync(join(root, 'docs/plans/artifacts/fix'), { recursive: true });
   writeFileSync(join(root, 'docs/plans/artifacts/fix/send-a1.log'), 'exit=0\n');
@@ -4762,6 +4762,28 @@ test('a project with autoSync false syncs only when a run names it', () => {
   assert.equal(named.status, 0, named.stdout);
   assert.equal(pin(held), 'v0.9.53');
   assert.equal(readJson(held, '.agents/pstack.json').autoSync, false);
+});
+
+test('a malformed config fails only its own project in an unnamed run', () => {
+  const { dir, cli, run } = sandbox();
+  const repos = join(dir, 'repos');
+  const free = project(repos, 'free', { config: CONFIG, agents: '# Free\n' });
+  const broken = project(repos, 'broken', { config: CONFIG, agents: '# Broken\n' });
+  for (const root of [free, broken]) {
+    assert.equal(cli('apply', root).status, 0);
+    run('git', ['add', '-A'], root);
+    commit(root, 'setup');
+  }
+  writeFileSync(join(broken, '.agents/pstack.json'), '{"tag":');
+
+  const status = cli('status', '--root', repos, '--offline');
+  assert.equal(status.status, 0, status.stderr);
+  assert.match(status.stdout, new RegExp(`^${free}\\n {2}managed `, 'm'));
+  assert.match(status.stdout, new RegExp(`^${broken}\\n {2}unreadable config .* error=\\.agents/pstack\\.json: `, 'm'));
+
+  const sync = cli('sync', '--tag', 'v0.9.53', '--root', repos, '--dry-run');
+  assert.notEqual(sync.status, 2, sync.stderr);
+  assert.match(sync.stdout, new RegExp(free));
 });
 
 test('freeze writes a commit no ref points to without touching the checkout index', () => {
