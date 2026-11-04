@@ -266,7 +266,7 @@
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
-      "sha256": "bd2c86aa388222731d8ea2c1a19027c4e80535830852e9dfeb9936cd549cd45a",
+      "sha256": "cdb34447210942e50188bd2a1bd93a0603ad60538e562df1c9eabe569ed76971",
       "mode": 420
     },
     "skills/sync-pstack/agents/openai.yaml": {
@@ -274,7 +274,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "ba45b34ceab112b30ca1360a2235eed88f640b1d3933448a5bba1751847a254a",
+      "sha256": "8933dc6c2a49286589b7f05cad59d87215e86f2cce0cc29448c51427233b7d84",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/checkout.mjs": {
@@ -318,7 +318,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/land.mjs": {
-      "sha256": "5fe2805e7a14039e6a57103d4a1a95c5def98aaa323a2e85d5fd19155a6cd47b",
+      "sha256": "506ed3aa07e5829445b3db7096449c0c7bae6a530dc72cc1a04f83e7b24cb8ef",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/lead.mjs": {
@@ -362,7 +362,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/review.mjs": {
-      "sha256": "a5bd05540d91d54797751937e10562dca528b6058bdcdfe22610af2c3ab89b41",
+      "sha256": "13f455207dab6830ea6a3683fe0975f9760f8cf19fca21feb7536b0eee8b1417",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/browser.md": {
@@ -370,7 +370,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/chips.md": {
-      "sha256": "fe07bdff0c7699d41361de7370a7a149c59a44a6a189a929df3084182ee4d7a2",
+      "sha256": "a4fa1ee70f84015575039cd2a4c00647ed5588445643da252bc9bc7516b0a2ae",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/close.md": {
@@ -402,7 +402,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/pages.md": {
-      "sha256": "24ab909ba92877ef911ff02ae215a7a8b02f016eef3e37b9e96fa93289948fcd",
+      "sha256": "5ce3495afe45bccb751c696078dc798630fd2fe5d286f2cdb7d114269f33b363",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/panel.md": {
@@ -410,7 +410,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/reflect.md": {
-      "sha256": "7986854e419f7c62926245be02313d08d12723e9cbf442fba65f93c150421f50",
+      "sha256": "67777c3aab446e40d5d2b825e98603357e59e60579c7af309a530b79e7317947",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/tests.md": {
@@ -422,7 +422,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/title.md": {
-      "sha256": "e917e58d3db9fdfd59586300e0cc9b71020038c3d2f087b18e86e3f9000076ad",
+      "sha256": "fa98a92159b315890445607ed4e743cce5094a75a0b5f54b3c2625e093381b2d",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/trails.md": {
@@ -430,7 +430,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/writing.md": {
-      "sha256": "f60d732b7fea287ed2160ae6f7c9d67001941144e1107d4b94b4141f5499c566",
+      "sha256": "c7aebde04551849abc4d897e9712ab0401f2c24e4e6099f0e60d0e0eae63d6cf",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/scorecard.mjs": {
@@ -450,7 +450,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/tasks.mjs": {
-      "sha256": "e844b8c083419f7fad2870d1032477703f5e9e718c58d377afe4efed7c056fee",
+      "sha256": "1a02f9c1e5eb35b517b88ae2c307aaa824758b878d0078ab278ec24576c9867a",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/title.mjs": {
@@ -514,11 +514,11 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "a21a102e562473bfaf26cd68abe7ef4adee73d78903b9dbe8acfb6ba1ad7a630",
+      "sha256": "e4af0d6a5c4adcca121b08992392e686b07adb74610fa6ce18e3bf96c72a8732",
       "mode": 420
     },
     "skills/sync-pstack/scripts/trunk.test.mjs": {
-      "sha256": "eaaf8c0d077e0464c661c692d13a9f89ca41dcb02b8ac7f9934c86279a2f8702",
+      "sha256": "f82f25d859198b8c2cada420f2dad26a5f30fd5e70407ba15b447ca1f255f76c",
       "mode": 420
     },
     "skills/sync-pstack/scripts/writing-check.test.mjs": {

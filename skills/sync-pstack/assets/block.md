@@ -136,10 +136,10 @@
 <!-- # adds -->
 - **Calls.** Each call the lead makes re-reads the session's whole context, so in a long session the number of calls, not their size, sets the cost. Read several files or line ranges in one command, or as parallel calls in one message, instead of one small read per call. A session that another session started reads `.agents/pstack/rules/linked.md` in full before its first step, and a lead reads it before it starts a session its run waits on.
 <!-- if delivery!=trunk -->
-  Bookkeeping never takes a call of its own: a retitle, a todo update, a decision-log append, a page publish or a plan-page render goes out in the same message as the next working call, the closing 👀 rename in the same message as the turn's last other call, as the Session title rule says, and several decision rows go in one `decisions-check.mjs append <log> --from <rows.tsv>` call (owner's word, 2026-10-17).
+  Bookkeeping never takes a call of its own: a retitle, a todo update, a decision-log append, a page publish or a plan-page render goes out in the same message as the next working call, the closing 👀 rename as the Session title rule says, and several decision rows go in one `decisions-check.mjs append <log> --from <rows.tsv>` call (owner's word, 2026-10-17).
 <!-- end -->
 <!-- if delivery=trunk -->
-  Bookkeeping never takes a call of its own: a retitle, a todo update, a decision-log append, a page publish or a plan-page render goes out in the same message as the next working call, the closing 👀 rename in the same message as the turn's last other call, as the Session title rule says, and several decision rows go in one append (owner's word, 2026-10-17).
+  Bookkeeping never takes a call of its own: a retitle, a todo update, a decision-log append, a page publish or a plan-page render goes out in the same message as the next working call, the closing 👀 rename as the Session title rule says, and several decision rows go in one append (owner's word, 2026-10-17).
 <!-- end -->
 <!-- # overrides how/SKILL.md "Spawn all explorers in a single message" -->
 <!-- # overrides arena/SKILL.md "The judge is never from the parent's family" -->

@@ -1003,6 +1003,9 @@ test('land refuses a message without a Conventional subject or a Beyond the ask,
   const noPicks = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\nWhy a changes.\n\nBeyond the ask: none\nNot checked: none\n')]);
   assert.equal(noPicks.status, 1);
   assert.match(noPicks.stderr, /the body has no `Picks:` line; name each call the owner would notice/);
+  const commentedPicks = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\nWhy a changes.\n\nBeyond the ask: none\n<!--\nPicks: name each call\n-->\nNot checked: none\n')]);
+  assert.equal(commentedPicks.status, 1);
+  assert.match(commentedPicks.stderr, /the body has no `Picks:` line/);
   const noUnchecked = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\nWhy a changes.\n\nBeyond the ask: none\nPicks: none\nNot checked:\n')]);
   assert.equal(noUnchecked.status, 1);
   assert.match(noUnchecked.stderr, /the body has no `Not checked:` line; name what the proof did not check/);
@@ -1234,7 +1237,7 @@ test('review groups the commits to review by session, --done marks one session r
     return git(clone, 'rev-parse', 'HEAD');
   };
   const one = land('one.txt', 'feat(a): one', 'Beyond the ask: none\n\nSession: local_s1\nPlan: docs/plans/2026-10-17-x.md');
-  land('two.txt', 'fix(b): two', `No plan here.\n\nBeyond the ask: renamed c\nIntroduced-by: ${one}\n\nBeyond the ask: moved d\n\nSession: s2`);
+  land('two.txt', 'fix(b): two', `No plan here.\n\nBeyond the ask: renamed c\nIntroduced-by: ${one}\n\nBeyond the ask:\nmoved d\n\nSession: s2`);
   const three = land('three.txt', 'docs(a): three', 'See docs/plans/2026-10-17-x.md.\n\nBeyond the ask: none\n\nSession: local_s1');
   const four = land('four.txt', 'chore: four', 'Beyond the ask: none\nPicks: kept the old name,\nreversed by rename\nNot checked: Windows paths\nShipped fast, no review.');
   git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
@@ -1352,7 +1355,7 @@ test('review --revert lands one fix commit that undoes every commit of a session
   const body = git(remote, 'log', '-1', '--format=%B', 'next');
   assert.equal(body.split('\n')[0], 'fix(revert): undo session aaaaaaaa');
   assert.match(body, /^Beyond the ask: none$/mu);
-  assert.match(body, /^Not checked: the reverted tree, because no check ran on it$/mu);
+  assert.match(body, /^Not checked: the reverted tree, beyond the lint fix and the config's landChecks$/mu);
   assert.deepEqual([...body.matchAll(/^Introduced-by: (\S+)$/gmu)].map(([, sha]) => sha).sort(), [first, third].sort());
 });
 

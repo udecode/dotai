@@ -63,7 +63,7 @@ const STOP = /^(?:(?:Session|Plan|Introduced-by|Beyond the ask|Picks|Not checked
 const labeled = (body, label) => {
   const lines = body.split('\n');
   const found = lines.flatMap((line, at) => {
-    if (!line.startsWith(`${label}: `)) return [];
+    if (!line.startsWith(`${label}:`)) return [];
     let end = at + 1;
     while (end < lines.length && lines[end].trim() !== '' && !STOP.test(lines[end])) end += 1;
     return [lines.slice(at, end).join(' ')];
@@ -348,11 +348,11 @@ function revert(session) {
       '',
       '## Verification',
       '',
-      checks.length > 0 ? `land.mjs ran ${checks.map((check) => `\`${check}\``).join(', ')} on the reverted tree before landing it.` : 'No check ran on the reverted tree, because review.mjs --revert got no --check.',
+      checks.length > 0 ? `land.mjs ran ${checks.map((check) => `\`${check}\``).join(', ')} on the reverted tree before landing it.` : "review.mjs --revert got no --check, so land.mjs ran only its lint fix and the config's landChecks on the reverted tree.",
       '',
       'Beyond the ask: none',
       'Picks: none',
-      checks.length > 0 ? 'Not checked: none' : 'Not checked: the reverted tree, because no check ran on it',
+      checks.length > 0 ? 'Not checked: none' : "Not checked: the reverted tree, beyond the lint fix and the config's landChecks",
       '',
       ...ours.map((commit) => `Introduced-by: ${commit.sha}`),
       '',

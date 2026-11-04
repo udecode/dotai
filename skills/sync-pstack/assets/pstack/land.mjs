@@ -66,6 +66,7 @@ const REQUIRED = [
   ['Not checked', 'name what the proof did not check'],
 ];
 const REQUIRED_LABELS = REQUIRED.map(([label]) => label).join('|');
+const withoutHtmlComments = (text) => text.replace(/<!--[\s\S]*?-->/gu, '');
 const SESSION = /^Session: \S/mu;
 const PLAN = /^Plan: \S/mu;
 const TRAILER = /^(?:Session|Plan|Lands-With): \S/u;
@@ -342,7 +343,7 @@ function validate(text) {
   if (rest.length > 0 && gap !== '') fail('a blank line must separate the subject from the body');
   const body = rest.join('\n');
   for (const [label, what] of REQUIRED) {
-    if (!new RegExp(`^${label}: \\S`, 'mu').test(body)) fail(`the body has no \`${label}:\` line; ${what}, or write \`${label}: none\`, then run land.mjs again with --message`);
+    if (!new RegExp(`^${label}: \\S`, 'mu').test(withoutHtmlComments(body))) fail(`the body has no \`${label}:\` line; ${what}, or write \`${label}: none\`, then run land.mjs again with --message`);
   }
   const broken = findings(text.replace(STAMP_LINES, ''));
   if (broken.length > 0) {
@@ -451,8 +452,6 @@ const paged = (plan) => plan && existsSync(plan) && existsSync('.agents/pstack/p
 
 const sectionUntilNextHeadingOrRequiredLine = (body, name) =>
   body.match(new RegExp(`^## ${name}[ \\t]*\\n([\\s\\S]*?)(?=^## |^(?:${REQUIRED_LABELS}):|(?![\\s\\S]))`, 'mu'))?.[1] ?? '';
-const withoutHtmlComments = (text) => text.replace(/<!--[\s\S]*?-->/gu, '');
-
 function missingSections(body) {
   return PR_SECTIONS.filter((name) => sectionUntilNextHeadingOrRequiredLine(withoutHtmlComments(body), name).trim() === '');
 }
