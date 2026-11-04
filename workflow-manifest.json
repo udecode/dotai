@@ -458,7 +458,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/writing-check.mjs": {
-      "sha256": "4b1041792d365058b2c3166dd3a283721a9693239179327ced946b87af4541a5",
+      "sha256": "41195c0691cacf072dbd9bacf7c74110f9acb2ec50424391f48abe3051e79853",
       "mode": 420
     },
     "skills/sync-pstack/references/adapt.md": {
@@ -522,7 +522,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/writing-check.test.mjs": {
-      "sha256": "6fd8254b7d808ead3143f0124b0c80ea9a2d27423b2108efba350c825fb92aa5",
+      "sha256": "fe755b283a6777e71d74848b5a05171dc084948607572fd383233d9fd952a57c",
       "mode": 420
     },
     "skills/test-audit/LICENSE": {
