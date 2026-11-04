@@ -4727,6 +4727,43 @@ test('sync writes only a clean checkout on the project branch', () => {
   assert.match(offBranch.stdout, /the checkout is on topic, not next/);
 });
 
+test('a project with autoSync false syncs only when a run names it', () => {
+  const { dir, cli, run } = sandbox();
+  const repos = join(dir, 'repos');
+  const free = project(repos, 'free', { config: CONFIG, agents: '# Free\n' });
+  const held = project(repos, 'held', { config: { ...CONFIG, autoSync: false }, agents: '# Held\n' });
+  for (const root of [free, held]) {
+    assert.equal(cli('apply', root).status, 0);
+    run('git', ['add', '-A'], root);
+    commit(root, 'setup');
+  }
+  const pin = (root) => readJson(root, '.claude/settings.json').extraKnownMarketplaces['pstack-claude'].source.ref;
+  const heldLine = new RegExp(`^${held}\\n {2}held: autoSync is false; name it to sync$`, 'm');
+
+  const status = cli('status', '--root', repos, '--offline');
+  assert.equal(status.status, 0, status.stderr);
+  assert.match(status.stdout, heldLine);
+  assert.match(status.stdout, new RegExp(`^${free}\\n {2}managed `, 'm'));
+  assert.deepEqual(JSON.parse(cli('status', '--root', repos, '--json', '--offline').stdout).held, [held]);
+  assert.match(cli('status', held, '--offline').stdout, new RegExp(`^${held}\\n {2}managed `, 'm'));
+
+  const corpus = cli('corpus', '--root', repos);
+  assert.match(corpus.stdout, heldLine);
+  assert.doesNotMatch(corpus.stdout, new RegExp(`^${held}\\n {2}(?!held)`, 'm'));
+
+  const sync = cli('sync', '--tag', 'v0.9.53', '--root', repos);
+  assert.equal(sync.status, 0, sync.stdout);
+  assert.match(sync.stdout, heldLine);
+  assert.equal(pin(free), 'v0.9.53');
+  assert.equal(pin(held), 'v0.9.52');
+  assert.equal(run('git', ['status', '--porcelain'], held).stdout, '');
+
+  const named = cli('sync', '--tag', 'v0.9.53', held);
+  assert.equal(named.status, 0, named.stdout);
+  assert.equal(pin(held), 'v0.9.53');
+  assert.equal(readJson(held, '.agents/pstack.json').autoSync, false);
+});
+
 test('freeze writes a commit no ref points to without touching the checkout index', () => {
   const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-freeze-'));
   const repo = join(dir, 'repo');

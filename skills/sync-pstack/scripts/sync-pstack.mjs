@@ -538,6 +538,7 @@ function validate(config) {
   if (unknown.length > 0) throw new Error(`skip names unknown sections: ${unknown.join(', ')} (sections: ${[...sections].join(', ')})`);
   const orphans = Object.values(RULE_FILES).flatMap(({ gates }) => gates).filter((gate) => !isCondition(gate) && !sections.has(gate));
   if (orphans.length > 0) throw new Error(`RULE_FILES names sections no template holds: ${orphans.join(', ')}`);
+  if (config.autoSync !== undefined && typeof config.autoSync !== 'boolean') throw new Error('autoSync must be true or false');
   if (config.pushBranches !== undefined && typeof config.pushBranches !== 'boolean') throw new Error('pushBranches must be true or false');
   if (config.pushBranches && config.delivery !== 'user') throw new Error('pushBranches applies only to user delivery');
   if (config.maxEffort !== undefined && !EFFORTS.includes(config.maxEffort)) throw new Error(`maxEffort must be one of ${EFFORTS.join(', ')}`);
@@ -1474,6 +1475,15 @@ function candidates(roots) {
   return [...found].sort();
 }
 
+function targets(projects, roots) {
+  if (projects.length > 0) return { found: projects, held: [] };
+  const held = (root) => existsSync(join(root, CONFIG)) && readJson(join(root, CONFIG)).autoSync === false;
+  const all = candidates(roots);
+  return { found: all.filter((root) => !held(root)), held: all.filter(held) };
+}
+
+const heldLines = (held) => held.map((root) => `${root}\n  held: autoSync is false; name it to sync`);
+
 function projectState(root, plugin) {
   const state = { path: root, managed: existsSync(join(root, CONFIG)) };
   try {
@@ -1593,7 +1603,8 @@ function report({ root, changes, refusals, pstackDiff }, mode) {
 const HELP = `Usage: node sync-pstack.mjs <command> [options]
 
   discover <project>               Facts for the setup interview, as JSON. Read-only.
-  status [project...]              State of pstack projects; finds local ones when none are named. Read-only.
+  status [project...]              State of pstack projects; finds local ones when none are named, and lists the ones
+                                   whose ${CONFIG} sets autoSync false as held. Read-only.
   apply <project>                  Render the block, helpers and plugin pin from <project>/${CONFIG}.
                                    A bump refuses when pstack dropped text an override or playbook anchors on, and
                                    writes only with --dispositions covering every item of its bump report.
@@ -1601,11 +1612,13 @@ const HELP = `Usage: node sync-pstack.mjs <command> [options]
   verify <project>                 Exit 1 when typed commands or modes, skill links, retired names, public skills,
                                    the block or pstack anchors are broken. Read-only.
   sync --tag <tag> [project...]    apply --tag to every managed project, or to the named ones. Refuses a checkout
-                                   off its branch or with uncommitted edits to the files it writes.
+                                   off its branch or with uncommitted edits to the files it writes. Skips a
+                                   project whose config sets autoSync false unless named.
   playbook <project> <name>        Print each pstack base of .agents/playbooks/<name>.md with its changes applied.
   smoke <project> <prompt>...      Run each prompt read-only in Claude Code and Codex from <project>; print the answers.
   corpus [project...]              Run the project's installed ledger helpers and this skill's copies over its ledger
-                                   and decision logs; print the difference. Every managed project when none are named.
+                                   and decision logs; print the difference. Every managed project when none are named,
+                                   except one whose config sets autoSync false.
   user-pin --tag <tag>             Pin the user-scope Claude Code marketplace; print the refresh commands.
   latest                           Newest upstream ${REPO} tag.
 
@@ -1654,7 +1667,8 @@ function main(argv) {
       return 0;
     case 'status': {
       const plugin = pluginSkills();
-      const list = (projects.length > 0 ? projects : candidates(flags.roots)).map((root) => projectState(root, plugin));
+      const { found, held } = targets(projects, flags.roots);
+      const list = found.map((root) => projectState(root, plugin));
       let latest = null;
       if (!flags.offline) {
         try {
@@ -1671,7 +1685,7 @@ function main(argv) {
           ahead = `unknown (${error.message})`;
         }
       }
-      const result = { latest, untagged: ahead, userPins: userPins(), projects: list };
+      const result = { latest, untagged: ahead, userPins: userPins(), projects: list, held };
       if (flags.json) {
         console.info(json(result).trimEnd());
         return 0;
@@ -1686,6 +1700,7 @@ function main(argv) {
           : 'unmanaged';
         console.info(`${state.path}\n  ${facts} pin=${state.pin ?? 'none'} vendored=${state.vendored ?? 'unknown'}${state.error ? ` error=${state.error}` : ''}`);
       }
+      for (const line of heldLines(held)) console.info(line);
       return 0;
     }
     case 'apply': {
@@ -1711,7 +1726,7 @@ function main(argv) {
     case 'sync': {
       console.error(source());
       const tag = needTag();
-      const found = projects.length > 0 ? projects : candidates(flags.roots);
+      const { found, held } = targets(projects, flags.roots);
       let failed = 0;
       for (const root of found) {
         if (!existsSync(join(root, CONFIG))) {
@@ -1729,6 +1744,7 @@ function main(argv) {
           console.info(`${root}\n  error: ${error.message}`);
         }
       }
+      for (const line of heldLines(held)) console.info(line);
       const pins = userPins();
       if (pins.claude !== tag || pins.codex !== tag) {
         console.info(`user pins still at Claude Code ${pins.claude ?? 'none'}, Codex ${pins.codex ?? 'none'}; run user-pin --tag ${tag}`);
@@ -1751,7 +1767,8 @@ function main(argv) {
       });
     }
     case 'corpus': {
-      const found = projects.length > 0 ? projects : candidates(flags.roots).filter((root) => existsSync(join(root, CONFIG)));
+      const { found: all, held } = targets(projects, flags.roots);
+      const found = projects.length > 0 ? all : all.filter((root) => existsSync(join(root, CONFIG)));
       if (flags.installed && found.length !== 1) throw new Error('corpus --installed takes one project path');
       const helpersAt = git(SKILL, 'log', '-1', '--format=%H', '--', 'assets');
       const names = new Set();
@@ -1775,6 +1792,7 @@ function main(argv) {
           writeFileSync(join(flags.out, `corpus-${name}-bundled.txt`), `${result.bundled}\n`);
         }
       }
+      for (const line of heldLines(held)) console.info(line);
       return incomplete > 0 ? 1 : 0;
     }
     case 'latest':
