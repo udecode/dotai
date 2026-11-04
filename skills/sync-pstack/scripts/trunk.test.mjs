@@ -21,8 +21,8 @@ const ENV = {
   CODEX_SESSION_ID: '',
   PSTACK_SLOT: '1',
 };
-const GOOD = 'feat(a): change a\n\nWhy a changes.\n\nBeyond the ask: none';
-const PR = 'feat(a): change a\n\n## Why\n\nWhy a changes.\n\n## Verification\n\n- a.txt reads two.\n\nBeyond the ask: none';
+const GOOD = 'feat(a): change a\n\nWhy a changes.\n\nBeyond the ask: none\nPicks: none\nNot checked: none';
+const PR = 'feat(a): change a\n\n## Why\n\nWhy a changes.\n\n## Verification\n\n- a.txt reads two.\n\nBeyond the ask: none\nPicks: none\nNot checked: none';
 
 const git = (cwd, ...args) => {
   const run = spawnSync('git', args, { cwd, encoding: 'utf8', env: ENV });
@@ -334,10 +334,10 @@ test('land takes a fix whose Introduced-by names a landed companion commit, and 
   const local = side('commit-tree', '-p', 'HEAD', '-m', 'local only', 'HEAD^{tree}');
   writeFileSync(join(clone, 'a.txt'), 'two\n');
 
-  const refused = helper('land.mjs', clone, ['--message', message(`fix(a): repair a\n\nBeyond the ask: none\nIntroduced-by: ${local}`)]);
+  const refused = helper('land.mjs', clone, ['--message', message(`fix(a): repair a\n\nBeyond the ask: none\nPicks: none\nNot checked: none\nIntroduced-by: ${local}`)]);
   assert.equal(refused.status, 1);
   assert.match(refused.stderr, /Introduced-by: \w+ names a commit origin\/next or \.git-private's origin\/next does not contain/);
-  const landed = helper('land.mjs', clone, ['--message', message(`fix(a): repair a\n\nBeyond the ask: none\nIntroduced-by: ${start}`)]);
+  const landed = helper('land.mjs', clone, ['--message', message(`fix(a): repair a\n\nBeyond the ask: none\nPicks: none\nNot checked: none\nIntroduced-by: ${start}`)]);
   assert.equal(landed.status, 0, landed.stderr);
   assert.match(git(remote, 'log', '-1', '--format=%B', 'next'), new RegExp(`^Introduced-by: ${start}$`, 'mu'));
 });
@@ -436,7 +436,7 @@ test('land pushes again when GitHub declines with an empty GH006, and fails at o
 
   declinePushes(remote, 1, ['', 'Changes must be made through a pull request.']);
   writeFileSync(join(clone, 'a.txt'), 'three\n');
-  const refused = helper('land.mjs', clone, ['--message', message('feat(a): change a again\n\nWhy.\n\nBeyond the ask: none')], NO_WAIT);
+  const refused = helper('land.mjs', clone, ['--message', message('feat(a): change a again\n\nWhy.\n\nBeyond the ask: none\nPicks: none\nNot checked: none')], NO_WAIT);
   assert.equal(refused.status, 1);
   assert.doesNotMatch(refused.stdout, /pushing again/, 'a reason after a blank error line is still a reason, so it is not retried');
   assert.match(refused.stderr, /Changes must be made through a pull request/);
@@ -491,7 +491,7 @@ test('a rerun after every push was declined skips the checks only while it would
   assert.match(first.stderr, /declined the push to next with an empty GH006 6 times[\s\S]*skips the checks unless origin\/next has moved since this run last rebased onto it/);
   assert.equal(git(remote, 'rev-parse', 'next'), base, 'nothing lands while GitHub declines');
 
-  assert.equal(helper('land.mjs', clone, ['--message', message('feat(a): change a differently\n\nWhy.\n\nBeyond the ask: none'), ...check], NO_WAIT).status, 75);
+  assert.equal(helper('land.mjs', clone, ['--message', message('feat(a): change a differently\n\nWhy.\n\nBeyond the ask: none\nPicks: none\nNot checked: none'), ...check], NO_WAIT).status, 75);
   assert.equal(runs(), 2, 'a new message runs the checks again');
   writeFileSync(join(clone, 'a.txt'), 'three\n');
   assert.equal(helper('land.mjs', clone, check, NO_WAIT).status, 75);
@@ -754,7 +754,7 @@ test('land refuses a commit that names no source of this project unless the gh l
   git(clone, 'config', 'pstack.delivery', 'push');
   const as = sourceless(fixture);
   const base = git(remote, 'rev-parse', 'next');
-  const body = (line) => `feat(a): change a\n\n${line}\n\nBeyond the ask: none`;
+  const body = (line) => `feat(a): change a\n\n${line}\n\nBeyond the ask: none\nPicks: none\nNot checked: none`;
   let count = 0;
   const change = () => writeFileSync(join(clone, 'a.txt'), `change ${(count += 1)}\n`);
   const refused = (text, env, why) => {
@@ -809,7 +809,7 @@ test('a rerun checks the source of the companion commit it pushes and writes its
   git(clone, 'config', 'pstack.delivery', 'push');
   const before = git(companion, 'rev-parse', 'next');
   const landed = git(clone, 'rev-parse', 'HEAD');
-  const pending = (line) => `feat(a): change a\n\n${line}\n\nBeyond the ask: none\n\nLead: claude-opus-5-5 @max\nLands-With: ${landed}`;
+  const pending = (line) => `feat(a): change a\n\n${line}\n\nBeyond the ask: none\nPicks: none\nNot checked: none\n\nLead: claude-opus-5-5 @max\nLands-With: ${landed}`;
   writeFileSync(join(clone, 'a.spec'), 'two\n');
   side('commit', '--quiet', '-am', pending('Why a changes.'));
 
@@ -821,7 +821,7 @@ test('a rerun checks the source of the companion commit it pushes and writes its
   side('commit', '--quiet', '--amend', '-m', pending('Repairs companion#3.'));
   const pushed = helper('land.mjs', clone, [], as('teammate'));
   assert.equal(pushed.status, 0, pushed.stderr);
-  assert.equal(git(companion, 'log', '-1', '--format=%B', 'next'), `feat(a): change a\n\nRepairs companion#3.\n\nBeyond the ask: none\n\nLands-With: ${landed}\nLead: unknown`);
+  assert.equal(git(companion, 'log', '-1', '--format=%B', 'next'), `feat(a): change a\n\nRepairs companion#3.\n\nBeyond the ask: none\nPicks: none\nNot checked: none\n\nLands-With: ${landed}\nLead: unknown`);
 });
 
 test('land ends the commit with the Lead line of the session that runs it, in place of one written in the message', () => {
@@ -991,15 +991,21 @@ test('land in a direct clone without push access says to fork and add upstream',
   assert.equal(existsSync(join(dir, 'gh-args')), false, 'no PR is opened');
 });
 
-test('land refuses a message without a Conventional subject or a Beyond the ask line and changes nothing', () => {
+test('land refuses a message without a Conventional subject or a Beyond the ask, Picks or Not checked line and changes nothing', () => {
   const { remote, clone, base, message } = trunk();
   git(clone, 'config', 'pstack.delivery', 'push');
   writeFileSync(join(clone, 'a.txt'), 'two\n');
   const head = git(clone, 'rev-parse', 'HEAD');
 
-  const noBeyond = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\nWhy a changes.\n')]);
+  const noBeyond = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\nWhy a changes.\n\nPicks: none\nNot checked: none\n')]);
   assert.equal(noBeyond.status, 1);
   assert.match(noBeyond.stderr, /the body has no `Beyond the ask:` line/);
+  const noPicks = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\nWhy a changes.\n\nBeyond the ask: none\nNot checked: none\n')]);
+  assert.equal(noPicks.status, 1);
+  assert.match(noPicks.stderr, /the body has no `Picks:` line; name each call the owner would notice/);
+  const noUnchecked = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\nWhy a changes.\n\nBeyond the ask: none\nPicks: none\nNot checked:\n')]);
+  assert.equal(noUnchecked.status, 1);
+  assert.match(noUnchecked.stderr, /the body has no `Not checked:` line; name what the proof did not check/);
   const badSubject = helper('land.mjs', clone, ['--message', message('Change a.\n\nBeyond the ask: none\n')]);
   assert.equal(badSubject.status, 1);
   assert.match(badSubject.stderr, /is not one Conventional Commit/);
@@ -1017,7 +1023,7 @@ test('land --dry runs the message and Defaults refusals without committing, and 
   writeFileSync(plan, defaults('huge'));
   const head = git(clone, 'rev-parse', 'HEAD');
 
-  const badSha = helper('land.mjs', clone, ['--message', message('fix(a): change a\n\nWhy a changes.\n\nIntroduced-by: abc\n\nBeyond the ask: none'), '--dry']);
+  const badSha = helper('land.mjs', clone, ['--message', message('fix(a): change a\n\nWhy a changes.\n\nIntroduced-by: abc\n\nBeyond the ask: none\nPicks: none\nNot checked: none'), '--dry']);
   assert.equal(badSha.status, 1);
   assert.match(badSha.stderr, /Introduced-by: abc is not a lowercase sha/u);
   const badImpact = helper('land.mjs', clone, ['--message', message(GOOD), '--dry']);
@@ -1099,13 +1105,13 @@ test('land refuses a message that breaks the Writing rule, and lands one that ke
   git(clone, 'config', 'pstack.delivery', 'push');
   writeFileSync(join(clone, 'a.txt'), 'two\n');
 
-  const dashed = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\nWhy a changes — and how.\n\nBeyond the ask: none\n')]);
+  const dashed = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\nWhy a changes — and how.\n\nBeyond the ask: none\nPicks: none\nNot checked: none\n')]);
   assert.equal(dashed.status, 1);
   assert.match(dashed.stderr, /breaks the Writing rule[\s\S]*line 3, long dash "—": Why a changes/u);
   assert.equal(git(remote, 'rev-parse', 'next'), base);
   assert.equal(git(clone, 'status', '--porcelain'), 'M a.txt');
 
-  const literal = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\nKeeps the `—` character in a.\n\nBeyond the ask: none\n')]);
+  const literal = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\nKeeps the `—` character in a.\n\nBeyond the ask: none\nPicks: none\nNot checked: none\n')]);
   assert.equal(literal.status, 0, literal.stderr);
   assert.notEqual(git(remote, 'rev-parse', 'next'), base);
 });
@@ -1128,10 +1134,10 @@ test('land refuses a closing keyword right before an issue reference, and lands 
   writeFileSync(join(clone, 'a.txt'), 'two\n');
 
   for (const [text, name] of [
-    ['feat(a): change a\n\nRan triage fix #5228 on it.\n\nBeyond the ask: none\n', 'remote'],
-    ['docs(a): resolve #12\n\nBeyond the ask: none\n', 'remote'],
-    ['feat(a): change a\n\nCloses: udecode/plate#12\n\nBeyond the ask: none\n', 'plate'],
-    ['feat(a): change a\n\nFixed https://github.com/udecode/plate-private/issues/5228 here.\n\nBeyond the ask: none\n', 'plate-private'],
+    ['feat(a): change a\n\nRan triage fix #5228 on it.\n\nBeyond the ask: none\nPicks: none\nNot checked: none\n', 'remote'],
+    ['docs(a): resolve #12\n\nBeyond the ask: none\nPicks: none\nNot checked: none\n', 'remote'],
+    ['feat(a): change a\n\nCloses: udecode/plate#12\n\nBeyond the ask: none\nPicks: none\nNot checked: none\n', 'plate'],
+    ['feat(a): change a\n\nFixed https://github.com/udecode/plate-private/issues/5228 here.\n\nBeyond the ask: none\nPicks: none\nNot checked: none\n', 'plate-private'],
   ]) {
     const run = helper('land.mjs', clone, ['--message', message(text)]);
     assert.equal(run.status, 1, text);
@@ -1139,12 +1145,12 @@ test('land refuses a closing keyword right before an issue reference, and lands 
   }
   assert.equal(git(remote, 'rev-parse', 'next'), base);
 
-  const run = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\nRan triage fix remote#5228; see #12, prefix #7, fixture/plate#12, fix #3b82f6.\n\nBeyond the ask: none\n')]);
+  const run = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\nRan triage fix remote#5228; see #12, prefix #7, fixture/plate#12, fix #3b82f6.\n\nBeyond the ask: none\nPicks: none\nNot checked: none\n')]);
   assert.equal(run.status, 0, run.stderr);
   assert.notEqual(git(remote, 'rev-parse', 'next'), base);
 });
 
-const FIX = 'fix(a): repair a\n\nBeyond the ask: none';
+const FIX = 'fix(a): repair a\n\nBeyond the ask: none\nPicks: none\nNot checked: none';
 for (const [name, args, refusal] of [
   ['names no commit that introduced its bug', ({ message }) => ['--message', message(FIX)], /names no commit that introduced its bug/],
   ['leaves its Introduced-by line empty', ({ message }) => ['--message', message(`${FIX}\nIntroduced-by: `)], /an `Introduced-by:` line has no value/],
@@ -1190,8 +1196,8 @@ test('land takes a fix that names a commit on next or none, and any other type w
     assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), `${text}\n\nLead: unknown`);
   };
   landed(GOOD);
-  landed(`fix(a)!: repair a\n\nBeyond the ask: none\nIntroduced-by: ${base}\nIntroduced-by: ${git(remote, 'rev-parse', '--short', 'next')}`);
-  landed('fix: repair a again\n\nBeyond the ask: none\nIntroduced-by: none');
+  landed(`fix(a)!: repair a\n\nBeyond the ask: none\nPicks: none\nNot checked: none\nIntroduced-by: ${base}\nIntroduced-by: ${git(remote, 'rev-parse', '--short', 'next')}`);
+  landed('fix: repair a again\n\nBeyond the ask: none\nPicks: none\nNot checked: none\nIntroduced-by: none');
 });
 
 test('land refuses a PR whose body is the commit body without Why and Verification text, and puts the task commits back', () => {
@@ -1204,9 +1210,12 @@ test('land refuses a PR whose body is the commit body without Why and Verificati
   const bare = helper('land.mjs', clone, ['--message', message(GOOD)], gh);
   assert.equal(bare.status, 1);
   assert.match(bare.stderr, /needs a `## Why` section and a `## Verification` section with text/);
-  const empty = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\n## Why\n\nWhy a changes.\n\n## Verification\n\n<!-- Each real run path and its outcome. -->\n\nBeyond the ask: none')], gh);
+  const empty = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\n## Why\n\nWhy a changes.\n\n## Verification\n\n<!-- Each real run path and its outcome. -->\n\nBeyond the ask: none\nPicks: none\nNot checked: none')], gh);
   assert.equal(empty.status, 1);
   assert.match(empty.stderr, /needs a `## Verification` section with text/);
+  const labelInComment = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\n## Why\n\nWhy a changes.\n\n## Verification\n\n<!--\nPicks: state the choice here\n-->\n\nBeyond the ask: none\nPicks: none\nNot checked: none')], gh);
+  assert.equal(labelInComment.status, 1);
+  assert.match(labelInComment.stderr, /needs a `## Verification` section with text/);
   assert.equal(git(clone, 'rev-parse', 'HEAD'), head, 'the task commits are back as they were');
   assert.equal(spawnSync('git', ['rev-parse', '--verify', 'task'], { cwd: remote, env: ENV }).status, 128, 'no topic branch reaches the remote');
   assert.equal(existsSync(join(dir, 'gh-args')), false, 'no PR is opened');
@@ -1225,9 +1234,9 @@ test('review groups the commits to review by session, --done marks one session r
     return git(clone, 'rev-parse', 'HEAD');
   };
   const one = land('one.txt', 'feat(a): one', 'Beyond the ask: none\n\nSession: local_s1\nPlan: docs/plans/2026-10-17-x.md');
-  land('two.txt', 'fix(b): two', `No plan here.\n\nBeyond the ask: renamed c\nIntroduced-by: ${one}\n\nSession: s2`);
+  land('two.txt', 'fix(b): two', `No plan here.\n\nBeyond the ask: renamed c\nIntroduced-by: ${one}\n\nBeyond the ask: moved d\n\nSession: s2`);
   const three = land('three.txt', 'docs(a): three', 'See docs/plans/2026-10-17-x.md.\n\nBeyond the ask: none\n\nSession: local_s1');
-  const four = land('four.txt', 'chore: four', 'Beyond the ask: none');
+  const four = land('four.txt', 'chore: four', 'Beyond the ask: none\nPicks: kept the old name,\nreversed by rename\nNot checked: Windows paths\nShipped fast, no review.');
   git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
   const reviewed = () => git(clone, 'rev-parse', 'refs/pstack/reviewed');
 
@@ -1235,7 +1244,7 @@ test('review groups the commits to review by session, --done marks one session r
   assert.match(listed, /^4 commit\(s\) to review on origin\/next since refs\/pstack\/reviewed/);
   assert.match(
     listed,
-    /\n\nSession local_s1 \(claude:\/\/claude\.ai\/epitaxy\/local_s1\)\n {2}\w+ feat\(a\): one\n {4}docs\/plans\/2026-10-17-x\.md\n {4}Beyond the ask: none\n {2}\w+ docs\(a\): three\n {4}docs\/plans\/2026-10-17-x\.md\n {4}Beyond the ask: none\n {2}Net: node \.agents\/pstack\/review\.mjs --net local_s1\n\nSession s2\n {2}\w+ fix\(b\): two\n {4}No plan link\n {4}Beyond the ask: renamed c\n\nNo Session: line \(--done none\)\n {2}\w+ chore: four\n/
+    /\n\nSession local_s1 \(claude:\/\/claude\.ai\/epitaxy\/local_s1\)\n {2}\w+ feat\(a\): one\n {4}docs\/plans\/2026-10-17-x\.md\n {4}Beyond the ask: none\n {2}\w+ docs\(a\): three\n {4}docs\/plans\/2026-10-17-x\.md\n {4}Beyond the ask: none\n {2}Net: node \.agents\/pstack\/review\.mjs --net local_s1\n\nSession s2\n {2}\w+ fix\(b\): two\n {4}No plan link\n {4}Beyond the ask: renamed c Beyond the ask: moved d\n\nNo Session: line \(--done none\)\n {2}\w+ chore: four\n {4}No plan link\n {4}Beyond the ask: none\n {4}Picks: kept the old name, reversed by rename\n {4}Not checked: Windows paths\n/
   );
   assert.equal(helper('review.mjs', clone, ['--done']).status, 2);
 
@@ -1319,7 +1328,7 @@ function sessions() {
   git(clone, 'config', 'pstack.delivery', 'push');
   const land = (files, subject, session) => {
     for (const [path, text] of Object.entries(files)) writeFileSync(join(clone, path), text);
-    const run = helper('land.mjs', clone, ['--message', message(`${subject}\n\nWhy.\n\nBeyond the ask: none`)], { CLAUDE_CODE_HOST_SESSION_ID: session });
+    const run = helper('land.mjs', clone, ['--message', message(`${subject}\n\nWhy.\n\nBeyond the ask: none\nPicks: none\nNot checked: none`)], { CLAUDE_CODE_HOST_SESSION_ID: session });
     assert.equal(run.status, 0, run.stderr);
     return git(clone, 'rev-parse', 'HEAD');
   };
@@ -1343,6 +1352,7 @@ test('review --revert lands one fix commit that undoes every commit of a session
   const body = git(remote, 'log', '-1', '--format=%B', 'next');
   assert.equal(body.split('\n')[0], 'fix(revert): undo session aaaaaaaa');
   assert.match(body, /^Beyond the ask: none$/mu);
+  assert.match(body, /^Not checked: the reverted tree, because no check ran on it$/mu);
   assert.deepEqual([...body.matchAll(/^Introduced-by: (\S+)$/gmu)].map(([, sha]) => sha).sort(), [first, third].sort());
 });
 
@@ -1372,6 +1382,7 @@ test('review --revert in a clone that delivers by PR opens one whose body has a 
   const body = readFileSync(join(dir, 'gh-body'), 'utf8');
   assert.match(body, /^## Why\n\nReverts every commit session /mu);
   assert.match(body, /^## Verification\n\nland\.mjs ran `true` on the reverted tree before landing it\.$/mu);
+  assert.match(body, /^Not checked: none$/mu);
 });
 
 test('review --revert stops on a conflict before its last commit, land refuses until the revert is continued, and then lands it whole', () => {
@@ -1524,7 +1535,7 @@ test('review --revert undoes a session in both halves and lands the pair', () =>
   git(clone, 'config', 'pstack.delivery', 'push');
   const land = (files, subject, session) => {
     for (const [path, text] of Object.entries(files)) writeFileSync(join(clone, path), text);
-    const run = helper('land.mjs', clone, ['--message', message(`${subject}\n\nWhy.\n\nBeyond the ask: none`)], { CLAUDE_CODE_HOST_SESSION_ID: session });
+    const run = helper('land.mjs', clone, ['--message', message(`${subject}\n\nWhy.\n\nBeyond the ask: none\nPicks: none\nNot checked: none`)], { CLAUDE_CODE_HOST_SESSION_ID: session });
     assert.equal(run.status, 0, run.stderr);
   };
   land({ 'a.txt': 'two\n', 'a.spec': 'two\n' }, 'feat(a): one changes a', ONE);
