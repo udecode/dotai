@@ -1522,13 +1522,31 @@ test('verify reads no link inside inline code', () => {
     'wrapped-span.md': ['See `foo\nbar` and [Gone](../gone/SKILL.md) and `x`.\n', '../gone/SKILL.md'],
     'tick-in-destination.md': ['[Gone](../task`old`/SKILL.md)\n', '../task`old`/SKILL.md'],
     'table-cell.md': ['| a | b |\n| --- | --- |\n| `x [Gone](../gone/SKILL.md) | y` |\n', '../gone/SKILL.md'],
+    'html-before-span.md': ['<i title="`">[Gone](../gone/SKILL.md)`</i> and `x`\n', '../gone/SKILL.md'],
+    'paren-in-destination.md': ['[x](a(b)`) [Gone](../gone/SKILL.md) `y\n', '../gone/SKILL.md'],
+    'tick-in-label.md': ['[t][b`c] [Gone](../gone/SKILL.md) `y\n\n[b`c]: /u\n', '../gone/SKILL.md'],
+    'destination-next-line.md': ['[x](\n`a) [Gone](../gone/SKILL.md) `y\n', '../gone/SKILL.md'],
+    'quote-in-destination.md': ['[x](b"("c)z`) [Gone](../gone/SKILL.md) `y\n', '../gone/SKILL.md'],
+    'nbsp-line-table.md': ['| a | b |\n| - | - |\n \n| `x [Gone](../gone/SKILL.md) | y` |\n', '../gone/SKILL.md'],
+    'nbsp-line-paragraph.md': ['`foo\n \nbar` [Gone](../gone/SKILL.md) `tail\n', '../gone/SKILL.md'],
+    'bare-url.md': ['See https://x.com/a` [Gone](../gone/SKILL.md) `b\n', '../gone/SKILL.md'],
+    'bare-www.md': ['See www.x.com/a` [Gone](../gone/SKILL.md) `b\n', '../gone/SKILL.md'],
+    'bare-ftp.md': ['See ftp://x.com/a` [Gone](../gone/SKILL.md) `b\n', '../gone/SKILL.md'],
+    'footnote-definition.md': ['See this[^a`b].\n\n[^a`b]: [Gone](../gone/SKILL.md) `c\n', '../gone/SKILL.md'],
+    'footnote-call.md': ['[^a`b] [Gone](../gone/SKILL.md) `c\n\n[^a`b]: note\n', '../gone/SKILL.md'],
+  };
+  const quiet = {
+    'no-link.md': '[Gone]`example`(../gone/SKILL.md)\n',
+    'span-tokens.md': 'Tokens `[a](b)`, `<br/>`, `<`, `\\` and `|` stay code.\n',
+    'quote-destination-code.md': '[x](https://example.com/a"b) `[Gone](../gone/SKILL.md)`\n',
+    'apostrophe-destination-code.md': "[a](https://x.com/it's) `[Gone](../gone/SKILL.md)`\n",
   };
   for (const [file, [text]] of Object.entries(deadLinks)) writeFileSync(join(root, '.agents/skills/feature', file), text);
-  writeFileSync(join(root, '.agents/skills/feature/no-link.md'), '[Gone]`example`(../gone/SKILL.md)\n');
+  for (const [file, text] of Object.entries(quiet)) writeFileSync(join(root, '.agents/skills/feature', file), text);
   const result = cli('verify', root);
   const wrong = [
     ...Object.entries(deadLinks).filter(([file, [, target]]) => !result.stdout.includes(`.agents/skills/feature/${file}: dead link ${target}`)).map(([file]) => `missed ${file}`),
-    ...['dead link "ab"', 'no-link.md'].filter((text) => result.stdout.includes(text)).map((text) => `reported ${text}`),
+    ...['dead link "ab"', ...Object.keys(quiet)].filter((text) => result.stdout.includes(text)).map((text) => `reported ${text}`),
   ];
   assert.deepEqual(wrong, []);
 });

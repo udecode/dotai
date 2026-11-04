@@ -266,7 +266,7 @@
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
-      "sha256": "e8ba239c51b566406fc14e0150eaa61b861c37ab191a6d4294f658e71ca4cc55",
+      "sha256": "5809ba1c22ede1558b405e802d28c297446c62a3fc8b0ad7596a44dc39e9f9f6",
       "mode": 420
     },
     "skills/sync-pstack/agents/openai.yaml": {
@@ -510,11 +510,11 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.mjs": {
-      "sha256": "b7a1141dce336af942610674303c9de44401a08629c8f6cd6410046bf5650b97",
+      "sha256": "56017e7c6e9827b1e7b737ae746e2391f331ecf4b114ae5a3f874e9c8763c8e0",
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "eb273aacf9614a5bda8cf449f29454448320fffcccde5ff3d734f73b0b6eb24c",
+      "sha256": "bcfeb3b70ef397f3db7c619ca2ef01345b5ecf27b71f5bb8e8b1fcdf85aaf5b9",
       "mode": 420
     },
     "skills/sync-pstack/scripts/trunk.test.mjs": {

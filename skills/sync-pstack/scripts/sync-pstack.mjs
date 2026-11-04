@@ -1392,18 +1392,68 @@ export function verify(root) {
   }
 
   // A line's code spans count only where every Markdown reader pairs its
-  // backticks the same way: single backticks, an even count, no escape, HTML,
-  // table cell or link destination that could claim one, and no span left open
-  // earlier in its paragraph.
+  // backticks the same way: single backticks, an even count, no table row, no
+  // span left open earlier in its paragraph, and nothing outside the spans that
+  // could claim a backtick first. That is an escaped backtick, a link
+  // destination, title or label, a footnote label or a GFM bare URL that could
+  // hold one, or any `<`, because the HTML and autolink grammar is too large to
+  // copy. Only spaces and tabs make a line blank.
+  const holds = (line, from, close) => {
+    for (let index = from; index < line.length; index++) {
+      if (line[index] === '`') return true;
+      if (line[index] === '\\' && line[index + 1] !== '`') index++;
+      else if (line[index] === close) return false;
+    }
+    return true;
+  };
+  const destinationHolds = (line, from) => {
+    let index = from;
+    const skip = () => {
+      while (line[index] === ' ' || line[index] === '\t') index++;
+    };
+    skip();
+    for (let depth = 0; index < line.length && line[index] !== ' ' && line[index] !== '\t'; index++) {
+      const char = line[index];
+      if (char === '`') return true;
+      if (char === '\\' && line[index + 1] !== '`') index++;
+      else if (char === '(') depth++;
+      else if (char === ')' && depth-- === 0) return false;
+    }
+    skip();
+    if (index >= line.length) return true;
+    const close = { '"': '"', "'": "'", '(': ')' }[line[index]];
+    return close ? holds(line, index + 1, close) : false;
+  };
+  const claims = (line, at) => {
+    const [char, next] = [line[at], line[at + 1]];
+    if (char === '<') return true;
+    if (char === '\\') return next === '`';
+    if (char === ']') return next === '(' ? destinationHolds(line, at + 2) : next === '[' && holds(line, at + 2, ']');
+    if (char !== '[') return /^\S*`/u.test(line.slice(at));
+    if (next === '^') return holds(line, at + 2, ']');
+    if (!/^[ \t>]*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?$/u.test(line.slice(0, at))) return false;
+    const label = /^((?:\\.|[^\\\]])*)\](:?)/u.exec(line.slice(at + 1));
+    return !label || (label[2] === ':' && label[1].includes('`'));
+  };
   const linkTargets = (text) => {
-    let closed = true;
-    return text.split(/\r\n?|\n/u).flatMap((line) => {
-      if (!line.trim()) closed = true;
-      const ticks = [...line.matchAll(/`+/gu)];
-      const plain = ticks.every(([tick]) => tick.length === 1) && ticks.length % 2 === 0 && !/[\\<|]|\]\([^)]*`/u.test(line);
-      const spans = closed && plain ? ticks.flatMap((tick, index) => (index % 2 === 0 ? [[tick.index, ticks[index + 1].index]] : [])) : [];
-      closed &&= plain;
-      return [...line.matchAll(/\]\(([^)\s#]+)(?:#[^)]*)?\)/gu)].filter((link) => !spans.some(([start, end]) => start < link.index && link.index < end)).map((link) => link[1]);
+    const blocks = [[]];
+    for (const line of text.split(/\r\n?|\n/u)) {
+      if (/^[ \t]*$/u.test(line)) blocks.push([]);
+      else blocks.at(-1).push(line);
+    }
+    return blocks.flatMap((lines) => {
+      const table = lines.some((line) => line.includes('|')) && lines.some((line) => /^[\s>]*[-|:\s]*-[-|:\s]*$/u.test(line));
+      let closed = true;
+      return lines.flatMap((line) => {
+        const ticks = [...line.matchAll(/`+/gu)];
+        const pairs = ticks.flatMap((tick, index) => (index % 2 === 0 && ticks[index + 1] ? [[tick.index, ticks[index + 1].index]] : []));
+        const inside = (at) => pairs.some(([start, end]) => start < at && at < end);
+        const claimed = [...line.matchAll(/[<\\[\]]|(?:https?|ftp):\/\/|www\./giu)].some(({ index }) => !inside(index) && claims(line, index));
+        const plain = ticks.every(([tick]) => tick.length === 1) && ticks.length % 2 === 0 && !(table && line.includes('|')) && !claimed;
+        const spans = closed && plain ? pairs : [];
+        closed &&= plain;
+        return [...line.matchAll(/\]\(([^)\s#]+)(?:#[^)]*)?\)/gu)].filter((link) => !spans.some(([start, end]) => start < link.index && link.index < end)).map((link) => link[1]);
+      });
     });
   };
 
