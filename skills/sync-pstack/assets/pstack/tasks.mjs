@@ -848,7 +848,7 @@ export function groupsOf(tasks, plans = 'docs/plans') {
 export function renderGroups(groups, ledger) {
   if (groups.length === 0) return `No two open tasks in ${ledger} share two kinds of evidence, so no group needs judging.`;
   const out = [
-    `${groups.length} ${groups.length === 1 ? 'group' : 'groups'} of open tasks in ${ledger} that may answer one question. Judge each pair as chips.md's Groups bullet says: dismissed dup when one fix removes both, and otherwise apart with from:, then a task: wait when an offered task needs the other's result.`,
+    `${groups.length} ${groups.length === 1 ? 'group' : 'groups'} of open tasks in ${ledger} that may answer one question. Judge each pair as chips.md's Groups bullet says: dismissed dup when they share two kinds of evidence and one fix removes both, and otherwise apart with from:, then a task: wait when an offered task needs the other's result or one fix removes both.`,
   ];
   for (const { members, links } of groups) {
     out.push('', ...links.map(({ a, b, kinds }) => `  ${a.id} and ${b.id}: ${kinds.join('; ')}`), ...members.map((task) => line(task, `  ${task.status === 'started' ? 'started' : task.card ? `card ${task.card}` : 'no card'}`)));
@@ -970,7 +970,7 @@ export function board(tasks, git, here = null, { transcript = null, all = false,
       };
     });
   const passes = [
-    ['withdrawal', withdrawals],
+    ['withdrawal', here === null ? [] : withdrawals],
     ['ledger', merge ? [merge, ...rows.filter((item) => !item.ids.some((id) => merge.ids.includes(id)))] : rows],
     ['card', cards],
   ];

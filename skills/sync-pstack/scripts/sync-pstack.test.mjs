@@ -3607,7 +3607,7 @@ test('a base-red row and a carded row stay valid after the state they were judge
   assert.equal(chip('task_c2 Fix the writer', 'started').status, 0);
   const ledgerChecked = helper(LEDGER);
   assert.equal(ledgerChecked.status, 0, `a later start leaves the earlier card row valid: ${ledgerChecked.stderr}`);
-  const board = chips();
+  const board = chips('--session', 's1');
   assert.match(board.stdout, /withdraw task_c1's card c1: started task_c2 writes its paths outside this checkout; log started when the dismiss tool reports the owner started it, dismissed declined with card: c1 when it reports the owner dismissed it, and otherwise uncarded with card: c1 once it is withdrawn or its session has ended\n/, 'the board still asks for the card to go, with each route a withdrawal can take');
   assert.equal(board.status, 1);
 });
@@ -4012,15 +4012,18 @@ test('a design question that waits on a design question of its topic is not a se
   assert.match(chips().stdout, /merge task_d1 into task_k1/);
 });
 
-test('chips shows one pass at a time: withdrawals, then ledger rows, then cards', () => {
+test('chips shows one pass at a time: withdrawals, then ledger rows, then cards, and a read with no session skips the withdrawals', () => {
   const { chip, chips, offer, root, LEDGER } = chipLedger();
   assert.equal(offer('task_a1 Fix a', 'src/a.ts', 'topic: one').status, 0);
   writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', 'task_o1 Fix the old docs', 'why', 'writes: docs/o.md', 'offered'].join('\t') + '\n');
   assert.equal(offer('task_c1 Fix c', 'src/c.ts', 'topic: three; card: c1; session: s1').status, 0);
   assert.equal(chip('task_c1 Fix c', 'updated', 'waits: pr:5').status, 0, 'a wait added to a carded task');
-  const withdrawals = chips();
+  const withdrawals = chips('--session', 's1');
   assert.match(withdrawals.stdout, /Do, withdrawal pass \(1\)\n {2}withdraw task_c1's card c1/);
   assert.doesNotMatch(withdrawals.stdout, /migrate task_o1|card task_a1/);
+  const sessionless = chips();
+  assert.match(sessionless.stdout, /Do, ledger pass \(1\)\n {2}migrate task_o1/, 'a read with no session applies no withdrawal, so the ledger pass shows');
+  assert.equal(sessionless.status, 1, 'the waiting card still counts as a problem');
   assert.equal(chip('task_c1 Fix c', 'uncarded', 'card: c1').status, 0);
   const ledger = chips();
   assert.match(ledger.stdout, /Do, ledger pass \(1\)\n {2}migrate task_o1/);
@@ -4340,7 +4343,7 @@ test('chips groups links two open tasks that share two kinds of evidence, and an
   assert.equal(groups.status, 0, groups.stderr);
   assert.equal(
     groups.stdout,
-    "1 group of open tasks in docs/plans/suggested-tasks.decisions.tsv that may answer one question. Judge each pair as chips.md's Groups bullet says: dismissed dup when one fix removes both, and otherwise apart with from:, then a task: wait when an offered task needs the other's result.\n" +
+    "1 group of open tasks in docs/plans/suggested-tasks.decisions.tsv that may answer one question. Judge each pair as chips.md's Groups bullet says: dismissed dup when they share two kinds of evidence and one fix removes both, and otherwise apart with from:, then a task: wait when an offered task needs the other's result or one fix removes both.\n" +
       '\n' +
       '  task_a1 and task_b1: problem; fix area (rules/trails.md)\n' +
       '  task_a1  Give worktree sessions a run directory the Write tool can reach  [run-dir-write]  no card\n' +
