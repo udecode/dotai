@@ -1680,6 +1680,46 @@ test('guard denies an agent gh pr create into next or with no base, and passes a
     'git push origin HEAD:someone-branch',
     'node .agents/pstack/land.mjs --message m.txt',
     "cat <<'EOF'\ngh pr create\nEOF",
+    'gh pr create --help',
+    'gh pr new -h',
+  ];
+  for (const command of passed) assert.equal(guard(command), null, command);
+});
+
+test("guard denies an agent's approval of a workflow run without the user's word, and passes reads and a marked approval", () => {
+  const { clone } = trunk();
+  const guard = (command) => {
+    const run = spawnSync(process.execPath, [join(clone, '.agents/pstack/guard.mjs')], {
+      input: JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd: clone }),
+      encoding: 'utf8',
+      env: ENV,
+    });
+    assert.equal(run.status, 0, run.stderr);
+    return run.stdout ? JSON.parse(run.stdout).hookSpecificOutput : null;
+  };
+  const denied = [
+    'gh api -X POST repos/a/b/actions/runs/123/approve',
+    'gh api --method=POST /repos/a/b/actions/runs/$id/approve',
+    'for id in 1 2; do gh api -X POST "repos/a/b/actions/runs/$id/approve"; done',
+    "bash -c 'gh api -X POST repos/a/b/actions/runs/1/approve'",
+    'curl -X POST -H "Authorization: Bearer $T" https://api.github.com/repos/a/b/actions/runs/1/approve',
+    'gh api repos/a/b/actions/runs/123/pending_deployments -f state=approved -F environment_ids[]=1',
+    'curl --json @body.json https://api.github.com/repos/a/b/actions/runs/1/pending_deployments',
+  ];
+  for (const command of denied) {
+    const decision = guard(command);
+    assert.equal(decision?.permissionDecision, 'deny', command);
+    assert.match(decision.permissionDecisionReason, /only on the user's word/u, command);
+    assert.match(decision.permissionDecisionReason, /PSTACK_USER_WORD=1/u, command);
+  }
+  const passed = [
+    'PSTACK_USER_WORD=1 gh api -X POST repos/a/b/actions/runs/123/approve',
+    'cd x && PSTACK_USER_WORD=1 curl -X POST https://api.github.com/repos/a/b/actions/runs/1/approve',
+    'gh api repos/a/b/actions/runs/123',
+    'gh api repos/a/b/actions/runs/123/pending_deployments',
+    'gh run view 123 --log-failed',
+    'gh pr review 7 --approve',
+    "git commit -m 'approve fork runs via repos/a/b/actions/runs/1/approve'",
   ];
   for (const command of passed) assert.equal(guard(command), null, command);
 });
@@ -1725,6 +1765,13 @@ test('guard denies a command that would delete or overwrite the companion files,
     ['x=$(pwd) git clean -fdx']: /git clean -x or -X/u,
     ['git -C $(pwd) clean -fdx']: /git clean -x or -X/u,
     ['if true; then git clean -fdx; fi']: /git clean -x or -X/u,
+    [`(PLAIN=${plain}); cd "$PLAIN" && git clean -fdx`]: /git clean -x or -X/u,
+    [`false || PLAIN=${plain}; cd "$PLAIN" && git clean -fdx`]: /git clean -x or -X/u,
+    [`PLAIN=${plain} cd "$PLAIN" && git clean -fdx`]: /git clean -x or -X/u,
+    [`PLAIN=${plain} | true; cd "$PLAIN" && git clean -fdx`]: /git clean -x or -X/u,
+    [`if true; then echo; PLAIN=${plain}; fi; cd "$PLAIN" && git clean -fdx`]: /git clean -x or -X/u,
+    [`PLAIN=${plain}; bash -c 'cd "$PLAIN" && git clean -fdx'`]: /git clean -x or -X/u,
+    [`PLAIN=${plain}; PLAIN=$(pwd); cd "$PLAIN" && git clean -fdx`]: /git clean -x or -X/u,
   };
   for (const [command, reason] of Object.entries(denied)) {
     const decision = guard(command);
@@ -1754,8 +1801,20 @@ test('guard denies a command that would delete or overwrite the companion files,
     `cd ${plain} && timeout 60 git reset --hard ${old}`,
     `cd ${plain} && (git clean -fdx)`,
     `cd ${plain} && echo "$(git clean -fdx)"`,
+    `PLAIN=${plain}; cd "$PLAIN" && git reset --hard ${old}`,
+    `PLAIN=${plain} && cd \${PLAIN} && git clean -fdx`,
+    `export PLAIN=${plain}\ncd "$PLAIN" && git clean -fdx`,
+    `ROOT=${dir}; PLAIN=$ROOT/plain; cd "$PLAIN" && git clean -fdx`,
+    `{ PLAIN=${plain}; }; cd "$PLAIN" && git clean -fdx`,
+    `PLAIN=${plain}; git -C "$PLAIN" clean -fdx`,
+    `PLAIN=${plain}; echo "$(cd $PLAIN && git clean -fdx)"`,
   ];
   for (const command of passed) assert.equal(guard(command), null, command);
+  const named = guard(`cd "$PLAIN" && git reset --hard ${old}`)?.permissionDecisionReason ?? '';
+  assert.match(named, /could not resolve `cd \$PLAIN`/u, 'a denial names the cd target it could not resolve');
+  assert.match(named, /moving \/\S+\/clone there/u, 'a denial names the checkout it judged');
+  assert.match(guard('git -C "$PLAIN" clean -fdx')?.permissionDecisionReason ?? '', /could not resolve `git -C \$PLAIN`/u);
+  assert.doesNotMatch(guard('git clean -fdx')?.permissionDecisionReason ?? '', /could not resolve/u, 'a resolved command gets no note');
   assert.equal(guard('git clean -fdx', plain), null, 'a checkout without the companion directory has nothing of it to lose');
 });
 
