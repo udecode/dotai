@@ -4711,6 +4711,25 @@ test('decisions-check refuses a fourth panel round until a built: or another rou
   assert.equal(append('panel', 'seats opus').status, 0, 'an another round: row allows the next round');
 });
 
+test('decisions-check takes the panel round cap from maxRounds and refuses a cap that is not a whole number', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', { config: { ...CONFIG, maxRounds: 1 } });
+  const check = (...args) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), ...args], root);
+  const append = (phase, decision) => check('append', 'log.decisions.tsv', phase, decision, 'why', 'evidence', 'recorded');
+  assert.equal(append('panel', 'seats opus').status, 0);
+  assert.equal(append('writing', 'unslop on the round fixes').status, 0);
+  const stuck = append('panel', 'seats opus');
+  assert.equal(stuck.status, 1, 'a second round past a cap of 1');
+  assert.match(stuck.stderr, /panel round 2 since the last restart, past the cap of 1/);
+  const rounds = check('rounds', 'log.decisions.tsv');
+  assert.equal(rounds.status, 1);
+  assert.match(rounds.stdout, /the cap is 1\b/);
+  writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ ...CONFIG, maxRounds: 'five' }));
+  assert.notEqual(append('panel', 'seats opus').status, 0, 'a cap that is not a whole number refuses instead of turning the cap off');
+  writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ ...CONFIG, maxRounds: null }));
+  assert.notEqual(check('rounds', 'log.decisions.tsv').status, 0, 'a null cap refuses, as apply refuses it, instead of reading as the default');
+});
+
 test('decisions-check refuses a new trunk step while an earlier one is built and not landed', () => {
   const { dir, run } = sandbox();
   const append = (root, phase, decision) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', phase, decision, 'why', 'evidence', 'recorded'], root);
@@ -4808,25 +4827,6 @@ test('an older copy of the shared source refuses to undo a newer sync', () => {
   assert.equal(refused.status, 1);
   assert.match(refused.stdout, /does not include/);
   assert.match(read(root, 'AGENTS.md'), /three informed attempts/);
-test('decisions-check takes the panel round cap from maxRounds and refuses a cap that is not a whole number', () => {
-  const { dir, run } = sandbox();
-  const root = project(dir, 'app', { config: { ...CONFIG, maxRounds: 1 } });
-  const check = (...args) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), ...args], root);
-  const append = (phase, decision) => check('append', 'log.decisions.tsv', phase, decision, 'why', 'evidence', 'recorded');
-  assert.equal(append('panel', 'seats opus').status, 0);
-  assert.equal(append('writing', 'unslop on the round fixes').status, 0);
-  const stuck = append('panel', 'seats opus');
-  assert.equal(stuck.status, 1, 'a second round past a cap of 1');
-  assert.match(stuck.stderr, /panel round 2 since the last restart, past the cap of 1/);
-  const rounds = check('rounds', 'log.decisions.tsv');
-  assert.equal(rounds.status, 1);
-  assert.match(rounds.stdout, /the cap is 1\b/);
-  writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ ...CONFIG, maxRounds: 'five' }));
-  assert.notEqual(append('panel', 'seats opus').status, 0, 'a cap that is not a whole number refuses instead of turning the cap off');
-  writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ ...CONFIG, maxRounds: null }));
-  assert.notEqual(check('rounds', 'log.decisions.tsv').status, 0, 'a null cap refuses, as apply refuses it, instead of reading as the default');
-});
-
 });
 
 test('a sync from an uncommitted source records the commit once it lands', () => {
