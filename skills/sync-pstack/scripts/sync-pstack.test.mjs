@@ -2994,6 +2994,86 @@ test('decisions-check takes a second open critical finding only with an open des
   assert.match(unrelated.stderr, /via: panel is the route for the design question that two open critical panel findings require, so it goes only on a kind: decide offer/);
 });
 
+test("decisions-check takes a review round's second critical finding under redesign-runs only once the log holds a redesign run row", () => {
+  const { helper, root } = chipLedger();
+  mkdirSync(join(root, '.agents/playbooks'), { recursive: true });
+  const fix = (setting, eol = '\n') => `---\nextends: bug-fix\nwhen: Use it for a bug report.\n${setting}---\n\n# Bug fix\n`.replaceAll('\n', eol);
+  writeFileSync(join(root, '.agents/playbooks/bug-fix.md'), fix('redesign-runs: on\n'));
+  writeFileSync(join(root, '.agents/playbooks/build.md'), fix(''));
+  writeFileSync(join(root, '.agents/playbooks/triage.md'), fix('redesign-runs: off\n'));
+  writeFileSync(join(root, '.agents/playbooks/crlf.md'), fix('redesign-runs: on\n', '\r\n'));
+  const plan = (slug, playbook, eol = '\n') => {
+    writeFileSync(join(root, `docs/plans/${slug}.md`), `# Join\n\nStatus: building\nPlaybook: ${playbook}\n${brief()}`.replaceAll('\n', eol));
+    return `docs/plans/${slug}.decisions.tsv`;
+  };
+  const row = (decision, result = 'applied: the read follows the end place', phase = 'panel', evidence = 'proof: none') => [phase, decision, 'why', evidence, result].join('\t');
+  const seats = row('seats opus', 'recorded');
+  const writing = row('deslop on the round fixes', 'recorded', 'writing');
+  const critical = (n, result) => row(`critical [opus]: finding ${n}`, result);
+  const open = (n) => critical(n, 'open: a row of the expected-results table, patch: none, owner: user, stop: the slice that fixes it lands');
+  const append = (log, ...rows) => {
+    writeFileSync(join(root, 'rows.tsv'), rows.join('\n') + '\n');
+    return helper('append', log, '--from', 'rows.tsv');
+  };
+  const refused = (at) => new RegExp(`\\(new row${at ? ` ${at}` : ''}\\): this is critical finding \\d of its panel round.*the bug-fix playbook counts more than one failure kind with one owner .*"redesign run:" .*"plan round:" .*"separate owners:"`);
+  const asked = /this log already holds 1 open critical finding/;
+
+  writeFileSync(join(root, 'docs/plans/2026-01-02-join-verdict.md'), '# Verdict on the join reader\n');
+  writeFileSync(join(root, 'VISION.md'), '# Vision\n');
+  const verdict = (decision, evidence) => row(decision, 'decided', 'verdict', evidence);
+  const redesigned = verdict('redesign run: verdict Pursue on the join reader', 'page: docs/plans/2026-01-02-join-verdict.md');
+  const planRound = row('plan round: docs/plans/2026-01-03-join.md', 'decided', 'plan');
+
+  const log = plan('2026-01-03-join', 'bug-fix');
+  assert.equal(append(log, seats, planRound, critical(1), critical(2)).status, 0, 'a plan round row');
+  const code = append(log, writing, seats, critical(1), critical(2));
+  assert.match(code.stderr, refused(4), 'a round without a plan round row reviews a fix, with or without a build row before it');
+  assert.match(code.stderr, /in phase verdict, giving the verdict and naming in its evidence the verdict's page/);
+  assert.match(append(log, writing, row('the join reads the end place', 'fixed: src/join.ts', 'verify'), seats, critical(1), critical(2)).stderr, refused(5), 'a fix logged under verify');
+  assert.equal(append(log, writing, seats, critical(1), critical(2, 'dismissed: the probe ran on the old build')).status, 0, 'a dismissed finding is no failure kind');
+  assert.match(append(log, critical(3)).stderr, refused(), 'a later batch counts the round so far');
+  const owners = append(log, row('separate owners: the join reader; the undo history', 'decided', 'review'), critical(3));
+  assert.equal(owners.status, 0, `two owners take two findings: ${owners.stderr}`);
+  const third = append(log, critical(4));
+  assert.match(third.stderr, /critical finding 3 of its panel round while its separate owners: row names 2 owners/, 'a third finding past two owners');
+  assert.match(append(log, row('separate owners: the join reader; The Join Reader', 'decided', 'review'), critical(4)).stderr, refused(2), 'one owner named twice');
+  assert.equal(append(log, writing, row('built: src/join.ts', 'applied: the join reads the end place', 'build'), seats, critical(4)).status, 0);
+  assert.match(append(log, critical(5)).stderr, refused(), "an earlier round's owners do not carry over");
+  for (const [marker, why] of [
+    [verdict('redesign run: verdict Pursue on the join reader', 'proof: none'), 'a verdict row that names no page'],
+    [verdict('redesign run: no', 'proof: none'), 'a verdict row that says no'],
+    [verdict('redesign run: verdict Pursue on the join reader', 'plan: docs/plans/2026-01-03-join.md'), "a verdict row that names the log's own plan"],
+    [verdict('redesign run: verdict Pursue on the join reader', 'page: VISION.md'), 'a verdict row that names a file outside the plans directory'],
+    [row('redesign run: verdict Pursue on the join reader', 'decided', 'fix', 'page: docs/plans/2026-01-02-join-verdict.md'), 'a redesign run row in a fix phase'],
+  ]) assert.match(append(log, marker, critical(5)).stderr, refused(2), why);
+  assert.match(append(log, critical(5), redesigned).stderr, refused(1), 'a redesign run row after the finding');
+  assert.equal(append(log, redesigned, critical(5), critical(6)).status, 0, "a verdict row that names the verdict's page");
+  assert.equal(append(log, writing, seats, critical(7), critical(8)).status, 0, 'the run stays a redesign run in later rounds');
+  const answered = append(log, writing, seats, open(9), open(10));
+  assert.equal(answered.status, 0, `a redesign run's verdict answers the design question two open findings ask: ${answered.stderr}`);
+  const next = plan('2026-01-04-join-2', 'bug-fix');
+  const continued = append(next, verdict('redesign run: continues the join redesign', `${log}:12`), seats, critical(1), critical(2));
+  assert.equal(continued.status, 0, `a plan that continues a redesign run cites the earlier log: ${continued.stderr}`);
+  const owner = plan('2026-01-04-join', 'bug-fix');
+  assert.equal(append(owner, row('redesign run: the owner said "redesign the join"', 'decided', 'owner'), seats, critical(1), critical(2)).status, 0, "the owner's words");
+  const crlf = plan('2026-01-10-join', 'crlf', '\r\n');
+  assert.match(append(crlf, seats, critical(1), critical(2)).stderr, /\(new row 3\): this is critical finding 2 of its panel round.*the crlf playbook/, 'a playbook and a plan with CRLF line ends');
+
+  for (const [slug, playbook] of [['2026-01-05-join', 'build'], ['2026-01-06-join', 'triage'], ['2026-01-07-join', 'feature']]) {
+    const other = plan(slug, playbook);
+    const plain = append(other, seats, critical(1), critical(2));
+    assert.equal(plain.status, 0, `${playbook} does not set redesign-runs: on: ${plain.stderr}`);
+    assert.match(append(other, redesigned, writing, seats, open(3), open(4)).stderr, asked, `a redesign run row leaves ${playbook}'s design question in place`);
+  }
+  assert.equal(append('run.decisions.tsv', seats, critical(1), critical(2)).status, 0, 'a log with no plan beside it');
+  assert.match(append('run.decisions.tsv', redesigned, writing, seats, open(3), open(4)).stderr, asked, 'a redesign run row in a log with no plan beside it');
+  const byHand = plan('2026-01-08-join', 'bug-fix');
+  const header = ['ts', 'phase', 'decision', 'why', 'evidence', 'result'].join('\t');
+  writeFileSync(join(root, byHand), [header, seats, critical(1), critical(2)].map((line, index) => (index ? `2026-01-08T00:00:0${index}Z\t${line}` : line)).join('\n') + '\n');
+  const whole = helper(byHand);
+  assert.equal(whole.status, 0, `the whole-log check leaves rows written by hand alone: ${whole.stderr}`);
+});
+
 test("decisions-check counts a pivot's open critical findings like any other", () => {
   const { helper, root } = chipLedger();
   const log = 'docs/plans/2026-01-02-wrap.decisions.tsv';
