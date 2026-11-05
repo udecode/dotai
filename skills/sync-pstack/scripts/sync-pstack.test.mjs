@@ -2957,6 +2957,102 @@ test('decisions-check takes an open panel finding only with its patch and owner'
   assert.equal(ok.status, 0, ok.stderr);
 });
 
+test('decisions-check takes a second open critical finding only with an open design question that cites the plan', () => {
+  const { LEDGER, helper, root } = chipLedger();
+  const log = 'docs/plans/2026-01-01-join.decisions.tsv';
+  writeFileSync(join(root, 'docs/plans/2026-01-01-join.md'), '# Join\n\nStatus: building\n' + brief());
+  const panel = (decision, result) => helper('append', log, 'panel', decision, 'why', "the seat's probe fails on base too; proof: none", result);
+  const open = (finding, task = '') => panel(`critical [opus]: ${finding}`, `open: base fails the same way, patch: none, owner: user, stop: the fix lands${task}`);
+  const chip = (decision, why, evidence, result) => helper('append', LEDGER, 'chip', decision, why, evidence, result);
+  const offer = (decision, why, kind) => chip(decision, why, `writes: src/join.ts; topic: joins; kind: ${kind}; priority: P1; repro: steps`, 'offered');
+  const QUESTION = 't_dec00001 Decide whether the join design needs a redesign (xhigh)';
+
+  assert.equal(panel('seats opus', 'recorded').status, 0);
+  assert.equal(open('the redo puts the paragraph in the first quote').status, 0, 'one open finding is a limit');
+  assert.equal(panel('critical [opus]: the moved line stays split', 'applied: the read follows the end place').status, 0, 'an applied finding is not open');
+  const second = open('the unwrap drops the paragraph');
+  assert.equal(second.status, 1, 'a second open finding with no design question');
+  assert.match(second.stderr, /this log already holds 1 open critical finding,.*kind: decide task in docs\/plans\/suggested-tasks\.decisions\.tsv, with via: panel when it ranks P2 or P3, whose finding cites 2026-01-01-join .*"task:<id>"/);
+  assert.match(open('the unwrap drops the paragraph', ', task:t_none0001').stderr, /task:t_none0001 is not a task/, 'a task the ledger lacks');
+  assert.equal(offer('t_fix00001 Fix the unwrap loss', 'the unwrap in docs/plans/2026-01-01-join.md drops the paragraph', 'fix').status, 0);
+  assert.match(open('the unwrap drops the paragraph', ', task:t_fix00001').stderr, /task:t_fix00001 is a fix task, not a design question/, 'a fix task');
+  assert.equal(offer(QUESTION, 'joins in docs/plans/2026-01-01-join-2.md keep needing special cases', 'decide').status, 0);
+  assert.match(open('the unwrap drops the paragraph', ', task:t_dec00001').stderr, /no finding of task:t_dec00001 cites 2026-01-01-join;/, 'a design question that cites only a plan whose name starts the same');
+  assert.equal(chip(QUESTION, 'docs/plans/2026-01-01-join.md leaves the redo and the unwrap open', 'kind: decide', 'folded').status, 0);
+  const named = open('the unwrap drops the paragraph', ', task:t_dec00001');
+  assert.equal(named.status, 0, named.stderr);
+  assert.equal(open('the moved anchor keeps the quotes split', ', stop: task:t_fix00001 lands, task:t_dec00001').status, 0, 'one open design question among the tasks it names');
+
+  const declined = chip(QUESTION, 'the owner keeps the join design', 'evidence', 'dismissed declined');
+  assert.equal(declined.status, 0, declined.stderr);
+  assert.match(open('the redo loses the letter', ', task:t_dec00001').stderr, /task:t_dec00001 is dismissed, not open/, 'a closed design question');
+  const tooling = chip('t_dec00003 Decide whether the join design needs a redesign (xhigh)', 'docs/plans/2026-01-01-join.md leaves four findings open', 'writes: src/join.ts; topic: joins; kind: decide; priority: P3; via: panel', 'offered');
+  assert.equal(tooling.status, 0, `a P3 design question on the panel route: ${tooling.stderr}`);
+  assert.equal(open('the redo loses the letter', ', task:t_dec00003').status, 0);
+  const unrelated = chip('t_fix00002 Reword the README introduction', 'the introduction reads badly', 'writes: README.md; topic: docs; kind: fix; priority: P3; via: panel', 'offered');
+  assert.equal(unrelated.status, 1, 'a P3 fix on the panel route');
+  assert.match(unrelated.stderr, /via: panel is the route for the design question that two open critical panel findings require, so it goes only on a kind: decide offer/);
+});
+
+test("decisions-check counts a pivot's open critical findings like any other", () => {
+  const { helper, root } = chipLedger();
+  const log = 'docs/plans/2026-01-02-wrap.decisions.tsv';
+  writeFileSync(join(root, 'docs/plans/2026-01-02-wrap.md'), '# Wrap\n\nStatus: building\n' + brief());
+  writeFileSync(join(root, 'docs/plans/2026-01-02-wrap-2.md'), '# Wrap again\n\nThe pivot from 2026-01-02-wrap.\n\nStatus: planning\n' + brief());
+  const row = (n, result) => ['panel', n ? `critical [opus]: finding ${n}` : 'seats opus', 'why', 'proof: none', result].join('\t');
+  const pivot = (n) => row(n, 'open: the design cannot meet it, patch: docs/plans/2026-01-02-wrap-2.md, owner: user, stop: its build');
+  const batch = (...rows) => {
+    writeFileSync(join(root, 'rows.tsv'), [row(0, 'recorded'), ...rows].join('\n') + '\n');
+    return helper('append', log, '--from', 'rows.tsv');
+  };
+  const refused = /\(new row 3\): this log already holds 1 open critical finding/;
+
+  assert.match(batch(row(1, 'open: base fails too, patch: none, owner: user'), row(2, 'open: base fails too, patch: none, owner: user')).stderr, refused, 'two open findings in one batch');
+  assert.match(batch(row(1, 'open: base fails too, patch: none, owner: user'), pivot(2)).stderr, refused, 'a pivot after a limit');
+  assert.match(batch(pivot(1), pivot(2)).stderr, refused, 'two findings that pivot to the same new plan');
+  assert.equal(batch(pivot(1)).status, 0, 'one pivot');
+});
+
+test("decisions-check counts only the log's own open critical findings, so a plan's next iteration starts again", () => {
+  const { helper, root } = chipLedger();
+  const plan = (name) => writeFileSync(join(root, `docs/plans/${name}.md`), `# ${name}\n\nStatus: building\n` + brief());
+  const panel = (name, decision, result) => helper('append', `docs/plans/${name}.decisions.tsv`, 'panel', decision, 'why', 'proof: none', result);
+  const limit = (name) => {
+    assert.equal(panel(name, 'seats opus', 'recorded').status, 0);
+    return panel(name, 'critical [opus]: the unwrap drops the paragraph', 'open: base fails too, patch: none, owner: user');
+  };
+  const names = ['2026-01-01-join', '2026-01-03-join-2', '2026-01-03-pstack-0967', '2026-01-04-pstack-09118'];
+  for (const name of names) plan(name);
+  for (const name of names) {
+    const one = limit(name);
+    assert.equal(one.status, 0, `${name}: ${one.stderr}`);
+  }
+});
+
+test('decisions-check reads a design question through its merged findings and never through a refused ledger row', () => {
+  const { LEDGER, helper, root } = chipLedger();
+  const log = 'docs/plans/2026-01-01-join.decisions.tsv';
+  writeFileSync(join(root, 'docs/plans/2026-01-01-join.md'), '# Join\n\nStatus: building\n' + brief());
+  const panel = (decision, result) => helper('append', log, 'panel', decision, 'why', 'proof: none', result);
+  const open = (task) => panel('critical [opus]: the unwrap drops the paragraph', `open: base fails too, patch: none, owner: user, task:${task}`);
+  const chip = (decision, why, result, evidence = 'writes: src/join.ts; topic: joins; kind: decide; priority: P1; repro: steps') => helper('append', LEDGER, 'chip', decision, why, evidence, result);
+  assert.equal(panel('seats opus', 'recorded').status, 0);
+  assert.equal(panel('critical [opus]: the redo splits the quote', 'open: base fails too, patch: none, owner: user').status, 0);
+  assert.equal(chip('t_dec00001 Decide whether joins need a redesign (xhigh)', 'joins keep needing special cases', 'offered').status, 0);
+
+  const ledger = read(root, LEDGER);
+  writeFileSync(join(root, LEDGER), `${ledger}2026-01-01T00:00:00Z\tchip\tt_dec00001 Decide whether joins need a redesign (xhigh)\tdocs/plans/2026-01-01-join.md leaves two findings open\tkind: decide\tnot-a-state\n`);
+  assert.match(open('t_dec00001').stderr, /no finding of task:t_dec00001 cites 2026-01-01-join;/, 'a ledger row the task parser refuses');
+  writeFileSync(join(root, LEDGER), ledger);
+
+  const other = chip('t_dec00002 Decide whether the join design needs a redesign (xhigh)', 'docs/plans/2026-01-01-join.md leaves two findings open', 'offered', 'writes: src/join.ts; topic: unwraps; kind: decide; priority: P1; repro: steps');
+  assert.equal(other.status, 0, other.stderr);
+  const merged = chip('t_dec00002 Decide whether the join design needs a redesign (xhigh)', 'the same question as t_dec00001', 'dismissed dup t_dec00001', 'evidence');
+  assert.equal(merged.status, 0, merged.stderr);
+  const kept = open('t_dec00001');
+  assert.equal(kept.status, 0, `the kept task holds the merged finding: ${kept.stderr}`);
+});
+
 test("decisions-check takes a later round's seats row only after a writing row", () => {
   const { dir, run } = sandbox();
   const root = project(dir, 'app');
@@ -3856,9 +3952,9 @@ test('decisions-check takes a P0 or P1 claim only with its evidence', () => {
   const head = spawnSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
   assert.equal(bare('task_b1 Fix b', `writes: b.md; topic: two; priority: P0; regressed: ${head}`).status, 0, 'a regression names its commit');
   const lower = bare('task_c1 Fix c', 'writes: c.md; topic: three; priority: P2');
-  assert.equal(lower.status, 1, 'a P2 offer outside a verdict, babysit, time or hook route');
+  assert.equal(lower.status, 1, 'a P2 offer outside a verdict, babysit, time, hook or panel route');
   assert.match(lower.stderr, /a run offers a task only for a new P0 or P1 finding[^\n]*list this P2 finding in the plan's Open work/);
-  assert.match(bare('task_c1 Fix c', 'writes: c.md; topic: three; priority: P3; via: review').stderr, /via: is verdict, babysit, time or hook/);
+  assert.match(bare('task_c1 Fix c', 'writes: c.md; topic: three; priority: P3; via: review').stderr, /via: is verdict, babysit, time, hook or panel/);
   assert.equal(bare('task_h1 Run the due intake', 'writes: h.md; topic: intake; kind: decide; priority: P3; via: hook').status, 0, 'a project hook offers the recurring work it finds due');
   assert.equal(bare('task_c1 Fix c', 'writes: c.md; topic: three; priority: P2; via: verdict').status, 0, 'P2 needs no evidence, only its route');
   assert.match(chip('task_c1 Fix c', 'updated', 'priority: P0').stderr, /a P0 task is broken now/, 'a raise to P0 without evidence');
