@@ -542,6 +542,7 @@ function validate(config) {
   if (config.pushBranches !== undefined && typeof config.pushBranches !== 'boolean') throw new Error('pushBranches must be true or false');
   if (config.pushBranches && config.delivery !== 'user') throw new Error('pushBranches applies only to user delivery');
   if (config.maxEffort !== undefined && !EFFORTS.includes(config.maxEffort)) throw new Error(`maxEffort must be one of ${EFFORTS.join(', ')}`);
+  if (config.maxRounds !== undefined && (!Number.isInteger(config.maxRounds) || config.maxRounds < 1)) throw new Error('maxRounds must be a whole number of 1 or more');
   if (config.sourceless !== undefined && (!Array.isArray(config.sourceless) || config.sourceless.length === 0 || config.sourceless.some((login) => typeof login !== 'string' || login === ''))) {
     throw new Error('sourceless must be a list of GitHub logins');
   }
