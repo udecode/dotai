@@ -26,6 +26,7 @@ const FROM = {
   uncarded: ['offered'],
   updated: ['offered', 'started'],
   folded: ['offered'],
+  apart: ['offered', 'started'],
   reopened: ['dismissed gone'],
   'dismissed done': ['offered'],
   'dismissed dup': ['offered'],
@@ -54,9 +55,10 @@ const TAKES = {
   landed: ['patch', 'commit'],
   carded: ['card', 'shown', 'session', 'codex'],
   uncarded: ['card'],
+  apart: ['from'],
   'dismissed declined': ['card'],
 };
-const LIST_KEYS = ['writes', 'waits', 'owns', 'commit'];
+const LIST_KEYS = ['writes', 'waits', 'owns', 'commit', 'from'];
 const SCALAR_KEYS = ['topic', 'kind', 'effort', 'fast', 'patch', 'card', 'shown', 'session', 'transcript', 'codex', 'via', ...EVIDENCE];
 const KINDS = ['fix', 'decide', 'review'];
 const PRIORITIES = ['P0', 'P1', 'P2', 'P3'];
@@ -196,6 +198,7 @@ const waitsInTopic = (task, tasks) =>
 const mergeInto = (kept, task, tasks) => {
   kept.covers.push({ id: task.id, title: displayTitle(task), findings: task.findings }, ...task.covers);
   kept.owns = joined(kept.owns, task.owns);
+  kept.apart = joined(kept.apart, task.apart).filter((other) => other !== kept.id);
   if (kept.status !== 'offered') return;
   const outside = (wait) => {
     const target = wait.match(WAIT)?.[2];
@@ -251,6 +254,7 @@ export function recordRow(tasks, cells, ts = null) {
       reviewed: false,
       findings: [row.why],
       covers: [],
+      apart: [],
     };
     created.cardEffort = created.card ? levelOf(created) : null;
     tasks.set(row.id, created);
@@ -282,6 +286,7 @@ export function recordRow(tasks, cells, ts = null) {
     task.landedAt = ts;
   }
   if (row.move === 'reviewed') task.reviewed = true;
+  if (row.move === 'apart') task.apart = joined(task.apart, given.from ?? []);
   if (row.move === 'carded') {
     task.card = given.card ?? null;
     task.cardedAt = ts;
@@ -369,7 +374,7 @@ export function chipRowProblems(cells, before, where) {
   const [, id] = decision.match(CHIP) ?? [];
   if (!id) return [`${where}: a chip row's decision is "<task id> <title>", with (xhigh) after the title of a design question or of a bug whose cause nobody has located`];
   const row = parseRow(cells);
-  if (!row) return [`${where}: a chip row's result is offered, carded, uncarded, updated, folded, started, landed, reviewed, reopened, or dismissed with done, superseded, declined, stopped or dup <task id>`];
+  if (!row) return [`${where}: a chip row's result is offered, carded, uncarded, updated, folded, apart, started, landed, reviewed, reopened, or dismissed with done, superseded, declined, stopped or dup <task id>`];
   const { move } = row;
   const known = before.get(id);
   const { given } = fields(evidence);
@@ -386,6 +391,9 @@ export function chipRowProblems(cells, before, where) {
     if (!FROM[move].includes(state)) found.push(`${where}: ${id} is ${state}, so it cannot be ${move}`);
   }
   if (move === 'carded' && !given.card) found.push(`${where}: a carded row names the suggest tool's card id as "card: <id>"`);
+  if (move === 'apart' && (!given.from?.length || given.from.some((other) => other === id || !before.has(other)))) {
+    found.push(`${where}: an apart row names in "from: <task id>, <task id>" each other task the ledger holds that a sweep judged a separate question from ${id}`);
+  }
   if (move === 'updated' && !TAKES.updated.some((key) => given[key] !== undefined)) found.push(`${where}: an updated row names what changes: writes:, topic:, kind:, effort:, waits:, owns:, fast: or session:`);
   if (move === 'updated' && given.transcript !== undefined && given.session === undefined) found.push(`${where}: transcript: goes beside session:, the owner it names`);
   if (move === 'updated' && known && sessionPicksPlan(known) && Object.keys(given).some((key) => key !== 'owns')) {
@@ -761,6 +769,76 @@ export function staleReport(tasks, at, probe) {
     })
     .sort((a, b) => b.weight - a.weight || byOrder(a.task, b.task));
   return rows.map(({ task, facts }) => line(task, `  ${facts.join('; ')}`));
+}
+
+const COMMON_WORDS = new Set('the and are for its with from into onto over under through after before when whose that this their his her one two every each make keep find why fix let give stop decide whether what how does not more than again also xhigh fast'.split(' '));
+const wordsOf = (text) => new Set(text.toLowerCase().split(/[^a-z0-9]+/u).filter((word) => word.length > 2 && !COMMON_WORDS.has(word)).map((word) => (word.endsWith('s') && !word.endsWith('ss') ? word.slice(0, -1) : word)));
+const shareOf = (a, b) => {
+  const both = [...a].filter((word) => b.has(word)).length;
+  return both / (a.size + b.size - both || 1);
+};
+const CODE_NAME = /\b(?:[a-z][a-z0-9]*[A-Z][a-z0-9]+\w*|[\w-]+\.(?:tsx?|jsx?|mjs))\b/gu;
+const REPRO_FILE = /[\w./-]+\.(?:test|spec)\.[a-z]+|[\w./-]+\.log\b/u;
+const WRITTEN_FILE = /\.[a-z0-9]+$/iu;
+const RARE = 3;
+
+export function groupsOf(tasks) {
+  const open = [...tasks.values()].filter(isOpen).sort(byOrder);
+  const facts = new Map(
+    open.map((task) => [
+      task.id,
+      {
+        title: wordsOf(task.title),
+        topic: wordsOf((task.topic ?? '').replaceAll('-', ' ')),
+        repro: task.repro?.match(REPRO_FILE)?.[0] ?? null,
+        area: new Set([...task.writes.filter((path) => WRITTEN_FILE.test(path)), ...([...task.findings, ...task.covers.flatMap((entry) => entry.findings)].join(' ').match(CODE_NAME) ?? [])]),
+      },
+    ]),
+  );
+  const named = new Map();
+  for (const { area } of facts.values()) for (const key of area) named.set(key, (named.get(key) ?? 0) + 1);
+  const linked = (task, other) =>
+    task.waits.some((wait) => {
+      const target = wait.match(WAIT)?.[2];
+      return target && follow(target, tasks)?.id === other.id;
+    }) || task.apart.some((id) => follow(id, tasks)?.id === other.id);
+  const links = [];
+  for (const [at, a] of open.entries()) {
+    for (const b of open.slice(at + 1)) {
+      if (linked(a, b) || linked(b, a)) continue;
+      const one = facts.get(a.id);
+      const two = facts.get(b.id);
+      const kinds = [];
+      if (shareOf(one.title, two.title) >= 0.3 || (one.topic.size > 0 && shareOf(one.topic, two.topic) >= 0.5)) kinds.push('problem');
+      const failure = [...a.owns.filter((check) => b.owns.includes(check)), ...(one.repro && one.repro === two.repro ? [one.repro] : [])];
+      if (failure.length > 0) kinds.push(`failure (${failure.join(', ')})`);
+      const area = [...one.area].filter((key) => two.area.has(key) && named.get(key) <= RARE);
+      if (area.length > 0) kinds.push(`fix area (${area.slice(0, 3).join(', ')})`);
+      if (kinds.length >= 2) links.push({ a, b, kinds });
+    }
+  }
+  const root = new Map(open.map((task) => [task.id, task.id]));
+  const rootOf = (id) => (root.get(id) === id ? id : rootOf(root.get(id)));
+  for (const { a, b } of links) root.set(rootOf(b.id), rootOf(a.id));
+  const groups = new Map();
+  for (const link of links) {
+    const group = groups.get(rootOf(link.a.id)) ?? { members: new Map(), links: [] };
+    group.members.set(link.a.id, link.a).set(link.b.id, link.b);
+    group.links.push(link);
+    groups.set(rootOf(link.a.id), group);
+  }
+  return [...groups.values()].map((group) => ({ members: [...group.members.values()].sort(byOrder), links: group.links })).sort((x, y) => byOrder(x.members[0], y.members[0]));
+}
+
+export function renderGroups(groups, ledger) {
+  if (groups.length === 0) return `No two open tasks in ${ledger} share two kinds of evidence, so no group needs judging.`;
+  const out = [
+    `${groups.length} ${groups.length === 1 ? 'group' : 'groups'} of open tasks in ${ledger} that may answer one question. Judge each pair as chips.md's Groups bullet says: dismissed dup when one fix removes both, a task: wait when one needs the other's result, and otherwise apart with from:, after a topic move when both answer one owner question.`,
+  ];
+  for (const { members, links } of groups) {
+    out.push('', ...links.map(({ a, b, kinds }) => `  ${a.id} and ${b.id}: ${kinds.join('; ')}`), ...members.map((task) => line(task, `  ${task.status === 'started' ? 'started' : task.card ? `card ${task.card}` : 'no card'}`)));
+  }
+  return out.join('\n');
 }
 
 export function startedOverlaps(tasks) {

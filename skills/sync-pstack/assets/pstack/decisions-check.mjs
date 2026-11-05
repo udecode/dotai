@@ -58,7 +58,13 @@
 //        node .agents/pstack/decisions-check.mjs chips stale [<ledger>]
 //        (prints each open task's age, its priority, a ship item that closed, the paths it
 //        writes that were deleted since its offer or are missing, the commits on its paths
-//        since its offer, its closed PR waits and its card, likeliest stale first)
+//        since its offer, its closed PR waits and its card, likeliest stale first; a commit
+//        counts in the repository or companion that holds the path, and a pure rename or a
+//        move between the two counts none)
+//        node .agents/pstack/decisions-check.mjs chips groups [<ledger>]
+//        (prints the groups of open tasks that may answer one question: each pair shares two
+//        of problem wording, a failure and a fix area, and neither waits on the other through
+//        task: or names the other in an apart row's from:)
 //        node .agents/pstack/decisions-check.mjs chips id
 //        (prints a fresh id for a new task)
 //        node .agents/pstack/decisions-check.mjs chips brief <id> [<ledger>]
@@ -75,7 +81,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:pat
 import { findLead, leadLabel, maxEffort, runtimeFolder } from './lead.mjs';
 import { cli as pageStop } from './page-stop.mjs';
 import { contextOf, pageUrlOf, parsePlan } from './plan-page.mjs';
-import { board, boardState, briefOf, CHIP_STATES, cleanupOf, chipRowProblems, baseRedProblems, gitMerges, ledgerPath, newChipRowProblems, newId, offeredAt, readShip, readTasks, recordRow, renderBoard, SESSION, staleReport, startedOverlaps } from './tasks.mjs';
+import { board, boardState, briefOf, CHIP_STATES, cleanupOf, chipRowProblems, baseRedProblems, gitMerges, groupsOf, ledgerPath, newChipRowProblems, newId, offeredAt, readShip, readTasks, recordRow, renderBoard, renderGroups, SESSION, staleReport, startedOverlaps } from './tasks.mjs';
 import { acceptedWord, bracketSeats, committedLines, decisionLogs, defaultsWords, isAcceptingWord, isHandOffReview, NOT_PASSED, proofLabels, proofStates, PROVEN, runPaths, seatRoster, SEATS, SEVERITIES, STAGE_PHASES, stageOfRow, STATUSES, statusOf } from './status.mjs';
 
 const HEADER = 'ts\tphase\tdecision\twhy\tevidence\tresult';
@@ -163,7 +169,7 @@ function chipsArgs(args) {
   const valued = new Set(['--session', '--sessions'].flatMap((name) => (args.includes(name) ? [args.indexOf(name), args.indexOf(name) + 1] : [])));
   const at = args.flatMap((arg, index) => (index > 0 && arg !== '--fetch' && !valued.has(index) ? [index] : []));
   const first = args[at[0]];
-  const logAt = first === 'brief' ? at[2] : ['stale', 'all', 'cleanup'].includes(first) ? at[1] : first === 'id' ? undefined : at[0];
+  const logAt = first === 'brief' ? at[2] : ['stale', 'groups', 'all', 'cleanup'].includes(first) ? at[1] : first === 'id' ? undefined : at[0];
   return { rest: at.map((index) => args[index]), logAt };
 }
 function runLedgerCommandFromMainCheckout(args) {
@@ -570,6 +576,10 @@ if (args[0] === 'chips') {
     console.info(out.join('\n'));
     process.exit(0);
   }
+  if (rest[0] === 'groups') {
+    console.info(renderGroups(groupsOf(tasks), ledger));
+    process.exit(0);
+  }
   if (rest[0] === 'stale') {
     const states = new Map();
     const prState = (pr) => {
@@ -582,28 +592,67 @@ if (args[0] === 'chips') {
       }
       return states.get(pr);
     };
-    const repoOf = (path) => (!isAbsolute(path) ? '.' : existsSync(path) && statSync(path).isDirectory() ? path : dirname(path));
-    const deletedSince = (since, path) => {
+    const at = offeredAt(lines);
+    const oldest = [...at.values()].sort()[0] ?? new Date().toISOString();
+    const read = (via, args, input) => {
       try {
-        return execFileSync('git', ['-C', repoOf(path), 'log', '-1', '--no-renames', '--diff-filter=D', `--since=${since}`, '--format=%h', '--', path], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() !== '';
+        return execFileSync('git', [...via, ...args], { encoding: 'utf8', input, maxBuffer: 1 << 30, stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'ignore'] });
       } catch {
-        return false;
+        return '';
       }
     };
+    const history = new Map();
+    const historyOf = (via, partner = null) => {
+      const key = via.join('\0');
+      if (history.has(key)) return history.get(key);
+      const entries = [];
+      let commit = null;
+      for (const row of read(via, ['log', '--no-merges', `--since=${oldest}`, '--format=%x01%ct%x09%h%x09%s', '--raw', '--no-abbrev', '-M']).split('\n')) {
+        if (row.startsWith('\x01')) {
+          const [time, hash, subject] = row.slice(1).split('\t');
+          commit = { time: Number(time), hash, subject };
+        } else if (row.startsWith(':') && commit) {
+          const [meta, ...paths] = row.split('\t');
+          const [, , , blob, status] = meta.split(' ');
+          if (status.startsWith('R')) entries.push({ ...commit, status: 'D', path: paths[0], counts: status !== 'R100' });
+          entries.push({ ...commit, status: status[0], path: paths.at(-1), blob, counts: status !== 'R100' });
+        }
+      }
+      if (partner) {
+        const theirs = new Set(read(partner, ['ls-files', '-z']).split('\0').filter(Boolean));
+        const added = entries.filter((entry) => entry.status === 'A').map((entry) => entry.blob);
+        const held = new Set(read(partner, ['cat-file', '--batch-check'], added.length ? `${added.join('\n')}\n` : '').split('\n').filter((answer) => / blob /u.test(answer)).map((answer) => answer.split(' ')[0]));
+        for (const entry of entries) if ((entry.status === 'A' && held.has(entry.blob)) || (entry.status === 'D' && theirs.has(entry.path))) entry.moved = true;
+      }
+      const byPath = new Map();
+      for (const entry of entries) byPath.set(entry.path, [...(byPath.get(entry.path) ?? []), entry]);
+      history.set(key, byPath);
+      return byPath;
+    };
+    const companion = projectConfig().companion?.dir;
+    const own = companion && existsSync(companion) ? [[], ['--git-dir', companion, '--work-tree', '.']] : [[]];
+    const homes = (path) => {
+      if (!isAbsolute(path)) return own.map((via, index) => ({ byPath: historyOf(via, own.length > 1 ? own[1 - index] : null), path: path.replace(/\/$/u, '') }));
+      const dir = existsSync(path) && statSync(path).isDirectory() ? path : dirname(path);
+      const top = read(['-C', dir], ['rev-parse', '--show-toplevel']).trim();
+      if (!top) return [];
+      const prefix = read(['-C', dir], ['rev-parse', '--show-prefix']).trim();
+      return [{ byPath: historyOf(['-C', top]), path: join(prefix, relative(dir, path)).replace(/\/$/u, '') }];
+    };
+    const changesOf = (since, path) => {
+      const after = Date.parse(since) / 1000;
+      const file = existsSync(path) && !statSync(path).isDirectory();
+      return homes(path).flatMap(({ byPath, path: under }) =>
+        (file ? [byPath.get(under) ?? []] : [...byPath].filter(([each]) => each === under || each.startsWith(`${under}/`)).map(([, entries]) => entries)).flat().filter((entry) => entry.time >= after && !entry.moved),
+      );
+    };
+    const deletedSince = (since, path) => changesOf(since, path).some((entry) => entry.status === 'D');
     const commitsSince = (since, paths) => {
       const seen = new Map();
-      for (const path of paths) {
-        const repo = repoOf(path);
-        try {
-          for (const entry of execFileSync('git', ['-C', repo, 'log', '--no-merges', `--since=${since}`, '--format=%ct%x09%h%x09%s', '--', path], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).split('\n').filter(Boolean)) {
-            const [time, hash, subject] = entry.split('\t');
-            seen.set(hash, { time: Number(time), subject });
-          }
-        } catch {}
-      }
+      for (const path of paths) for (const entry of changesOf(since, path)) if (entry.counts) seen.set(entry.hash, entry);
       return [...seen.values()].sort((a, b) => b.time - a.time).map((commit) => commit.subject);
     };
-    const rows = staleReport(tasks, offeredAt(lines), { exists: existsSync, deletedSince, commitsSince, prState, now: Date.now(), ship: shipList().items });
+    const rows = staleReport(tasks, at, { exists: existsSync, deletedSince, commitsSince, prState, now: Date.now(), ship: shipList().items });
     console.info(rows.length ? `${rows.length} open suggested tasks in ${ledger}, the likeliest stale first:\n${rows.join('\n')}` : `No open suggested tasks in ${ledger}.`);
     process.exit(0);
   }

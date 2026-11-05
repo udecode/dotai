@@ -6,7 +6,7 @@
     {
       "name": "chips",
       "distribution": "bundled",
-      "description": "Run the project's suggested-task ledger, the chips. /chips alone brings this session's open tasks up to date: it applies what the ledger helper says, settles stale and split tasks, cards what can start and reports the board, and /chips all also takes the ship-list tasks and the ones no live session owns. Use for /chips, /chips offer, start or drop, \\\"what chips are open\\\", \\\"suggest a task for X\\\", \\\"update the chips\\\", \\\"clean up the chips\\\", \\\"which chips are stale\\\", at the last hand-back of a run that offered a task, and whenever pstack would file a tracked issue, a follow-up, a reflect Backlog item or an out-of-band PR.",
+      "description": "Run the project's suggested-task ledger, the chips. /chips alone brings this session's open tasks up to date: it applies what the ledger helper says, settles stale and split tasks, cards what can start and reports the board, and /chips all also takes the ship-list tasks and the ones no live session owns, and merges duplicate tasks across the board. Use for /chips, /chips offer, start or drop, \\\"what chips are open\\\", \\\"suggest a task for X\\\", \\\"update the chips\\\", \\\"clean up the chips\\\", \\\"which chips are stale\\\", \\\"merge duplicate chips\\\", at the last hand-back of a run that offered a task, and whenever pstack would file a tracked issue, a follow-up, a reflect Backlog item or an out-of-band PR.",
       "category": "Workflow",
       "dependencies": [],
       "capabilities": [
@@ -101,7 +101,7 @@
     {
       "name": "video-transcripts",
       "distribution": "bundled",
-      "description": "Transcribe a supplied local or linked video with Gemini and check the transcript against one frame per second, when a recording's contents are needed as evidence, such as a bug recording on an issue, PR or comment, or a question about what a video shows.",
+      "description": "Transcribe a supplied local or linked video with Gemini, or from its frames with a Claude subagent when Gemini fails, and check the transcript against one frame per second, when a recording's contents are needed as evidence, such as a bug recording on an issue, PR or comment, or a question about what a video shows.",
       "category": "Communication",
       "dependencies": [],
       "capabilities": [
@@ -138,7 +138,7 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "6243361e4f0879a680c64c6201c912f91cd8671141d0088bcdefc40daf4f329d",
+      "sha256": "bdec06d53899cf274ca4047df4c9f8b3fb0be27dce2bbe2845c01ef6b3812a0c",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
@@ -150,7 +150,7 @@
       "mode": 493
     },
     "skills/chips/SKILL.md": {
-      "sha256": "f5e3f83d301bda3454575e0a0e8fa408bf3051115b23339ba7792c4c5a84af77",
+      "sha256": "fbfcb93c2b1a3631d74cb22b3be2fb56c495ca449cd62a69663a41710a4c2f57",
       "mode": 420
     },
     "skills/cleanup/SKILL.md": {
@@ -302,7 +302,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
-      "sha256": "1a40931c2f244c1844049445373bf64c48ba74983a1064eb5e7bb556e06490bf",
+      "sha256": "9198045462623a341a0493e73fc217c0c04f038596f6d9d918b44307fe571cc6",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/freeze.mjs": {
@@ -370,7 +370,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/chips.md": {
-      "sha256": "a774310243541188f4ac7a92e80d03b09e95338bb5ba36ce5ad16e376128dc53",
+      "sha256": "0905f6a9350663f0628aa886608b910d1486926e9472c34a590d41b1b5452321",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/close.md": {
@@ -446,11 +446,11 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/status.mjs": {
-      "sha256": "f3c6945e00dbe79019fbaefe25264e6d4ad10e05df6215023918ab2d4b3504a5",
+      "sha256": "9bd97554000b52c1d2be0a3a841fb46c20825d7edef4299425b6d1e9b4b6e1f9",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/tasks.mjs": {
-      "sha256": "9a4192b363d379865ce10700f3a67244212c2794742c02b895ea62a48a980001",
+      "sha256": "bad980e8fc1006a3f0e7b56db31f04f68e5df23127bcc17964bf84ff9eaaf9cb",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/title.mjs": {
@@ -514,7 +514,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "5edf9eedb81aa88c23951d221dad46d2d0e567f7735f74d4daac71512b71bf00",
+      "sha256": "a33b8dd62b0e0bbd39ad4482d36a0426c87a83f5138bd8ee8f4915e5d9ae6667",
       "mode": 420
     },
     "skills/sync-pstack/scripts/trunk.test.mjs": {
@@ -534,11 +534,11 @@
       "mode": 420
     },
     "skills/video-transcripts/SKILL.md": {
-      "sha256": "89d8638380a7bf643c54f83368964ee119a58c8a8878254ed7a8ad177b2604fb",
+      "sha256": "2eb1cbaf00d3587e0d027f702b198745bdc47117afb6e4d5c0bc953643d57050",
       "mode": 420
     },
     "skills/video-transcripts/scripts/generate_video_transcript.sh": {
-      "sha256": "cbb5a27ea0ed4b49df8abd76f43d1d90c5fa59267232fc05926bdb077dc08d4e",
+      "sha256": "791be0ee141999738d1fe24a559ea7d79527c0ce6cb480be6e3c703da71088f8",
       "mode": 493
     },
     "skills/video-transcripts/scripts/video_frames.sh": {

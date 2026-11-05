@@ -4244,6 +4244,68 @@ test('chips stale lists each open task with the paths it writes that were delete
   );
 });
 
+test('chips stale counts a commit in the repository that holds each path, and no pure rename or move between the project and its companion', () => {
+  const { chips, offer, root } = chipLedger();
+  writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ branch: 'next', companion: { dir: '.git-private', list: '.gitprivate' } }));
+  const project = ['-C', root];
+  const companion = ['--git-dir', join(root, '.git-private'), '--work-tree', root];
+  spawnSync('git', [...companion, 'init', '-q']);
+  const commit = (via, message, when) => spawnSync('git', [...via, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', message], { env: { ...process.env, GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when } });
+  const earlier = new Date(Date.now() - 86_400_000).toISOString();
+  const later = new Date(Date.now() + 86_400_000).toISOString();
+  mkdirSync(join(root, 'src'), { recursive: true });
+  mkdirSync(join(root, 'docs/notes'), { recursive: true });
+  writeFileSync(join(root, 'src/old.ts'), 'export const a = 1;\n');
+  writeFileSync(join(root, 'docs/notes/moved.md'), 'moved\n');
+  spawnSync('git', [...project, 'add', 'src/old.ts', 'docs/notes/moved.md']);
+  commit(project, 'add the files', earlier);
+  assert.equal(offer('task_a1 Fix the source', 'src', 'topic: source').status, 0);
+  assert.equal(offer('task_b1 Fix the note', 'docs/notes/moved.md', 'topic: note').status, 0);
+  spawnSync('git', [...project, 'mv', 'src/old.ts', 'src/new.ts']);
+  commit(project, 'rename the source', later);
+  spawnSync('git', [...project, 'rm', '-q', '--cached', 'docs/notes/moved.md']);
+  commit(project, 'move the note out', later);
+  spawnSync('git', [...companion, 'add', 'docs/notes/moved.md']);
+  commit(companion, 'move the note in', later);
+  writeFileSync(join(root, 'docs/notes/moved.md'), 'edited\n');
+  spawnSync('git', [...companion, 'add', 'docs/notes/moved.md']);
+  commit(companion, 'edit the note', later);
+  const stale = chips('stale');
+  assert.equal(stale.status, 0, stale.stderr);
+  assert.match(stale.stdout, /task_b1 [^\n]*; 1 commit on its paths since its offer, last "edit the note"\n/, 'the companion edit counts, and neither half of the move does');
+  assert.doesNotMatch(stale.stdout, /task_a1 [^\n]*commit/, 'a pure rename inside a written directory counts no commit');
+});
+
+test('chips groups links two open tasks that share two kinds of evidence, and an apart row keeps the pair off the list', () => {
+  const { chip, chips, helper, LEDGER } = chipLedger();
+  const offer = (decision, why, evidence) => helper('append', LEDGER, 'chip', decision, why, `${evidence}; priority: P2; via: verdict`, 'offered');
+  const a1 = 'task_a1 Give worktree sessions a run directory the Write tool can reach';
+  const c1 = 'task_c1 Name the trails rule owner';
+  assert.equal(offer(a1, 'guard.mjs refuses the write', 'writes: rules/trails.md; topic: run-dir-write').status, 0);
+  assert.equal(offer('task_b1 Let a worktree session write its run directory without the hook refusing', 'the hook refuses it', 'writes: rules/trails.md; topic: run-dir-writes').status, 0);
+  assert.equal(offer(c1, 'one owner', 'writes: rules/trails.md; topic: trails-owner').status, 0);
+  assert.equal(offer('task_d1 Give worktree sessions a run directory the Read tool can reach', 'readRunDir misses it', 'writes: rules/read.md; topic: run-dir-read; waits: task:task_a1').status, 0);
+  const groups = chips('groups');
+  assert.equal(groups.status, 0, groups.stderr);
+  assert.equal(
+    groups.stdout,
+    "1 group of open tasks in docs/plans/suggested-tasks.decisions.tsv that may answer one question. Judge each pair as chips.md's Groups bullet says: dismissed dup when one fix removes both, a task: wait when one needs the other's result, and otherwise apart with from:, after a topic move when both answer one owner question.\n" +
+      '\n' +
+      '  task_a1 and task_b1: problem; fix area (rules/trails.md)\n' +
+      '  task_a1  Give worktree sessions a run directory the Write tool can reach  [run-dir-write]  no card\n' +
+      '  task_b1  Let a worktree session write its run directory without the hook refusing  [run-dir-writes]  no card\n',
+    'task_c1 shares only the file, and task_d1 waits on task_a1 and shares only wording with task_b1',
+  );
+  assert.match(chip(a1, 'apart').stderr, /an apart row names in "from: <task id>, <task id>" each other task the ledger holds/);
+  assert.equal(chip(a1, 'apart', 'from: task_a1').status, 1, 'the task itself');
+  assert.equal(chip(a1, 'apart', 'from: task_z9').status, 1, 'a task the ledger lacks');
+  const apart = chip(a1, 'apart', 'from: task_b1');
+  assert.equal(apart.status, 0, apart.stderr);
+  assert.match(chips('groups').stdout, /^No two open tasks in docs\/plans\/suggested-tasks\.decisions\.tsv share two kinds of evidence/);
+  assert.equal(chip(c1, 'carded', 'card: k1; session: s1').status, 0);
+  assert.equal(chip(c1, 'apart', 'from: task_a1').status, 0, 'an apart row changes no work, so a carded task takes it');
+});
+
 test('a legacy row with an empty waits: replays as no waits', () => {
   const { chips, offer, root, LEDGER } = chipLedger();
   assert.equal(offer('task_a1 Fix a', 'src/a.ts', 'topic: blank; waits: pr:5').status, 0);
