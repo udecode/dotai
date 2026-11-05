@@ -1682,11 +1682,24 @@ test('guard denies an agent gh pr create into next or with no base, and passes a
     "cat <<'EOF'\ngh pr create\nEOF",
     'gh pr create --help',
     'gh pr new -h',
+    'gh pr create --fill -dh',
+    'gh pr create --title x --help',
+    'gh pr create -hb x',
   ];
   for (const command of passed) assert.equal(guard(command), null, command);
+  for (const command of [
+    'gh pr create --base next --title --help --body x',
+    'gh pr create --title x --body -h --base next',
+    'gh pr create -t -h',
+    'gh pr create -db -h -t x',
+    'gh pr create --base next -dt -dh --body x',
+    'gh pr create --base next -dt --help --body x',
+  ]) {
+    assert.equal(guard(command)?.permissionDecision, 'deny', `a help word as an option's value still opens a PR: ${command}`);
+  }
 });
 
-test("guard denies an agent's approval of a workflow run without the user's word, and passes reads and a marked approval", () => {
+test("guard denies an agent's approval of a workflow run, which needs the user's word, and passes reads of other run paths", () => {
   const { clone } = trunk();
   const guard = (command) => {
     const run = spawnSync(process.execPath, [join(clone, '.agents/pstack/guard.mjs')], {
@@ -1699,27 +1712,34 @@ test("guard denies an agent's approval of a workflow run without the user's word
   };
   const denied = [
     'gh api -X POST repos/a/b/actions/runs/123/approve',
-    'gh api --method=POST /repos/a/b/actions/runs/$id/approve',
+    'gh --hostname github.com api -X POST repos/a/b/actions/runs/123/approve',
+    'gh -X POST api repos/a/b/actions/runs/123/approve',
+    'endpoint=repos/a/b/actions/runs/123/approve; gh api -X POST "${endpoint:?}"',
+    'printf "1\\n2\\n" | xargs -I{} gh api -X POST repos/a/b/actions/runs/{}/approve',
     'for id in 1 2; do gh api -X POST "repos/a/b/actions/runs/$id/approve"; done',
     "bash -c 'gh api -X POST repos/a/b/actions/runs/1/approve'",
-    'curl -X POST -H "Authorization: Bearer $T" https://api.github.com/repos/a/b/actions/runs/1/approve',
-    'gh api repos/a/b/actions/runs/123/pending_deployments -f state=approved -F environment_ids[]=1',
-    'curl --json @body.json https://api.github.com/repos/a/b/actions/runs/1/pending_deployments',
+    'PSTACK_USER_WORD=1 gh api -X POST repos/a/b/actions/runs/123/approve',
+    'curl -sSd \'{"state":"approved","environment_ids":[1]}\' https://api.github.com/repos/a/b/actions/runs/123/pending_deployments',
+    'curl -sXPOST --upload-file body.json https://api.github.com/repos/a/b/actions/runs/123/pending_deployments',
+    'gh api repos/a/b/actions/runs/123/pending_deployments -f state=approved',
+    'G=gh; "$G" api -X POST repos/a/b/actions/runs/123/approve',
+    'for id in 1 2; do gh api -X POST repos/a/b/actions/runs/"$id"/approve; done',
+    "gh api -X POST \"repos/o/r/actions/runs/$(gh run list --json databaseId -q '.[0].databaseId')/approve\"",
+    "gh api -X POST repos/a/b/actions/runs/'123'/approve",
+    'cmd="gh api -X POST repos/a/b/actions/runs/1/approve"; eval "$cmd"',
+    "python3 -c 'import urllib.request as u; u.urlopen(u.Request(\"https://api.github.com/repos/a/b/actions/runs/1/approve\", method=\"POST\"))'",
   ];
   for (const command of denied) {
     const decision = guard(command);
     assert.equal(decision?.permissionDecision, 'deny', command);
-    assert.match(decision.permissionDecisionReason, /only on the user's word/u, command);
-    assert.match(decision.permissionDecisionReason, /PSTACK_USER_WORD=1/u, command);
+    assert.match(decision.permissionDecisionReason, /needs the user's word/u, command);
+    assert.ok(decision.permissionDecisionReason.includes(command), `the reason quotes the command for the user: ${command}`);
   }
   const passed = [
-    'PSTACK_USER_WORD=1 gh api -X POST repos/a/b/actions/runs/123/approve',
-    'cd x && PSTACK_USER_WORD=1 curl -X POST https://api.github.com/repos/a/b/actions/runs/1/approve',
     'gh api repos/a/b/actions/runs/123',
-    'gh api repos/a/b/actions/runs/123/pending_deployments',
     'gh run view 123 --log-failed',
     'gh pr review 7 --approve',
-    "git commit -m 'approve fork runs via repos/a/b/actions/runs/1/approve'",
+    'gh api repos/a/b/actions/runs/123/jobs',
   ];
   for (const command of passed) assert.equal(guard(command), null, command);
 });
@@ -1765,13 +1785,15 @@ test('guard denies a command that would delete or overwrite the companion files,
     ['x=$(pwd) git clean -fdx']: /git clean -x or -X/u,
     ['git -C $(pwd) clean -fdx']: /git clean -x or -X/u,
     ['if true; then git clean -fdx; fi']: /git clean -x or -X/u,
-    [`(PLAIN=${plain}); cd "$PLAIN" && git clean -fdx`]: /git clean -x or -X/u,
-    [`false || PLAIN=${plain}; cd "$PLAIN" && git clean -fdx`]: /git clean -x or -X/u,
-    [`PLAIN=${plain} cd "$PLAIN" && git clean -fdx`]: /git clean -x or -X/u,
-    [`PLAIN=${plain} | true; cd "$PLAIN" && git clean -fdx`]: /git clean -x or -X/u,
-    [`if true; then echo; PLAIN=${plain}; fi; cd "$PLAIN" && git clean -fdx`]: /git clean -x or -X/u,
-    [`PLAIN=${plain}; bash -c 'cd "$PLAIN" && git clean -fdx'`]: /git clean -x or -X/u,
-    [`PLAIN=${plain}; PLAIN=$(pwd); cd "$PLAIN" && git clean -fdx`]: /git clean -x or -X/u,
+    [`D=${plain}; cd "$D" && git reset --hard ${old}`]: /has no \.gitprivate/u,
+    [`D=.; false && D=${plain}; cd "$D" && git clean -fdx`]: /git clean -x or -X/u,
+    [`D=.; { D=${plain}; } & wait; cd "$D" && git clean -fdx`]: /git clean -x or -X/u,
+    [`D=.; export D=${plain} E=$D; cd "$E" && git clean -fdx`]: /git clean -x or -X/u,
+    [`D=${plain}; eval 'D=.'; cd "$D" && git clean -fdx`]: /git clean -x or -X/u,
+    [`D=.; bash -c "D=${plain}; cd $D && git clean -fdx"`]: /git clean -x or -X/u,
+    [`D=${plain}; cd '$D' && git clean -fdx`]: /git clean -x or -X/u,
+    [`D=${plain}; cd \${D} && git clean -fdx`]: /git clean -x or -X/u,
+    [`(cd ${plain} && : \${a:-\${b}} && git clean -fdx); git clean -fdx`]: /git clean -x or -X/u,
   };
   for (const [command, reason] of Object.entries(denied)) {
     const decision = guard(command);
@@ -1801,21 +1823,17 @@ test('guard denies a command that would delete or overwrite the companion files,
     `cd ${plain} && timeout 60 git reset --hard ${old}`,
     `cd ${plain} && (git clean -fdx)`,
     `cd ${plain} && echo "$(git clean -fdx)"`,
-    `PLAIN=${plain}; cd "$PLAIN" && git reset --hard ${old}`,
-    `PLAIN=${plain} && cd \${PLAIN} && git clean -fdx`,
-    `export PLAIN=${plain}\ncd "$PLAIN" && git clean -fdx`,
-    `ROOT=${dir}; PLAIN=$ROOT/plain; cd "$PLAIN" && git clean -fdx`,
-    `{ PLAIN=${plain}; }; cd "$PLAIN" && git clean -fdx`,
-    `PLAIN=${plain}; git -C "$PLAIN" clean -fdx`,
-    `PLAIN=${plain}; echo "$(cd $PLAIN && git clean -fdx)"`,
   ];
   for (const command of passed) assert.equal(guard(command), null, command);
-  const named = guard(`cd "$PLAIN" && git reset --hard ${old}`)?.permissionDecisionReason ?? '';
-  assert.match(named, /could not resolve `cd \$PLAIN`/u, 'a denial names the cd target it could not resolve');
-  assert.match(named, /moving \/\S+\/clone there/u, 'a denial names the checkout it judged');
-  assert.match(guard('git -C "$PLAIN" clean -fdx')?.permissionDecisionReason ?? '', /could not resolve `git -C \$PLAIN`/u);
-  assert.doesNotMatch(guard('git clean -fdx')?.permissionDecisionReason ?? '', /could not resolve/u, 'a resolved command gets no note');
   assert.equal(guard('git clean -fdx', plain), null, 'a checkout without the companion directory has nothing of it to lose');
+  const named = guard(`D=${plain}; cd "$D" && git reset --hard ${old}`).permissionDecisionReason;
+  assert.match(named, /could not resolve `cd \$D`/u, 'a denial names the cd target it could not resolve');
+  assert.match(named, /moving \/\S+\/clone there/u, 'a denial names the checkout it judged');
+  assert.match(guard(`D=${plain}; cd \${D} && git clean -fdx`).permissionDecisionReason, /could not resolve `cd \$\{D\}`/u, 'a braced variable stays one word');
+  assert.match(guard('git -C "$D" clean -fdx').permissionDecisionReason, /could not resolve `git -C \$D`/u);
+  assert.doesNotMatch(guard('git clean -fdx').permissionDecisionReason, /could not resolve/u, 'a resolved command gets no note');
+  assert.equal(guard(`( cd ${clone} && : \${a:-\${b}} && git clean -fdx )`, plain)?.permissionDecision, 'deny', 'a nested ${...} does not close the group early');
+  assert.doesNotMatch(guard('cd "$D" && gh pr create').permissionDecisionReason, /could not resolve/u, 'a denial the directory does not decide gets no note');
 });
 
 test("guard denies the app's base-branch sync with the rebase to run instead, and passes other tools", () => {
