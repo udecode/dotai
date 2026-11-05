@@ -5710,6 +5710,23 @@ test('decisions-check append names Audit when a hand-off reviewer row follows', 
   assert.match(append('review-trail', 'Check the trail').stdout, /Stage: Audit\./, 'the rail counts review phases as Audit');
 });
 
+test("decisions-check append warns once when a babysit plan's first review or ship row lands before its page", () => {
+  const { dir, run } = sandbox();
+  const plan = (fields) => `# Babysit\n\nStatus: building\n${fields}\n## Steps\n\n- [ ] Repair it.\n`;
+  const root = project(dir, 'app', {
+    files: { 'docs/plans/b.md': plan('Playbook: babysit\n'), 'docs/plans/p.md': plan('Page: https://claude.ai/artifact/x\nPlaybook: babysit\n'), 'docs/plans/f.md': plan('Playbook: feature\n') },
+  });
+  const append = (slug, phase) => {
+    const result = run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', `docs/plans/${slug}.decisions.tsv`, phase, 'a decision', 'why', 'evidence', 'recorded'], root);
+    assert.equal(result.status, 0, result.stderr);
+    return /has no Page: line/.test(result.stderr);
+  };
+  assert.equal(append('b', 'build'), false, 'a build row is not yet a public action');
+  assert.ok(append('b', 'review'), "the first review row of an unpublished babysit plan warns, under babysit's own review phase");
+  assert.equal(append('b', 'delivery'), false, 'only the first review or ship row warns');
+  for (const slug of ['p', 'f']) assert.equal(append(slug, 'deliver'), false, `${slug}.md has a page or is not a babysit plan`);
+});
+
 const LOG_HEAD = 'time\tphase\tdecision\twhy\tevidence\tresult\n';
 const logRow = (phase, decision) => `2026-10-13T00:00:00Z\t${phase}\t${decision}\twhy\tevidence\tfixed: done\n`;
 const prPlan = (fields, body = '') =>
@@ -5741,6 +5758,28 @@ test('plan-page --pr writes the models, brief, frames, picks and API diff betwee
   assert.ok(body.endsWith('\n## Plans\n\n- PR (`docs/plans/pr.md`)\n\n<!-- plan-page:end -->\n'));
   assert.equal(run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/pr.md'], root).status, 0);
   assert.match(read(root, 'docs/plans/artifacts/pr.html'), /<a href="https:\/\/github\.com\/user-attachments\/assets\/v1">/, 'the page links a frame it cannot inline');
+});
+
+test("plan-page --pr --public leaves out the run's models and stages, open questions, Defaults and plan link", () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', {
+    files: {
+      'docs/plans/pr.md': prPlan('', '\n## Open questions\n\n- Keep the old name?\n'),
+      'docs/plans/shots/after.png': 'png',
+      'docs/plans/pr.decisions.tsv': LOG_HEAD + logRow('lead', 'claude-opus-5-5 @xhigh') + logRow('build', 'built it'),
+      '.agents/playbooks/custom.md': playbook('page-lead: Defaults, Open questions\npage-pr: Defaults, Open questions\n'),
+    },
+  });
+  const render = (...flags) => run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/pr.md', ...flags], root);
+  assert.equal(render('--pr', '--public').status, 0);
+  const body = read(root, 'docs/plans/artifacts/pr.pr.md');
+  assert.ok(body.startsWith('<!-- plan-page:start -->\n\nIt opens with a brief.\n'), 'the body opens with the brief');
+  assert.doesNotMatch(body, /claude-opus|`feature`|not run:|## Open questions|## Decisions|## Plans|docs\/plans\/pr\.md/);
+  assert.match(body, /\n## Demo\n[\s\S]*\n```diff\n-old\(\)\n\+next\(\)\n```\n/, 'what a reviewer reads stays');
+  assert.equal(render('--public').status, 2, '--public shapes only a PR body');
+  writeFileSync(join(root, 'docs/plans/pr.md'), read(root, 'docs/plans/pr.md').replace('Playbook: feature', 'Playbook: custom'));
+  assert.equal(render('--pr', '--public').status, 0);
+  assert.doesNotMatch(read(root, 'docs/plans/artifacts/pr.pr.md'), /## Defaults|## Open questions|Keep the old name|hand body/, 'a playbook that leads with those sections does not bring them back');
 });
 
 test('plan-page --pr --into replaces only its region and reuses an uploaded frame', () => {
