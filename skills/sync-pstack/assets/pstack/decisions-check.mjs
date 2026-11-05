@@ -76,8 +76,8 @@
 //        names this session, whose own tasks it skips)
 
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { appendFileSync, existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
+import { basename, dirname, isAbsolute, join, normalize, relative, resolve } from 'node:path';
 import { findLead, leadLabel, maxEffort, runtimeFolder } from './lead.mjs';
 import { cli as pageStop } from './page-stop.mjs';
 import { contextOf, pageUrlOf, parsePlan } from './plan-page.mjs';
@@ -577,7 +577,7 @@ if (args[0] === 'chips') {
     process.exit(0);
   }
   if (rest[0] === 'groups') {
-    console.info(renderGroups(groupsOf(tasks), ledger));
+    console.info(renderGroups(groupsOf(tasks, plansDir()), ledger));
     process.exit(0);
   }
   if (rest[0] === 'stale') {
@@ -593,6 +593,7 @@ if (args[0] === 'chips') {
       return states.get(pr);
     };
     const at = offeredAt(lines);
+    const DAY = 86_400;
     const oldest = [...at.values()].sort()[0] ?? new Date().toISOString();
     const read = (via, args, input) => {
       try {
@@ -601,29 +602,46 @@ if (args[0] === 'chips') {
         return '';
       }
     };
-    const history = new Map();
-    const historyOf = (via, partner = null) => {
+    const PURE_RENAME = 'R100';
+    const logged = new Map();
+    const logEntries = (via) => {
       const key = via.join('\0');
-      if (history.has(key)) return history.get(key);
+      if (logged.has(key)) return logged.get(key);
       const entries = [];
       let commit = null;
-      for (const row of read(via, ['log', '--no-merges', `--since=${oldest}`, '--format=%x01%ct%x09%h%x09%s', '--raw', '--no-abbrev', '-M']).split('\n')) {
+      for (const row of read([...via, '-c', 'core.quotePath=false'], ['log', '--first-parent', '--diff-merges=first-parent', `--since-as-filter=${oldest}`, '--format=%x01%ct%x09%h%x09%s', '--raw', '--no-abbrev', '-M']).split('\n')) {
         if (row.startsWith('\x01')) {
           const [time, hash, subject] = row.slice(1).split('\t');
           commit = { time: Number(time), hash, subject };
         } else if (row.startsWith(':') && commit) {
           const [meta, ...paths] = row.split('\t');
-          const [, , , blob, status] = meta.split(' ');
-          if (status.startsWith('R')) entries.push({ ...commit, status: 'D', path: paths[0], counts: status !== 'R100' });
-          entries.push({ ...commit, status: status[0], path: paths.at(-1), blob, counts: status !== 'R100' });
+          const [, , before, after, status] = meta.split(' ');
+          const changesContent = status !== PURE_RENAME;
+          if (status.startsWith('R')) entries.push({ ...commit, status: 'D', path: paths[0], content: before, changesContent, renamed: true });
+          entries.push({ ...commit, status: status[0], path: paths.at(-1), content: status[0] === 'D' ? before : after, changesContent });
         }
       }
-      if (partner) {
-        const theirs = new Set(read(partner, ['ls-files', '-z']).split('\0').filter(Boolean));
-        const added = entries.filter((entry) => entry.status === 'A').map((entry) => entry.blob);
-        const held = new Set(read(partner, ['cat-file', '--batch-check'], added.length ? `${added.join('\n')}\n` : '').split('\n').filter((answer) => / blob /u.test(answer)).map((answer) => answer.split(' ')[0]));
-        for (const entry of entries) if ((entry.status === 'A' && held.has(entry.blob)) || (entry.status === 'D' && theirs.has(entry.path))) entry.moved = true;
+      logged.set(key, entries);
+      return entries;
+    };
+    const markMovesBetween = (entries, partner) => {
+      const opposite = { A: 'D', D: 'A' };
+      const halves = new Map();
+      for (const entry of logEntries(partner)) {
+        const key = `${entry.status}\0${entry.path}\0${entry.content}`;
+        halves.set(key, [...(halves.get(key) ?? []), entry.time]);
       }
+      for (const entry of entries) {
+        const times = opposite[entry.status] ? halves.get(`${opposite[entry.status]}\0${entry.path}\0${entry.content}`) : null;
+        if (times?.some((time) => Math.abs(time - entry.time) <= DAY)) entry.moved = true;
+      }
+    };
+    const history = new Map();
+    const historyOf = (via, partner = null) => {
+      const key = via.join('\0');
+      if (history.has(key)) return history.get(key);
+      const entries = logEntries(via);
+      if (partner) markMovesBetween(entries, partner);
       const byPath = new Map();
       for (const entry of entries) byPath.set(entry.path, [...(byPath.get(entry.path) ?? []), entry]);
       history.set(key, byPath);
@@ -631,25 +649,31 @@ if (args[0] === 'chips') {
     };
     const companion = projectConfig().companion?.dir;
     const own = companion && existsSync(companion) ? [[], ['--git-dir', companion, '--work-tree', '.']] : [[]];
-    const homes = (path) => {
-      if (!isAbsolute(path)) return own.map((via, index) => ({ byPath: historyOf(via, own.length > 1 ? own[1 - index] : null), path: path.replace(/\/$/u, '') }));
-      const dir = existsSync(path) && statSync(path).isDirectory() ? path : dirname(path);
+    const repoPath = (path) => {
+      const clean = normalize(path).replace(/\/$/u, '');
+      return clean === '.' ? '' : clean;
+    };
+    const root = realpathSync('.');
+    const nearestDir = (path) => (existsSync(path) ? (statSync(path).isDirectory() ? path : dirname(path)) : nearestDir(dirname(path)));
+    const ownHomes = (path) => own.map((via, index) => ({ byPath: historyOf(via, own.length > 1 ? own[1 - index] : null), path: repoPath(path) }));
+    const homes = (written) => {
+      if (!isAbsolute(written)) return ownHomes(written);
+      const dir = nearestDir(written);
       const top = read(['-C', dir], ['rev-parse', '--show-toplevel']).trim();
       if (!top) return [];
-      const prefix = read(['-C', dir], ['rev-parse', '--show-prefix']).trim();
-      return [{ byPath: historyOf(['-C', top]), path: join(prefix, relative(dir, path)).replace(/\/$/u, '') }];
+      const path = join(read(['-C', dir], ['rev-parse', '--show-prefix']).trim(), relative(dir, written));
+      return realpathSync(top) === root ? ownHomes(path) : [{ byPath: historyOf(['-C', top]), path: repoPath(path) }];
     };
+    const entriesAt = (byPath, under, file) => (file ? (byPath.get(under) ?? []) : [...byPath].filter(([each]) => under === '' || each === under || each.startsWith(`${under}/`)).flatMap(([, entries]) => entries));
     const changesOf = (since, path) => {
       const after = Date.parse(since) / 1000;
       const file = existsSync(path) && !statSync(path).isDirectory();
-      return homes(path).flatMap(({ byPath, path: under }) =>
-        (file ? [byPath.get(under) ?? []] : [...byPath].filter(([each]) => each === under || each.startsWith(`${under}/`)).map(([, entries]) => entries)).flat().filter((entry) => entry.time >= after && !entry.moved),
-      );
+      return homes(path).flatMap(({ byPath, path: under }) => entriesAt(byPath, under, file).filter((entry) => entry.time >= after && !entry.moved));
     };
-    const deletedSince = (since, path) => changesOf(since, path).some((entry) => entry.status === 'D');
+    const deletedSince = (since, path) => changesOf(since, path).some((entry) => entry.status === 'D' && !entry.renamed);
     const commitsSince = (since, paths) => {
       const seen = new Map();
-      for (const path of paths) for (const entry of changesOf(since, path)) if (entry.counts) seen.set(entry.hash, entry);
+      for (const path of paths) for (const entry of changesOf(since, path)) if (entry.changesContent) seen.set(entry.hash, entry);
       return [...seen.values()].sort((a, b) => b.time - a.time).map((commit) => commit.subject);
     };
     const rows = staleReport(tasks, at, { exists: existsSync, deletedSince, commitsSince, prState, now: Date.now(), ship: shipList().items });

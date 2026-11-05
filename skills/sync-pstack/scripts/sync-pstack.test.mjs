@@ -3356,6 +3356,21 @@ test('decisions-check keeps a task under one id: no new gone or replaced rows', 
   assert.match(chip('task_c3 Rewrite the install guide', 'reopened').stderr, /task_c3 is dismissed declined, so it cannot be reopened/, 'a declined task stays closed');
 });
 
+test('decisions-check reopens a dup the owner calls separate work and takes it off the kept task', () => {
+  const { chip, chips, offer } = chipLedger();
+  const badge = 'task_a1 Fix the stale badge';
+  assert.equal(offer(badge).status, 0);
+  assert.equal(offer('task_c3 Rewrite the install guide', 'docs/install.md').status, 0);
+  assert.equal(chip(badge, 'dismissed dup task_c3: the guide rewrite fixes the badge too').status, 0);
+  assert.match(chips('brief', 'task_c3').stdout, /Also covers:\n- task_a1 /);
+  const reopened = chip(badge, 'reopened', 'the owner says the badge is separate work');
+  assert.equal(reopened.status, 0, reopened.stderr);
+  assert.doesNotMatch(chips('brief', 'task_c3').stdout, /- task_a1 /, 'the kept task no longer covers it');
+  assert.match(chips().stdout, /task_a1 {2}Fix the stale badge/, 'the reopened task is back on the board');
+  const apart = chip(badge, 'apart', 'from: task_c3');
+  assert.equal(apart.status, 0, apart.stderr);
+});
+
 test('decisions-check takes a later chip row only for a task in the state it leaves, and a dup only of a live task', () => {
   const { chip, offer } = chipLedger();
   assert.equal(offer('task_a1 Fix the stale badge').status, 0);
@@ -4259,8 +4274,26 @@ test('chips stale counts a commit in the repository that holds each path, and no
   writeFileSync(join(root, 'docs/notes/moved.md'), 'moved\n');
   spawnSync('git', [...project, 'add', 'src/old.ts', 'docs/notes/moved.md']);
   commit(project, 'add the files', earlier);
+  mkdirSync(join(root, 'lib'), { recursive: true });
+  writeFileSync(join(root, 'lib/seed.ts'), 'shared\n');
+  spawnSync('git', [...companion, 'add', 'lib/seed.ts']);
+  commit(companion, 'seed the companion', earlier);
+  writeFileSync(join(root, 'docs/both.md'), 'both\n');
+  writeFileSync(join(root, 'docs/back.md'), 'back\n');
+  spawnSync('git', [...project, 'add', 'docs/both.md']);
+  commit(project, 'track both in the project', earlier);
+  mkdirSync(join(root, 'docs/only'), { recursive: true });
+  writeFileSync(join(root, 'docs/only/leaf.md'), 'leaf\n');
+  spawnSync('git', [...companion, 'add', 'docs/both.md', 'docs/back.md', 'docs/only/leaf.md']);
+  commit(companion, 'track both in the companion', earlier);
   assert.equal(offer('task_a1 Fix the source', 'src', 'topic: source').status, 0);
+  assert.equal(offer('task_d1 Fix both', 'docs/both.md', 'topic: both').status, 0);
+  assert.equal(offer('task_e1 Fix the note that came back', 'docs/back.md', 'topic: back').status, 0);
+  assert.equal(offer('task_c1 Fix the library', 'lib', 'topic: library').status, 0);
   assert.equal(offer('task_b1 Fix the note', 'docs/notes/moved.md', 'topic: note').status, 0);
+  assert.equal(offer('task_f1 Fix the note by its full path', join(root, 'docs/notes/moved.md'), 'topic: note-path').status, 0);
+  assert.equal(offer('task_g1 Fix the only leaf by its full path', join(root, 'docs/only/leaf.md'), 'topic: leaf').status, 0);
+  assert.equal(offer('task_h1 Fix the old source', 'src/old.ts', 'topic: old-source').status, 0);
   spawnSync('git', [...project, 'mv', 'src/old.ts', 'src/new.ts']);
   commit(project, 'rename the source', later);
   spawnSync('git', [...project, 'rm', '-q', '--cached', 'docs/notes/moved.md']);
@@ -4270,10 +4303,28 @@ test('chips stale counts a commit in the repository that holds each path, and no
   writeFileSync(join(root, 'docs/notes/moved.md'), 'edited\n');
   spawnSync('git', [...companion, 'add', 'docs/notes/moved.md']);
   commit(companion, 'edit the note', later);
+  writeFileSync(join(root, 'lib/same.ts'), 'shared\n');
+  spawnSync('git', [...project, 'add', 'lib/same.ts']);
+  commit(project, 'add the shared file', later);
+  spawnSync('git', [...project, 'rm', '-q', 'docs/both.md']);
+  commit(project, 'delete both', later);
+  spawnSync('git', [...companion, 'rm', '-q', 'docs/only/leaf.md']);
+  commit(companion, 'delete the only leaf', later);
+  spawnSync('git', [...companion, 'rm', '-q', '--cached', 'docs/back.md']);
+  commit(companion, 'drop the note from the companion', new Date(Date.now() + 3_600_000).toISOString());
+  spawnSync('git', [...project, 'add', 'docs/back.md']);
+  commit(project, 'add the note back', new Date(Date.now() + 3 * 86_400_000).toISOString());
   const stale = chips('stale');
   assert.equal(stale.status, 0, stale.stderr);
   assert.match(stale.stdout, /task_b1 [^\n]*; 1 commit on its paths since its offer, last "edit the note"\n/, 'the companion edit counts, and neither half of the move does');
+  assert.match(stale.stdout, /task_f1 [^\n]*; 1 commit on its paths since its offer, last "edit the note"\n/, 'an absolute path inside the project reads the companion too');
   assert.doesNotMatch(stale.stdout, /task_a1 [^\n]*commit/, 'a pure rename inside a written directory counts no commit');
+  assert.match(stale.stdout, /task_c1 [^\n]*; 1 commit on its paths since its offer, last "add the shared file"\n/, 'a new file whose content the companion once held is no move');
+  assert.match(stale.stdout, /task_d1 [^\n]*deleted since its offer: docs\/both\.md/, 'a delete counts though the companion still tracks the path');
+  assert.match(stale.stdout, /task_e1 [^\n]*; 2 commits on its paths since its offer, last "add the note back"\n/, 'a delete and an add more than a day apart are no move');
+  assert.match(stale.stdout, /task_g1 [^\n]*deleted since its offer: /, 'an absolute path whose directory is gone still reads its history');
+  assert.match(stale.stdout, /task_h1 [^\n]*missing: src\/old\.ts/, 'a path renamed away is missing');
+  assert.doesNotMatch(stale.stdout, /task_h1 [^\n]*deleted since its offer/, 'a path renamed away is no deletion');
 });
 
 test('chips groups links two open tasks that share two kinds of evidence, and an apart row keeps the pair off the list', () => {
@@ -4281,29 +4332,87 @@ test('chips groups links two open tasks that share two kinds of evidence, and an
   const offer = (decision, why, evidence) => helper('append', LEDGER, 'chip', decision, why, `${evidence}; priority: P2; via: verdict`, 'offered');
   const a1 = 'task_a1 Give worktree sessions a run directory the Write tool can reach';
   const c1 = 'task_c1 Name the trails rule owner';
-  assert.equal(offer(a1, 'guard.mjs refuses the write', 'writes: rules/trails.md; topic: run-dir-write').status, 0);
+  assert.equal(offer(a1, 'guard.mjs refuses the write', 'writes: rules/trails.md, rules/run.md; topic: run-dir-write').status, 0);
   assert.equal(offer('task_b1 Let a worktree session write its run directory without the hook refusing', 'the hook refuses it', 'writes: rules/trails.md; topic: run-dir-writes').status, 0);
   assert.equal(offer(c1, 'one owner', 'writes: rules/trails.md; topic: trails-owner').status, 0);
-  assert.equal(offer('task_d1 Give worktree sessions a run directory the Read tool can reach', 'readRunDir misses it', 'writes: rules/read.md; topic: run-dir-read; waits: task:task_a1').status, 0);
+  assert.equal(offer('task_d1 Give worktree sessions a run directory the Read tool can reach', 'readRunDir misses it', 'writes: rules/run.md; topic: run-dir-read; waits: task:task_a1').status, 0);
   const groups = chips('groups');
   assert.equal(groups.status, 0, groups.stderr);
   assert.equal(
     groups.stdout,
-    "1 group of open tasks in docs/plans/suggested-tasks.decisions.tsv that may answer one question. Judge each pair as chips.md's Groups bullet says: dismissed dup when one fix removes both, a task: wait when one needs the other's result, and otherwise apart with from:, after a topic move when both answer one owner question.\n" +
+    "1 group of open tasks in docs/plans/suggested-tasks.decisions.tsv that may answer one question. Judge each pair as chips.md's Groups bullet says: dismissed dup when one fix removes both, and otherwise apart with from:, then a task: wait when an offered task needs the other's result.\n" +
       '\n' +
       '  task_a1 and task_b1: problem; fix area (rules/trails.md)\n' +
       '  task_a1  Give worktree sessions a run directory the Write tool can reach  [run-dir-write]  no card\n' +
       '  task_b1  Let a worktree session write its run directory without the hook refusing  [run-dir-writes]  no card\n',
-    'task_c1 shares only the file, and task_d1 waits on task_a1 and shares only wording with task_b1',
+    'task_c1 shares only the file, task_d1 shares two kinds with task_a1 but waits on it, and shares only wording with task_b1',
   );
   assert.match(chip(a1, 'apart').stderr, /an apart row names in "from: <task id>, <task id>" each other task the ledger holds/);
   assert.equal(chip(a1, 'apart', 'from: task_a1').status, 1, 'the task itself');
   assert.equal(chip(a1, 'apart', 'from: task_z9').status, 1, 'a task the ledger lacks');
-  const apart = chip(a1, 'apart', 'from: task_b1');
+  const z1 = 'task_z1 Record the zebra crossing';
+  assert.equal(offer(z1, 'zebra', 'writes: rules/zebra.md; topic: run-dir-write').status, 0);
+  const apart = chip(z1, 'apart', 'from: task_b1');
   assert.equal(apart.status, 0, apart.stderr);
-  assert.match(chips('groups').stdout, /^No two open tasks in docs\/plans\/suggested-tasks\.decisions\.tsv share two kinds of evidence/);
+  const dup = chip(z1, 'dismissed dup task_a1');
+  assert.equal(dup.status, 0, dup.stderr);
+  assert.match(chips('groups').stdout, /^No two open tasks in docs\/plans\/suggested-tasks\.decisions\.tsv share two kinds of evidence/, 'task_a1 keeps the apart list of the duplicate merged into it');
+  assert.equal(chip(a1, 'apart', 'from: task_z1').status, 1, 'a task merged into it');
   assert.equal(chip(c1, 'carded', 'card: k1; session: s1').status, 0);
   assert.equal(chip(c1, 'apart', 'from: task_a1').status, 0, 'an apart row changes no work, so a carded task takes it');
+  const e1 = 'task_e1 Cache the parse tree';
+  const f1 = 'task_f1 Expire the cache entries';
+  assert.equal(offer(e1, 'slow parse', 'writes: src/cache.ts; topic: cache').status, 0);
+  assert.equal(offer(f1, 'stale entries', 'writes: src/expire.ts; topic: cache').status, 0);
+  assert.equal(chip(f1, 'apart', 'from: task_e1').status, 0);
+  assert.equal(chip(f1, 'updated', 'waits: task:task_e1').status, 0);
+  assert.doesNotMatch(chips().stdout, /merge task_f1 into task_e1/, 'chips never merges two tasks an apart row keeps apart');
+  assert.match(chip(f1, 'dismissed dup task_e1').stderr, /an apart row keeps task_f1 and task_e1 apart/, 'append refuses a dup between two tasks an apart row keeps apart');
+  const g1 = 'task_g1 Evict the cache on write';
+  const h1 = 'task_h1 Evict the cache on every write';
+  assert.equal(offer(g1, 'stale reads', 'writes: src/evict.ts; topic: cache').status, 0);
+  assert.equal(offer(h1, 'stale reads', 'writes: src/evict.ts; topic: cache').status, 0);
+  assert.equal(chip(g1, 'apart', 'from: task_h1').status, 0);
+  assert.equal(chip(h1, 'dismissed dup task_e1').status, 0);
+  assert.match(chip(g1, 'dismissed dup task_e1').stderr, /an apart row keeps task_g1 and task_e1 apart/, 'the apart row follows its task into the one it merged into');
+  assert.equal(chip(g1, 'updated', 'waits: task:task_e1').status, 0);
+  assert.doesNotMatch(chips().stdout, /merge task_g1 into task_e1/, 'chips follows an apart row through a dup');
+  assert.equal(offer('task_k1 Keep the caret where a click lands on a page', 'caret', 'writes: apps/p/tests/donor/pagination.test.ts; topic: page-caret; repro: pnpm vitest tests/donor/pagination.test.ts').status, 0);
+  assert.equal(offer('task_l1 Select all text across every page', 'select all', 'writes: apps/p/tests/donor/pagination.test.ts; topic: page-select; repro: pnpm vitest tests/donor/pagination.test.ts').status, 0);
+  assert.equal(offer('task_m1 Note the cache fix in the release notes', 'notes', 'writes: .changeset/cache-fix.md; topic: cache-notes').status, 0);
+  assert.equal(offer('task_n1 Note the cache fix in the release notes twice', 'notes', 'writes: .changeset/cache-fix.md; topic: cache-notes-twice').status, 0);
+  const later = chips('groups').stdout;
+  assert.doesNotMatch(later, /task_k1 and task_l1/, 'a file the repros name is failure evidence, never fix area too');
+  assert.doesNotMatch(later, /task_m1 and task_n1/, 'a shared changeset file is no fix area');
+});
+
+test('chips stale reads a written path however its writes token spells it, and counts only what reached the branch', () => {
+  const { chips, offer, root } = chipLedger();
+  const [before, soon, after] = [-86_400_000, 3_600_000, 86_400_000].map((offset) => new Date(Date.now() + offset).toISOString());
+  const git = (when, ...args) => spawnSync('git', ['-C', root, '-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { env: { ...process.env, GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when } });
+  mkdirSync(join(root, 'src'), { recursive: true });
+  writeFileSync(join(root, 'src/main.ts'), 'export const a = 1;\n');
+  writeFileSync(join(root, 'src/caf\u00e9.ts'), 'export const b = 1;\n');
+  git(before, 'add', 'src');
+  git(before, 'commit', '-qm', 'add the sources');
+  const spellings = { task_a1: './src/main.ts', task_b1: './src', task_c1: '.', task_d1: 'src/caf\u00e9.ts' };
+  for (const [id, writes] of Object.entries(spellings)) assert.equal(offer(`${id} Fix the sources`, writes, `topic: ${id.replace('_', '-')}`).status, 0, writes);
+  git(soon, 'checkout', '-q', '-b', 'side');
+  writeFileSync(join(root, 'src/main.ts'), 'export const a = 3;\n');
+  git(soon, 'commit', '-qam', 'try a change on a side branch');
+  writeFileSync(join(root, 'src/main.ts'), 'export const a = 1;\n');
+  git(soon, 'commit', '-qam', 'take the change back');
+  git(soon, 'checkout', '-q', '-');
+  git(soon, 'merge', '-q', '--no-ff', 'side', '-m', 'merge the side branch');
+  writeFileSync(join(root, 'src/main.ts'), 'export const a = 2;\n');
+  writeFileSync(join(root, 'src/caf\u00e9.ts'), 'export const b = 2;\n');
+  git(after, 'add', 'src');
+  git(after, 'commit', '-qm', 'edit the sources');
+  const old = ['writes: README.md; topic: old; priority: P2; via: verdict', 'offered'];
+  appendFileSync(join(root, 'docs/plans/suggested-tasks.decisions.tsv'), [['2026-13-10T10:00:00Z', 'chip', 'task_z1 Fix an old thing', 'why', ...old], ['2026-13-10T10:00:00Z', 'chip', 'task_z1 Fix an old thing', 'why', 'evidence', 'dismissed declined']].map((row) => row.join('\t')).join('\n') + '\n');
+  const stale = chips('stale');
+  assert.equal(stale.status, 0, `a malformed offer time leaves the report running: ${stale.stderr}`);
+  for (const [id, writes] of Object.entries(spellings)) assert.match(stale.stdout, new RegExp(`${id} [^\\n]*; 1 commit on its paths since its offer, last "edit the sources"`), writes);
 });
 
 test('a legacy row with an empty waits: replays as no waits', () => {
