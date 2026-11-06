@@ -996,6 +996,10 @@ test("corpus diffs the project's installed ledger helpers against this skill's c
   assert.equal(cli('corpus', root, '--out', join(dir, 'minted')).status, 0);
   assert.match(read(join(dir, 'minted'), 'corpus-app-installed.txt'), /^offer t_<new 1> beside t_0a1b2c3d$/mu, 'a freshly minted id is masked and a ledger id kept');
 
+  writeFileSync(installed, "process.stdout.write('x'.repeat(200000) + '\\nwhole\\n');\nprocess.exit(0);\n");
+  assert.equal(cli('corpus', root, '--out', join(dir, 'long')).status, 0);
+  assert.match(read(join(dir, 'long'), 'corpus-app-installed.txt'), /^whole$/m, 'an installed helper that exits right after printing still compares whole');
+
   rmSync(installed);
   assert.match(cli('corpus', root).stdout, /^ {2}-absent$/m);
 });
@@ -2899,6 +2903,19 @@ test('decisions-check append writes only a row that passes the check', () => {
   assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'log.decisions.tsv'], root).status, 0);
 });
 
+test('decisions-check prints every problem of a long log through a pipe, as a shell tool reads it', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app');
+  const rows = Array.from({ length: 4000 }, (_, n) => `2026-01-01T00:00:00Z\tbuild\tdecision ${n}\twhy\tevidence`);
+  writeFileSync(join(root, 'long.decisions.tsv'), `ts\tphase\tdecision\twhy\tevidence\tresult\n${rows.join('\n')}\n`);
+  const result = run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'long.decisions.tsv'], root);
+  assert.equal(result.status, 1);
+  const [announced, ...problems] = result.stderr.trim().split('\n');
+  assert.equal(announced, '4000 problem(s):');
+  assert.equal(problems.length, 4000, `printed ${problems.length} of 4000 problems in ${result.stderr.length} bytes`);
+  assert.ok(result.stderr.length > 2 * 65_536, 'the problems outgrow a pipe buffer twice over');
+});
+
 test('decisions-check refuses a panel row in the plans directory until its plan sits beside the log', () => {
   const { dir, run } = sandbox();
   const root = project(dir, 'app', { files: { 'docs/plans/.keep': '' } });
@@ -3558,6 +3575,23 @@ test('decisions-check chips prints every open task by state, and lists started o
   assert.match(listed.stdout, /Unmigrated \(1\)\n {2}task_c3 {2}Rename the probe flag\n/, 'an old offer with no topic, its readiness tag stripped');
   assert.match(listed.stdout, /migrate task_c3: log updated with topic:/);
   assert.match(listed.stderr, /task_b2 and task_g1 are both started on an overlapping path outside this checkout/);
+});
+
+test('chips prints the started-overlap note on its own line when a late reader gets the board and the note through one pipe', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', { files: { 'docs/plans/.keep': '' } });
+  const rows = Array.from({ length: 600 }, (_, n) => [`task_f${n} Fix the badge number ${n} on the page ${'x'.repeat(60)}`, `writes: src/f${n}.ts; topic: topic-${n}`, 'offered']);
+  rows.push(
+    ['task_s1 Design the export ledger (xhigh)', `writes: src/export, ${join(dir, 'shared/export')}; topic: export; kind: decide`, 'offered'],
+    ['task_s1 Design the export ledger (xhigh)', 'evidence', 'started'],
+    ['task_s2 Fix the core', `writes: src/export/core.ts, ${join(dir, 'shared/export/core.md')}; topic: export`, 'offered'],
+    ['task_s2 Fix the core', 'evidence', 'started'],
+  );
+  writeFileSync(join(root, 'docs/plans/suggested-tasks.decisions.tsv'), ledgerRows(rows));
+  const result = run('sh', ['-c', `"${process.execPath}" "${join(HELPERS, 'decisions-check.mjs')}" chips 2>&1 | (sleep 1; cat)`], root);
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(result.stdout.length > 65_536, 'the board outgrows a pipe buffer');
+  assert.match(result.stdout, /^task_s1 and task_s2 are both started on an overlapping path outside this checkout; the owner runs both$/mu);
 });
 
 const ledgerRows = (rows) => `ts\tphase\tdecision\twhy\tevidence\tresult\n${rows.map(([decision, evidence, result]) => ['2026-01-01T10:00:00Z', 'chip', decision, 'why', evidence, result].join('\t')).join('\n')}\n`;

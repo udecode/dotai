@@ -1248,9 +1248,14 @@ export function corpus(root, { session, installedDir = join(root, HELPER_DIR) } 
         transcripts[side].push(`${header}\nabsent`);
         continue;
       }
-      const result = spawnSync(process.execPath, ['--import', clock, join(dir, helper), ...args], { cwd: root, env, encoding: 'utf8', timeout: 300_000, maxBuffer: 256 * 1024 * 1024 });
+      // An older helper exits right after printing, which cuts output to a pipe short; a file takes it whole.
+      const streams = ['stdout', 'stderr'].map((name) => join(scratch, `helper.${name}`));
+      const fds = streams.map((path) => openSync(path, 'w'));
+      const result = spawnSync(process.execPath, ['--import', clock, join(dir, helper), ...args], { cwd: root, env, stdio: ['ignore', ...fds], timeout: 300_000 });
+      fds.forEach(closeSync);
+      const [stdout, stderr] = streams.map((path) => readFileSync(path, 'utf8'));
       if (result.error) incomplete.push(`${side} ${helper} ${args.join(' ')}: ${result.error.code ?? result.error.message}`);
-      transcripts[side].push(maskHelperUrls(`${header}\n${result.stdout}${result.stderr}exit ${result.status ?? result.signal}`, dir));
+      transcripts[side].push(maskHelperUrls(`${header}\n${stdout}${stderr}exit ${result.status ?? result.signal}`, dir));
     }
   }
   const known = snapshot ? readFileSync(snapshot, 'utf8') : '';
