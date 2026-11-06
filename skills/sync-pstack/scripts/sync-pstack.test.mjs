@@ -3156,9 +3156,9 @@ test("decisions-check takes a later round's seats row only after a writing row",
   assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'old.decisions.tsv'], root).status, 0, 'a whole-log check leaves rounds already written alone');
 });
 
-const chipLedger = () => {
+const chipLedger = ({ config = {}, files = {} } = {}) => {
   const { dir, env, run } = sandbox();
-  const root = project(dir, 'app', { files: { 'docs/plans/.keep': '', '.agents/pstack.json': JSON.stringify({ branch: 'next' }) } });
+  const root = project(dir, 'app', { files: { 'docs/plans/.keep': '', '.agents/pstack.json': JSON.stringify({ branch: 'next', ...config }), ...files } });
   spawnSync('git', ['-C', root, 'remote', 'add', 'origin', join(dir, 'origin.git')]);
   const LEDGER = 'docs/plans/suggested-tasks.decisions.tsv';
   const helper = (...args) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), ...args], root);
@@ -4105,6 +4105,194 @@ test('within a priority, chips lists and cards first a task whose repro names a 
   assert.match(board, /Do, card pass \(6\)\n {2}card task_b1:[^\n]*\n {2}card task_a1:[^\n]*\n {2}card task_c1:/, 'an issue-backed P1 stays below every P0');
 });
 
+test('within a priority, chips ranks regressions first and experimental scopes last, by the facts a triage record gives', () => {
+  const rows = [
+    ['task_a1 Fix a', 'offered', 'writes: a.md; topic: a; priority: P1; repro: type then reload; review-scope: editor'],
+    ['task_b1 Fix b', 'offered', 'writes: b.md; topic: b; priority: P1; repro: type then reload; review-scope: pagination'],
+    ['task_c1 Fix c', 'offered', 'writes: c.md; topic: c; priority: P1; repro: type then reload; review-scope: editor; regression: https://example.org/demo'],
+    ['task_d1 Fix d', 'offered', 'writes: d.md; topic: d; priority: P1; repro: type then reload; review-scope: pagination; regression: https://example.org/pages, https://example.org/print'],
+    ['task_e1 Fix e', 'offered', 'writes: e.md; topic: e; priority: P1; repro: type then reload'],
+    ['task_f1 Fix f', 'offered', 'writes: f.md; topic: f; priority: P0; repro: type then reload; review-scope: pagination'],
+    ['task_g1 Fix g', 'offered', 'writes: g.md; topic: g; priority: P1; repro: acme#3 holds the steps; review-scope: editor'],
+    ['task_h1 Fix h', 'offered', 'writes: h.md; topic: h; priority: P1; repro: type then reload; review-scope: none; regression: https://example.org/tool'],
+  ];
+  const triaged = chipLedger({ config: { triage: { experimental: ['pagination'] }, chips: { scopes: 'scopes' } }, files: { 'scopes/editor.json': '{}', 'scopes/pagination.json': '{}' } });
+  const written = triaged.batch(rows);
+  assert.equal(written.status, 0, written.stderr);
+  const board = triaged.chips().stdout;
+  assert.match(board, /Ready, P0 \(1\)\n {2}task_f1 {2}Fix f {2}\[f\] {2}experimental /, 'an experimental P0 stays above every P1');
+  assert.match(
+    board,
+    /Ready, P1 \(7\)\n {2}task_c1 {2}Fix c {2}\[c\] {2}regression [^\n]*\n {2}task_d1 {2}Fix d {2}\[d\] {2}regression [^\n]*\n {2}task_g1 {2}Fix g {2}\[g\] {2}new [^\n]*\n {2}task_a1 {2}Fix a {2}\[a\] {2}new [^\n]*\n {2}task_e1 {2}Fix e {2}\[e\] {2}no card\n {2}task_h1 {2}Fix h {2}\[h\] {2}no card\n {2}task_b1 {2}Fix b {2}\[b\] {2}experimental /,
+    'a regression in an experimental scope still comes first, and a task with no review scope, or none, ranks with the new ones'
+  );
+  assert.match(triaged.chips('brief', 'task_d1').stdout, /^Review scope: pagination\. Milestone: regression\.\nRegression: it still works on https:\/\/example\.org\/pages, https:\/\/example\.org\/print\n/mu);
+  assert.doesNotMatch(triaged.chips('brief', 'task_e1').stdout, /^Review scope:/mu);
+  const stale = triaged.chips('stale').stdout;
+  assert.match(stale, /task_e1 [^\n]*no review scope/, 'the stale report asks the sweep to judge a missing review scope');
+  assert.doesNotMatch(stale, /task_h1 [^\n]*no review scope/, 'review-scope: none is a judged scope');
+  const refused = triaged.batch([
+    ['task_k1 Fix k', 'offered', 'writes: k.md; topic: k; priority: P1; repro: steps; review-scope: editr'],
+    ['task_m1 Fix m', 'offered', 'writes: m.md; topic: m; priority: P1; repro: steps; regression: the old demo'],
+  ]);
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /review-scope: editr is no review scope in scopes; name the one that owns the task's code, or none/);
+  assert.match(refused.stderr, /regression: names each page where the behavior still works by its URL[^\n]*"the old demo" is not a URL/);
+  const carded = triaged.batch([
+    ['task_a1 Fix a', 'carded', 'card: task_x1; session: s1'],
+    ['task_a1 Fix a', 'updated', 'review-scope: pagination'],
+  ]);
+  assert.equal(carded.status, 0, `a carded task takes its review scope without a withdrawal: ${carded.stderr}`);
+  assert.match(triaged.chips('brief', 'task_a1').stdout, /^Review scope: pagination\. Milestone: experimental\.$/mu);
+
+  const plain = chipLedger();
+  assert.equal(plain.batch(rows).status, 0);
+  const unranked = plain.chips().stdout;
+  assert.match(unranked, /Ready, P1 \(7\)\n {2}task_g1 [^\n]*\n {2}task_a1 [^\n]*\n {2}task_b1 [^\n]*\n {2}task_c1 /, 'without a triage config the order stays the public-issue one');
+  assert.doesNotMatch(unranked, /\] {2}(?:regression|new|experimental)\b/, 'and no task shows a milestone');
+  assert.doesNotMatch(plain.chips('stale').stdout, /no review scope/);
+});
+
+const triagedLedger = (files = {}) =>
+  chipLedger({ config: { triage: { experimental: ['pagination'] }, chips: { scopes: 'scopes' } }, files: { 'scopes/editor.json': '{}', 'scopes/native.json': '{}', 'scopes/pagination.json': '{}', ...files } });
+
+test('a chip ranks by its own review scope and regression pages, and the card pass offers in that order', () => {
+  const { batch, chip, chips, merge, root } = triagedLedger({ 'scopes/ghost.json/.keep': '' });
+  merge('break the page break');
+  const head = spawnSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
+  const written = batch([
+    ['task_f1 Fix f', 'offered', 'writes: f.md; topic: f; priority: P0; repro: type then reload; review-scope: pagination'],
+    ['task_r1 Fix r', 'offered', `writes: r.md; topic: r; priority: P0; review-scope: pagination; regressed: ${head}`],
+    ['task_n1 Fix n', 'offered', 'writes: n.md; topic: n; priority: P1; repro: steps; review-scope: none'],
+    ['task_d1 Fix d', 'offered', 'writes: d.md; topic: d; priority: P1; repro: steps; review-scope: editor; regression: https://example.org/tool'],
+    ['task_e1 Fix e', 'offered', 'writes: e.md; topic: e; priority: P1; repro: steps; review-scope: editor'],
+    ['task_k1 Fix k', 'offered', 'writes: k.md; topic: k; priority: P1; repro: steps; review-scope: editor; regression: https://platejs.org/docs/a'],
+    ['task_p1 Fix p', 'offered', 'writes: p.md; topic: p; priority: P1; repro: Type regression: stale into the box and reload; review-scope: editor'],
+  ]);
+  assert.equal(written.status, 0, written.stderr);
+  const board = chips().stdout;
+  assert.match(board, /Ready, P0 \(2\)\n {2}task_f1 {2}Fix f {2}\[f\] {2}experimental [^\n]*\n {2}task_r1 {2}Fix r {2}\[r\] {2}experimental /, 'regressed: names a commit, not a page where the behavior works');
+  assert.match(board, /task_p1 {2}Fix p {2}\[p\] {2}new /, 'regression: inside the repro is part of the repro');
+  assert.match(board, /Do, card pass \(7\)\n {2}card task_f1:[^\n]*\n {2}card task_r1:[^\n]*\n {2}card task_d1:[^\n]*\n {2}card task_k1:[^\n]*\n {2}card task_n1:/, 'the card pass offers by milestone class within a priority');
+  assert.equal(chip('task_k1 Fix k', 'updated', 'regression:').status, 0);
+  assert.match(chips().stdout, /task_k1 {2}Fix k {2}\[k\] {2}new /, 'an empty regression: clears the pages when the record drops them');
+  const refused = batch([
+    ['task_u1 Fix u', 'offered', 'writes: u.md; topic: u; priority: P1; repro: steps; review-scope: editor; regression: https://:'],
+    ['task_v1 Fix v', 'offered', 'writes: v.md; topic: v; priority: P1; repro: steps; review-scope: ghost'],
+  ]);
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /"https:\/\/:" is not a URL/);
+  assert.match(refused.stderr, /review-scope: ghost is no review scope in scopes/, 'a folder named like a scope file is no scope');
+  const plain = chipLedger().batch([['task_p1 Fix p', 'offered', 'writes: p.md; topic: p; priority: P1; repro: Type regression: stale into the box and reload']]);
+  assert.equal(plain.status, 0, plain.stderr);
+});
+
+test('a reopened duplicate leaves the kept task its own milestone class, whatever proof the merge copied', () => {
+  const { batch, chip, chips, merge, root } = triagedLedger();
+  merge('break page breaks');
+  const head = spawnSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
+  const written = batch([
+    ['task_keep Fix pagination', 'offered', 'writes: a.md; topic: shared; priority: P0; repro: steps; review-scope: pagination'],
+    ['task_dup Fix page breaks', 'offered', `writes: b.md; topic: shared; priority: P0; review-scope: pagination; regressed: ${head}`],
+    ['task_peer Fix another bug', 'offered', 'writes: c.md; topic: shared; priority: P0; repro: steps; review-scope: editor'],
+    ['task_dup Fix page breaks', 'dismissed dup task_keep', 'evidence'],
+    ['task_dup Fix page breaks', 'reopened', 'the owner says these are separate fixes'],
+    ['task_dup Fix page breaks', 'apart', 'from: task_keep'],
+  ]);
+  assert.equal(written.status, 0, written.stderr);
+  assert.match(chips('brief', 'task_keep').stdout, /^Review scope: pagination\. Milestone: experimental\.$/mu);
+  assert.match(chips().stdout, /Do, card pass \(3\)\n {2}card task_peer:/, 'the new task cards before the experimental ones');
+});
+
+test('reopening the middle of a duplicate chain gives it back its own milestone class', () => {
+  const { batch, chips } = triagedLedger();
+  const written = batch([
+    ['task_leaf Fix typing', 'offered', 'writes: a.md; topic: shared; priority: P1; repro: steps; review-scope: editor; regression: https://www.slatejs.org/examples/richtext'],
+    ['task_mid Fix editor', 'offered', 'writes: b.md; topic: shared; priority: P1; repro: steps; review-scope: editor'],
+    ['task_top Fix pagination', 'offered', 'writes: c.md; topic: shared; priority: P1; repro: steps; review-scope: pagination'],
+    ['task_leaf Fix typing', 'dismissed dup task_mid', 'evidence'],
+    ['task_mid Fix editor', 'dismissed dup task_top', 'evidence'],
+    ['task_leaf Fix typing', 'reopened', 'separate work'],
+    ['task_mid Fix editor', 'reopened', 'separate work'],
+  ]);
+  assert.equal(written.status, 0, written.stderr);
+  const mid = chips('brief', 'task_mid').stdout;
+  assert.match(mid, /^Review scope: editor\. Milestone: new\.$/mu);
+  assert.doesNotMatch(mid, /^Regression:/mu);
+  assert.match(chips().stdout, /Do, card pass \(3\)\n {2}card task_leaf:[^\n]*\n {2}card task_mid:[^\n]*\n {2}card task_top:/);
+});
+
+test('a folded row changes no review scope or regression page', () => {
+  const { batch, chip, chips } = triagedLedger();
+  assert.equal(batch([
+    ['task_keep Fix pagination', 'offered', 'writes: a.md; topic: shared; priority: P1; repro: steps; review-scope: none'],
+    ['task_peer Fix another bug', 'offered', 'writes: b.md; topic: shared; priority: P1; repro: steps; review-scope: editor'],
+  ]).status, 0);
+  const folded = chip('task_keep Fix pagination', 'folded', 'review-scope: pagination');
+  assert.equal(folded.status, 1, 'a fold that names a review scope');
+  assert.equal(chip('task_keep Fix pagination', 'folded', 'regression: https://www.slatejs.org/examples/b').status, 1, 'a fold that names regression pages');
+  assert.match(chips().stdout, /Do, card pass \(2\)\n {2}card task_keep:[^\n]*\n {2}card task_peer:/);
+});
+
+test('a started task takes the review scope and regression pages a new triage record gives', () => {
+  const { batch, chip, chips } = triagedLedger();
+  assert.equal(batch([
+    ['task_keep Fix the void Backspace', 'offered', 'writes: a.md; topic: void; priority: P1; repro: plate-private#109 holds the steps; review-scope: native'],
+    ['task_keep Fix the void Backspace', 'started', 'session: s1'],
+  ]).status, 0);
+  const updated = chip('task_keep Fix the void Backspace', 'updated', 'review-scope: native; regression: https://www.slatejs.org/examples/editable-voids');
+  assert.equal(updated.status, 0, updated.stderr);
+  assert.match(chips('brief', 'task_keep').stdout, /^Review scope: native\. Milestone: regression\.\nRegression: it still works on https:\/\/www\.slatejs\.org\/examples\/editable-voids$/mu);
+  assert.match(chip('task_keep Fix the void Backspace', 'updated', 'topic: other').stderr, /takes only owns:, review-scope: and regression:/);
+});
+
+test('an update that clears a kept task\'s regression pages clears them for the duplicates it covers', () => {
+  const { batch, chip, chips } = triagedLedger();
+  assert.equal(batch([
+    ['task_keep Fix editor', 'offered', 'writes: a.md; topic: shared; priority: P1; repro: steps; review-scope: editor'],
+    ['task_dup Fix typing', 'offered', 'writes: b.md; topic: shared; priority: P1; repro: steps; review-scope: editor; regression: https://www.slatejs.org/examples/richtext'],
+    ['task_dup Fix typing', 'dismissed dup task_keep', 'evidence'],
+  ]).status, 0);
+  assert.equal(chip('task_keep Fix editor', 'updated', 'review-scope: editor; regression:').status, 0);
+  const kept = chips('brief', 'task_keep').stdout;
+  assert.match(kept, /^Review scope: editor\. Milestone: new\.$/mu);
+  assert.doesNotMatch(kept, /^Regression:/mu);
+  assert.match(kept, /^Also covers:\n- task_dup Fix typing/mu);
+});
+
+test('a repro that quotes session: or transcript: neither names the owner nor blocks the transcript stamp', () => {
+  const { LEDGER, dir, env, root } = chipLedger();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'ps'), '#!/bin/sh\necho "1 /runtime/codex"\n', { mode: 0o755 });
+  const codexHome = join(env.HOME, '.codex');
+  const runtimeEnv = { ...env, CODEX_HOME: codexHome, CODEX_THREAD_ID: 'child', CODEX_SESSION_ID: 'parent', CODEX_TOOL_CALL_ID: 'exec-12345678-1234-1234-1234-123456789abc', CLAUDECODE: '', CLAUDE_SESSION_ID: '', CLAUDE_CODE_SESSION_ID: '', CLAUDE_PID: '', CLAUDE_CODE_ENTRYPOINT: '', PATH: `${bin}:${process.env.PATH}` };
+  const rollout = join(codexHome, 'sessions/2026/10/19/rollout-child.jsonl');
+  mkdirSync(dirname(rollout), { recursive: true });
+  writeFileSync(rollout, [
+    { type: 'session_meta', payload: { id: 'child', session_id: 'parent', parent_thread_id: 'parent' } },
+    { type: 'turn_context', payload: { model: 'gpt-6.1-sol', effort: 'high' } },
+    { type: 'response_item', payload: { type: 'custom_tool_call', name: 'exec', call_id: 'wrapper', input: 'await tools.exec_command({cmd: process.env.COMMAND})' } },
+  ].map(JSON.stringify).join('\n'));
+  const append = (decision, tokens, result) => spawnSync(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', LEDGER, 'chip', decision, 'why', tokens, result], { cwd: root, encoding: 'utf8', env: runtimeEnv });
+  assert.equal(append('task_a1 Fix a', 'writes: a.md; topic: shared; priority: P1; repro: Type session: stale into the box and reload', 'offered').status, 0);
+  assert.equal(append('task_b1 Fix b', 'writes: b.md; topic: shared; priority: P1; session: x; repro: Type transcript: stale into the box and reload', 'offered').status, 0);
+  const updated = append('task_a1 Fix a', 'repro: Type session: fresh into the box and reload', 'updated');
+  assert.equal(updated.status, 0, updated.stderr);
+  const rows = read(root, LEDGER).split('\n');
+  assert.doesNotMatch(rows.find((row) => row.includes('task_a1') && row.endsWith('\toffered')), /transcript:/, 'no owner, so no transcript');
+  assert.match(rows.find((row) => row.includes('task_b1')), /; transcript: rollout-child\t/, 'the real owner gets its transcript');
+});
+
+test('a token after prose inside a field still reads as it did before the repro rule', () => {
+  const { batch, chips } = chipLedger();
+  const written = batch([
+    ['task_first Fix typing', 'offered', 'writes: a.md; topic: typing; triage result priority: P1; repro: steps'],
+    ['task_second Fix focus', 'offered', 'writes: b.md; topic: shared; priority: P1; repro: steps'],
+  ]);
+  assert.equal(written.status, 0, written.stderr);
+  assert.match(chips().stdout, /Ready, P1 \(2\)\n {2}task_first [^\n]*\n {2}task_second /);
+});
 test('a brief says whether the board has its task Ready, Waiting or Started, whatever its priority', () => {
   const { batch, chip, chips } = chipLedger();
   const written = batch([
@@ -4595,7 +4783,7 @@ test('a running design question takes later findings as a new question that wait
   assert.equal(chip(landing, 'updated', 'owns: ci:landing').status, 0, 'a started task takes the check it fixes');
   assert.equal(appendTo('docs/plans/2026-01-01-fix.decisions.tsv', 'verify', 'read CI', 'base-red: ci:landing; proof: none', 'gap: fails on next too').status, 0);
   for (const token of ['writes: src/other', 'topic: other', 'kind: fix', 'waits: pr:5']) {
-    assert.match(chip(landing, 'updated', token).stderr, /task_d1 is started, so an updated row on it takes only owns:; the session adds paths with another started row/, `a started task's ${token.split(':')[0]}`);
+    assert.match(chip(landing, 'updated', token).stderr, /task_d1 is started, so an updated row on it takes only owns:, review-scope: and regression:; the session adds paths with another started row/, `a started task's ${token.split(':')[0]}`);
   }
 });
 
