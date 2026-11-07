@@ -1260,6 +1260,307 @@ test('land refuses a PR whose body is the commit body without Why and Verificati
   assert.equal(landed.status, 0, landed.stderr);
 });
 
+function signerFailingFrom(dir, failFrom) {
+  const path = join(dir, 'signer');
+  writeFileSync(path, ['#!/bin/sh', `n=$(($(cat '${path}.count' 2>/dev/null || echo 0) + 1))`, `echo "$n" > '${path}.count'`, `if [ "$n" -ge ${failFrom} ]; then echo 'signer is locked' >&2; exit 1; fi`, 'for last; do :; done', 'echo signature > "$last.sig"', ''].join('\n'), { mode: 0o755 });
+  writeFileSync(`${path}.pub`, 'ssh-ed25519 AAAA test\n');
+  return path;
+}
+const signWith = (run, path) => {
+  run('config', 'commit.gpgsign', 'true');
+  run('config', 'gpg.format', 'ssh');
+  run('config', 'gpg.ssh.program', path);
+  run('config', 'user.signingkey', `${path}.pub`);
+};
+
+test('land names the signer beside a squash commit it cannot sign, and puts the task commits back', () => {
+  const { dir, clone, message } = trunk();
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  git(clone, 'commit', '--quiet', '-am', 'wip');
+  const head = git(clone, 'rev-parse', 'HEAD');
+  const path = signerFailingFrom(dir, 1);
+  signWith((...args) => git(clone, ...args), path);
+
+  const run = helper('land.mjs', clone, ['--message', message(PR)], stubGh(dir));
+
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /signer is locked/);
+  assert.match(run.stderr, /git commit failed; the task commits are back as they were/);
+  assert.ok(run.stderr.includes(`signs its commits with ${path}.`), run.stderr);
+  assert.match(run.stderr, /after they answer, run the same land\.mjs command again\.\n$/);
+  assert.equal(git(clone, 'rev-parse', 'HEAD'), head);
+});
+
+test('land adds no signer text to a failed commit when signing is off', () => {
+  const { dir, clone, message } = trunk();
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  git(clone, 'commit', '--quiet', '-am', 'wip');
+  const head = git(clone, 'rev-parse', 'HEAD');
+  writeFileSync(join(clone, '.git/hooks/pre-commit'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+
+  const run = helper('land.mjs', clone, ['--message', message(PR)], stubGh(dir));
+
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /git commit failed; the task commits are back as they were\n$/);
+  assert.doesNotMatch(run.stderr, /signs its commits/);
+  assert.equal(git(clone, 'rev-parse', 'HEAD'), head);
+});
+
+test('land names the signer beside a rebase it cannot sign, and leaves no rebase in progress', () => {
+  const { dir, clone, message, elsewhere } = trunk();
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  const path = signerFailingFrom(dir, 2);
+  signWith((...args) => git(clone, ...args), path);
+  git(elsewhere('other.txt', 'two\n', 'feat(o): other'), 'push', '--quiet', 'origin', 'HEAD:next');
+
+  const run = helper('land.mjs', clone, ['--message', message(PR)], stubGh(dir));
+
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /git rebase .* failed/);
+  assert.ok(run.stderr.includes(`signs its commits with ${path}.`), run.stderr);
+  assert.match(run.stderr, /after they answer, run land\.mjs again with the same --check options and no --message, because its commit stays local\.\n$/);
+  assert.equal(spawnSync('git', ['rev-parse', '--verify', 'REBASE_HEAD'], { cwd: clone, env: ENV }).status, 128);
+});
+
+test('land names the signer beside a lint amend it cannot sign', () => {
+  const { dir, clone, message } = trunk({ lint: true });
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  const path = signerFailingFrom(dir, 2);
+  signWith((...args) => git(clone, ...args), path);
+
+  const run = helper('land.mjs', clone, ['--message', message(PR)], stubGh(dir));
+
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /commit --quiet --amend --no-edit failed/);
+  assert.ok(run.stderr.includes(`signs its commits with ${path}.`), run.stderr);
+});
+
+test("land names the companion's own signer, and puts both task heads back", () => {
+  const fixture = trunk();
+  const { dir, clone, message } = fixture;
+  const { side } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  writeFileSync(join(clone, 'a.spec'), 'two\n');
+  git(clone, 'commit', '--quiet', '-am', 'wip');
+  side('commit', '--quiet', '-am', 'wip');
+  const heads = [git(clone, 'rev-parse', 'HEAD'), side('rev-parse', 'HEAD')];
+  const path = signerFailingFrom(dir, 1);
+  signWith(side, path);
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD)]);
+
+  assert.equal(run.status, 1);
+  assert.ok(run.stderr.includes(`signs its commits with ${path}.`), run.stderr);
+  assert.deepEqual([git(clone, 'rev-parse', 'HEAD'), side('rev-parse', 'HEAD')], heads);
+});
+
+test('land names the program git runs for the signing format, not the openpgp one', () => {
+  const { dir, clone, message } = trunk();
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  git(clone, 'config', 'commit.gpgsign', 'true');
+  git(clone, 'config', 'gpg.format', 'ssh');
+  git(clone, 'config', 'gpg.program', '/unrelated/openpgp');
+  git(clone, 'config', 'user.signingkey', join(dir, 'missing.pub'));
+
+  const run = helper('land.mjs', clone, ['--message', message(PR)], stubGh(dir));
+
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /signs its commits with ssh-keygen\./);
+  assert.doesNotMatch(run.stderr, /unrelated/);
+});
+
+function gitWatchingReads(dir, { holdCompanionRead = false, landAfterCompanionRead, landAfterPublicRead }) {
+  const real = spawnSync('which', ['git'], { encoding: 'utf8' }).stdout.trim();
+  const reads = join(dir, 'reads');
+  const started = join(dir, 'public-read-started');
+  const landed = join(dir, 'landed');
+  const land = (halves) => (halves ? `if [ ! -e '${landed}' ]; then touch '${landed}'; ${halves.map((half) => `'${real}' -C '${half}' push --quiet origin HEAD:next`).join('; ')}; fi` : ':');
+  const bin = join(dir, 'reads-bin');
+  mkdirSync(bin);
+  writeFileSync(
+    join(bin, 'git'),
+    [
+      '#!/bin/sh',
+      'case "$*" in',
+      '  --git-dir=*" fetch "*)',
+      `    echo companion-start >> '${reads}'; rm -f '${started}'`,
+      holdCompanionRead ? `    i=0; while [ ! -e '${started}' ] && [ "$i" -lt 30 ]; do sleep 0.1; i=$((i + 1)); done` : '    :',
+      `    '${real}' "$@"; status=$?`,
+      `    echo companion-end >> '${reads}'`,
+      `    ${land(landAfterCompanionRead)}`,
+      '    exit $status ;;',
+      '  "fetch "*)',
+      `    echo public-start >> '${reads}'; touch '${started}'`,
+      `    '${real}' "$@"; status=$?`,
+      `    ${land(landAfterPublicRead)}`,
+      '    exit $status ;;',
+      'esac',
+      `exec '${real}' "$@"`,
+      '',
+    ].join('\n'),
+    { mode: 0o755 }
+  );
+  return { bin, reads };
+}
+
+test('land finishes reading the companion before it starts reading the public half, on the first read and on the retry after a rejected push', () => {
+  const fixture = trunk();
+  const { dir, remote, clone, message, elsewhere } = fixture;
+  const { companion, sideElsewhere } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const other = elsewhere('other.txt', 'two\n', 'feat(o): other');
+  const otherSide = sideElsewhere('other.spec', 'two\n', 'feat(o): other');
+  const { bin, reads } = gitWatchingReads(dir, { holdCompanionRead: true, landAfterPublicRead: [other, otherSide] });
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', 'test ! -f other.spec || test -f other.txt'], { PATH: `${bin}:${ENV.PATH}` });
+
+  assert.equal(run.status, 0, run.stderr);
+  const oneRead = ['companion-start', 'companion-end', 'public-start'];
+  assert.deepEqual(readFileSync(reads, 'utf8').trim().split('\n'), [...oneRead, ...oneRead]);
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'two');
+  assert.equal(git(remote, 'show', 'next:other.txt'), 'two');
+  assert.equal(git(companion, 'show', 'next:other.spec'), 'two');
+});
+
+function landingOnBothVersionFiles({ elsewhere }, sideElsewhere) {
+  const other = elsewhere('b.txt', 'two\n', 'feat(o): other');
+  const otherSide = sideElsewhere('a.spec', 'two\n', 'feat(o): other');
+  git(otherSide, 'commit', '--quiet', '--amend', '-m', `feat(o): other\n\nLands-With: ${git(other, 'rev-parse', 'HEAD')}`);
+  return [other, otherSide];
+}
+
+test('land exits 75 when a check ran on a public commit whose companion half arrived after the read, and a rerun lands', () => {
+  const fixture = trunk();
+  const { dir, remote, clone, message } = fixture;
+  const { sideElsewhere } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const halves = landingOnBothVersionFiles(fixture, sideElsewhere);
+  const { bin } = gitWatchingReads(dir, { landAfterCompanionRead: halves });
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  const pairs = 'test "$(cat b.txt)" = "$(cat a.spec)"';
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', pairs], { PATH: `${bin}:${ENV.PATH}` });
+
+  assert.equal(run.status, 75, run.stderr);
+  assert.ok(run.stderr.includes(`it ran on ${git(halves[0], 'rev-parse', 'HEAD')} without that commit's .git-private half`), run.stderr);
+  assert.notEqual(git(remote, 'show', 'next:a.txt'), 'two');
+
+  const rerun = helper('land.mjs', clone, ['--check', pairs], { PATH: `${bin}:${ENV.PATH}` });
+
+  assert.equal(rerun.status, 0, rerun.stderr);
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'two');
+});
+
+test('land keeps a failed check at exit 1 when the companion half that arrived belongs to a public commit the clone holds but the check did not run on', () => {
+  const fixture = trunk();
+  const { dir, clone, message } = fixture;
+  const { sideElsewhere } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const halves = landingOnBothVersionFiles(fixture, sideElsewhere);
+  git(clone, 'fetch', '--quiet', halves[0], 'HEAD');
+  const { bin } = gitWatchingReads(dir, { landAfterPublicRead: halves });
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', 'false'], { PATH: `${bin}:${ENV.PATH}` });
+
+  assert.equal(run.status, 1, run.stderr);
+  assert.match(run.stderr, /check failed: false; the squashed commit stays local\n$/);
+});
+
+test('land keeps a failed check at exit 1 when the companion commit that arrived lands no public half', () => {
+  const fixture = trunk();
+  const { dir, remote, clone, message } = fixture;
+  const { sideElsewhere } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const otherSide = sideElsewhere('other.spec', 'two\n', 'feat(o): other spec');
+  git(otherSide, 'commit', '--quiet', '--amend', '-m', `feat(o): other spec\n\nLands-With: ${git(remote, 'rev-parse', 'next')}`);
+  const { bin } = gitWatchingReads(dir, { landAfterCompanionRead: [otherSide] });
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', 'false'], { PATH: `${bin}:${ENV.PATH}` });
+
+  assert.equal(run.status, 1, run.stderr);
+  assert.match(run.stderr, /check failed: false; the squashed commit stays local\n$/);
+});
+
+test("land names the companion's signer beside a Lands-With stamp it cannot sign after the public half landed, and a rerun lands that half", () => {
+  const fixture = trunk();
+  const { dir, remote, clone, message } = fixture;
+  const { companion, side } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  writeFileSync(join(clone, 'a.spec'), 'two\n');
+  git(clone, 'commit', '--quiet', '-am', 'wip');
+  side('commit', '--quiet', '-am', 'wip');
+  const path = signerFailingFrom(dir, 2);
+  signWith(side, path);
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD)]);
+
+  assert.equal(run.status, 1);
+  assert.ok(run.stderr.includes(`signs its commits with ${path}.`), run.stderr);
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'two');
+  assert.equal(git(companion, 'show', 'next:a.spec'), 'one');
+
+  signerFailingFrom(dir, 99);
+  const rerun = helper('land.mjs', clone, []);
+
+  assert.equal(rerun.status, 0, rerun.stderr);
+  assert.equal(git(companion, 'show', 'next:a.spec'), 'two');
+  assert.match(git(companion, 'log', '-1', '--format=%B', 'next'), new RegExp(`^Lands-With: ${git(remote, 'rev-parse', 'next')}$`, 'mu'));
+});
+
+test("land names the companion's signer beside a companion rebase it cannot sign", () => {
+  const fixture = trunk();
+  const { dir, clone, message } = fixture;
+  const { side, sideElsewhere } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  writeFileSync(join(clone, 'a.spec'), 'two\n');
+  const path = signerFailingFrom(dir, 2);
+  signWith(side, path);
+  git(sideElsewhere('other.spec', 'two\n', 'feat(o): other'), 'push', '--quiet', 'origin', 'HEAD:next');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD)]);
+
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /git rebase .*\.git-private.* failed/);
+  assert.ok(run.stderr.includes(`signs its commits with ${path}.`), run.stderr);
+});
+
+test('land names the last of the two openpgp program settings, as git runs it', () => {
+  const { clone, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  git(clone, 'config', 'commit.gpgsign', 'true');
+  git(clone, 'config', 'gpg.openpgp.program', '/first/gpg');
+  git(clone, 'config', 'gpg.program', '/last/gpg');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD)]);
+
+  assert.equal(run.status, 1);
+  assert.ok(run.stderr.includes('signs its commits with /last/gpg.'), run.stderr);
+});
+
+test('land names the default signing program of each format when no setting names one', () => {
+  for (const [format, program] of [['openpgp', 'gpg'], ['x509', 'gpgsm']]) {
+    const { dir, clone, message } = trunk();
+    git(clone, 'config', 'pstack.delivery', 'push');
+    const bin = join(dir, 'signer-bin');
+    mkdirSync(bin);
+    writeFileSync(join(bin, program), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    writeFileSync(join(clone, 'a.txt'), 'two\n');
+    git(clone, 'config', 'commit.gpgsign', 'true');
+    git(clone, 'config', 'gpg.format', format);
+
+    const run = helper('land.mjs', clone, ['--message', message(GOOD)], { PATH: `${bin}:${ENV.PATH}` });
+
+    assert.equal(run.status, 1);
+    assert.ok(run.stderr.includes(`signs its commits with ${program}.`), run.stderr);
+  }
+});
+
 test('review groups the commits to review by session, --done marks one session reviewed, and --mark marks all', () => {
   const { clone } = trunk();
   assert.match(helper('review.mjs', clone, ['--mark']).stdout, /Marked origin\/next at \w+ as reviewed/);
