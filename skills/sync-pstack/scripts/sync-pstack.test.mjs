@@ -5867,6 +5867,25 @@ test('a proof that arrives later never takes the cores an earlier, larger waiter
   assert.deepEqual(await Promise.all([large.exited, small.exited]), [0, 0]);
 });
 
+test('proof skips a holder whose file vanished after the pool was listed and still refuses a corrupt one', () => {
+  const { dir, env, args } = corePool('sync-pstack-proof-vanished-', []);
+  // A dangling link is listed and then reads ENOENT, as a file its holder's release removes between the two does.
+  symlinkSync(join(dir, 'gone'), join(dir, 'tmp/pstack-slots/1.json'));
+
+  assert.equal(spawnSync(process.execPath, args('vanished', 'true'), { cwd: dir, env, encoding: 'utf8', timeout: 20_000 }).status, 0);
+
+  writeFileSync(join(dir, 'tmp/pstack-slots/2.json'), 'not json');
+  const corrupt = spawnSync(process.execPath, args('corrupt', 'true'), { cwd: dir, env, encoding: 'utf8', timeout: 20_000 });
+  assert.notEqual(corrupt.status, 0);
+  assert.match(corrupt.stderr, /not valid JSON/);
+
+  rmSync(join(dir, 'tmp/pstack-slots/2.json'));
+  mkdirSync(join(dir, 'tmp/pstack-slots/2.json'));
+  const unreadable = spawnSync(process.execPath, args('unreadable', 'true'), { cwd: dir, env, encoding: 'utf8', timeout: 20_000 });
+  assert.notEqual(unreadable.status, 0);
+  assert.match(unreadable.stderr, /EISDIR/);
+});
+
 test('proof frees the share of a holder that died without releasing it', () => {
   const { pid } = spawnSync('true');
   const { dir, env, args } = corePool('sync-pstack-proof-dead-', [{ pid, cores: availableParallelism() }]);
