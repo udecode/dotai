@@ -133,6 +133,39 @@ function split(fixture) {
   return { companion: remote, side, sideElsewhere };
 }
 
+test('land rebases both halves onto the tips it fetched when a push from another worktree moves the shared refs between its rebases', () => {
+  const fixture = trunk();
+  const { dir, remote, clone, message, elsewhere } = fixture;
+  const { companion, sideElsewhere } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const other = elsewhere('other.txt', 'two\n', 'feat(o): other');
+  const otherSide = sideElsewhere('other.spec', 'two\n', 'feat(o): other');
+  const moved = join(dir, 'moved');
+  const land = join(dir, 'land-elsewhere.sh');
+  writeFileSync(
+    land,
+    [
+      `[ -e "${moved}" ] && exit 0`,
+      `touch "${moved}"`,
+      `git -C "${other}" push --quiet origin HEAD:next`,
+      `git -C "${otherSide}" push --quiet origin HEAD:next`,
+      'git fetch --quiet origin +refs/heads/next:refs/remotes/origin/next',
+      'git --git-dir=.git-private --work-tree=. fetch --quiet origin +refs/heads/next:refs/remotes/origin/next',
+      '',
+    ].join('\n')
+  );
+  const config = JSON.parse(readFileSync(join(clone, '.agents/pstack.json'), 'utf8'));
+  config.generated = [{ paths: ['gen/**'], command: `sh ${land}`, always: true }];
+  writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify(config));
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', 'test ! -f other.spec || test -f other.txt']);
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(git(remote, 'show', 'next:other.txt'), 'two');
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'two');
+  assert.equal(git(companion, 'show', 'next:other.spec'), 'two');
+});
+
 test('land commits, checks and pushes the companion half after the first, and a companion-only task lands alone', () => {
   const fixture = trunk();
   const { remote, clone, message } = fixture;
