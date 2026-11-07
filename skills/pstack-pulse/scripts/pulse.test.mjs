@@ -57,7 +57,7 @@ function fakeClient(script = {}) {
     end: async (key) => (calls.push(`end ${key}`), VALID_KEY.test(key) ? answer('end', key) : { ok: false, kind: 'rejected', status: 400 }),
     badge: async (value) => (calls.push(`badge ${value}`), answer('badge', value)),
     push: async (incident) => (calls.push(`push ${incident.title}`), { id: `n:${incident.title}`, ...answer('push', incident.kind) }),
-    replace: async (id, content) => (calls.push(`replace ${id} ${content.title} · ${content.message}`), answer('replace', id)),
+    dismiss: async (id) => (calls.push(`dismiss ${id}`), answer('dismiss', id)),
   };
 }
 const send = (sessions, phone, client, seconds, atDesk = false) => {
@@ -407,23 +407,23 @@ test('a turn that stops on an API error drops its permission prompt', () => {
   assert.deepEqual(needsOf(sessions['claude:e']), []);
 });
 
-test('a sent push that no longer stands is replaced in place once with a cleared note, and a refused replacement is dropped', async () => {
+test('a sent push that no longer stands is dismissed once, and a refused dismissal is dropped', async () => {
   const sessions = {};
   for (const id of ['kb', 'old']) {
     reduce(sessions, hook(id, 'SessionStart', 0));
     reduce(sessions, ask(id, 1));
   }
   const phone = emptyPhone();
-  const client = fakeClient({ 'replace n:old needs you': { ok: false, kind: 'rejected', status: 409 } });
+  const client = fakeClient({ 'dismiss n:old needs you': { ok: false, kind: 'rejected', status: 409 } });
   await send(sessions, phone, client, 2);
   await send(sessions, phone, client, 3);
   for (const id of ['kb', 'old']) reduce(sessions, hook(id, 'UserPromptSubmit', 4));
   for (let seconds = 5; seconds < 60; seconds += 1) await send(sessions, phone, client, seconds);
-  assert.deepEqual(client.calls.filter((call) => /^(push|replace)/.test(call)), [
+  assert.deepEqual(client.calls.filter((call) => /^(push|dismiss)/.test(call)), [
     'push kb needs you',
     'push old needs you',
-    'replace n:kb needs you ✓ kb · No longer needs you',
-    'replace n:old needs you ✓ old · No longer needs you',
+    'dismiss n:kb needs you',
+    'dismiss n:old needs you',
   ]);
 });
 

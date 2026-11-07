@@ -6,7 +6,6 @@ const CAPACITY_RETRY_MS = 10 * 60_000;
 const PAUSED_RETRY_MS = 60_000;
 const ACK_KEPT_MS = 7 * 24 * 3_600_000;
 const KIND_ORDER = { 'needs-you': 0, failed: 1 };
-const CLEARED = { 'needs-you': 'No longer needs you', failed: 'Failure cleared' };
 
 export const emptyPhone = () => ({ streams: {}, rejected: {}, badge: null, acks: {}, budget: { push: [], live: [], badge: [] }, pausedUntil: { push: 0, live: 0, badge: 0 }, capacity: null });
 
@@ -54,7 +53,7 @@ export function createClient({ getKey, fetchImpl = globalThis.fetch, recheckMs =
         tags: ['pstack-pulse'],
       });
     },
-    replace: (id, { title, message, link }) => call('PUT', `/push-notification/${encodeURIComponent(id)}`, { title, message, ...(link ? { redirection: link } : {}) }),
+    dismiss: (id) => call('POST', `/push-notification/${encodeURIComponent(id)}/dismiss`, {}),
   };
 }
 
@@ -132,23 +131,22 @@ export async function deliver(phone, desired, { client, clock = Date.now, save =
     const ack = phone.acks[incident.id];
     const result = await client.push(incident, desired.listUrl);
     if (result.ok) {
-      Object.assign(ack, { sentAt: clock(), notificationId: result.id, kind: incident.kind, name: incident.name, link: incident.link });
+      Object.assign(ack, { sentAt: clock(), notificationId: result.id });
       save();
     } else {
       backOff(ack, result);
       refused('push', result, `push ${incident.kind}`);
     }
   }
-  // ActivitySmith cannot delete a push, but it can silently replace one, so a stale alert becomes a cleared note.
   for (const [id, ack] of Object.entries(phone.acks)) {
-    if (!ack.notificationId || ack.clearedAt || !CLEARED[ack.kind] || desired.incidents.has(id) || clock() < (ack.retryAt ?? 0)) continue;
+    if (!ack.notificationId || ack.clearedAt || desired.incidents.has(id) || clock() < (ack.retryAt ?? 0)) continue;
     if (!spend(phone, 'push', clock(), used)) break;
-    const result = await client.replace(ack.notificationId, { title: `✓ ${ack.name}`, message: CLEARED[ack.kind], link: ack.link });
+    const result = await client.dismiss(ack.notificationId);
     if (result.ok || result.kind === 'rejected') {
       ack.clearedAt = clock();
       save();
     } else backOff(ack, result);
-    if (!result.ok) refused('push', result, `replace ${ack.kind}`);
+    if (!result.ok) refused('push', result, `dismiss ${id}`);
   }
   for (const [id, ack] of Object.entries(phone.acks)) if (clock() - ack.liveAt > ACK_KEPT_MS) delete phone.acks[id];
   return problems;
