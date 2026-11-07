@@ -3274,6 +3274,23 @@ test('decisions-check takes a new chip finding only when this checkout holds the
   assert.equal(helper(LEDGER).status, 0, 'the whole-log check leaves an older offer whose evidence went missing');
 });
 
+test('decisions-check takes a chip row whose writes: names a run-directory path the task will create, and checks every other path its evidence cites', () => {
+  const { LEDGER, appendTo, chip, helper, offer, root } = chipLedger();
+  const accepted = offer('task_a1 Render the state-machine page', 'docs/plans/artifacts/run/page/, src/page.ts', 'topic: pages');
+  assert.equal(accepted.status, 0, `an offer that names the folder its page render will write: ${accepted.stderr}`);
+  const started = chip('task_a1 Render the state-machine page', 'started', 'writes: docs/plans/artifacts/run/notes.md; session: s1');
+  assert.equal(started.status, 0, `a started row that names a run file before its first write: ${started.stderr}`);
+  assert.match(offer('task_b1 Fix the badge', 'README.md', 'topic: docs; priority: P1; repro: docs/plans/artifacts/run/gone-a1.log fails').stderr, /evidence cites docs\/plans\/artifacts\/run\/gone-a1\.log, which does not exist/, 'a missing path outside writes:');
+  assert.match(offer('task_b1 Fix the badge', 'README.md', 'topic: docs; priority: P1; repro: the run writes: docs/plans/artifacts/run/gone-a2.log').stderr, /gone-a2\.log, which does not exist/, 'writes: inside repro prose');
+  assert.match(appendTo('docs/plans/2026-01-01-fix.decisions.tsv', 'build', 'fix the badge', 'scope: badge; writes: docs/plans/artifacts/run/gone-a3.log', 'verified').stderr, /gone-a3\.log, which does not exist/, 'writes: in a run log row');
+  const chipLine = (evidence, result) => ['2026-11-07T00:00:00Z', 'chip', 'task_a1 Render the state-machine page', 'why', evidence, result].join('\t');
+  writeFileSync(join(root, 'docs/plans/2026-01-02-fix.decisions.tsv'), `ts\tphase\tdecision\twhy\tevidence\tresult\n${chipLine('writes: docs/plans/artifacts/run/gone-a4.log; topic: pages', 'offered')}\n`);
+  assert.match(helper('docs/plans/2026-01-02-fix.decisions.tsv').stderr, /gone-a4\.log, which does not exist/, 'a chip row outside the ledger');
+  assert.equal(helper(LEDGER).status, 0, 'the ledger holds only rows it takes');
+  appendFileSync(join(root, LEDGER), `${chipLine('writes: docs/plans/artifacts/run/gone-a5.log; commit: abc1234', 'landed')}\n`);
+  assert.match(helper(LEDGER).stderr, /gone-a5\.log, which does not exist/, 'a landed row, whose move takes no writes:');
+});
+
 test('chips brief forces the Codex handoff for a card carded with codex: always or a project that sets it', () => {
   const { LEDGER, chip, helper, offer, root } = chipLedger();
   const forced = /forces the Codex handoff/;
