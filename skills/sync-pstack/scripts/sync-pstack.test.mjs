@@ -477,6 +477,26 @@ test('cross runs a prompt file in the other runtime: Codex from Claude Code, Cla
   assert.match(fromCodex.stderr, /^seat: opus @default$/mu, 'a seat with no transcript and no --effort says its effort is the default');
 });
 
+test('a Claude seat hears that plan mode refuses its writes before the brief, and a Codex seat hears only the brief', () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'claude'), '#!/bin/sh\necho "claude: $*"\n', { mode: 0o755 });
+  writeFileSync(join(bin, 'codex'), '#!/bin/sh\nwhile [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; *) last="$1"; shift ;; esac; done\necho "codex: $last" > "$out"\n', { mode: 0o755 });
+  const answers = join(dir, 'answers');
+  const result = spawnSync(process.execPath, [join(HELPERS, 'seats.mjs'), '--dir', answers, '--prompt', 'Break this diff.', 'one=claude:opus', 'two=codex:gpt-6.1-sol'], {
+    cwd: dir,
+    encoding: 'utf8',
+    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '' },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const claude = readFileSync(join(answers, 'one.md'), 'utf8');
+  assert.match(claude, /-- You run in plan mode[^]*name each probe that needs a write[^]*Break this diff\.\n$/u);
+  const codex = readFileSync(join(answers, 'two.md'), 'utf8');
+  assert.match(codex, /Break this diff\./u);
+  assert.doesNotMatch(codex, /plan mode/u);
+});
+
 test('cross runs a Codex seat read-only on the model and effort it names', () => {
   const { dir, home } = sandbox();
   const bin = join(dir, 'bin');
