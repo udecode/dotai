@@ -5803,8 +5803,11 @@ test('proof refuses a --timeout over the hour time budget unless --stress, and w
   assert.equal(prove(['--timeout', '3601', '--stress']).status, 0, 'a stress proof past the budget runs');
 });
 
+// These tests time how proof.mjs stops a command, and a full machine-wide core pool holds proof.mjs past their waits.
+const OUTSIDE_POOL = { ...process.env, PSTACK_SLOT: '1' };
+
 const proveWithTimeout = (dir, name, command) =>
-  spawnSync(process.execPath, [join(HELPERS, 'proof.mjs'), '--dir', join(dir, 'run'), '--name', name, '--timeout', '1', '--', command], { cwd: dir, encoding: 'utf8' });
+  spawnSync(process.execPath, [join(HELPERS, 'proof.mjs'), '--dir', join(dir, 'run'), '--name', name, '--timeout', '1', '--', command], { cwd: dir, encoding: 'utf8', env: OUTSIDE_POOL });
 
 test('proof stops every process a timed-out command started, so none writes to its log afterwards', () => {
   const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-proof-late-'));
@@ -5820,7 +5823,7 @@ const until = async (done) => {
 
 test('proof logs the exit when it is stopped before its command ends', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-proof-stopped-'));
-  const proof = spawn(process.execPath, [join(HELPERS, 'proof.mjs'), '--dir', join(dir, 'run'), '--name', 'stopped', '--', 'echo ready; sleep 20'], { cwd: dir, detached: true, stdio: 'ignore' });
+  const proof = spawn(process.execPath, [join(HELPERS, 'proof.mjs'), '--dir', join(dir, 'run'), '--name', 'stopped', '--', 'echo ready; sleep 20'], { cwd: dir, detached: true, env: OUTSIDE_POOL, stdio: 'ignore' });
 
   await until(() => existsSync(join(dir, 'run/stopped-a1.log')) && read(dir, 'run/stopped-a1.log').includes('\nready\n'));
   process.kill(-proof.pid, 'SIGTERM');
@@ -5830,7 +5833,7 @@ test('proof logs the exit when it is stopped before its command ends', async () 
 
 test('proof logs the exit of a command that outlives its parent proof.mjs', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-proof-orphan-'));
-  const proof = spawn(process.execPath, [join(HELPERS, 'proof.mjs'), '--dir', join(dir, 'run'), '--name', 'orphan', '--', 'echo ready; sleep 1'], { cwd: dir, stdio: 'ignore' });
+  const proof = spawn(process.execPath, [join(HELPERS, 'proof.mjs'), '--dir', join(dir, 'run'), '--name', 'orphan', '--', 'echo ready; sleep 1'], { cwd: dir, env: OUTSIDE_POOL, stdio: 'ignore' });
 
   await until(() => existsSync(join(dir, 'run/orphan-a1.log')) && read(dir, 'run/orphan-a1.log').includes('\nready\n'));
   proof.kill('SIGKILL');
