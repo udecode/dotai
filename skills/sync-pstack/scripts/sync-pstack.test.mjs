@@ -4187,6 +4187,89 @@ test('within a priority, chips ranks regressions first and experimental scopes l
   assert.doesNotMatch(plain.chips('stale').stdout, /no review scope/);
 });
 
+test('chips ranks a deferred scope after every other task, and a task that other work waits on keeps its place', () => {
+  const { batch, chips } = chipLedger({ config: { chips: { scopes: 'scopes', deferred: ['collaboration'] } }, files: { 'scopes/collaboration.json': '{}', 'scopes/editor.json': '{}' } });
+  const written = batch([
+    ['task_z1 Fix z1', 'offered', 'writes: z1.md; topic: z1; priority: P1; repro: steps; review-scope: collaboration'],
+    ['task_y1 Fix y1', 'offered', 'writes: y1.md; topic: y1; priority: P1; repro: steps; review-scope: collaboration; waits: task:task_z1'],
+    ['task_w1 Fix w1', 'offered', 'writes: w1.md; topic: w1; priority: P2; via: verdict; review-scope: editor; waits: task:task_y1'],
+    ['task_y0 Fix y0', 'offered', 'writes: y0.md; topic: y0; priority: P0; repro: two peers diverge; review-scope: collaboration'],
+    ['task_e3 Tune e3', 'offered', 'writes: e3.md; topic: e3; priority: P3; via: verdict; review-scope: editor'],
+    ['task_y2 Fix y2', 'offered', 'writes: y2.md; topic: y2; priority: P2; via: verdict; review-scope: collaboration'],
+    ['task_y3 Fix y3', 'offered', 'writes: y3.md; topic: y3; priority: P2; via: verdict; review-scope: collaboration; waits: task:task_y2'],
+    ['task_y4 Fix y4', 'offered', 'writes: y4.md; topic: y4; priority: P0; repro: two peers diverge; review-scope: collaboration; waits: task:task_e3'],
+  ]);
+  assert.equal(written.status, 0, written.stderr);
+  const board = chips().stdout;
+  assert.match(board, /\nReady, P1 \(1\)\n {2}task_z1 /, 'a task that work outside the list waits on through another task keeps its place');
+  assert.match(board, /\nWaiting, P1 \(1\)\n {2}task_y1 /);
+  assert.match(board, /\nReady, deferred, P0 \(1\)\n {2}task_y0 /);
+  assert.match(board, /Do, card pass \(4\)\n {2}card task_z1:[^\n]*\n {2}card task_e3:[^\n]*\n {2}card task_y0:[^\n]*\n {2}card task_y2:/, 'a deferred P0 cards after a P3, lifts no task outside the list it waits on, and a deferred waiter keeps no task in place');
+  assert.match(chips('brief', 'task_y0').stdout, /^Review scope: collaboration\. Deferred, so it ranks after every task whose scope chips\.deferred does not list\.$/mu);
+  assert.match(chips('brief', 'task_y1').stdout, /^Review scope: collaboration\.$/mu);
+});
+
+test('a deferred task queues behind other work on a shared outside path, and chips asks to fix a chips.deferred it cannot use', () => {
+  const { batch, chips, outside } = chipLedger({ config: { chips: { scopes: 'scopes', deferred: ['collaboration'] } }, files: { 'scopes/collaboration.json': '{}', 'scopes/editor.json': '{}' } });
+  const written = batch([
+    ['task_d1 Fix the shared doc', 'offered', `writes: ${outside('shared.md')}; topic: d1; priority: P0; repro: steps; review-scope: collaboration`],
+    ['task_n1 Reword the shared doc', 'offered', `writes: ${outside('shared.md')}; topic: n1; priority: P1; repro: steps; review-scope: editor`],
+  ]);
+  assert.equal(written.status, 0, written.stderr);
+  const board = chips().stdout;
+  assert.match(board, /\nReady, P1 \(1\)\n {2}task_n1 /);
+  assert.match(board, /\nWaiting, deferred, P0 \(1\)\n {2}task_d1 {2}Fix the shared doc {2}\[d1\] {2}waits on queued behind task_n1/);
+  const cases = [
+    [['colaboration'], /fix chips\.deferred in \.agents\/pstack\.json: colaboration is no review scope in scopes/],
+    [{ collaboration: true }, /fix chips\.deferred in \.agents\/pstack\.json: it is a list of review scope ids/],
+  ];
+  for (const [deferred, said] of cases) {
+    const wrong = chipLedger({ config: { chips: { scopes: 'scopes', deferred } }, files: { 'scopes/collaboration.json': '{}' } });
+    const offered = wrong.batch([['task_c1 Fix c1', 'offered', 'writes: c1.md; topic: c1; priority: P1; repro: steps; review-scope: collaboration']]);
+    assert.equal(offered.status, 0, offered.stderr);
+    const listed = wrong.chips();
+    assert.equal(listed.status, 1, JSON.stringify(deferred));
+    assert.match(listed.stdout, said);
+  }
+});
+
+test('a deferred task that owns a check failing on the base branch keeps its place', () => {
+  const { batch, chips } = chipLedger({ config: { chips: { scopes: 'scopes', deferred: ['collaboration'] } }, files: { 'scopes/collaboration.json': '{}', 'scopes/editor.json': '{}' } });
+  const written = batch([
+    ['task_e1 Fix e1', 'offered', 'writes: e1.md; topic: e1; priority: P1; repro: steps; review-scope: editor'],
+    ['task_y1 Fix the red peer-order step', 'offered', 'writes: y1.md; topic: y1; priority: P2; via: verdict; review-scope: collaboration; owns: ci:yjs-peer-order'],
+  ]);
+  assert.equal(written.status, 0, written.stderr);
+  const board = chips().stdout;
+  assert.match(board, /\nReady, P0 \(1\)\n {2}task_y1 /, 'a red check fails every change, so its task is not deferred');
+  assert.doesNotMatch(board, /Ready, deferred/);
+  assert.match(chips('brief', 'task_y1').stdout, /^Review scope: collaboration\.$/mu);
+});
+
+test("a session withdraws its lowest deferred cards when tasks that rank above them have no room for a card", () => {
+  const { batch, chips } = chipLedger({ config: { chips: { scopes: 'scopes', deferred: ['collaboration'] } }, files: { 'scopes/collaboration.json': '{}', 'scopes/editor.json': '{}' } });
+  const deferred = [['y1', 'P0'], ['y2', 'P1'], ['y3', 'P1']].map(([id, priority]) => [`task_${id} Fix ${id}`, 'offered', `writes: ${id}.md; topic: ${id}; priority: ${priority}; repro: steps; review-scope: collaboration; card: c${id}; session: s1`]);
+  const held = [1, 2, 3, 4, 5, 6, 7].map((n) => [`task_n${n} Fix n${n}`, 'offered', `writes: n${n}.md; topic: n${n}; priority: P1; repro: steps; review-scope: editor; card: cn${n}; session: s1`]);
+  const waiting = ['a1', 'a2'].map((id) => [`task_${id} Fix ${id}`, 'offered', `writes: ${id}.md; topic: ${id}; priority: P2; via: verdict; review-scope: editor; session: s1`]);
+  const written = batch([...deferred, ...held, ...waiting]);
+  assert.equal(written.status, 0, written.stderr);
+  assert.match(chips('--session', 's1').stdout, /Do, withdrawal pass \(2\)\n {2}withdraw task_y2's card cy2: its review scope is deferred, and 2 ready tasks that rank above it have no room for a card;[^\n]*\n {2}withdraw task_y3's card cy3:/, 'a deferred P1 card gives way to a P2 outside the list, lowest first');
+  assert.equal(batch([['task_y3 Fix y3', 'uncarded', 'card: cy3']]).status, 0);
+  const one = chips('--session', 's1').stdout;
+  assert.match(one, /Do, withdrawal pass \(1\)\n {2}withdraw task_y2's card cy2: its review scope is deferred, and 1 ready task that ranks above it has no room for a card;/);
+  assert.doesNotMatch(one, /withdraw task_y1/, 'a deferred card stays while the tasks above it have room');
+  assert.equal(batch([['task_y2 Fix y2', 'uncarded', 'card: cy2']]).status, 0);
+  assert.match(chips('--session', 's1').stdout, /Do, card pass \(3\)\n {2}card task_a1:[^\n]*\n {2}card task_a2:[^\n]*\n {2}2 more can start once this session holds fewer than 10 cards/, 'the freed room goes to the tasks outside the list, not back to the deferred ones');
+  assert.doesNotMatch(chips().stdout, /withdraw task_y/, 'a read with no session withdraws nothing');
+
+  const leaving = chipLedger({ config: { chips: { scopes: 'scopes', deferred: ['collaboration'] } }, files: { 'scopes/collaboration.json': '{}', 'scopes/editor.json': '{}' } });
+  assert.equal(leaving.batch([...deferred, ...held, ...waiting, ['task_n7 Fix n7', 'updated', 'waits: pr:5']]).status, 0);
+  const freed = leaving.chips('--session', 's1').stdout;
+  assert.match(freed, /withdraw task_n7's card cn7: /);
+  assert.match(freed, /withdraw task_y3's card cy3: its review scope is deferred, and 1 ready task that ranks above it has no room for a card;/, "a card that leaves for a wait frees its room");
+  assert.doesNotMatch(freed, /withdraw task_y2/);
+});
+
 const triagedLedger = (files = {}) =>
   chipLedger({ config: { triage: { experimental: ['pagination'] }, chips: { scopes: 'scopes' } }, files: { 'scopes/editor.json': '{}', 'scopes/native.json': '{}', 'scopes/pagination.json': '{}', ...files } });
 
