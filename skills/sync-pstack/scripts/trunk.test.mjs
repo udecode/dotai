@@ -137,11 +137,11 @@ test('land rebases both halves onto the tips it fetched when a push from another
   const fixture = trunk();
   const { dir, remote, clone, message, elsewhere } = fixture;
   const { companion, sideElsewhere } = split(fixture);
-  git(clone, 'config', 'pstack.delivery', 'push');
-  const other = elsewhere('other.txt', 'two\n', 'feat(o): other');
-  const otherSide = sideElsewhere('other.spec', 'two\n', 'feat(o): other');
   const moved = join(dir, 'moved');
   const land = join(dir, 'land-elsewhere.sh');
+  const edit = seedGeneratedConflict(fixture, `node gen.mjs && sh ${land}`);
+  const other = elsewhere('other.txt', 'two\n', 'feat(o): other');
+  const otherSide = sideElsewhere('other.spec', 'two\n', 'feat(o): other');
   writeFileSync(
     land,
     [
@@ -154,15 +154,12 @@ test('land rebases both halves onto the tips it fetched when a push from another
       '',
     ].join('\n')
   );
-  const config = JSON.parse(readFileSync(join(clone, '.agents/pstack.json'), 'utf8'));
-  config.generated = [{ paths: ['gen/**'], command: `sh ${land}`, always: true }];
-  writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify(config));
-  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  edit(clone, 'b.txt', 'three\n');
 
   const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', 'test ! -f other.spec || test -f other.txt']);
   assert.equal(run.status, 0, run.stderr);
   assert.equal(git(remote, 'show', 'next:other.txt'), 'two');
-  assert.equal(git(remote, 'show', 'next:a.txt'), 'two');
+  assert.equal(git(remote, 'show', 'next:gen/out.txt'), 'two\nthree');
   assert.equal(git(companion, 'show', 'next:other.spec'), 'two');
 });
 
@@ -726,6 +723,63 @@ test('land runs an always entry once when the rebase already rebuilt it', () => 
   assert.match(run.stdout, /conflicts only in generated paths/);
   assert.equal(readFileSync(ran, 'utf8'), 'run\n');
   assert.equal(git(remote, 'show', 'next:gen/out.txt'), 'two\nthree');
+});
+
+function seedSpecList(fixture) {
+  const { clone } = fixture;
+  const { companion, side, sideElsewhere } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  writeFileSync(
+    join(clone, 'gen.mjs'),
+    "import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';\n" +
+      "const specs = readdirSync('.').filter((name) => name.endsWith('.spec')).sort().join('\\n');\n" +
+      "for (const dir of ['gen', 'tests']) mkdirSync(dir, { recursive: true });\n" +
+      "writeFileSync('gen/specs.txt', specs);\nwriteFileSync('tests/list.spec', specs);\n"
+  );
+  const config = JSON.parse(readFileSync(join(clone, '.agents/pstack.json'), 'utf8'));
+  config.generated = [{ paths: ['gen/**'], command: 'node gen.mjs', always: true }];
+  writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify(config));
+  assert.equal(spawnSync(process.execPath, ['gen.mjs'], { cwd: clone }).status, 0);
+  git(clone, 'add', '--all');
+  git(clone, 'commit', '--quiet', '-m', 'generate');
+  git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
+  git(clone, 'fetch', '--quiet', 'origin');
+  side('add', '--force', 'tests/list.spec');
+  side('commit', '--quiet', '-m', 'generate');
+  side('push', '--quiet', 'origin', 'HEAD:next');
+  side('fetch', '--quiet', 'origin');
+  git(sideElsewhere('c.spec', 'c\n', 'test(c): land elsewhere'), 'push', '--quiet', 'origin', 'HEAD:next');
+  return { companion, side, landed: git(companion, 'rev-parse', 'next') };
+}
+
+test("land regenerates an always entry from the companion's origin/next, and lands the output the companion tracks in a companion commit of its own", () => {
+  const fixture = trunk();
+  const { remote, clone, message } = fixture;
+  const { companion, side, landed } = seedSpecList(fixture);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(git(remote, 'show', 'next:gen/specs.txt'), 'a.spec\nc.spec', 'the output reads the spec the companion gained');
+  assert.equal(git(companion, 'show', 'next:tests/list.spec'), 'a.spec\nc.spec');
+  assert.equal(git(companion, 'log', '--format=%s', `${landed}..next`), 'feat(a): change a', 'a task that changed no companion file lands that output in one companion commit');
+  assert.match(git(companion, 'log', '-1', '--format=%B', 'next'), new RegExp(`^Lands-With: ${git(remote, 'rev-parse', 'next')}$`, 'mu'));
+  assert.equal(side('status', '--porcelain', '--untracked-files=no'), '');
+});
+
+test("land folds regenerated output the companion tracks into the task's companion commit", () => {
+  const fixture = trunk();
+  const { clone, message } = fixture;
+  const { companion, side, landed } = seedSpecList(fixture);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  writeFileSync(join(clone, 'a.spec'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  assert.equal(run.status, 0, run.stderr);
+  assert.equal(git(companion, 'log', '--format=%s', `${landed}..next`), 'feat(a): change a');
+  assert.equal(git(companion, 'show', 'next:a.spec'), 'two');
+  assert.equal(git(companion, 'show', 'next:tests/list.spec'), 'a.spec\nc.spec');
+  assert.equal(side('status', '--porcelain', '--untracked-files=no'), '');
 });
 
 test('land runs the config landChecks before each --check, and a --check it already holds once', () => {

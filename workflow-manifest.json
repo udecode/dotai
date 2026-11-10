@@ -318,7 +318,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/land.mjs": {
-      "sha256": "f4f2ad9fa34831b8907824d548092ae47a43193665afc24190fa918b0edfc6f8",
+      "sha256": "e8a1a1f5f146a875375cc9cc885f9e1ad4252f415e11ab2b9cea90ebee05d090",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/lead.mjs": {
@@ -386,7 +386,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/land.md": {
-      "sha256": "79a677e235c146765ac4f278cbfcffca3f156be049c270d944358af62f794c83",
+      "sha256": "d5e1997666bdd5b3861a28bf9b34ecd04fde63e26cb0a6ad8fb9c923c2459d70",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/linked.md": {
@@ -518,7 +518,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/trunk.test.mjs": {
-      "sha256": "78406677e1e91161a6bf02943c3f76f0a50171d4a5f3c2bcc17511c3681285e0",
+      "sha256": "e79e79c85aa24681558b654230b3515698fb86fae4c349ea5713988476d2b68f",
       "mode": 420
     },
     "skills/sync-pstack/scripts/writing-check.test.mjs": {
