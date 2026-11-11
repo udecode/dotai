@@ -6178,6 +6178,34 @@ test('reread prints each changed sentence whole against its last snapshot', () =
   assert.doesNotMatch(bare.stdout, /--dir/u, 'a hook given no files prints no command that would only print usage');
 });
 
+test('reread takes a folder for every Markdown file under it and prints one summary line for the folder', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-reread-folder-'));
+  mkdirSync(join(dir, 'playbooks/references'), { recursive: true });
+  writeFileSync(join(dir, 'playbooks/build.md'), 'Land each step on its own.\n');
+  writeFileSync(join(dir, 'playbooks/plan.md'), 'Plan the steps.\n');
+  writeFileSync(join(dir, 'playbooks/references/architecture.md'), 'Compare two targets.\n');
+  writeFileSync(join(dir, 'playbooks/notes.txt'), 'Not a rule.\n');
+  const reread = (...args) => spawnSync(process.execPath, [join(HELPERS, 'reread.mjs'), ...args], { cwd: dir, encoding: 'utf8' });
+
+  const seeded = reread('--dir', 'snap', 'playbooks').stdout;
+  assert.ok(seeded.includes('playbooks: 0 file(s) unchanged; first snapshot of playbooks/build.md, playbooks/plan.md, playbooks/references/architecture.md; read in full each one the run follows'), seeded);
+  assert.equal(reread('--dir', 'snap', 'playbooks').stdout, 'playbooks: 3 file(s) unchanged\n');
+
+  writeFileSync(join(dir, 'playbooks/build.md'), 'Land each step on its own. A fix to landed code lands first.\n');
+  writeFileSync(join(dir, 'playbooks/triage.md'), 'Triage each issue.\n');
+  rmSync(join(dir, 'playbooks/plan.md'));
+  const changed = reread('--dir', 'snap', 'playbooks').stdout;
+  assert.ok(changed.includes('playbooks: 1 file(s) unchanged; first snapshot of playbooks/triage.md; read in full each one the run follows; removed since their last snapshot: playbooks/plan.md'), changed);
+  assert.ok(changed.includes('playbooks/build.md: 0 sentence(s) removed and 1 added'), changed);
+  assert.ok(changed.includes('+ A fix to landed code lands first.'), changed);
+  assert.doesNotMatch(changed, /notes\.txt/u);
+  assert.equal(reread('--dir', 'snap', 'playbooks').stdout, 'playbooks: 3 file(s) unchanged\n', 'a removed file is reported once');
+
+  const hook = spawnSync(process.execPath, [join(HELPERS, 'reread.mjs'), '--hook', 'playbooks'], { cwd: dir, encoding: 'utf8', input: JSON.stringify({ session_id: 's-folder', source: 'startup' }) });
+  assert.doesNotMatch(hook.stdout, /^playbooks:/mu, 'a fresh start only seeds the folder');
+  assert.ok(hook.stdout.includes('reread/s-folder playbooks before each gate'), hook.stdout);
+});
+
 test('reread --hook started in the main checkout reads the worktree the payload names and keeps its snapshots in the main checkout', () => {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'sync-pstack-reread-tree-')));
   const [main, tree, other] = ['main', 'tree', 'other'].map((name) => join(dir, name));
