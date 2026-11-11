@@ -118,6 +118,10 @@ test('a background Bash call stays open until its task notification names it', (
   runsAt([...started, { type: 'user', message: { content: noticeFor('other') } }], "another call's notification leaves it open");
   ended([bashCall('bg', { command: 'pnpm test', run_in_background: true }), resultOf('bg', 'Command running in background with ID: b1.', { is_error: true })], 'a background call that failed to start ends at its result');
   ended([bashCall('fg', { command: 'pnpm test' }), resultOf('fg', 'done')], 'a foreground call still ends at its result');
+  // A PreToolUse hook's updatedInput never reaches the transcript, which keeps the input the model sent.
+  const hooked = [bashCall('hooked', { command: 'pnpm test' }), resultOf('hooked', 'Command running in background with ID: b1.')];
+  runsAt(hooked, 'a call that a hook moved to the background runs past its start result');
+  ended([...hooked, { type: 'user', message: { content: noticeFor('hooked') } }], 'and ends at its notification');
 });
 
 test('a background call also ends at a queued notification or at the exit line of its output file', () => {
