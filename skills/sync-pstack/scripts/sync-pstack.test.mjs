@@ -4436,6 +4436,8 @@ test('a repro that quotes session: or transcript: neither names the owner nor bl
   const rows = read(root, LEDGER).split('\n');
   assert.doesNotMatch(rows.find((row) => row.includes('task_a1') && row.endsWith('\toffered')), /transcript:/, 'no owner, so no transcript');
   assert.match(rows.find((row) => row.includes('task_b1')), /; transcript: rollout-child\t/, 'the real owner gets its transcript');
+  assert.equal(append('task_b1 Fix b', 'session: none', 'updated').status, 0);
+  assert.doesNotMatch(read(root, LEDGER).split('\n').find((row) => row.includes('task_b1') && row.endsWith('\tupdated')), /transcript:/, 'giving a task back names no owner, so no transcript');
 });
 
 test('a token after prose inside a field still reads as it did before the repro rule', () => {
@@ -5207,6 +5209,29 @@ test('a task that waits on a landed patch starts once a commit after the landing
   commit(root, 'parser');
   writeFileSync(join(root, 'src/p.ts'), 'export const parse = 2;\n');
   assert.match(chips().stdout, /Ready, P1 \(1\)\n {2}task_b1 {2}Use the parser/, "a later task's uncommitted edit on top of the committed parser does not hold the wait");
+});
+
+test('an offer with session: none lies outside its run\'s domain, so no plain board cards it and chips all does', () => {
+  const { chips, offer } = chipLedger();
+  assert.equal(offer('task_a1 Fix the parser', 'src/a.ts', 'topic: a; session: none').status, 0);
+  assert.equal(offer('task_b1 Fix the badge', 'src/b.ts', 'topic: b').status, 0);
+  const plain = chips().stdout;
+  assert.doesNotMatch(plain, /card task_a1:/, 'a runtime with no session tool cards no task outside its run\'s domain');
+  assert.match(plain, /card task_b1:/, 'a runtime with no session tool still cards its own ownerless offer');
+  assert.doesNotMatch(chips('--session', 's1').stdout, /card task_a1:/);
+  assert.match(chips('all', '--session', 's1').stdout, /card task_a1:/, 'chips all cards it');
+  assert.match(chips('brief', 'task_a1').stdout, /\nOwner: none\. Its finding lies outside the domain of the run that offered it, so only \/chips all cards it\.\n/);
+});
+
+test('an updated row with session: none gives a task back to no owner, so only chips all cards it', () => {
+  const { chip, chips, offer } = chipLedger();
+  assert.equal(offer('task_a1 Fix the parser', 'src/a.ts', 'topic: a; session: s1').status, 0);
+  assert.match(chips('--session', 's1').stdout, /Do, card pass \(1\)\n {2}card task_a1:/);
+  assert.equal(chip('task_a1 Fix the parser', 'updated', 'session: none').status, 0);
+  const own = chips('--session', 's1').stdout;
+  assert.doesNotMatch(own, /card task_a1:/, 'the session that gave it back cards it no more');
+  assert.match(own, /no owner {2}1 open: task_a1/);
+  assert.match(chips('all', '--session', 's1').stdout, /card task_a1:/, 'chips all cards a task no session owns');
 });
 
 test('a session cards only the tasks it owns, and chips all takes the ones no live session owns', () => {

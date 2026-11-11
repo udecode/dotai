@@ -150,7 +150,7 @@
       "mode": 493
     },
     "skills/chips/SKILL.md": {
-      "sha256": "330051205d5a0a4891ef0f3b056d9df206b796367448a7270691858d3b2ba7f0",
+      "sha256": "7433485ff1c1225ed3b2708c00fe2e230ddde47bcfeb19d984ed07cccf097bff",
       "mode": 420
     },
     "skills/cleanup/SKILL.md": {
@@ -274,7 +274,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "495abb69e569f6710a90c9183e7b43b59d1f50d75b59c8e8242c2c51e801522e",
+      "sha256": "54e0abed300f9ff19b135b7db3268d2b4f0835e9928a5c6fc1e683a5947f196d",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/checkout.mjs": {
@@ -302,7 +302,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
-      "sha256": "30e05bf586c3d5d9f00a9be89abf013ded07f9c8129060b3ccdad03f740a09a8",
+      "sha256": "ec3fe978b301ca3e4343f71ec3401ed48d006145c9a09224be1c6741eaecd918",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/freeze.mjs": {
@@ -370,7 +370,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/chips.md": {
-      "sha256": "0438cac5bdaf47cfe67b242e43b9fdb0449a11d27f34ad855a164bece06c1612",
+      "sha256": "1ab891e5edf1379bce6cf2926bbe17b5b7283c2311119911472d677096e23317",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/close.md": {
@@ -422,7 +422,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/title.md": {
-      "sha256": "18a060cf21e33d7712f5518c179907717ffd92f5cac192183c5555703eb9534f",
+      "sha256": "b532012764d43e7f1f6914991d6b02dda2020a4c555b67d49fa1bddf30ac58c7",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/trails.md": {
@@ -450,7 +450,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/tasks.mjs": {
-      "sha256": "3b68124ad1b4fa30ef05243e115510672ba3f1bea90c8bdd6225733df912611f",
+      "sha256": "52d3a5cc2b1a805a1c6cb8a9eb3c1e0283ccfc586cd458aaf1889a2e195ec98b",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/title.mjs": {
@@ -514,7 +514,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "1c9761ee0fecb9f3bafe4ad9abb5acaa9dac8695672c26b3f79cfec7136a027c",
+      "sha256": "831f308d8e30adc68760cbf73f08b36b88d29ad37aab1f4283f967757e686fa2",
       "mode": 420
     },
     "skills/sync-pstack/scripts/trunk.test.mjs": {
