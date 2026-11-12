@@ -970,11 +970,11 @@ test('land pushes a topic branch and opens a PR into next when the clone has no 
   assert.equal(ghArgs(dir).length, 10, 'a direct clone names no other repository');
   assert.equal(readFileSync(join(dir, 'gh-body'), 'utf8'), `${PR.split('\n').slice(2).join('\n')}\n`);
   assert.match(run.stdout, /https:\/\/example\.test\/pull\/7/);
-  assert.match(run.stdout, /Auto-merge stays off: next's rules require no approval/);
-  assert.equal(existsSync(join(dir, 'gh-merge')), false, 'a branch without a required approval gets no auto-merge');
+  assert.match(run.stdout, /Armed auto-merge \(squash\)/);
+  assert.deepEqual(ghLines(dir, 'gh-merge'), ['pr', 'merge', 'https://example.test/pull/7', '--auto', '--squash'], 'a branch with no rules still gets auto-merge');
 });
 
-test('land arms auto-merge only where an approval of the latest push gates the merge, with a method the rules allow', () => {
+test('land arms auto-merge on every PR it opens, with a method the rules allow, and reports a refusal', () => {
   const land = (rules) => {
     const { dir, clone, message } = trunk();
     writeFileSync(join(clone, 'a.txt'), 'two\n');
@@ -991,10 +991,12 @@ test('land arms auto-merge only where an approval of the latest push gates the m
 
   assert.deepEqual(land([review({ require_last_push_approval: true })]).merge, ['pr', 'merge', 'https://example.test/pull/7', '--auto', '--squash']);
 
-  const stale = land([review({})]);
-  assert.equal(stale.merge, null, 'an approval that survives a later push does not gate what lands');
-  assert.match(stale.run.stdout, /Auto-merge stays off/);
-  assert.equal(land([review({ required_approving_review_count: 0, dismiss_stale_reviews_on_push: true })]).merge, null);
+  assert.deepEqual(land([review({})]).merge, ['pr', 'merge', 'https://example.test/pull/7', '--auto', '--squash'], 'an approval that survives a later push still gets auto-merge');
+  assert.deepEqual(land([review({ required_approving_review_count: 0, allowed_merge_methods: ['rebase'] })]).merge, ['pr', 'merge', 'https://example.test/pull/7', '--auto', '--rebase']);
+
+  const none = land([review({ allowed_merge_methods: ['merge'] }), review({ allowed_merge_methods: ['squash'] })]);
+  assert.equal(none.merge, null);
+  assert.match(none.run.stdout, /Auto-merge stays off: next's rules allow no merge method in common/);
 });
 
 test('land in a fork clone rebases onto upstream, pushes the topic to the fork and opens the PR on upstream', () => {

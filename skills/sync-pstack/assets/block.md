@@ -50,7 +50,7 @@
 <!-- # overrides poteto-mode/playbooks/feature.md "Run **Opening a PR**" -->
 <!-- # overrides poteto-mode/playbooks/opening-a-pr.md "Work from a git worktree off main." -->
 <!-- if delivery=push -->
-- **Delivery.** A completed task runs its writing passes, then `{{lintFix}}` as its last check that edits code, then commits and pushes `{{branch}}`. When `git status --short` lists anything the task did not write, stage only the task's own paths; `git add -A` is only for a checkout that holds nothing else. No PR, merge or force-push unless the user asks. pstack's Opening a PR, Babysit and Shipping playbooks apply only to a requested PR, and their "worktree off main" step never applies.
+- **Delivery.** A completed task runs its writing passes, then `{{lintFix}}` as its last check that edits code, then commits and pushes `{{branch}}`. No PR, merge or force-push unless the user asks. pstack's Opening a PR, Babysit and Shipping playbooks apply only to a requested PR, and their "worktree off main" step never applies.
 <!-- end -->
 <!-- if delivery=pr -->
 - **Delivery.** A completed task runs its writing passes, then `{{lintFix}}` as its last check that edits code, then commits on a topic branch cut from `{{branch}}` in the checkout or worktree it works in and opens a PR into `{{branch}}` through pstack's Opening a PR playbook, whose worktree step never applies. Babysit and Shipping run when the user asks. Never push `{{branch}}` directly, merge or force-push unless the user asks. Record each commit SHA this run creates in its todo list or decision log as it lands.
@@ -282,6 +282,8 @@
   Its body is the page of the PR's plan, written with the `plan-page` skill's PR mode. That plan is the one plan that covers the whole diff, or a PR plan that lists the plans it carries.
 <!-- end -->
 <!-- end -->
+<!-- # overrides poteto-mode/references/merge-safety.md "A queue or automatic request may outlive its admission revision." -->
+- **Auto-merge.** Each PR an agent opens anywhere gets `gh pr merge <url> --auto` with a method its base allows; report a refusal (owner's word, 2026-11-12).
 <!-- # overrides poteto-mode/SKILL.md "In your reply, name each principle that shaped a decision" -->
 - **Principles in replies.** pstack's principle skills still apply. Read the leaf skill for any principle a decision rests on, as poteto-mode's Principles list says. Only the rule to name each principle in the reply is dropped; name one only when it explains a choice the reader would otherwise question.
 <!-- # adds -->
