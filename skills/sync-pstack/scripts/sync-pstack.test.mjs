@@ -838,6 +838,38 @@ test('cross deletes its answer and scratch folders once a run ends', () => {
   }
 });
 
+test('a cross run that answers stops what its runtime left running, in its process group or out of it', () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  const idle = join(dir, 'idle.mjs');
+  const pidFile = join(dir, 'left.pids');
+  writeFileSync(idle, 'setTimeout(() => {}, 30000);\n');
+  writeFileSync(
+    join(bin, 'codex'),
+    `#!/usr/bin/env node
+const { spawn } = require('node:child_process');
+const { writeFileSync } = require('node:fs');
+const args = process.argv.slice(2);
+const left = [false, true].map((detached) => spawn(process.execPath, [${JSON.stringify(idle)}], { detached, stdio: 'ignore' }));
+for (const child of left) child.unref();
+writeFileSync(${JSON.stringify(pidFile)}, left.map((child) => child.pid).join(' '));
+writeFileSync(args[args.indexOf('-o') + 1], 'No findings.');
+`,
+    { mode: 0o755 },
+  );
+  const seat = spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', '--reach', 'review it'], {
+    cwd: dir,
+    encoding: 'utf8',
+    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '' },
+  });
+  assert.equal(seat.status, 0, seat.stderr);
+  assert.equal(seat.stdout.trim(), 'No findings.');
+  for (const pid of readFileSync(pidFile, 'utf8').split(' ').map(Number)) {
+    assert.throws(() => process.kill(pid, 0), /ESRCH/, `process ${pid} outlived the seat that started it`);
+  }
+});
+
 test('cross passes a prompt that starts with dashes as the prompt, and gives up on a runtime that ignores its timeout', () => {
   const { dir, home } = sandbox();
   const bin = join(dir, 'bin');
