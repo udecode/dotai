@@ -4341,8 +4341,8 @@ test('a chip ranks by its own review scope and regression pages, and the card pa
   assert.equal(plain.status, 0, plain.stderr);
 });
 
-test('chips.tiers ranks each priority by the paths a task writes, then its scope, with base-red work first', () => {
-  const tiers = [{ name: 'core', paths: ['src/core/'], except: ['src/core/extra/'] }, { name: 'feature' }, { name: 'late', scopes: ['late'] }];
+test('chips.tiers ranks each priority by the checks a task owns, the paths it writes and its scope, with base-red work first above the catch-all tier', () => {
+  const tiers = [{ name: 'core', paths: ['src/core/'], except: ['src/core/extra/'] }, { name: 'feature' }, { name: 'late', scopes: ['late'], checks: ['e2e:ai-'] }];
   const { batch, chips, chip } = chipLedger({ config: { triage: { experimental: ['late'] }, chips: { scopes: 'scopes', tiers } }, files: { 'scopes/editor.json': '{}', 'scopes/late.json': '{}' } });
   const written = batch([
     ['task_z1 Fix z', 'offered', 'writes: src/late/d.ts; topic: z; priority: P0; repro: steps; review-scope: late'],
@@ -4351,16 +4351,19 @@ test('chips.tiers ranks each priority by the paths a task writes, then its scope
     ['task_c1 Fix c', 'offered', 'writes: src/late/b.ts, src/core/x.ts; topic: c; priority: P1; repro: steps; review-scope: late'],
     ['task_x1 Fix x', 'offered', 'writes: src/core/extra/y.ts; topic: x; priority: P1; repro: steps; review-scope: editor'],
     ['task_r1 Fix r', 'offered', 'writes: src/late/c.ts; topic: r; priority: P1; repro: steps; review-scope: late; owns: e2e:late'],
+    ['task_g1 Fix g', 'offered', 'writes: src/ui/g.ts; topic: g; priority: P1; repro: steps; review-scope: editor; owns: e2e:ui'],
+    ['task_a1 Fix a', 'offered', 'writes: src/ui/h.ts; topic: a; priority: P1; repro: steps; review-scope: editor; owns: e2e:ai-chat'],
+    ['task_m1 Fix m', 'offered', 'writes: src/ui/m.ts; topic: m; priority: P1; repro: steps; review-scope: editor; owns: e2e:ai-x, e2e:ui-y'],
   ]);
   assert.equal(written.status, 0, written.stderr);
   const board = chips().stdout;
-  assert.match(board, /Ready, P0 \(2\)\n {2}task_r1 {2}Fix r {2}\[r\] {2}regression {2}owns e2e:late {2}no card\n {2}task_z1 {2}Fix z {2}\[z\] {2}late {2}no card\n/, 'a check that fails on the base branch makes a P0 and ranks first in it');
-  assert.match(board, /Ready, P1 \(4\)\n {2}task_c1 {2}Fix c {2}\[c\] {2}core {2}no card\n {2}task_f1 {2}Fix f {2}\[f\] {2}feature {2}no card\n {2}task_x1 {2}Fix x {2}\[x\] {2}feature {2}no card\n {2}task_l1 {2}Fix l {2}\[l\] {2}late {2}no card\n/, 'a core write beats its scope, an excepted path falls to the catch-all tier, a scope tier ranks where the list puts it, and the tier replaces the milestone class');
+  assert.match(board, /Ready, P0 \(2\)\n {2}task_g1 {2}Fix g {2}\[g\] {2}regression {2}owns e2e:ui {2}no card\n {2}task_m1 {2}Fix m {2}\[m\] {2}regression {2}owns e2e:ai-x, e2e:ui-y {2}no card\n\n/, 'a red check above the catch-all tier makes a P0 that ranks first, and checks place a task only when they hold every check it owns');
+  assert.match(board, /Ready, P1 \(7\)\n {2}task_c1 {2}Fix c {2}\[c\] {2}core {2}no card\n {2}task_f1 {2}Fix f {2}\[f\] {2}feature {2}no card\n {2}task_x1 {2}Fix x {2}\[x\] {2}feature {2}no card\n {2}task_z1 {2}Fix z {2}\[z\] {2}late {2}no card\n {2}task_l1 {2}Fix l {2}\[l\] {2}late {2}no card\n {2}task_r1 {2}Fix r {2}\[r\] {2}late {2}owns e2e:late {2}no card\n {2}task_a1 {2}Fix a {2}\[a\] {2}late {2}owns e2e:ai-chat {2}no card\n/, 'a core write beats its scope, an excepted path falls to the catch-all tier, and a tier after the catch-all ranks no task above P1, red check or P0 token included');
   assert.equal(chip('task_c1 Fix c', 'updated', 'writes: src/late/b.ts').status, 0);
   assert.match(chips('brief', 'task_c1').stdout, /Tier: late, rank 3 of chips.tiers within its priority\./, 'dropping the core write moves the task to its scope tier');
   const loose = chipLedger({ config: { chips: { scopes: 'scopes', tiers: [{ name: 'a' }, { name: 'b' }] } }, files: { 'scopes/editor.json': '{}' } });
   assert.equal(loose.batch([['task_a1 Fix a', 'offered', 'writes: a.md; topic: a; priority: P2; via: verdict; review-scope: editor']]).status, 0);
-  assert.match(loose.chips().stdout, /fix chips\.tiers in \.agents\/pstack\.json: a and b name no paths or scopes/);
+  assert.match(loose.chips().stdout, /fix chips\.tiers in \.agents\/pstack\.json: a and b name no paths, scopes or checks/);
 });
 
 test('a reopened duplicate leaves the kept task its own milestone class, whatever proof the merge copied', () => {
