@@ -1716,6 +1716,51 @@ test('plan-page refuses a before fence that prose separates from its after fence
   assert.match(result.stderr, /Public API needs each before fence followed directly by its after fence/);
 });
 
+const renderPlan = (plan) => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  return { root, result: run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root) };
+};
+
+test('plan-page keeps a fence that holds heading and field lines inside its section', () => {
+  const fenced = '```md\n# Plate docs\n## Not a section\nStatus: not a field\n```';
+  const quoted = '````md\n## Usage\n```ts\nconst docs = 1;\n```\n## Not a section either\n````';
+  const indented = '```mdx\n## Setup\n    ```ts\n    const orm = 1;\n    ```\n## Not a section after it\n```';
+  const { root, result } = renderPlan(`# Plan\n\nStatus: planning\n\n${brief()}## Main changes\n\n- Writes the index.\n\n${fenced}\n\n${quoted}\n\n${indented}\n\n- Lists each page.\n`);
+  assert.equal(result.status, 0, result.stderr);
+  const html = read(root, 'docs/plans/artifacts/plan.html');
+  assert.doesNotMatch(html, /<h2>(?:Not a section|Usage|Not a section either|Setup|Not a section after it)<\/h2>/u);
+  const main = html.slice(html.indexOf('<h2>Main changes</h2>'));
+  assert.match(main, /## Not a section[\s\S]*Status: not a field[\s\S]*## Usage[\s\S]*## Not a section either[\s\S]*## Not a section after it[\s\S]*Lists each page/u, 'every fence and the list after them stay in Main changes');
+});
+
+test('plan-page refuses an open plan whose fence never closes or holds another opening line, and a done plan still splits its sections', () => {
+  const stray = (status, rest) => `# Plan\n\nStatus: ${status}\n\n${brief()}## Main changes\n\n- Writes the index.\n\n\`\`\`md\n\n${rest}`;
+  const unclosed = renderPlan(stray('planning', '## Open work\n\n- Lists each page.\n'));
+  assert.equal(unclosed.result.status, 1);
+  assert.match(unclosed.result.stderr, /docs\/plans\/plan\.md line \d+ opens a fence that never closes/u);
+  const paired = renderPlan(stray('planning', '## Open work\n\n```sh\nnode build.mjs\n```\n\n## Limits\n\n- None.\n'));
+  assert.equal(paired.result.status, 1, 'a stray marker that a later fence closes is refused too');
+  assert.match(paired.result.stderr, /line \d+ opens a fence that never closes or that holds another fence's opening line/u);
+  const done = renderPlan(stray('done', '## Open work\n\n- Lists each page.\n'));
+  assert.equal(done.result.status, 0, done.result.stderr);
+  assert.match(read(done.root, 'docs/plans/artifacts/plan.html'), /<h2>Open work<\/h2>[\s\S]*Lists each page/u, 'a done plan with a stray marker hides no later section');
+});
+
+test('plan-page reads a fenced ### line in the brief as code, not as a question', () => {
+  const [changes, risks] = BRIEF_ANSWERS.slice(-2);
+  const { result } = renderPlan(`# Plan\n\nStatus: planning\n\n${brief([[changes[0], `${changes[1]}\n\n\`\`\`md\n### Not an answer\n\`\`\``], risks])}## Main changes\n\n- Writes the index.\n`);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /## Brief in docs\/plans\/plan\.md holds code ```md/u);
+});
+
+test('plan-page reads a fenced ### line in an open question as code, not as another question', () => {
+  const memo = MEMO.replace('If you say go:', '~~~md\n### Not a question\n~~~\n\nIf you say go:');
+  const { result } = renderPlan(`# Plan\n\nStatus: waiting for the owner\n\n${brief()}## Main changes\n\n- Writes the index.\n\n## Open questions\n\n${memo}`);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /## Open questions in docs\/plans\/plan\.md holds code ~~~md/u);
+});
+
 test('plan-page checks pairs in a project section only when a playbook pairs it', () => {
   const { dir, run } = sandbox();
   const plan = '# Plan\n\nStatus: done\n\n## Document shape\n\n- A signed document keeps its template id.\n';

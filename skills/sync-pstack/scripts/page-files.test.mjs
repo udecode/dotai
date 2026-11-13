@@ -274,6 +274,24 @@ test("page-stop sends the page file and this run's files, sends nothing between 
   assert.equal(stop.lines.at(-1), 'Once the publish goes through, reply with 📄 https://claude.ai/artifact/stage#run-2026-02-01-live');
 });
 
+test('a page with no link yet starts empty, so a stop after an unsent first publish still sends the viewer code', () => {
+  const { root } = project();
+  const plain = join(root, 'docs/plans/plain.md');
+  assert.equal(callOf(pageStop(['stop', plain, '--session', 'one'], CLAUDE).lines).url, undefined);
+  const again = pageStop(['stop', plain, '--session', 'one'], CLAUDE);
+  const call = callOf(again.lines);
+  assert.deepEqual(call.files.filter((path) => path.startsWith('code/')), [`code/${CODE_VERSION}.js`, `code/${CODE_VERSION}.css`]);
+  assert.deepEqual(runsOf(call), [['plain.one', 1]], 'the unsent stop takes no hand-back serial');
+  assert.ok(again.lines.some((line) => line.startsWith('This publish makes the page')));
+});
+
+test('a stage on a plan with no page link stays quiet once the stage before it printed the same asks', () => {
+  const { root } = project();
+  const plain = join(root, 'docs/plans/plain.md');
+  assert.ok(pageStop(['stage', plain, '--session', 'one'], CLAUDE).lines.some((line) => line.startsWith('Artifact ')));
+  assert.deepEqual(pageStop(['stage', plain, '--session', 'one'], CLAUDE).lines, [QUIET]);
+});
+
 test('a stage whose plan the renderer refuses writes no file, so the stage after the fix sends the whole run', () => {
   const { root, write, live } = project();
   const out = join(root, 'docs/plans/artifacts/pages/stage');
