@@ -6341,6 +6341,38 @@ test('a proof started inside a proof runs on its parent share instead of waiting
   assert.match(read(dir, 'run/inner-a1.log'), /exit=0\n$/);
 });
 
+const stressArgs = (args, name, cores) => {
+  const argv = args(name, `echo ${name}`);
+  argv.splice(argv.indexOf('--'), 0, '--stress', '--cores', String(cores));
+  return argv;
+};
+
+test('proof refuses a stress run with more workers than half the cores before it logs, and runs one with half', () => {
+  const { dir, env, args } = corePool('sync-pstack-proof-stress-cap-', []);
+  const half = Math.max(1, Math.floor(availableParallelism() / 2));
+  const stress = (name, cores) => spawnSync(process.execPath, stressArgs(args, name, cores), { cwd: dir, env, encoding: 'utf8', timeout: 20_000 });
+
+  const refused = stress('over', half + 1);
+  assert.equal(refused.status, 2);
+  assert.match(refused.stderr, new RegExp(`^--stress with --cores ${half + 1} is over half of this machine's ${availableParallelism()} cores; run the command with at most ${half} workers and pass --cores ${half}$`, 'm'));
+  assert.equal(existsSync(join(dir, 'run/over-a1.log')), false, 'a refused stress proof wrote a log');
+  assert.equal(stress('half', half).status, 0, 'a stress proof with half the cores runs');
+});
+
+test('a stress proof holds a whole core for each worker, so it waits where only half a core is free', async () => {
+  const { dir, env, args } = corePool('sync-pstack-proof-stress-share-', [{ pid: process.pid, cores: availableParallelism() - 0.5 }]);
+  const stress = spawn(process.execPath, stressArgs(args, 'stress', 1), { cwd: dir, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  let stderr = '';
+  stress.stderr.on('data', (chunk) => (stderr += chunk));
+  const exited = new Promise((done) => stress.on('exit', done));
+
+  await until(() => stderr.includes('waiting') || stress.exitCode !== null);
+  assert.equal(stress.exitCode, null, 'a stress proof ran on half a core');
+  assert.match(stderr, /proof\.mjs stress: waiting for 1 of this machine's cores; /);
+  rmSync(join(dir, `tmp/pstack-slots/${process.pid}.json`));
+  assert.equal(await exited, 0);
+});
+
 test('proof fails a timed-out command that exits 0 on its timeout signal', () => {
   const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-proof-graceful-'));
   const graceful = proveWithTimeout(dir, 'graceful', "trap 'exit 0' TERM; sleep 20 & wait");
