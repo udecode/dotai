@@ -3616,6 +3616,280 @@ test('chips clears each kind of wait without a new row: a merged PR, a closed ta
   assert.equal(board.status, 1);
 });
 
+const daysAgo = (days) => new Date(Date.now() - days * 86_400_000).toISOString();
+const LOG_HEADER = 'ts\tphase\tdecision\twhy\tevidence\tresult\n';
+const planRow = (when) => `${when}\tbuild\tStep\twhy\tscope: x\tdone\n`;
+const commitAt = (root, days, ...paths) => {
+  const when = daysAgo(days);
+  spawnSync('git', ['-C', root, 'add', ...paths]);
+  spawnSync('git', ['-C', root, 'commit', '-qm', `touch ${paths[0]}`], { env: { ...process.env, GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when } });
+};
+
+test('chips reads a plan idle for a week as stale, offers one verdict per review scope, moves the waits on it there and leaves a plan that waits on the owner to the owner', () => {
+  const { LEDGER, batch, chips, dir, helper, offer, root } = chipLedger({ config: { chips: { scopes: 'docs/scopes' }, pageTopic: { field: 'review_scopes' } }, files: { 'docs/scopes/parser.json': '{}\n' } });
+  const plan = (name, status, scopes) => {
+    const path = `docs/plans/${name}.md`;
+    writeFileSync(join(root, path), `${scopes ? `---\nreview_scopes: [${scopes}]\n---\n\n` : ''}# ${name}\n\nStatus: ${status}\n`);
+    return path;
+  };
+  const parser = plan('2026-01-01-parser', 'building: step 2', 'parser, lexer');
+  writeFileSync(join(root, 'docs/plans/2026-01-01-parser.decisions.tsv'), LOG_HEADER + planRow(daysAgo(10)));
+  commitAt(root, 10, parser, 'docs/plans/2026-01-01-parser.decisions.tsv');
+  const cache = plan('2026-01-02-parser-cache', 'planning', 'parser');
+  commitAt(root, 9, cache);
+  const fresh = plan('2026-01-03-fresh', 'building: step 4');
+  const freshLog = 'docs/plans/2026-01-03-fresh.decisions.tsv';
+  writeFileSync(join(root, freshLog), LOG_HEADER + planRow(daysAgo(10)));
+  commitAt(root, 10, fresh, freshLog);
+  const recent = plan('2026-01-04-recent', 'building: step 1');
+  commitAt(root, 6, recent);
+  const phone = plan('2026-01-05-phone', 'planning: waiting on you to buy a phone');
+  commitAt(root, 20, phone);
+  const go = plan('2026-01-06-go', "building: phase 1, on the owner's go");
+  commitAt(root, 20, go);
+  const worktree = join(dir, 'wt');
+  spawnSync('git', ['-C', root, 'worktree', 'add', '-q', '--detach', worktree]);
+  appendFileSync(join(worktree, freshLog), planRow(daysAgo(1)));
+  assert.equal(offer('task_a1 Fix the lexer', 'src/l.ts', `topic: lexer; waits: run:${parser}`).status, 0);
+  assert.equal(offer('task_a2 Fix the cache', 'src/c.ts', `topic: cache; waits: run:${parser}, run:${cache}, pr:12`).status, 0);
+  assert.equal(offer('task_b1 Fix the docs', 'docs/d.md', `topic: docs; waits: run:${fresh}`).status, 0);
+  assert.equal(offer('task_c1 Fix the theme', 'src/t.ts', `topic: theme; waits: run:${recent}`).status, 0);
+  assert.equal(offer('task_d1 Fix the phone lane', 'src/p.ts', `topic: phone; waits: run:${phone}`).status, 0);
+  assert.equal(offer('task_e1 Fix the router', 'src/r.ts', `topic: router; waits: run:${go}`).status, 0);
+  let board = chips();
+  assert.match(board.stdout, /task_a1 {2}Fix the lexer {2}\[lexer\] {2}waits on run:docs\/plans\/2026-01-01-parser\.md stale, idle since \d{4}-\d{2}-\d{2}\n/);
+  assert.match(board.stdout, /task_b1 {2}Fix the docs {2}\[docs\] {2}waits on run:docs\/plans\/2026-01-03-fresh\.md active\n/, "a row in another checkout's copy of its log keeps a plan fresh");
+  assert.match(board.stdout, /task_c1 {2}Fix the theme {2}\[theme\] {2}waits on run:docs\/plans\/2026-01-04-recent\.md active\n/, 'six idle days are not a week');
+  assert.match(board.stdout, /task_d1 {2}Fix the phone lane {2}\[phone\] {2}waits on run:docs\/plans\/2026-01-05-phone\.md waits on you, idle since \d{4}-\d{2}-\d{2}\n/);
+  assert.match(board.stdout, /Stale plans \(4\)\n {2}docs\/plans\/2026-01-05-phone\.md {2}idle 20 days {2}waits on you: planning: waiting on you to buy a phone {2}task_d1 waits on it\n/, 'a plan that waits on the owner leads the list');
+  assert.match(board.stdout, /\n {2}docs\/plans\/2026-01-01-parser\.md {2}idle 10 days {2}building: step 2 {2}task_a1 and task_a2 wait on it\n/);
+  const offers = [...board.stdout.matchAll(/append chip "(t_[0-9a-f]+ [^"]+)" "([^"]+)" "([^"]+)" offered/gu)];
+  assert.equal(offers.length, 2, 'one verdict per review scope, and none for the plan that waits on the owner');
+  assert.match(board.stdout, /offer one verdict on review scope parser for the stale plans docs\/plans\/2026-01-01-parser\.md and docs\/plans\/2026-01-02-parser-cache\.md, which task_a1 and task_a2 wait on: append chip "t_[0-9a-f]+ Decide parser again instead of resuming its plans \(xhigh\)"/);
+  assert.match(board.stdout, /offer one verdict for the stale plan docs\/plans\/2026-01-06-go\.md, which task_e1 waits on: append chip "t_[0-9a-f]+ Decide again whether to resume the go plan \(xhigh\)"/, "a Status that has the owner's go waits on nobody");
+  assert.equal(board.status, 0, 'a stale plan is ledger work, not a problem');
+  const misrouted = helper('append', LEDGER, 'chip', 'task_f1 Fix the stale parser', 'why', 'writes: src/x.ts; topic: x; priority: P2; via: stale', 'offered');
+  assert.match(misrouted.stderr, /via: stale goes only on a kind: decide offer/);
+  writeFileSync(join(root, go), "# 2026-01-06-go\n\nStatus: building: phase 1, on the owner's go\n\nStep 2 started.\n");
+  commitAt(root, 0, go);
+  assert.match(chips().stdout, /task_e1 {2}Fix the router {2}\[router\] {2}waits on run:docs\/plans\/2026-01-06-go\.md active\n/, 'a new commit makes a stale plan fresh again');
+  const [, decision, finding, tokens] = offers.find(([, each]) => each.includes('Decide parser'));
+  assert.match(tokens, /^writes: docs\/plans\/2026-01-01-parser\.md, docs\/plans\/2026-01-02-parser-cache\.md, docs\/scopes\/parser\.json; topic: review-parser; kind: decide; priority: P2; via: stale; review-scope: parser; session: none$/);
+  const offered = helper('append', LEDGER, 'chip', decision, finding, tokens, 'offered');
+  assert.equal(offered.status, 0, offered.stderr);
+  const verdict = decision.split(' ')[0];
+  board = chips();
+  assert.match(board.stdout, new RegExp(`move task_a1's waits on stale plans to their fresh verdict: log updated with waits: task:${verdict}\\n`));
+  assert.match(board.stdout, new RegExp(`move task_a2's waits on stale plans to their fresh verdict: log updated with waits: task:${verdict}, pr:12\\n`), 'one row moves both waits and keeps the rest');
+  assert.equal(batch([['task_a1 Fix the lexer', 'updated', `waits: task:${verdict}`], ['task_a2 Fix the cache', 'updated', `waits: task:${verdict}, pr:12`]]).status, 0);
+  board = chips();
+  assert.match(board.stdout, new RegExp(`task_a1 {2}Fix the lexer {2}\\[lexer\\] {2}waits on task:${verdict} offered\\n`));
+  assert.match(board.stdout, /Stale plans \(1\)\n {2}docs\/plans\/2026-01-05-phone\.md/, 'a plan no task waits on leaves the list');
+  assert.doesNotMatch(board.stdout, new RegExp(`card ${verdict}:`), 'only /chips all cards a verdict that names session: none');
+  assert.equal(offer('task_g1 Fix the guide', 'docs/g.md', 'topic: guide').status, 0);
+  assert.match(chips().stdout, /Do, card pass/);
+  const synced = chips('sync');
+  assert.match(synced.stdout, /chips sync leaves out the card pass, so it offers no card/);
+  assert.doesNotMatch(synced.stdout, /Do, card pass|^ {2}card \S+: it can start/m);
+});
+
+test('in a trunk project chips reads a plan as stale from origin and fresh from any checkout of its log', () => {
+  const { helper, offerHere, root, worktree } = linkedWorktree('trunk');
+  const path = 'docs/plans/2026-01-01-old.md';
+  const log = 'docs/plans/2026-01-01-old.decisions.tsv';
+  writeFileSync(join(root, path), '# Old\n\nStatus: building: step 3\n');
+  writeFileSync(join(root, log), LOG_HEADER);
+  commitAt(root, 12, path, log);
+  spawnSync('git', ['-C', root, 'update-ref', 'refs/remotes/origin/next', 'HEAD']);
+  assert.equal(offerHere('task_a1 Follow the old plan', `writes: docs/guide.md; topic: follow; waits: run:${path}`).status, 0);
+  const stale = helper('chips');
+  assert.match(stale.stdout, /waits on run:docs\/plans\/2026-01-01-old\.md stale, idle since \d{4}-\d{2}-\d{2}\n/, stale.stderr);
+  mkdirSync(join(worktree, 'docs/plans'), { recursive: true });
+  writeFileSync(join(worktree, log), LOG_HEADER + planRow(daysAgo(0)));
+  assert.match(helper('chips').stdout, /waits on run:docs\/plans\/2026-01-01-old\.md active\n/, 'an uncommitted row in a worktree is activity');
+  const only = 'docs/plans/2026-01-02-only.md';
+  const onlyLog = 'docs/plans/2026-01-02-only.decisions.tsv';
+  writeFileSync(join(worktree, only), '# Only\n\nStatus: building: step 1\n');
+  writeFileSync(join(worktree, onlyLog), LOG_HEADER + planRow(daysAgo(9)));
+  assert.equal(offerHere('task_b1 Follow the worktree plan', `writes: docs/other.md; topic: other; waits: run:${only}`).status, 0);
+  assert.match(helper('chips').stdout, /waits on run:docs\/plans\/2026-01-02-only\.md stale, idle since \d{4}-\d{2}-\d{2}\n/, 'a plan only a worktree holds goes stale too');
+  writeFileSync(join(worktree, onlyLog), LOG_HEADER + planRow(daysAgo(0)));
+  assert.match(helper('chips').stdout, /waits on run:docs\/plans\/2026-01-02-only\.md not landed\n/);
+});
+
+test('a Status line waits on the owner when a wait word and the owner share a clause, or when it is paused', async () => {
+  const { waitsOnOwner } = await import(pathToFileURL(join(HELPERS, 'status.mjs')).href);
+  for (const status of ['planning: waiting on you to buy a phone', 'blocked on owner steps: Pinyin for #5137', "awaiting the owner's answers under Needs you", 'waiting: on your go', 'in review as PR 5141; nothing needs you until you review it', 'paused: held for the release', "waiting: built; the misses wait on the pivot plan's rerun, then you review", 'waiting: built and tested in dotai, uncommitted until you say push', "partial: landed uncommitted in the checkout; waits on suggested task t_e0e8d398's timings, then your commit", 'on hold until you decide']) {
+    assert.equal(waitsOnOwner(status), true, status);
+  }
+  for (const status of ["building: phase 1, on the owner's go", 'waiting: on the timing rerun under a quiet machine', 'reopened: the owner asked for a redesign', 'waiting: on the rerun. You can read the draft meanwhile']) {
+    assert.equal(waitsOnOwner(status), false, status);
+  }
+});
+
+const stalePlanLedger = (config = {}, files = {}) => {
+  const ledger = chipLedger({ config: { chips: { scopes: 'docs/scopes', ...config }, pageTopic: { field: 'review_scopes' } }, files: { 'docs/scopes/parser.json': '{}\n', ...files } });
+  const stalePlan = (name, scope, days = 10) => {
+    const path = `docs/plans/${name}.md`;
+    writeFileSync(join(ledger.root, path), `---\nreview_scopes: [${scope}]\n---\n\n# ${name}\n\nStatus: building: step 2\n`);
+    commitAt(ledger.root, days, path);
+    return path;
+  };
+  const timed = (args) => spawnSync(process.execPath, [join(HELPERS, 'decisions-check.mjs'), ...args], { cwd: ledger.root, encoding: 'utf8', env: ledger.env, timeout: 30_000 });
+  return { ...ledger, stalePlan, timed };
+};
+
+test('append takes the move of a P0 task onto a stale plan verdict in a later tier, without looping', () => {
+  const tiers = [{ name: 'core', paths: ['src/'] }, { name: 'feature' }, { name: 'late', scopes: ['late'] }];
+  const { LEDGER, offer, stalePlan, timed } = stalePlanLedger({ tiers }, { 'docs/scopes/late.json': '{}\n' });
+  const path = stalePlan('2026-01-01-late', 'late');
+  assert.equal(offer('task_a1 Repair the citations', 'src/c.ts', `topic: citations; priority: P0; repro: steps; waits: run:${path}`).status, 0);
+  const verdict = offer('task_v1 Decide late again', `${path}, docs/scopes/late.json`, 'topic: review-late; kind: decide; priority: P2; via: stale; review-scope: late; session: none');
+  assert.equal(verdict.status, 0, verdict.stderr);
+  const board = timed(['chips']);
+  assert.equal(board.signal, null, 'the board read ends');
+  assert.match(board.stdout, /move task_a1's waits on stale plans to their fresh verdict: log updated with waits: task:task_v1\n/);
+  const moved = timed(['append', LEDGER, 'chip', 'task_a1 Repair the citations', 'why', 'waits: task:task_v1', 'updated']);
+  assert.equal(moved.signal, null, 'append ends');
+  assert.equal(moved.status, 0, moved.stderr);
+});
+
+test("a stale plan folds into the open design question of its scope's topic, and its waits move there", () => {
+  const { batch, chip, chips, offer, stalePlan } = stalePlanLedger();
+  const first = stalePlan('2026-01-01-parser', 'parser');
+  const second = stalePlan('2026-01-02-parser-cache', 'parser');
+  assert.equal(offer('task_q1 Settle the parser fork', 'docs/scopes/parser.json', 'topic: review-parser; kind: decide; priority: P2; via: verdict; review-scope: parser').status, 0);
+  assert.equal(offer('task_a1 Fix the lexer', 'src/l.ts', `topic: lexer; waits: run:${first}`).status, 0);
+  assert.equal(offer('task_a2 Fix the cache', 'src/c.ts', `topic: cache; waits: run:${second}`).status, 0);
+  let board = chips();
+  assert.doesNotMatch(board.stdout, /offer one verdict/, 'the topic already holds its design question');
+  assert.match(board.stdout, /fold the stale plans docs\/plans\/2026-01-01-parser\.md and docs\/plans\/2026-01-02-parser-cache\.md into task_q1, the open design question in review-parser: log folded with writes: docs\/plans\/2026-01-01-parser\.md, docs\/plans\/2026-01-02-parser-cache\.md\n/);
+  const folded = chip('task_q1 Settle the parser fork', 'folded', `writes: ${first}, ${second}`);
+  assert.equal(folded.status, 0, folded.stderr);
+  board = chips();
+  assert.match(board.stdout, /move task_a1's waits on stale plans to their fresh verdict: log updated with waits: task:task_q1\n/);
+  assert.match(board.stdout, /move task_a2's waits on stale plans to their fresh verdict: log updated with waits: task:task_q1\n/);
+  const moved = batch([['task_a1 Fix the lexer', 'updated', 'waits: task:task_q1'], ['task_a2 Fix the cache', 'updated', 'waits: task:task_q1']]);
+  assert.equal(moved.status, 0, moved.stderr);
+  assert.doesNotMatch(chips().stdout, /Stale plans/);
+});
+
+test('a design question that waits on a stale plan of its own scope drops that wait and becomes its verdict', () => {
+  const { chip, chips, offer, stalePlan } = stalePlanLedger();
+  const path = stalePlan('2026-01-01-parser', 'parser');
+  assert.equal(offer('task_q1 Settle the parser fork', `${path}, docs/scopes/parser.json`, `topic: review-parser; kind: decide; priority: P2; via: verdict; review-scope: parser; waits: run:${path}, pr:12`).status, 0);
+  assert.equal(offer('task_a1 Fix the lexer', 'src/l.ts', `topic: lexer; waits: run:${path}`).status, 0);
+  const board = chips();
+  assert.doesNotMatch(board.stdout, /offer one verdict/);
+  assert.match(board.stdout, /move task_q1's waits on stale plans to their fresh verdict: log updated with waits: pr:12\n/, 'the verdict waits on the plan it decides no longer');
+  assert.match(board.stdout, /move task_a1's waits on stale plans to their fresh verdict: log updated with waits: task:task_q1\n/);
+  assert.equal(chip('task_q1 Settle the parser fork', 'updated', 'waits: pr:12').status, 0);
+});
+
+test("a stale plan whose verdict waits back on the plan's waiter is a problem, not a move append refuses", () => {
+  const { chips, offer, stalePlan } = stalePlanLedger();
+  const path = stalePlan('2026-01-01-parser', 'parser');
+  assert.equal(offer('task_a1 Fix the lexer', 'src/l.ts', `topic: lexer; waits: run:${path}`).status, 0);
+  assert.equal(offer('task_v1 Decide parser again', `${path}, docs/scopes/parser.json`, 'topic: review-parser; kind: decide; priority: P2; via: stale; review-scope: parser; session: none; waits: task:task_a1').status, 0);
+  const board = chips();
+  assert.doesNotMatch(board.stdout, /move task_a1's waits/);
+  assert.match(board.stdout, /fix task_a1's wait: run:docs\/plans\/2026-01-01-parser\.md is stale, and its verdict task_v1 waits back on task_a1; log updated with the waits it has now\n/);
+  assert.equal(board.status, 1);
+});
+
+test("a stale plan's own started run is no verdict, so the ledger pass offers one", () => {
+  const { LEDGER, chips, offer, root, stalePlan } = stalePlanLedger();
+  const path = stalePlan('2026-01-01-own', 'parser');
+  assert.equal(offer('task_r1 Build the own plan', path, 'topic: own; kind: decide; priority: P2; via: verdict; review-scope: none').status, 0);
+  appendFileSync(join(root, LEDGER), `${daysAgo(12)}\tchip\ttask_r1 Build the own plan\twhy\tsession: s1\tstarted\n`);
+  assert.equal(offer('task_a1 Fix the lexer', 'src/l.ts', `topic: lexer; waits: run:${path}`).status, 0);
+  const board = chips();
+  assert.doesNotMatch(board.stdout, /move task_a1's waits/, 'the run that wrote the plan is not its fresh verdict');
+  assert.match(board.stdout, /offer one verdict on review scope parser for the stale plan docs\/plans\/2026-01-01-own\.md/);
+  appendFileSync(join(root, LEDGER), `${daysAgo(9)}\tchip\ttask_r1 Build the own plan\twhy\tsession: s1; owns: src/own.ts\tstarted\n`);
+  assert.match(chips().stdout, /offer one verdict on review scope parser for the stale plan docs\/plans\/2026-01-01-own\.md/, 'a later started row on the same run keeps its first start');
+});
+
+test("a stale plan's own run that still holds its scope's topic is settled before the fresh verdict", () => {
+  const { LEDGER, chip, chips, offer, root, stalePlan } = stalePlanLedger();
+  const path = stalePlan('2026-01-01-parser', 'parser');
+  assert.equal(offer('task_r1 Build the parser plan', `${path}, docs/scopes/parser.json`, 'topic: review-parser; kind: decide; priority: P2; via: verdict; review-scope: parser').status, 0);
+  appendFileSync(join(root, LEDGER), `${daysAgo(12)}\tchip\ttask_r1 Build the parser plan\twhy\tsession: s1\tstarted\n`);
+  assert.equal(offer('task_a1 Fix the lexer', 'src/l.ts', `topic: lexer; waits: run:${path}`).status, 0);
+  let board = chips();
+  assert.doesNotMatch(board.stdout, /move task_a1's waits/);
+  assert.match(board.stdout, /settle task_r1, the started run that wrote the stale plan docs\/plans\/2026-01-01-parser\.md and still holds review-parser: log landed with the commit that holds its change, or dismissed stopped when none does\n/);
+  assert.equal(chip('task_r1 Build the parser plan', 'dismissed stopped').status, 0);
+  board = chips();
+  assert.match(board.stdout, /offer one verdict on review scope parser for the stale plan docs\/plans\/2026-01-01-parser\.md/);
+});
+
+test("a carded design question in a stale plan's topic takes none of its waits, and the fresh verdict waits on it", () => {
+  const { LEDGER, chips, helper, offer, stalePlan } = stalePlanLedger();
+  const path = stalePlan('2026-01-01-parser', 'parser');
+  assert.equal(offer('task_q1 Choose the parser API', 'docs/scopes/parser.json', 'topic: review-parser; kind: decide; priority: P2; via: verdict; review-scope: parser; card: c1; session: s1').status, 0);
+  assert.equal(offer('task_a1 Fix the lexer', 'src/l.ts', `topic: lexer; waits: run:${path}`).status, 0);
+  let board = chips();
+  assert.doesNotMatch(board.stdout, /move task_a1's waits/, 'a question that cannot take the plan takes none of its waits');
+  const [, decision, finding, tokens] = board.stdout.match(/append chip "(t_[0-9a-f]+ [^"]+)" "([^"]+)" "([^"]+)" offered/) ?? [];
+  assert.match(tokens ?? '', /; waits: task:task_q1; session: none$/);
+  const offered = helper('append', LEDGER, 'chip', decision, finding, tokens, 'offered');
+  assert.equal(offered.status, 0, offered.stderr);
+  board = chips();
+  assert.match(board.stdout, new RegExp(`move task_a1's waits on stale plans to their fresh verdict: log updated with waits: task:${decision.split(' ')[0]}\\n`));
+});
+
+test('two moves that would close a loop in one pass print one move and one problem, and the move appends', () => {
+  const { batch, chips, offer, stalePlan } = stalePlanLedger({}, { 'docs/scopes/lexer.json': '{}\n' });
+  const parser = stalePlan('2026-01-01-parser', 'parser', 12);
+  const lexer = stalePlan('2026-01-02-lexer', 'lexer', 10);
+  assert.equal(offer('task_x1 Decide the parser', `${parser}, docs/scopes/parser.json`, `topic: review-parser; kind: decide; priority: P2; via: verdict; review-scope: parser; waits: run:${lexer}`).status, 0);
+  assert.equal(offer('task_y1 Decide the lexer', `${lexer}, docs/scopes/lexer.json`, `topic: review-lexer; kind: decide; priority: P2; via: verdict; review-scope: lexer; waits: run:${parser}`).status, 0);
+  const board = chips();
+  const moves = [...board.stdout.matchAll(/move (task_\w+)'s waits on stale plans/gu)].map((match) => match[1]);
+  assert.deepEqual(moves, ['task_y1'], board.stdout);
+  assert.match(board.stdout, /move task_y1's waits on stale plans to their fresh verdict: log updated with waits: task:task_x1\n/);
+  assert.match(board.stdout, /fix task_x1's wait: run:docs\/plans\/2026-01-02-lexer\.md is stale, and its verdict task_y1 waits back on task_x1/);
+  const moved = batch([['task_y1 Decide the lexer', 'updated', 'waits: task:task_x1']]);
+  assert.equal(moved.status, 0, moved.stderr);
+});
+
+test('an absolute path into a worktree nested in the project reads the activity of every checkout of its log', () => {
+  const { chips, offer, root, stalePlan } = stalePlanLedger();
+  const path = stalePlan('2026-01-01-parser', 'parser');
+  const log = 'docs/plans/2026-01-01-parser.decisions.tsv';
+  const nested = join(root, '.claude/worktrees/child');
+  spawnSync('git', ['-C', root, 'worktree', 'add', '-q', '--detach', nested]);
+  writeFileSync(join(nested, log), LOG_HEADER + planRow(daysAgo(10)));
+  writeFileSync(join(root, log), LOG_HEADER + planRow(daysAgo(1)));
+  assert.equal(offer('task_a1 Fix the lexer', 'src/l.ts', `topic: lexer; waits: run:${join(nested, path)}`).status, 0);
+  assert.match(chips().stdout, /task_a1 {2}Fix the lexer {2}\[lexer\] {2}waits on run:\S+2026-01-01-parser\.md active\n/);
+});
+
+test('an absolute path to a plan in the project reads the activity of every checkout of its log', () => {
+  const { chips, dir, offer, root, stalePlan } = stalePlanLedger();
+  const path = stalePlan('2026-01-01-parser', 'parser');
+  const log = 'docs/plans/2026-01-01-parser.decisions.tsv';
+  const worktree = join(dir, 'wt');
+  spawnSync('git', ['-C', root, 'worktree', 'add', '-q', '--detach', worktree]);
+  writeFileSync(join(worktree, log), LOG_HEADER + planRow(daysAgo(1)));
+  assert.equal(offer('task_a1 Fix the lexer', 'src/l.ts', `topic: lexer; waits: run:${join(root, path)}`).status, 0);
+  assert.match(chips().stdout, /task_a1 {2}Fix the lexer {2}\[lexer\] {2}waits on run:\S+2026-01-01-parser\.md active\n/);
+});
+
+test('chips sync withdraws no card the card pass would offer again', () => {
+  const { chip, chips, offer } = chipLedger();
+  const parser = 'task_c1 Fix the parser (xhigh)';
+  assert.equal(offer(parser, 'src/p.ts', 'topic: parser; card: c1; session: s1').status, 0);
+  assert.equal(chip(parser, 'updated', 'effort: high').status, 0);
+  assert.match(chips('--session', 's1').stdout, /withdraw task_c1's card c1/);
+  assert.doesNotMatch(chips('sync', '--session', 's1').stdout, /withdraw task_c1's card c1/);
+  const blocked = 'task_d1 Fix the printer';
+  assert.equal(offer(blocked, 'src/q.ts', 'topic: printer; card: d1; session: s1').status, 0);
+  assert.equal(chip(blocked, 'updated', 'waits: pr:99').status, 0);
+  assert.match(chips('sync', '--session', 's1').stdout, /withdraw task_d1's card d1: pr:99 not merged/, 'a card on a task that cannot start is still withdrawn');
+});
+
 test('decisions-check cards only a task that can start, and a waiting task reserves no paths', () => {
   const { chip, chips, offer, outside } = chipLedger();
   assert.equal(offer('task_a1 Rewrite the docs', 'docs', 'topic: docs; waits: pr:99').status, 0);
@@ -4200,7 +4474,7 @@ test('decisions-check takes a P0 or P1 claim only with its evidence', () => {
   const lower = bare('task_c1 Fix c', 'writes: c.md; topic: three; priority: P2');
   assert.equal(lower.status, 1, 'a P2 offer outside a verdict, babysit, time, hook or panel route');
   assert.match(lower.stderr, /a run offers a task only for a new P0 or P1 finding[^\n]*list this P2 finding in the plan's Open work/);
-  assert.match(bare('task_c1 Fix c', 'writes: c.md; topic: three; priority: P3; via: review').stderr, /via: is verdict, babysit, time, hook or panel/);
+  assert.match(bare('task_c1 Fix c', 'writes: c.md; topic: three; priority: P3; via: review').stderr, /via: is verdict, babysit, time, hook, panel or stale/);
   assert.equal(bare('task_h1 Run the due intake', 'writes: h.md; topic: intake; kind: decide; priority: P3; via: hook').status, 0, 'a project hook offers the recurring work it finds due');
   assert.equal(bare('task_c1 Fix c', 'writes: c.md; topic: three; priority: P2; via: verdict').status, 0, 'P2 needs no evidence, only its route');
   assert.match(chip('task_c1 Fix c', 'updated', 'priority: P0').stderr, /a P0 task is broken now/, 'a raise to P0 without evidence');

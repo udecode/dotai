@@ -6,7 +6,7 @@
     {
       "name": "chips",
       "distribution": "bundled",
-      "description": "Run the project's suggested-task ledger, the chips. /chips alone brings this session's open tasks up to date: it applies what the ledger helper says, settles stale and split tasks, cards what can start and reports the board, and /chips all also takes the ship-list tasks and the ones no live session owns, and merges duplicate tasks across the board. Use for /chips, /chips offer, start or drop, \\\"what chips are open\\\", \\\"suggest a task for X\\\", \\\"update the chips\\\", \\\"clean up the chips\\\", \\\"which chips are stale\\\", \\\"is this chip still worth doing\\\", \\\"merge duplicate chips\\\", at the last hand-back of a run that offered a task, and whenever pstack would file a tracked issue, a follow-up, a reflect Backlog item or an out-of-band PR.",
+      "description": "Run the project's suggested-task ledger, the chips. /chips alone brings this session's open tasks up to date: it applies what the ledger helper says, settles stale and split tasks, cards what can start and reports the board, and /chips all also takes the ship-list tasks and the ones no live session owns, and merges duplicate tasks across the board. /chips sync runs the same sweep but offers no card, and it moves the waits on plans idle for a week to a fresh verdict. Use for /chips, /chips sync, /chips offer, start or drop, \\\"update the chips without new cards\\\", \\\"what chips are open\\\", \\\"suggest a task for X\\\", \\\"update the chips\\\", \\\"clean up the chips\\\", \\\"which chips are stale\\\", \\\"is this chip still worth doing\\\", \\\"merge duplicate chips\\\", at the last hand-back of a run that offered a task, and whenever pstack would file a tracked issue, a follow-up, a reflect Backlog item or an out-of-band PR.",
       "category": "Workflow",
       "dependencies": [],
       "capabilities": [
@@ -138,7 +138,7 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "4dc13ca2182d2a23e5c8894e1607cf5eb385af94332e223527fb8cb30dda9091",
+      "sha256": "1d1a6e61c8ec097fc4f3408d1920b0a9de17a649500282ea3700e87abd1c3ce3",
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
@@ -150,7 +150,7 @@
       "mode": 493
     },
     "skills/chips/SKILL.md": {
-      "sha256": "7433485ff1c1225ed3b2708c00fe2e230ddde47bcfeb19d984ed07cccf097bff",
+      "sha256": "f26f0fe12bed3ad95c58ae1af34b4299aa312ef43cb92f96e34d4c1ffbcd44f7",
       "mode": 420
     },
     "skills/cleanup/SKILL.md": {
@@ -302,7 +302,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
-      "sha256": "ec3fe978b301ca3e4343f71ec3401ed48d006145c9a09224be1c6741eaecd918",
+      "sha256": "dee41d4b6216bd2a5df381ae7c102672a180423186391dff31b3a400a7a5e663",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/freeze.mjs": {
@@ -370,7 +370,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/chips.md": {
-      "sha256": "a859b91158062935e9b18ea48ba377b40c6aee123ed1769b8996fa65dc4b79db",
+      "sha256": "d43ba25c4988b232fd1aa5789e2303f17b1524f29db57c494e5d680f83ce79ef",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/close.md": {
@@ -394,7 +394,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/long-runs.md": {
-      "sha256": "3d9a0ca65037bb26abdcefe3a4c18e9e4107503b3b68ff7309138a67e61b11b2",
+      "sha256": "d0ae9e72fee39c494738227dae62fb77b770a473add840d64e619eee1b6b6f65",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/messages.md": {
@@ -446,11 +446,11 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/status.mjs": {
-      "sha256": "717215f67d22e73a75d8ee4454759fb7db43cab59a7993c6af1dc51094bc1223",
+      "sha256": "f9cbf96c51b0104234d8a4c4238cfc1e8dae0a4c94627c324833ca228ebc8b14",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/tasks.mjs": {
-      "sha256": "020f84725aa85b8c28f8e435be8709fa3781f9af7e934246e9eb104a702202a4",
+      "sha256": "d050dd2ec3f9754995e04c61a02ccf0a1249b69f411cc5eec7665e135a3b1271",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/title.mjs": {
@@ -514,7 +514,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/sync-pstack.test.mjs": {
-      "sha256": "a3bf17b8cb2f2e5c24e998861507407d9cf77b58615bb4a413fce84bf9f283e9",
+      "sha256": "40bb3c0f41aadafe0b8b4b3b2e5217b4403b7d47eff1cf3eaf66b419c2b360a7",
       "mode": 420
     },
     "skills/sync-pstack/scripts/trunk.test.mjs": {
