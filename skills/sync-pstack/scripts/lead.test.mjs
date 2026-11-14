@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { asDarwinPsPrints, bashCommandOf, claudeInvocationRun, claudeSessionRun, invocationRun, ranAs } from '../assets/pstack/lead.mjs';
+import { asDarwinPsPrints, bashCommandOf, claudeInvocationRun, claudeSessionRun, invocationRun, ranAs, runtimeFromEnv } from '../assets/pstack/lead.mjs';
 
 const LEAD = fileURLToPath(new URL('../assets/pstack/lead.mjs', import.meta.url));
 const identity = { runtime: 'codex', thread: 'child', session: 'parent', invocation: 'exec-12345678-1234-1234-1234-123456789abc' };
@@ -145,6 +145,12 @@ test('a Bash call reads its command from the shell Claude Code runs it in', () =
   const args = `/bin/zsh -c source /Users/x/.claude/shell-snapshots/snapshot-zsh-1.sh 2>/dev/null || true && setopt NO_EXTENDED_GLOB NO_BARE_GLOB_QUAL 2>/dev/null || true && eval 'echo '"'"'it'"'"'"'"'"'"'"'"'s'"'"' "x'"'"'y" >/dev/null; ps -ww -o command= -p $$ | rtk rg -o "eval .{0,120}"' < /dev/null && pwd -P >| /tmp/claude-1-cwd`;
   assert.equal(bashCommandOf(args), `echo 'it'"'"'s' "x'y" >/dev/null; ps -ww -o command= -p $$ | rtk rg -o "eval .{0,120}"`);
   assert.equal(bashCommandOf('/bin/zsh -c node a.mjs'), null);
+});
+
+test('on Windows the runtime comes from the variable it sets in its shell', () => {
+  assert.equal(runtimeFromEnv({ CLAUDE_CODE_SESSION_ID: 'local_1', CODEX_THREAD_ID: 'x' }), 'claude');
+  assert.equal(runtimeFromEnv({ CODEX_THREAD_ID: 'x' }), 'codex');
+  assert.equal(runtimeFromEnv({}), null);
 });
 
 test('a recorded command ran only as itself or with whole words added', () => {
