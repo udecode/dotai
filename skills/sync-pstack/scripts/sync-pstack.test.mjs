@@ -6269,8 +6269,25 @@ const corePool = (prefix, holders) => {
   return { dir, env, args };
 };
 
+// An idle process stands in for another session's holder. The pool counts the workers that run under each holder, and under the test runner's own pid it would count these tests.
+const idle = spawn('sleep', ['3600'], { stdio: 'ignore' });
+idle.unref();
+process.on('exit', () => idle.kill());
+
+const background = (argv, options) => {
+  const proof = spawn(process.execPath, argv, { stdio: ['ignore', 'pipe', 'pipe'], ...options });
+  proof.stderr.setEncoding('utf8');
+  proof.waited = '';
+  proof.stderr.on('data', (chunk) => (proof.waited += chunk));
+  proof.exited = new Promise((done) => proof.on('exit', done));
+  return proof;
+};
+
+const busyWorkers = (count) => `echo started; for n in $(seq ${count}); do (while :; do :; done) & done; wait`;
+const started = (dir, name) => existsSync(join(dir, `run/${name}-a1.log`)) && read(dir, `run/${name}-a1.log`).includes('\nstarted\n');
+
 test('proof waits while other sessions hold the whole core pool and runs once a share frees', async () => {
-  const { dir, env, args } = corePool('sync-pstack-proof-pool-', [{ pid: process.pid, cores: availableParallelism() }]);
+  const { dir, env, args } = corePool('sync-pstack-proof-pool-', [{ pid: idle.pid, cores: availableParallelism() }]);
   const proof = spawn(process.execPath, args('queued', 'echo ran'), { cwd: dir, env, stdio: ['ignore', 'pipe', 'pipe'] });
   let stderr = '';
   proof.stderr.on('data', (chunk) => (stderr += chunk));
@@ -6279,13 +6296,13 @@ test('proof waits while other sessions hold the whole core pool and runs once a 
   await until(() => stderr.includes('waiting'));
   assert.match(stderr, /proof\.mjs queued: waiting for 0\.5 of this machine's cores; \d+ of \d+ cores held by other session/);
   assert.equal(proof.exitCode, null, 'a proof ran while the pool was full');
-  rmSync(join(dir, `tmp/pstack-slots/${process.pid}.json`));
+  rmSync(join(dir, `tmp/pstack-slots/${idle.pid}.json`));
   assert.equal(await exited, 0);
   assert.match(read(dir, 'run/queued-a1.log'), /\nran\nexit=0\n$/);
 });
 
 test('a proof that arrives later never takes the cores an earlier, larger waiter needs', async () => {
-  const { dir, env, args } = corePool('sync-pstack-proof-order-', [{ pid: process.pid, cores: 1 }]);
+  const { dir, env, args } = corePool('sync-pstack-proof-order-', [{ pid: idle.pid, cores: 1 }]);
   const start = (name, cores) => {
     const argv = args(name, `echo ${name}`);
     argv.splice(argv.indexOf('--'), 0, '--cores', String(cores));
@@ -6303,7 +6320,7 @@ test('a proof that arrives later never takes the cores an earlier, larger waiter
   await until(() => small.waited.includes('waiting') || small.exitCode !== null);
   assert.equal(small.exitCode, null, 'a one-core proof took a free core that an earlier waiter needed');
   assert.match(small.waited, /proof\.mjs small: waiting for 0\.5 of this machine's cores; 1 of \d+ cores held by other session \(\d+, 1\), and \d+ asked for by 1 earlier waiter$/m);
-  rmSync(join(dir, `tmp/pstack-slots/${process.pid}.json`));
+  rmSync(join(dir, `tmp/pstack-slots/${idle.pid}.json`));
   assert.deepEqual(await Promise.all([large.exited, small.exited]), [0, 0]);
 });
 
@@ -6334,7 +6351,7 @@ test('proof frees the share of a holder that died without releasing it', () => {
 });
 
 test('a proof started inside a proof runs on its parent share instead of waiting for one', () => {
-  const { dir, env, args } = corePool('sync-pstack-proof-nested-', [{ pid: process.pid, cores: availableParallelism() - 0.5 }]);
+  const { dir, env, args } = corePool('sync-pstack-proof-nested-', [{ pid: idle.pid, cores: availableParallelism() - 0.5 }]);
   const inner = args('inner', 'true').map((arg) => `'${arg}'`).join(' ');
 
   assert.equal(spawnSync(process.execPath, args('outer', `'${process.execPath}' ${inner}`), { cwd: dir, env, encoding: 'utf8', timeout: 20_000 }).status, 0);
@@ -6360,7 +6377,7 @@ test('proof refuses a stress run with more workers than half the cores before it
 });
 
 test('a stress proof holds a whole core for each worker, so it waits where only half a core is free', async () => {
-  const { dir, env, args } = corePool('sync-pstack-proof-stress-share-', [{ pid: process.pid, cores: availableParallelism() - 0.5 }]);
+  const { dir, env, args } = corePool('sync-pstack-proof-stress-share-', [{ pid: idle.pid, cores: availableParallelism() - 0.5 }]);
   const stress = spawn(process.execPath, stressArgs(args, 'stress', 1), { cwd: dir, env, stdio: ['ignore', 'pipe', 'pipe'] });
   let stderr = '';
   stress.stderr.on('data', (chunk) => (stderr += chunk));
@@ -6369,8 +6386,47 @@ test('a stress proof holds a whole core for each worker, so it waits where only 
   await until(() => stderr.includes('waiting') || stress.exitCode !== null);
   assert.equal(stress.exitCode, null, 'a stress proof ran on half a core');
   assert.match(stderr, /proof\.mjs stress: waiting for 1 of this machine's cores; /);
-  rmSync(join(dir, `tmp/pstack-slots/${process.pid}.json`));
+  rmSync(join(dir, `tmp/pstack-slots/${idle.pid}.json`));
   assert.equal(await exited, 0);
+});
+
+test('the pool counts the workers a running proof really runs, so a later proof waits where the first one asked for half a core', async () => {
+  const { dir, env, args } = corePool('sync-pstack-proof-measured-', [{ pid: idle.pid, cores: Math.max(0, availableParallelism() - 1) }]);
+  const busy = spawn(process.execPath, args('busy', busyWorkers(3)), { cwd: dir, detached: true, env, stdio: 'ignore' });
+  await until(() => started(dir, 'busy'));
+  const later = background(args('later', 'echo ran'), { cwd: dir, env });
+
+  await until(() => later.waited.includes('held by') || later.exitCode !== null);
+  assert.equal(later.exitCode, null, 'a proof ran beside three busy workers that held half a core between them');
+  assert.match(later.waited, /proof\.mjs later: waiting for 0\.5 of this machine's cores; [\d.]+ of \d+ cores held by .*proof\.mjs busy \(\d+, [\d.]+ in use, asked 0\.5\)/);
+  process.kill(-busy.pid, 'SIGTERM');
+  assert.equal(await later.exited, 0);
+});
+
+test('the pool admits the next proof once it has counted the workers of the one before, and an idle proof holds only its ask', async () => {
+  const { dir, env, args } = corePool('sync-pstack-proof-watch-', [{ pid: idle.pid, cores: Math.max(0, availableParallelism() - 1) }]);
+  const quiet = spawn(process.execPath, args('quiet', 'echo started; sleep 25'), { cwd: dir, detached: true, env, stdio: 'ignore' });
+  await until(() => started(dir, 'quiet'));
+  const later = background(args('later', 'echo ran'), { cwd: dir, env });
+
+  assert.equal(await later.exited, 0);
+  assert.equal(quiet.exitCode, null, 'a proof waited for an idle one to end');
+  assert.match(later.waited, /proof\.mjs later: waiting for 0\.5 of this machine's cores; proof\.mjs quiet \(\d+\) started \d+ seconds? ago, and the pool counts the workers of a new command for \d+ seconds before it admits the next$/m);
+  process.kill(-quiet.pid, 'SIGTERM');
+});
+
+test('a stress proof holds a whole core for each worker the pool counts, so two workers fill two cores', async () => {
+  const { dir, env, args } = corePool('sync-pstack-proof-stress-measured-', [{ pid: idle.pid, cores: Math.max(0, availableParallelism() - 2) }]);
+  const argv = args('stress', busyWorkers(2));
+  argv.splice(argv.indexOf('--'), 0, '--stress', '--cores', '1');
+  const stress = spawn(process.execPath, argv, { cwd: dir, detached: true, env, stdio: 'ignore' });
+  await until(() => started(dir, 'stress'));
+  const later = background(args('later', 'echo ran'), { cwd: dir, env });
+
+  await until(() => later.waited.includes('held by') || later.exitCode !== null);
+  assert.equal(later.exitCode, null, 'a proof ran on the core a second stress worker used');
+  process.kill(-stress.pid, 'SIGTERM');
+  assert.equal(await later.exited, 0);
 });
 
 test('proof fails a timed-out command that exits 0 on its timeout signal', () => {
