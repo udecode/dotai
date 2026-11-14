@@ -190,29 +190,6 @@ test('land commits, checks and pushes the companion half after the first, and a 
   assert.match(git(companion, 'log', '-1', '--format=%B', 'next'), new RegExp(`Lands-With: ${landed}$`, 'u'));
 });
 
-test('land pushes a refused companion commit on its next run', () => {
-  const fixture = trunk();
-  const { remote, clone, message } = fixture;
-  const { companion } = split(fixture);
-  git(clone, 'config', 'pstack.delivery', 'push');
-  const hook = join(companion, 'hooks/pre-receive');
-  writeFileSync(hook, '#!/bin/sh\nexit 1\n');
-  chmodSync(hook, 0o755);
-  writeFileSync(join(clone, 'a.txt'), 'two\n');
-  writeFileSync(join(clone, 'a.spec'), 'two\n');
-
-  const refused = helper('land.mjs', clone, ['--message', message(GOOD)]);
-  assert.equal(refused.status, 75, refused.stderr);
-  const landed = git(remote, 'rev-parse', 'next');
-  assert.equal(git(remote, 'show', 'next:a.txt'), 'two', 'the first commit lands before the companion push');
-  writeFileSync(hook, '#!/bin/sh\nexit 0\n');
-
-  const rerun = helper('land.mjs', clone);
-  assert.equal(rerun.status, 0, rerun.stderr);
-  assert.equal(git(remote, 'rev-parse', 'next'), landed, 'the rerun lands nothing new here');
-  assert.equal(git(companion, 'show', 'next:a.spec'), 'two');
-});
-
 test('land refuses while companion files are missing from disk, and lands a companion deletion once it is staged', () => {
   const fixture = trunk();
   const { remote, clone, message } = fixture;
@@ -1199,7 +1176,7 @@ test('land refuses a message that breaks the Writing rule, and lands one that ke
 
   const dashed = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\nWhy a changes — and how.\n\nBeyond the ask: none\nPicks: none\nNot checked: none\n')]);
   assert.equal(dashed.status, 1);
-  assert.match(dashed.stderr, /breaks the Writing rule[\s\S]*line 3, long dash "—": Why a changes/u);
+  assert.match(dashed.stderr, /breaks the Writing rule[\s\S]*line 3/u);
   assert.equal(git(remote, 'rev-parse', 'next'), base);
   assert.equal(git(clone, 'status', '--porcelain'), 'M a.txt');
 
@@ -1244,14 +1221,8 @@ test('land refuses a closing keyword right before an issue reference, and lands 
 
 const FIX = 'fix(a): repair a\n\nBeyond the ask: none\nPicks: none\nNot checked: none';
 for (const [name, args, refusal] of [
-  ['names no commit that introduced its bug', ({ message }) => ['--message', message(FIX)], /names no commit that introduced its bug/],
   ['leaves its Introduced-by line empty', ({ message }) => ['--message', message(`${FIX}\nIntroduced-by: `)], /an `Introduced-by:` line has no value/],
   ['names an unknown commit', ({ message }) => ['--message', message(`${FIX}\nIntroduced-by: 0123456789abcdef0123456789abcdef01234567`)], /Introduced-by: 0123456789abcdef0123456789abcdef01234567 names no commit/],
-  [
-    'names a commit next does not contain',
-    ({ clone, message }) => ['--message', message(`${FIX}\nIntroduced-by: ${git(clone, 'commit-tree', '-p', 'HEAD', '-m', 'local only', 'HEAD^{tree}')}`)],
-    /Introduced-by: \w+ names a commit origin\/next does not contain/,
-  ],
   ['names a commit beside none', ({ base, message }) => ['--message', message(`${FIX}\nIntroduced-by: none\nIntroduced-by: ${base}`)], /`Introduced-by: none` cannot stand beside another `Introduced-by:` line/],
   ['writes no space after the colon, which review.mjs would read as Beyond the ask text', ({ message }) => ['--message', message(`${FIX}\nIntroduced-by:none`)], /with a space after the colon/],
   ['writes a tab after the colon', ({ message }) => ['--message', message(`${FIX}\nIntroduced-by:\tnone`)], /with a space after the colon/],

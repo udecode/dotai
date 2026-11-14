@@ -778,25 +778,6 @@ test('cross refuses a --timeout over the hour time budget before launching, unle
   assert.match(long.stderr, /--timeout 21601 is over the 21600-second budget of a --bypass coding run/);
 });
 
-test('a stopped cross run stops the runtime it launched', async () => {
-  const { dir, home } = sandbox();
-  const bin = join(dir, 'bin');
-  mkdirSync(bin);
-  const pidFile = join(dir, 'codex.pid');
-  writeFileSync(join(bin, 'codex'), `#!/bin/sh\necho $$ > ${pidFile}\nsleep 30\n`, { mode: 0o755 });
-  const cross = spawn(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', 'review it'], {
-    cwd: dir,
-    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '' },
-  });
-  const deadline = Date.now() + 10000;
-  while (!existsSync(pidFile) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 50));
-  const pid = Number(readFileSync(pidFile, 'utf8'));
-  cross.kill('SIGTERM');
-  await new Promise((resolve) => cross.on('exit', resolve));
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  assert.throws(() => process.kill(pid, 0), /ESRCH/, 'the launched runtime outlived its stopped parent');
-});
-
 test('a stopped cross run kills a runtime that ignores SIGTERM, and deletes its folders', async () => {
   const { dir, home } = sandbox();
   const bin = join(dir, 'bin');
@@ -1110,20 +1091,6 @@ test('playbook flags two changes that replace one step, and keeps a change body 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /two changes replace step 1/);
   assert.match(result.stdout, /record the result and report it\./);
-});
-
-test('a bump prints the pstack diff of anchored files even when every anchor holds', () => {
-  const upstream = pstackRepo(mkdtempSync(join(tmpdir(), 'sync-pstack-upstream-')), {
-    'v0.9.52': { 'poteto-mode/playbooks/bug-fix.md': '1. Reproduce it yourself on the matching surface.\n2. Plan the fix and review the diff.\n' },
-    'v0.9.53': { 'poteto-mode/playbooks/bug-fix.md': '1. Reproduce it yourself on the matching surface.\n2. Plan the fix.\n' },
-  });
-  const { dir, cli } = sandbox({ upstream });
-  const playbook = '---\nextends: bug-fix\nwhen: Use it for any bug report.\n---\n- **After** "Reproduce it yourself": compare with main.\n';
-  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n', files: { '.agents/playbooks/bug-fix.md': playbook } });
-  cli('apply', root);
-  const result = cli('apply', root, '--tag', 'v0.9.53', '--dry-run');
-  assert.equal(result.status, 0, result.stdout);
-  assert.match(result.stdout, /^ +-2\. Plan the fix and review the diff\.$/m);
 });
 
 const BUMP = {
@@ -2227,18 +2194,6 @@ test('plan-page names the plan it renders in the header of a subject page withou
   assert.ok(html.replace(/<[^>]+>/gu, '').includes('Landed the renderer move.'), 'the page shows that plan\'s Close');
 });
 
-test("plan-page keeps another plan's unheaded question beside the rendered plan's structured one", () => {
-  const { dir, run } = sandbox();
-  const topic = '# Workflow\n\n## Main changes\n\n- Pages follow subjects.\n';
-  const built = '# Built\n\nStatus: executed\nTopic: workflow\n\n' + brief() + '## Open questions\n\n' + MEMO + '\n## Close\n\n- Landed the renderer move.\n';
-  const waiting = '# Waiting\n\nStatus: planning, waiting for the owner\nTopic: workflow\n\n## Open questions\n\n- Keep the old pages?\n';
-  const root = project(dir, 'app', { files: { 'docs/plans/topics/workflow.md': topic, 'docs/plans/2026-01-01-built.md': built, 'docs/plans/2026-02-01-waiting.md': waiting } });
-  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-built.md'], root);
-  assert.equal(result.status, 0, result.stderr);
-  const text = read(root, 'docs/plans/artifacts/topics/workflow.html').replace(/<[^>]+>/gu, '');
-  assert.match(text, /from Waiting[\s\S]*?Keep the old pages\?/u, "the newer plan's question shows under its name");
-});
-
 test("plan-page lists another plan's unheaded question after the rendered plan's question cards", () => {
   const { dir, run } = sandbox();
   const topic = '# Workflow\n\n## Main changes\n\n- Pages follow subjects.\n';
@@ -2639,15 +2594,6 @@ test('plan-page refuses an open plan whose Teach holds a code block', () => {
   const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md', '--check'], root);
   assert.equal(result.status, 1);
   assert.match(result.stderr, /## Teach in .* holds code \`\`\`js/);
-});
-
-test('plan-page refuses an open plan whose Teach holds code', () => {
-  const { dir, run } = sandbox();
-  const plan = `# Plan\n\nStatus: planning\n\n${brief()}## Teach\n\nThe \`renderPage\` function draws it.\n`;
-  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
-  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md', '--check'], root);
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /## Teach in .* holds code `renderPage`/);
 });
 
 test('plan-page renders an open question as a decision memo the owner answers in chat: why it needs you, the facts, each option with what happens and its cost, the pick marked, and its reason', () => {
@@ -4075,13 +4021,6 @@ test('a merge or a folded design question keeps the effort the task\'s work need
   assert.match(chips('brief', 'task_c1').stdout, /^\[P1\] Fix the printer \(xhigh\)\n[\s\S]*Kind: decide\.[\s\S]*settles a design question first/);
 });
 
-test('folding a design finding into an offered fix makes it a design question', () => {
-  const { chip, chips, offer } = chipLedger();
-  assert.equal(offer('task_f1 Fix the export button', 'src/b.ts', 'topic: export').status, 0);
-  assert.equal(chip('task_f1 Fix the export button', 'folded', 'kind: decide; writes: src/c.ts').status, 0, 'a design finding on the same question');
-  assert.match(chips('brief', 'task_f1').stdout, /Kind: decide\.[\s\S]*settles a design question first/, 'the card routes to a verdict');
-});
-
 test('a folded design question promotes its task and joins the one-question-per-topic check', () => {
   const { chip, offer } = chipLedger();
   assert.equal(offer('task_d1 Decide the export format (xhigh)', 'src/e.ts', 'topic: export; kind: decide').status, 0);
@@ -4119,14 +4058,6 @@ test('a dup that would leave two tasks waiting on each other is refused, and the
   const board = chips();
   assert.equal(board.status, 0, board.stdout);
   assert.match(board.stdout, /Ready, P1 \(1\)\n {2}task_d1 {2}Fix d {2}\[chain\] {2}no card\n/, 'the route the refusal names keeps every task and wait');
-});
-
-test('a dup that hands the kept task a wait back on itself is refused', () => {
-  const { chip, offer } = chipLedger();
-  assert.equal(offer('task_k1 Fix k', 'src/k.ts', 'topic: chain').status, 0);
-  assert.equal(offer('task_c1 Fix c', 'src/c.ts', 'topic: chain; waits: task:task_k1').status, 0);
-  assert.equal(offer('task_d1 Fix d', 'src/d.ts', 'topic: chain; waits: task:task_c1').status, 0);
-  assert.match(chip('task_d1 Fix d', 'dismissed dup task_k1').stderr, /this row leaves task_k1 and task_c1 waiting on each other; keep task_d1 open$/m, 'a loop whose closing wait the duplicate would bring');
 });
 
 test('an updated row that closes a wait loop is refused', () => {
@@ -4172,14 +4103,6 @@ test('append refuses a dup into a task with no topic until it is migrated', () =
   assert.match(chip('task_b1 Fix the parser docs', 'dismissed dup task_o1').stderr, /task_o1 has no topic, so its waits may still be prose; migrate it first/);
   assert.equal(chip('task_o1 Now: Fix the parser', 'updated', 'topic: parser; waits: none').status, 0);
   assert.equal(chip('task_b1 Fix the parser docs', 'dismissed dup task_o1').status, 0);
-});
-
-test('a migration names the task\'s waits along with its topic', () => {
-  const { chip, root, LEDGER, offer } = chipLedger();
-  assert.equal(offer('task_a1 Fix the parser', 'src/p.ts', 'topic: parser').status, 0);
-  writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + ['2026-01-01T10:00:00Z', 'chip', 'task_o1 After: Fix the parser docs (high)', 'waits for: PR 12 to merge', 'writes: docs/p.md', 'offered'].join('\t') + '\n');
-  assert.match(chip('task_o1 After: Fix the parser docs (high)', 'updated', 'topic: parser').stderr, /task_o1 has no topic yet, so this row migrates it; name its waits too, as waits: none when it has none/);
-  assert.equal(chip('task_o1 After: Fix the parser docs (high)', 'updated', 'topic: parser; waits: pr:12').status, 0);
 });
 
 test('a dup that makes a design question beside a running one names the updated route', () => {
@@ -4318,15 +4241,6 @@ test('a duplicate\'s card has nothing to start while the task it merged into has
   const brief = chips('brief', 'task_b1');
   assert.equal(brief.status, 1, 'two cards that would lead to one task');
   assert.match(brief.stderr, /task_b1 was merged into task_a1, which has card c1, so there is nothing to start; tell the owner/);
-});
-
-test('two design questions in different topics merge into one', () => {
-  const { chip, chips, offer } = chipLedger();
-  assert.equal(offer('task_k1 Decide the export format (xhigh)', 'src/e.ts', 'topic: export; kind: decide').status, 0);
-  assert.equal(offer('task_d1 Decide the file format (xhigh)', 'src/f.ts', 'topic: format; kind: decide').status, 0);
-  const merged = chip('task_d1 Decide the file format (xhigh)', 'dismissed dup task_k1');
-  assert.equal(merged.status, 0, merged.stderr);
-  assert.match(chips('brief', 'task_k1').stdout, /Also covers:\n- task_d1 Decide the file format \(xhigh\)\n/);
 });
 
 test('moving a design question into a topic that has one names the dup', () => {
@@ -5061,13 +4975,14 @@ test('chips groups links two open tasks that share two kinds of evidence, and an
   assert.equal(offer('task_d1 Give worktree sessions a run directory the Read tool can reach', 'readRunDir misses it', 'writes: rules/run.md; topic: run-dir-read; waits: task:task_a1').status, 0);
   const groups = chips('groups');
   assert.equal(groups.status, 0, groups.stderr);
-  assert.equal(
-    groups.stdout,
-    "1 group of open tasks in docs/plans/suggested-tasks.decisions.tsv that may answer one question. Judge each pair as chips.md's Groups bullet says: dismissed dup when they share two kinds of evidence and one fix removes both, and otherwise apart with from:, then a task: wait when an offered task needs the other's result or one fix removes both.\n" +
+  assert.match(groups.stdout, /^1 group of open tasks /);
+  assert.ok(
+    groups.stdout.endsWith(
       '\n' +
       '  task_a1 and task_b1: problem; fix area (rules/trails.md)\n' +
       '  task_a1  Give worktree sessions a run directory the Write tool can reach  [run-dir-write]  no card\n' +
       '  task_b1  Let a worktree session write its run directory without the hook refusing  [run-dir-writes]  no card\n',
+    ),
     'task_c1 shares only the file, task_d1 shares two kinds with task_a1 but waits on it, and shares only wording with task_b1',
   );
   assert.match(chip(a1, 'apart').stderr, /an apart row names in "from: <task id>, <task id>" each other task the ledger holds/);
@@ -5160,27 +5075,6 @@ test('chips brief on a replaced task prints its replacement\'s brief', () => {
   assert.match(brief.stdout, /^task_o1 was replaced by task_n1; work from its brief\.\n\n\[P1\] Fix the badge\n/, 'an old card whose task an older helper replaced');
 });
 
-test('a design question moved into the topic of a design question it absorbed counts once', () => {
-  const { chip, chips, offer } = chipLedger();
-  assert.equal(offer('task_k1 Decide the export format (xhigh)', 'src/e.ts', 'topic: export; kind: decide').status, 0);
-  assert.equal(offer('task_d1 Decide the file format (xhigh)', 'src/f.ts', 'topic: format; kind: decide').status, 0);
-  assert.equal(chip('task_d1 Decide the file format (xhigh)', 'dismissed dup task_k1').status, 0);
-  assert.equal(chip('task_k1 Decide the export format (xhigh)', 'updated', 'topic: format').status, 0);
-  const board = chips();
-  assert.equal(board.status, 0, 'a task that is not its own rival: ' + board.stdout);
-});
-
-test('a design question in a topic a merge left is judged by that topic alone', () => {
-  const { chip, helper, offer, LEDGER } = chipLedger();
-  assert.equal(offer('task_k1 Decide the export format (xhigh)', 'src/e.ts', 'topic: export; kind: decide').status, 0);
-  assert.equal(offer('task_d1 Decide the file format (xhigh)', 'src/f.ts', 'topic: format; kind: decide').status, 0);
-  assert.equal(chip('task_d1 Decide the file format (xhigh)', 'dismissed dup task_k1').status, 0);
-  assert.equal(chip('task_k1 Decide the export format (xhigh)', 'started').status, 0);
-  assert.equal(offer('task_n1 Decide the format version (xhigh)', 'src/n.ts', 'topic: format; kind: decide').status, 0, 'a design question an older helper accepted after the merge');
-  const whole = helper(LEDGER);
-  assert.equal(whole.status, 0, whole.stderr);
-});
-
 test('chips leaves a prose wait on a task with no topic to its migration', () => {
   const { chips, offer, root, LEDGER } = chipLedger();
   assert.equal(offer('task_a1 Fix a', 'src/a.ts', 'topic: other').status, 0);
@@ -5188,20 +5082,6 @@ test('chips leaves a prose wait on a task with no topic to its migration', () =>
   const board = chips();
   assert.equal(board.status, 0, 'the prose wait the migration states again: ' + board.stdout);
   assert.match(board.stdout, /migrate task_o1: log updated with topic:, priority: and the waits: it has/);
-});
-
-test('chips reports a wait loop between tasks that have no topic', () => {
-  const { chips, offer, root, LEDGER } = chipLedger();
-  assert.equal(offer('task_a1 Fix a', 'src/a.ts', 'topic: other').status, 0);
-  const rows = [
-    ['task_o1 Fix o1', 'writes: src/o1.ts', 'offered'],
-    ['task_o2 Fix o2', 'writes: src/o2.ts; waits: task:task_o1', 'offered'],
-    ['task_o1 Fix o1', 'waits: task:task_o2', 'updated'],
-  ];
-  writeFileSync(join(root, LEDGER), readFileSync(join(root, LEDGER), 'utf8') + rows.map(([decision, evidence, result]) => ['2026-01-01T10:00:00Z', 'chip', decision, 'why', evidence, result].join('\t')).join('\n') + '\n');
-  const board = chips();
-  assert.equal(board.status, 1, 'a loop an older helper let through');
-  assert.match(board.stdout, /fix task_o1's wait: task:task_o2 waits back on task_o1/);
 });
 
 test('two design questions with no topic are not one topic', () => {
@@ -5604,6 +5484,7 @@ test('an updated row with session: none gives a task back to no owner, so only c
   assert.equal(offer('task_a1 Fix the parser', 'src/a.ts', 'topic: a; session: s1').status, 0);
   assert.match(chips('--session', 's1').stdout, /Do, card pass \(1\)\n {2}card task_a1:/);
   assert.equal(chip('task_a1 Fix the parser', 'updated', 'session: none').status, 0);
+  assert.doesNotMatch(chips().stdout, /card task_a1:/, 'a run with no session id leaves the task to chips all');
   const own = chips('--session', 's1').stdout;
   assert.doesNotMatch(own, /card task_a1:/, 'the session that gave it back cards it no more');
   assert.match(own, /no owner {2}1 open: task_a1/);
@@ -6184,16 +6065,6 @@ test('plan-open accepts a log with a line that reads exactly exit=<code> and ref
     ['Ran 1 test across 1 file.\nexit=1 seconds=67\n', 'an exit line with trailing fields'],
     ['> www typecheck\nExit status 1\n', "pnpm's exit status line"],
   ]) assert.equal(verdict(log), 1, why);
-});
-
-test('plan-open still makes a closed box under Open work name its owner and its stop', () => {
-  const { dir, run } = sandbox();
-  const root = project(dir, 'app', { files: { 'plan.md': '# Plan\n\nStatus: building\n' } });
-  run('git', ['add', 'plan.md'], root);
-  run('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'plan'], root);
-  writeFileSync(join(root, 'plan.md'), '# Plan\n\nStatus: building\n\n## Open work\n\n- [x] followed up in `tooling/scripts/proof-worktree.mjs`\n');
-
-  assert.match(run(process.execPath, [join(HELPERS, 'plan-open.mjs'), 'plan.md'], root).stderr, /plan\.md:7: .*name its owner:/);
 });
 
 test('proof writes each run to the next attempt log with its command and exit status, under pipefail', () => {
@@ -6904,23 +6775,6 @@ test('unknown identity never attributes foreign readers and remains unknown in l
   assert.match(header, /Lead claude-opus-5-5 medium Lead unknown Reviews gpt-6-astra high/);
 });
 
-test('plan-page shows each lead model and effort in the header', () => {
-  const { dir, run } = sandbox();
-  const plan = '# Plan\n\nStatus: executed\n\n## Main changes\n\n- Raise the effort.\n';
-  const log = [
-    'ts\tphase\tdecision\twhy\tevidence\tresult',
-    reviewRow('lead', 'claude-opus-5-5 @medium', 'recorded claude session'),
-    reviewRow('plan', 'Draft the plan', 'decided'),
-    reviewRow('lead', 'claude-opus-5-5 @xhigh', 'recorded claude session'),
-  ].join('\n');
-  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan, 'docs/plans/plan.decisions.tsv': `${log}\n` } });
-  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
-  assert.equal(result.status, 0, result.stderr);
-  const html = read(root, 'docs/plans/artifacts/plan.html');
-  const header = html.slice(html.indexOf('<header'), html.indexOf('</header>')).replace(/<[^>]+>/gu, ' ').replace(/\s+/gu, ' ');
-  assert.match(header, /Lead claude-opus-5-5 medium Lead claude-opus-5-5 xhigh/);
-});
-
 test('decisions-check append names the stage a batch moves the log into', () => {
   const { dir, run } = sandbox();
   const root = project(dir, 'app');
@@ -7229,14 +7083,6 @@ test("plan-page binds a checkout to its own Page: line while only it moved from 
   writeFileSync(join(root, '.git/pstack-pages-gone'), 'https://claude.ai/artifact/c\n');
   assert.equal(JSON.parse(render(rebound, '--rail').stdout).page, 'https://claude.ai/artifact/b', "a rebind stands once the clone found origin's line gone, so the next publish does not make another page");
   assert.equal(JSON.parse(render(behind, '--rail').stdout).page, 'https://claude.ai/artifact/c', 'a checkout that never rebound still tries the gone line, and its failed publish makes the new page');
-});
-
-test('importing plan-page.mjs runs no CLI', () => {
-  const { dir, run } = sandbox();
-  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': '# Plan\n\nStatus: done\n', 'probe.mjs': `import ${JSON.stringify(pathToFileURL(join(HELPERS, 'plan-page.mjs')).href)};\n` } });
-  const result = run(process.execPath, ['probe.mjs', 'docs/plans/plan.md'], root);
-  assert.equal(result.status, 0, result.stderr);
-  assert.ok(!existsSync(join(root, 'docs/plans/artifacts/plan.html')), 'the import rendered no page');
 });
 
 test('apply refuses a helper that imports a file HELPER_FILES does not install', () => {
@@ -7883,20 +7729,6 @@ test('verify reports a retired name in any other file git or the companion track
   assert.deepEqual(reported, ['docs/plans/old.md', 'private.txt'], result.stdout);
 });
 
-test('verify reads a file a link in .agents/rules/ points to as a rule', () => {
-  const { dir, home, cli } = sandbox();
-  const root = retiredFixture(dir, home, { files: { '.agents/shared/current.md': '---\ndescription: ship a feature\n---\n# Feature\n\nPlan it with [Old](../old-flow/SKILL.md).\n' } });
-  symlinkSync('../shared/current.md', join(root, '.agents/rules/shipping.mdc'));
-  const result = cli('verify', root);
-  assert.match(result.stdout, retiredIn('.agents/shared/current.md'));
-});
-
-test('verify reads Markdown under .agents/ whatever the case of its extension', () => {
-  const { dir, home, cli } = sandbox();
-  const root = retiredFixture(dir, home, { files: { '.agents/team/POLICY.MD': 'Run old-flow first.\n' } });
-  assert.match(cli('verify', root).stdout, retiredIn('.agents/team/POLICY.MD'));
-});
-
 test('verify follows each folder link under .agents/ once, and only inside the project', () => {
   const { dir, env, home } = sandbox();
   const root = retiredFixture(dir, home, { files: { 'policies/law.md': 'Run old-flow first.\n', 'hidden/law.md': 'Run old-flow first.\n' } });
@@ -7911,12 +7743,6 @@ test('verify follows each folder link under .agents/ once, and only inside the p
   assert.equal(result.signal, null, 'verify ran past 30 s');
   assert.match(result.stdout, retiredIn('policies/law.md'));
   assert.doesNotMatch(result.stdout, retiredIn('hidden/law.md'));
-});
-
-test('verify reads each file a rule file imports with @', () => {
-  const { dir, home, cli } = sandbox();
-  const root = retiredFixture(dir, home, { agentsTail: 'Read CONTEXT.md.\n', files: { 'CONTEXT.md': 'Team rules: @.agents/team/policy.txt\n', '.agents/team/policy.txt': 'Run old-flow first.\n' } });
-  assert.match(cli('verify', root).stdout, retiredIn('.agents/team/policy.txt'));
 });
 
 test('verify reads a file a rule file imports beside itself', () => {

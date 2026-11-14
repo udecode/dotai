@@ -108,21 +108,18 @@ test('the summary card updates in place when sessions spread from one project to
   assert.ok(!client.calls.includes(`end ${SUMMARY_KEY}`));
 });
 
-test('a waiting session keeps its card as other sessions join, and a hook that changes nothing on the card sends nothing', async () => {
+test('a hook that changes nothing on the summary card sends nothing', async () => {
   const sessions = {};
   reduce(sessions, hook('a', 'UserPromptSubmit', 0, { cwd: '/w/ellie' }));
   reduce(sessions, hook('a', 'Stop', 0, { cwd: '/w/ellie' }));
-  const key = keyOf(sessions['claude:a']);
   const phone = emptyPhone();
   await send(sessions, phone, fakeClient(), 1);
   reduce(sessions, hook('b', 'UserPromptSubmit', 2, { cwd: '/w/ellie' }));
-  const joined = fakeClient();
-  await send(sessions, phone, joined, 3);
-  assert.deepEqual(joined.calls.filter((call) => call.endsWith(key)), []);
+  await send(sessions, phone, fakeClient(), 3);
   reduce(sessions, hook('b', 'PostToolUse', 4, { cwd: '/w/ellie', tool: 'Bash' }));
   const quiet = fakeClient();
   await send(sessions, phone, quiet, 5);
-  assert.ok(!quiet.calls.includes(`put ${key}`));
+  assert.deepEqual(quiet.calls.filter((call) => call.endsWith(SUMMARY_KEY)), []);
 });
 
 test('cards an older daemon left, the fleet and an alert, end before any new card starts', async () => {

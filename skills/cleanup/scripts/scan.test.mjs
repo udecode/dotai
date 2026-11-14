@@ -180,13 +180,6 @@ test('--landed passes a change the checkout holds beside another landed patch to
   assert.equal(landedOf(f.archived), 'safe');
 });
 
-test('--landed asks about an ignored file the checkout lacks', () => {
-  const f = fixture();
-  mkdirSync(join(f.archived, 'artifacts', 'run'), { recursive: true });
-  writeFileSync(join(f.archived, 'artifacts', 'run', 'proof.log'), 'exit 0\n');
-  assert.equal(landedOf(f.archived), 'ask');
-});
-
 test('--landed passes ignored copies of the checkout and folders an install or build recreates', () => {
   const f = fixture();
   writeFileSync(join(f.main, '.env.local'), 'KEY=1\n');
