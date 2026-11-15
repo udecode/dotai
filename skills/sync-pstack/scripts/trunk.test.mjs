@@ -19,6 +19,7 @@ const ENV = {
   CLAUDE_CODE_HOST_SESSION_ID: '',
   CLAUDE_CODE_SESSION_ID: '',
   CODEX_SESSION_ID: '',
+  CODEX_THREAD_ID: '',
   PSTACK_SLOT: '1',
 };
 const GOOD = 'feat(a): change a\n\nWhy a changes.\n\nBeyond the ask: none\nPicks: none\nNot checked: none';
@@ -1222,6 +1223,27 @@ test('land pushes a topic branch and opens a PR into next when the clone has no 
   assert.match(run.stdout, /https:\/\/example\.test\/pull\/7/);
   assert.match(run.stdout, /Armed auto-merge \(squash\)/);
   assert.deepEqual(ghLines(dir, 'gh-merge'), ['pr', 'merge', 'https://example.test/pull/7', '--auto', '--squash'], 'a branch with no rules still gets auto-merge');
+});
+
+test("land opens no PR while its author's models sheet seats the wrong panel models, and names each fix", () => {
+  const land = (sheet) => {
+    const { dir, clone, message } = trunk();
+    const codex = join(dir, 'codex');
+    mkdirSync(codex);
+    writeFileSync(join(codex, 'pstack-models.md'), sheet);
+    const config = join(clone, '.agents/pstack.json');
+    writeFileSync(config, JSON.stringify({ ...JSON.parse(readFileSync(config, 'utf8')), maxEffort: 'high' }));
+    writeFileSync(join(clone, 'a.txt'), 'two\n');
+    return helper('land.mjs', clone, ['--message', message(PR)], { ...stubGh(dir), CODEX_THREAD_ID: 'thread', CODEX_HOME: codex });
+  };
+  const arena = 'arena runners: opus, codex:gpt-6.1-sol @xhigh\n';
+  const bad = land(`${arena}interrogate reviewers: opus, fable, codex:gpt-6.1-sol @medium\n`);
+  assert.equal(bad.status, 1);
+  assert.match(bad.stderr, /`interrogate reviewers:` names fable/u);
+  assert.match(bad.stderr, /runs codex:gpt-6\.1-sol @medium, below this project's maxEffort high/u);
+  assert.match(bad.stderr, /add the line `architect runners: opus, codex:gpt-6\.1-sol`/u);
+  const good = land(`All roles inherit gpt-6.1-sol and never dispatch fable.\n${arena}architect runners: opus, codex:gpt-6.1-sol @xhigh\ninterrogate reviewers: claude-opus-5-5, codex:gpt-6.1-sol\n`);
+  assert.equal(good.status, 0, good.stderr);
 });
 
 test('land arms auto-merge on every PR it opens, with a method the rules allow, and reports a refusal', () => {
