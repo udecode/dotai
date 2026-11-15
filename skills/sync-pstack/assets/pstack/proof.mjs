@@ -152,7 +152,9 @@ function countWorkers() {
 // never takes the cores a larger waiter ahead of it needs. A `first` waiter,
 // which land.mjs passes, is ahead of every waiter without `first`, and none of
 // those enters while it waits, because a proof's workers can outgrow its ask.
-export function reserve(workers, label, { perWorker: coresPerWorker = CORES_PER_WORKER, first = false } = {}) {
+// When `giveUp` returns true while the call waits, it leaves the queue and
+// returns null.
+export function reserve(workers, label, { perWorker: coresPerWorker = CORES_PER_WORKER, first = false, giveUp = () => false } = {}) {
   const asked = Date.now();
   if (process.env[HELD]) return Object.assign(() => {}, { waited: 0 });
   const capacity = availableParallelism();
@@ -216,6 +218,10 @@ export function reserve(workers, label, { perWorker: coresPerWorker = CORES_PER_
       }
       if (!reported.has(waiting.kind)) console.error(`${label}: waiting for ${want} of this machine's cores; ${waiting.reason}`);
       reported.add(waiting.kind);
+    }
+    if (giveUp()) {
+      rmSync(ticket, { force: true });
+      return null;
     }
     slept = true;
     sleep(POLL_MS);

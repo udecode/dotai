@@ -389,7 +389,22 @@ test('a landing that waited for cores while next stayed put runs its always entr
   }
 });
 
-test('a landing whose wait for cores leaves too little of the hour to check exits 75 before its checks', async () => {
+test('a landing at 55 minutes into the run starts no check and exits 75 with the commit local', () => {
+  const { dir, remote, clone, base, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const ran = join(dir, 'ran');
+  const late = join(dir, 'late.mjs');
+  writeFileSync(late, 'const now = performance.now.bind(performance);\nperformance.now = () => now() + 56 * 60_000;\n');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', `touch ${ran}`], { NODE_OPTIONS: `--import ${late}` });
+  assert.equal(run.status, 75, run.stderr);
+  assert.match(run.stderr, /land\.mjs stopped touch \S+ at 55 minutes into the run[\s\S]*run land\.mjs again with the same --check options and no --message/);
+  assert.equal(existsSync(ran), false, 'the checks did not start');
+  assert.equal(git(remote, 'rev-parse', 'next'), base);
+});
+
+test('a landing still waiting for cores at 55 minutes into the run exits 75 before its checks', async () => {
   const { dir, remote, clone, base, message } = trunk();
   git(clone, 'config', 'pstack.delivery', 'push');
   const ran = join(dir, 'ran');
@@ -402,7 +417,7 @@ test('a landing whose wait for cores leaves too little of the hour to check exit
     await until(() => land.err.includes('waiting'));
     land.free();
     assert.equal(await land.exited, 75, land.err);
-    assert.match(land.err, /land\.mjs stopped touch \S+ at 55 minutes into the run[\s\S]*run land\.mjs again with the same --check options and no --message/);
+    assert.match(land.err, /land\.mjs still waited for cores at 55 minutes into the run[\s\S]*run land\.mjs again with the same --check options and no --message/);
     assert.equal(existsSync(ran), false, 'the checks did not start');
     assert.equal(git(remote, 'rev-parse', 'next'), base);
   } finally {
@@ -1703,7 +1718,8 @@ test('land finishes reading the companion before it starts reading the public ha
 
   assert.equal(run.status, 0, run.stderr);
   const oneRead = ['companion-start', 'companion-end', 'public-start'];
-  assert.deepEqual(readFileSync(reads, 'utf8').trim().split('\n'), [...oneRead, ...oneRead]);
+  const beforePush = ['companion-start', 'companion-end'];
+  assert.deepEqual(readFileSync(reads, 'utf8').trim().split('\n'), [...oneRead, ...beforePush, ...oneRead, ...beforePush]);
   assert.equal(git(remote, 'show', 'next:a.txt'), 'two');
   assert.equal(git(remote, 'show', 'next:other.txt'), 'two');
   assert.equal(git(companion, 'show', 'next:other.spec'), 'two');

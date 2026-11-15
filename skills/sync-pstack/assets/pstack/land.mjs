@@ -58,8 +58,9 @@
 // A landing takes one share of the machine's core pool, ahead of every proof
 // that waits, the first time it rebuilds or checks, and holds it until it
 // exits. It gives the share back while it waits out a GH006 and takes it again
-// when it next rebuilds or checks. After a wait for cores it fetches again and
-// rebases when either tip moved. Each check runs in a process group of its
+// when it next rebuilds or checks. It exits 75 when it still waits for cores
+// at 55 minutes into the run, and after a wait it fetches again and rebases
+// when either tip moved. Each check runs in a process group of its
 // own, and at 55 minutes into the run land.mjs stops that group and exits 75,
 // so a check runner that records each step's pass keeps the steps that
 // finished for the rerun. A check that fails after it ran on a public commit
@@ -235,7 +236,14 @@ let cause = null;
 
 function takeCores() {
   if (share) return;
-  share = reserve(Math.ceil(availableParallelism() / 2), 'land.mjs', { first: true });
+  share = reserve(Math.ceil(availableParallelism() / 2), 'land.mjs', { first: true, giveUp: () => performance.now() >= DEADLINE });
+  if (!share) {
+    fail(
+      `land.mjs still waited for cores at ${DEADLINE / 60_000} minutes into the run. ` +
+        'The squashed commit stays local, so run land.mjs again with the same --check options and no --message; it rebases and checks it.',
+      EX_TEMPFAIL
+    );
+  }
   waitedMs += share.waited;
   if (share.waited > 0) stale = true;
 }
