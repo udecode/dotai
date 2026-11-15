@@ -3423,6 +3423,21 @@ test('in a trunk project a linked worktree writes the main checkout ledger, cite
   assert.doesNotMatch(helper('chips').stdout, /2026-01-01-fix\.md/, "the wait clears once origin's branch holds the done plan");
 });
 
+test('in a trunk project append takes a review scope whose file the calling worktree holds and the main checkout lacks', () => {
+  const { offerHere, root, worktree } = linkedWorktree('trunk');
+  writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ branch: 'next', delivery: 'trunk', chips: { scopes: 'scopes' } }));
+  for (const [checkout, scope] of [[root, 'editor'], [worktree, 'ink']]) {
+    mkdirSync(join(checkout, 'scopes'));
+    writeFileSync(join(checkout, 'scopes', `${scope}.json`), '{}');
+  }
+  const ahead = offerHere('task_a1 Draw on text', 'writes: a.md; topic: a; review-scope: ink');
+  assert.equal(ahead.status, 0, `a scope the main checkout has not pulled yet, or one this run adds: ${ahead.stderr}`);
+  assert.equal(offerHere('task_b1 Fix the caret', 'writes: b.md; topic: b; review-scope: editor').status, 0, 'a scope only the main checkout holds');
+  const typo = offerHere('task_c1 Fix the pen', 'writes: c.md; topic: c; review-scope: inkk');
+  assert.equal(typo.status, 1, 'a scope neither checkout holds');
+  assert.match(typo.stderr, /review-scope: inkk is no review scope in scopes/);
+});
+
 test('outside trunk delivery a linked worktree keeps its own ledger and the waits on paths outside the checkout', () => {
   const { LEDGER, helper, offerHere, outside, root, worktree } = linkedWorktree('push');
   assert.equal(offerHere('task_a1 Fix the stale badge', 'writes: README.md; topic: docs').status, 0);
