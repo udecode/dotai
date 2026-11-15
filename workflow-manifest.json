@@ -146,7 +146,7 @@
       "mode": 420
     },
     "scripts/validate-skills": {
-      "sha256": "88c4e4b9c6382349ab408a52bfbd002261c58f57560d5567f0e5171810c8b161",
+      "sha256": "1baa0fafba132edb473b8e36c00bbab29e1a7616e0f2ec826d1ad1f8fa0e942a",
       "mode": 493
     },
     "skills/chips/SKILL.md": {
@@ -274,7 +274,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "c1bec42e10d16a4f5dadd13a42591597db6340689d79f152dc05d28f8e4b2840",
+      "sha256": "089ee92930650d085a6859dece70ef6170db4dbfa346aec27d66efb2278dfc2d",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/checkout.mjs": {
@@ -394,7 +394,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/long-runs.md": {
-      "sha256": "d0ae9e72fee39c494738227dae62fb77b770a473add840d64e619eee1b6b6f65",
+      "sha256": "5b705582284c8fac2960a6a65afd34c47b0bdbf4fc3ad0f18cc6d436b9d71a52",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/messages.md": {
@@ -406,7 +406,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/panel.md": {
-      "sha256": "87d88f832d6c12d76802be4e29182efb617897caa3f67812ef8aa4f4a94e91a9",
+      "sha256": "26e25b615832eb7b22cd12641632880b6ca7ae71a7ecad304e83fadd69dd4e47",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/reflect.md": {
