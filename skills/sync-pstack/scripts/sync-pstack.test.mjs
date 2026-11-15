@@ -6222,9 +6222,44 @@ test('a proof that arrives later never takes the cores an earlier, larger waiter
   const small = start('small', 1);
   await until(() => small.waited.includes('waiting') || small.exitCode !== null);
   assert.equal(small.exitCode, null, 'a one-core proof took a free core that an earlier waiter needed');
-  assert.match(small.waited, /proof\.mjs small: waiting for 0\.5 of this machine's cores; 1 of \d+ cores held by other session \(\d+, 1\), and \d+ asked for by 1 earlier waiter$/m);
+  assert.match(small.waited, /proof\.mjs small: waiting for 0\.5 of this machine's cores; 1 of \d+ cores held by other session \(\d+, 1\), and \d+ asked for by 1 waiter ahead$/m);
   rmSync(join(dir, `tmp/pstack-slots/${idle.pid}.json`));
   assert.deepEqual(await Promise.all([large.exited, small.exited]), [0, 0]);
+});
+
+test('a landing that waits goes ahead of a proof that started waiting before it, and its release says how long it waited', async () => {
+  const { dir, env, args } = corePool('sync-pstack-proof-landing-first-', [{ pid: idle.pid, cores: availableParallelism() }]);
+  const proof = background(args('early', 'echo ran'), { cwd: dir, env });
+  await until(() => proof.waited.includes('waiting'));
+  const took = join(dir, 'took');
+  const landing = join(dir, 'landing.mjs');
+  writeFileSync(
+    landing,
+    `import { writeFileSync } from 'node:fs';\nimport { reserve } from ${JSON.stringify(pathToFileURL(join(HELPERS, 'proof.mjs')).href)};\n` +
+      `const release = reserve(${Math.ceil(availableParallelism() / 2)}, 'land.mjs', { first: true });\nwriteFileSync(${JSON.stringify(took)}, String(release.waited));\n` +
+      'Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 3000);\n'
+  );
+  const land = background([landing], { cwd: dir, env });
+  await until(() => land.waited.includes('waiting'));
+
+  rmSync(join(dir, `tmp/pstack-slots/${idle.pid}.json`));
+  await until(() => existsSync(took) || proof.exitCode !== null);
+  assert.equal(proof.exitCode, null, 'the proof that waited first took the cores the landing needed');
+  assert.ok(Number(readFileSync(took, 'utf8')) > 0, 'the release reports no wait');
+  assert.deepEqual(await Promise.all([land.exited, proof.exited]), [0, 0]);
+});
+
+test('no proof enters while a landing waits, even where both shares fit, because its workers can outgrow its ask', async () => {
+  const { dir, env, args } = corePool('sync-pstack-proof-landing-waits-', []);
+  const ticket = join(dir, `tmp/pstack-slots/${idle.pid}.wait`);
+  writeFileSync(ticket, JSON.stringify({ pid: idle.pid, cores: Math.ceil(availableParallelism() / 2) / 2, label: 'land.mjs', since: 0, first: true }));
+  const proof = background(args('beside', 'echo ran'), { cwd: dir, env });
+
+  await until(() => proof.waited.includes('waiting') || proof.exitCode !== null);
+  assert.equal(proof.exitCode, null, 'a proof entered while a landing waited');
+  assert.match(proof.waited, /proof\.mjs beside: waiting for 0\.5 of this machine's cores; land\.mjs \(\d+\) waits for [\d.]+ cores, and a waiting landing enters before any proof$/m);
+  rmSync(ticket);
+  assert.equal(await proof.exited, 0);
 });
 
 test('proof skips a holder whose file vanished after the pool was listed and still refuses a corrupt one', () => {

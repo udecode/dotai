@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { spawn, spawnSync } from 'node:child_process';
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { availableParallelism, tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -242,9 +242,9 @@ test('land rebases the companion onto its origin/next before checking a task tha
   assert.equal(git(companion, 'log', '-1', '--format=%s', 'next'), 'test(c): land elsewhere', 'a task that changes no companion file pushes no companion commit');
 });
 
-test('land exits 75 when the companion moves while its checks run, and the rerun rebases, checks and pushes the companion commit', () => {
+test('land rebases both halves and checks them again before either push when the companion moves while its checks run', () => {
   const fixture = trunk();
-  const { dir, remote, clone, message } = fixture;
+  const { dir, remote, clone, base, message } = fixture;
   const { companion, sideElsewhere } = split(fixture);
   git(clone, 'config', 'pstack.delivery', 'push');
   const ran = join(dir, 'ran');
@@ -254,20 +254,245 @@ test('land exits 75 when the companion moves while its checks run, and the rerun
   writeFileSync(join(clone, 'a.txt'), 'two\n');
   writeFileSync(join(clone, 'a.spec'), 'two\n');
 
-  const first = helper('land.mjs', clone, ['--message', message(GOOD), ...check]);
-  assert.equal(first.status, 75, first.stderr);
-  assert.match(first.stderr, /run land\.mjs again with no --message; it rebases and checks that commit, then pushes it/);
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), ...check]);
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(run.stdout, /\.git-private's origin\/next moved; rebasing and pushing again \(retry 1 of 3\)/);
+  assert.equal(readFileSync(ran, 'utf8').trim().split('\n').length, 2, 'the rebased halves are checked before either is pushed');
   const landed = git(remote, 'rev-parse', 'next');
-  assert.equal(git(remote, 'show', 'next:a.txt'), 'two');
-  assert.equal(git(companion, 'log', '-1', '--format=%s', 'next'), 'test(c): land elsewhere', 'no unchecked companion commit is pushed');
-
-  const rerun = helper('land.mjs', clone, check);
-  assert.equal(rerun.status, 0, rerun.stderr);
-  assert.equal(readFileSync(ran, 'utf8').trim().split('\n').length, 2, 'the rebased companion commit is checked before it is pushed');
-  assert.equal(git(remote, 'rev-parse', 'next'), landed, 'the rerun lands nothing new here');
+  assert.equal(git(remote, 'rev-list', '--count', `${base}..next`), '2', 'the split commit and the task land here');
   assert.deepEqual(git(companion, 'log', '-2', '--format=%s', 'next').split('\n'), ['feat(a): change a', 'test(c): land elsewhere']);
   assert.equal(git(companion, 'show', 'next:a.spec'), 'two');
   assert.match(git(companion, 'log', '-1', '--format=%B', 'next'), new RegExp(`^Lands-With: ${landed}$`, 'mu'));
+});
+
+test('a task that changes only public files checks again before its push when the companion moves while its checks run', () => {
+  const fixture = trunk();
+  const { dir, remote, clone, message } = fixture;
+  const { sideElsewhere } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const before = git(remote, 'rev-parse', 'next');
+  const ran = join(dir, 'ran');
+  const once = join(dir, 'once');
+  const theirs = sideElsewhere('a.spec', 'broken\n', 'test(a): break a elsewhere');
+  const check = ['--check', `echo run >> ${ran} && { test -e ${once} || { touch ${once} && git -C ${theirs} push --quiet origin HEAD:next; }; } && ! grep -q broken a.spec`];
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), ...check]);
+  assert.equal(run.status, 1, run.stderr);
+  assert.match(run.stdout, /\.git-private's origin\/next moved; rebasing and pushing again \(retry 1 of 3\)/);
+  assert.equal(readFileSync(ran, 'utf8').trim().split('\n').length, 2, 'the public half is checked again beside the companion commit that landed meanwhile');
+  assert.match(run.stderr, /check failed/);
+  assert.equal(git(remote, 'rev-parse', 'next'), before, 'a public half that fails beside the companion tip is not pushed');
+});
+
+test('a task that changes only companion files checks again before its push when next moves while its checks run', () => {
+  const fixture = trunk();
+  const { dir, remote, clone, message, elsewhere } = fixture;
+  const { companion } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const ran = join(dir, 'ran');
+  const once = join(dir, 'once');
+  const other = elsewhere('d.txt', 'theirs\n', 'docs(d): land elsewhere');
+  const check = ['--check', `echo run >> ${ran} && { test -e ${once} || { touch ${once} && git -C ${other} push --quiet origin HEAD:next; }; }`];
+  writeFileSync(join(clone, 'a.spec'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), ...check]);
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(run.stdout, /^origin\/next moved; rebasing and pushing again \(retry 1 of 3\)$/m);
+  assert.equal(readFileSync(ran, 'utf8').trim().split('\n').length, 2, 'the companion half is checked again beside the public commit that landed meanwhile');
+  assert.equal(readFileSync(join(clone, 'd.txt'), 'utf8'), 'theirs\n');
+  assert.equal(git(companion, 'show', 'next:a.spec'), 'two');
+  assert.equal(git(remote, 'log', '-1', '--format=%s', 'next'), 'docs(d): land elsewhere', 'a task that changes only companion files pushes no public commit');
+});
+
+test('a companion push refused after the public half landed rebases that half, checks it again and pushes it in the same run', () => {
+  const fixture = trunk();
+  const { dir, remote, clone, message } = fixture;
+  const { companion, sideElsewhere } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const ran = join(dir, 'ran');
+  const once = join(dir, 'once');
+  const theirs = sideElsewhere('c.spec', 'c\n', 'test(c): land elsewhere');
+  const moveCompanionOnPublicPush = join(clone, '.git/hooks/pre-push');
+  writeFileSync(moveCompanionOnPublicPush, `#!/bin/sh\ntest -e ${once} && exit 0\ntouch ${once}\ngit -C ${theirs} push --quiet origin HEAD:next\n`);
+  chmodSync(moveCompanionOnPublicPush, 0o755);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  writeFileSync(join(clone, 'a.spec'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', `echo run >> ${ran}`]);
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(run.stdout, /Landed \w+ on origin\/next[\s\S]*\.git-private's origin\/next moved; rebasing and pushing again \(retry 1 of 3\)/);
+  assert.equal(readFileSync(ran, 'utf8').trim().split('\n').length, 2, 'the rebased companion commit is checked before it is pushed');
+  const landed = git(remote, 'rev-parse', 'next');
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'two');
+  assert.deepEqual(git(companion, 'log', '-2', '--format=%s', 'next').split('\n'), ['feat(a): change a', 'test(c): land elsewhere']);
+  assert.match(git(companion, 'log', '-1', '--format=%B', 'next'), new RegExp(`^Lands-With: ${landed}$`, 'mu'));
+});
+
+function landInFullPool(dir, clone, args, env = {}) {
+  const holder = spawn('sleep', ['3600'], { stdio: 'ignore' });
+  const pool = join(dir, 'tmp/pstack-slots');
+  mkdirSync(pool, { recursive: true });
+  writeFileSync(join(pool, `${holder.pid}.json`), JSON.stringify({ pid: holder.pid, cores: availableParallelism(), label: 'other session', since: 0 }));
+  const poolEnv = { ...ENV, TMPDIR: join(dir, 'tmp'), ...env };
+  delete poolEnv.PSTACK_SLOT;
+  const land = spawn(process.execPath, [join(HELPERS, 'land.mjs'), ...args], { cwd: clone, env: poolEnv, stdio: ['ignore', 'pipe', 'pipe'] });
+  land.out = '';
+  land.err = '';
+  land.stdout.on('data', (chunk) => (land.out += chunk));
+  land.stderr.on('data', (chunk) => (land.err += chunk));
+  land.exited = new Promise((done) => land.on('exit', done));
+  land.free = () => rmSync(join(pool, `${holder.pid}.json`));
+  land.stop = () => holder.kill();
+  return land;
+}
+
+test('a landing that waited in the core pool rebases onto the commits next gained meanwhile and checks once', async () => {
+  const { dir, remote, clone, message, elsewhere } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const ran = join(dir, 'ran');
+  const other = elsewhere('d.txt', 'theirs\n', 'docs(d): land elsewhere');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  const land = landInFullPool(dir, clone, ['--message', message(GOOD), '--check', `echo run >> ${ran} && test -f d.txt`]);
+
+  try {
+    await until(() => land.err.includes('waiting'));
+    assert.match(land.err, /land\.mjs: waiting for \d+(\.\d)? of this machine's cores; /);
+    git(other, 'push', '--quiet', 'origin', 'HEAD:next');
+    land.free();
+
+    assert.equal(await land.exited, 0, land.err);
+    assert.doesNotMatch(land.out, /moved; rebasing/, 'the landing pushed a commit it had not rebased since its wait');
+    assert.equal(readFileSync(ran, 'utf8').trim().split('\n').length, 1, 'the landing checked once, after it caught up');
+    assert.deepEqual(git(remote, 'log', '--format=%s', 'main..next').split('\n'), ['feat(a): change a', 'docs(d): land elsewhere']);
+  } finally {
+    land.stop();
+  }
+});
+
+test('a landing that waited for cores while next stayed put runs its always entry once', async () => {
+  const fixture = trunk();
+  const { dir, remote, clone, message } = fixture;
+  const ran = join(dir, 'ran');
+  seedGeneratedConflict(fixture, `echo run >> ${ran} && node gen.mjs`, { always: true });
+  writeFileSync(join(clone, 'b.txt'), 'three\n');
+  const land = landInFullPool(dir, clone, ['--message', message(GOOD)]);
+
+  try {
+    await until(() => land.err.includes('waiting'));
+    land.free();
+    assert.equal(await land.exited, 0, land.err);
+    assert.equal(readFileSync(ran, 'utf8'), 'run\n', 'a wait with no new commit on either tip reruns nothing');
+    assert.equal(git(remote, 'show', 'next:gen/out.txt'), 'two\nthree');
+  } finally {
+    land.stop();
+  }
+});
+
+test('a landing whose wait for cores leaves too little of the hour to check exits 75 before its checks', async () => {
+  const { dir, remote, clone, base, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const ran = join(dir, 'ran');
+  const late = join(dir, 'late.mjs');
+  writeFileSync(late, 'const now = performance.now.bind(performance);\nperformance.now = () => now() + 56 * 60_000;\n');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  const land = landInFullPool(dir, clone, ['--message', message(GOOD), '--check', `touch ${ran}`], { NODE_OPTIONS: `--import ${late}` });
+
+  try {
+    await until(() => land.err.includes('waiting'));
+    land.free();
+    assert.equal(await land.exited, 75, land.err);
+    assert.match(land.err, /land\.mjs stopped touch \S+ at 55 minutes into the run[\s\S]*run land\.mjs again with the same --check options and no --message/);
+    assert.equal(existsSync(ran), false, 'the checks did not start');
+    assert.equal(git(remote, 'rev-parse', 'next'), base);
+  } finally {
+    land.stop();
+  }
+});
+
+test('a landing that a signal stops still counts in the run log, as a stopped run', async () => {
+  const { dir, clone, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const pid = join(dir, 'pid');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  const land = spawn(process.execPath, [join(HELPERS, 'land.mjs'), '--message', message(GOOD), '--check', `sh -c 'echo $$ > ${pid}; exec sleep 60'`], { cwd: clone, env: ENV, stdio: 'ignore', detached: true });
+  const stopped = new Promise((done) => land.on('exit', (code, signal) => done(signal)));
+
+  await until(() => existsSync(pid) && readFileSync(pid, 'utf8').trim() !== '');
+  process.kill(-land.pid, 'SIGTERM');
+  assert.equal(await stopped, 'SIGTERM');
+  await until(() => !isAlive(Number(readFileSync(pid, 'utf8'))));
+
+  const report = helper('land.mjs', clone, ['--friction']);
+  assert.equal(report.status, 0, report.stderr);
+  assert.match(report.stdout, /\texit signal\t[^\n]*\tstopped by a signal, such as a timeout$/m);
+  assert.match(report.stdout, /^1 land\.mjs runs in the last day lost [\d.]+ minutes/m);
+});
+
+// 60 thrown-away minutes meet land.mjs's one-hour friction bound, so the next run that exits offers a land-friction task.
+function seedLostHour(clone) {
+  const ledger = join(clone, 'docs/plans/suggested-tasks.decisions.tsv');
+  mkdirSync(dirname(ledger), { recursive: true });
+  writeFileSync(ledger, '');
+  const hourAgo = new Date(Date.now() - 60 * 60_000).toISOString();
+  writeFileSync(join(clone, '.git/pstack-land-runs.jsonl'), `${JSON.stringify({ start: hourAgo, end: hourAgo, minutes: 60, exit: 75, waited: 0, checked: 50, moves: 3, declines: 0, session: null, subject: 'feat(o): other', why: 'origin/next moved' })}\n`);
+  return ledger;
+}
+
+test('land logs each run, and once the runs of the last day lose an hour it offers one land-friction task until that task closes', () => {
+  const { remote, clone, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const runs = join(clone, '.git/pstack-land-runs.jsonl');
+  const ledger = seedLostHour(clone);
+  const offers = () => readFileSync(ledger, 'utf8').split('\n').filter((row) => /\ttopic: land-friction;|; topic: land-friction;/u.test(row));
+  declinePushes(remote, 99);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const first = helper('land.mjs', clone, ['--message', message(GOOD)], NO_WAIT);
+  assert.equal(first.status, 75, first.stderr);
+  const logged = readFileSync(runs, 'utf8').trim().split('\n').map((line) => JSON.parse(line)).filter((row) => 'exit' in row);
+  assert.equal(logged.length, 2);
+  assert.equal(logged[1].exit, 75);
+  assert.equal(logged[1].declines, 5);
+  assert.equal(logged[1].cause, 'declined');
+  assert.match(logged[1].why, /^GitHub declined the push to next with an empty GH006 6 times/);
+  assert.match(first.stdout, /land\.mjs offered t_\w+ in .*suggested-tasks\.decisions\.tsv, because landings lost 60 minutes since /);
+  assert.equal(offers().length, 1);
+  assert.match(offers()[0], /\tchip\tt_\w+ Fix the landing friction land\.mjs measured\t2 land\.mjs runs since [^\t]* lost 60 minutes: 1 exited 75 or stopped, after 60 minutes in all, and the rest waited 0 minutes for cores\./);
+  assert.match(offers()[0], /writes: \.agents\/pstack\/land\.mjs, \.agents\/pstack\/proof\.mjs; topic: land-friction; kind: fix; priority: P3; via: hook; session: none\toffered$/);
+
+  const again = helper('land.mjs', clone, [], NO_WAIT);
+  assert.equal(again.status, 75, again.stderr);
+  assert.doesNotMatch(again.stdout, /offered t_/, 'an open land-friction task gets no second one');
+  assert.equal(offers().length, 1);
+
+  const report = helper('land.mjs', clone, ['--friction']);
+  assert.equal(report.status, 0, report.stderr);
+  assert.match(report.stdout, /\texit 75\twaited 0m\tchecked 50m\tmoves 3\t/);
+  assert.match(report.stdout, /^3 land\.mjs runs in the last day lost 60 minutes to exit 75, to a stop or to waiting for cores; past 60 since the last land-friction task closed, a landing offers one\.$/m);
+});
+
+test('a landing breaks a stale land-friction lock only while no other landing holds the lock that breaks it', () => {
+  const { remote, clone, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  seedLostHour(clone);
+  const lock = join(clone, '.git/pstack-land-friction.lock');
+  mkdirSync(lock);
+  mkdirSync(`${lock}.break`);
+  const stale = new Date(Date.now() - 5 * 60_000);
+  utimesSync(lock, stale, stale);
+  declinePushes(remote, 99);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const held = helper('land.mjs', clone, ['--message', message(GOOD)], NO_WAIT);
+  assert.equal(held.status, 75, held.stderr);
+  assert.doesNotMatch(held.stdout, /offered t_/, 'another landing is breaking the stale lock, so this one leaves it');
+  rmSync(`${lock}.break`, { recursive: true });
+
+  const broke = helper('land.mjs', clone, [], NO_WAIT);
+  assert.equal(broke.status, 75, broke.stderr);
+  assert.match(broke.stdout, /land\.mjs offered t_\w+ in /);
+  assert.equal(existsSync(lock), false, 'the offer releases the lock it broke');
 });
 
 test('the companion amend that adds the Lands-With line takes no work staged after the checks', () => {
@@ -426,6 +651,13 @@ function declinePushes(remote, count, reasons = ['']) {
   writeFileSync(join(remote, 'declines'), `${count}\n`);
 }
 const NO_WAIT = { PSTACK_LAND_WAIT_SCALE: '0' };
+const until = async (done) => {
+  const deadline = Date.now() + 30_000;
+  while (!done()) {
+    assert.ok(Date.now() < deadline, 'timed out');
+    await new Promise((wake) => setTimeout(wake, 50));
+  }
+};
 
 test('land pushes again when GitHub declines with an empty GH006, and fails at once on a GH006 that gives a reason', () => {
   const { remote, clone, base, message } = trunk();
@@ -465,23 +697,49 @@ test('land stops pushing again once another wait would end past 55 minutes into 
   assert.equal(git(remote, 'rev-parse', 'next'), base);
 });
 
-test('land exits 75 with the commit local when checking a rebased commit again would end past 55 minutes into the run', () => {
+const isAlive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+test('land stops a check at 55 minutes into the run, with every process the check started, and exits 75 with the commit local', async () => {
   const { dir, remote, clone, message, elsewhere } = trunk();
   git(clone, 'config', 'pstack.delivery', 'push');
-  const startsBeforeDeadline = 10_000;
-  const checkSeconds = 6;
   const late = join(dir, 'late.mjs');
-  writeFileSync(late, `const now = performance.now.bind(performance);\nperformance.now = () => now() + 55 * 60_000 - ${startsBeforeDeadline};\n`);
-  const ran = join(dir, 'ran');
+  writeFileSync(late, 'const now = performance.now.bind(performance);\nperformance.now = () => now() + 55 * 60_000 - 8_000;\n');
+  const [ran, once, pid] = ['ran', 'once', 'pid'].map((name) => join(dir, name));
   const other = elsewhere('d.txt', 'theirs\n', 'docs(d): land elsewhere');
   writeFileSync(join(clone, 'a.txt'), 'two\n');
 
-  const check = `echo run >> ${ran} && git -C ${other} push --quiet origin HEAD:next && sleep ${checkSeconds}`;
-  const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', check], { NODE_OPTIONS: `--import ${late}` });
+  const check = `echo run >> ${ran}; if test -f ${once}; then sh -c 'echo $$ > ${pid}; exec sleep 60'; else touch ${once} && git -C ${other} push --quiet origin HEAD:next; fi`;
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', check], { ...NO_WAIT, NODE_OPTIONS: `--import ${late}` });
   assert.equal(run.status, 75, run.stderr);
-  assert.match(run.stderr, /origin\/next moved, and checking the rebased commit again would end past 55 minutes into the run[\s\S]*run land\.mjs again with the same --check options and no --message/);
-  assert.equal(readFileSync(ran, 'utf8').trim().split('\n').length, 1, 'the rebased commit is not checked');
+  assert.match(run.stderr, /land\.mjs stopped echo run [\s\S]* at 55 minutes into the run[\s\S]*run land\.mjs again with the same --check options and no --message/);
+  assert.equal(readFileSync(ran, 'utf8').trim().split('\n').length, 2, 'the rebased commit is checked again until the deadline');
+  await until(() => !isAlive(Number(readFileSync(pid, 'utf8'))));
   assert.deepEqual(git(remote, 'log', '--format=%s', 'main..next').split('\n'), ['docs(d): land elsewhere']);
+});
+
+test('a landing whose first check took most of the hour checks again after next moves, and lands', () => {
+  const { dir, remote, clone, message, elsewhere } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const [ran, slow] = ['ran', 'slow'].map((name) => join(dir, name));
+  const late = join(dir, 'late.mjs');
+  writeFileSync(late, `import { existsSync } from 'node:fs';\nconst now = performance.now.bind(performance);\nperformance.now = () => now() + (existsSync(${JSON.stringify(slow)}) ? 40 * 60_000 : 0);\n`);
+  const other = elsewhere('d.txt', 'theirs\n', 'docs(d): land elsewhere');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const check = `echo run >> ${ran} && if ! test -f ${slow}; then touch ${slow} && git -C ${other} push --quiet origin HEAD:next; fi`;
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', check], { NODE_OPTIONS: `--import ${late}` });
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(run.stdout, /^origin\/next moved; rebasing and pushing again \(retry 1 of 3\)$/m);
+  assert.equal(readFileSync(ran, 'utf8').trim().split('\n').length, 2);
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'two');
+  assert.equal(git(remote, 'show', 'next:d.txt'), 'theirs');
 });
 
 test('a rerun after every push was declined skips the checks only while it would push the same tree, parent and message', () => {
@@ -1458,7 +1716,7 @@ function landingOnBothVersionFiles({ elsewhere }, sideElsewhere) {
   return [other, otherSide];
 }
 
-test('land exits 75 when a check ran on a public commit whose companion half arrived after the read, and a rerun lands', () => {
+test('a check that ran on a public commit whose companion half arrived after the read checks both halves again in the same run, and lands', () => {
   const fixture = trunk();
   const { dir, remote, clone, message } = fixture;
   const { sideElsewhere } = split(fixture);
@@ -1470,13 +1728,9 @@ test('land exits 75 when a check ran on a public commit whose companion half arr
 
   const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', pairs], { PATH: `${bin}:${ENV.PATH}` });
 
-  assert.equal(run.status, 75, run.stderr);
-  assert.ok(run.stderr.includes(`it ran on ${git(halves[0], 'rev-parse', 'HEAD')} without that commit's .git-private half`), run.stderr);
-  assert.notEqual(git(remote, 'show', 'next:a.txt'), 'two');
-
-  const rerun = helper('land.mjs', clone, ['--check', pairs], { PATH: `${bin}:${ENV.PATH}` });
-
-  assert.equal(rerun.status, 0, rerun.stderr);
+  assert.equal(run.status, 0, run.stderr);
+  assert.ok(run.stdout.includes(`it ran on ${git(halves[0], 'rev-parse', 'HEAD')} without that commit's .git-private half`), run.stdout);
+  assert.match(run.stdout, /^\.git-private's origin\/next moved; rebasing and pushing again \(retry 1 of 3\)$/m);
   assert.equal(git(remote, 'show', 'next:a.txt'), 'two');
 });
 
