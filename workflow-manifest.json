@@ -154,15 +154,15 @@
       "mode": 420
     },
     "skills/cleanup/SKILL.md": {
-      "sha256": "b605dbf802a5f06c6d8cc9a11990ec6bd33329f892eb590f4ee0fc3b80ca01ba",
+      "sha256": "fc65e1d99683bff813d3c708cb26d61d0577829a97a1d5e7ae4a01199a9f7559",
       "mode": 420
     },
     "skills/cleanup/scripts/scan.mjs": {
-      "sha256": "9976102d666c557904f9ab36f5e943a2850929ad92be871c6ec6377a742ea00b",
+      "sha256": "8026b5e8bf7506b82d939bc8e7b0542c3e14ffbdff2cbad7b238102c3966c1c3",
       "mode": 420
     },
     "skills/cleanup/scripts/scan.test.mjs": {
-      "sha256": "0a2ed3dad154c69a449f079ef38faa1901464521409f481702278b114f552885",
+      "sha256": "a27f5dbbe0aca8d3ac3a924a36de678a0c5711cefc36da6b69275fa32f95ee15",
       "mode": 420
     },
     "skills/passwords/SKILL.md": {
