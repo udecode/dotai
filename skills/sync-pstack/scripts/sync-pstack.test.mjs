@@ -1879,6 +1879,8 @@ test("plan-page counts each seat's rounds in the header and lists every round at
     reviewRow('panel', 'critical The seat writes files', 'applied: read-only brief'),
     reviewRow('review-response', 'Accepted the hand-off edits', 'kept'),
     reviewRow('panel', 'seats opus, codex:gpt-6.1-sol @xhigh missing', 'recorded'),
+    reviewRow('panel', 'nit Tidy the label', 'dismissed: churn'),
+    reviewRow('panel', 'warning: The roster lists a stale seat', 'applied: dropped'),
     reviewRow('panel', 'warning Fallback hides a missing seat', 'applied: reported missing'),
   ].join('\n');
   const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan, 'docs/plans/plan.decisions.tsv': `${log}\n` } });
@@ -1888,9 +1890,29 @@ test("plan-page counts each seat's rounds in the header and lists every round at
   const header = html.slice(html.indexOf('<header'), html.indexOf('</header>')).replace(/<[^>]+>/gu, ' ').replace(/\s+/gu, ' ');
   assert.match(header, /Reviews opus ×2 gpt-6-astra high gpt-6\.1-sol xhigh missing /, 'a seat counts its rounds, and a missing seat says so');
   const history = html.slice(html.lastIndexOf('Review history')).replace(/<[^>]+>/gu, '');
-  const order = ['Round 1', 'critical The seat writes files', 'nit Rename the flag', 'Accepted the hand-off edits', 'Round 2', 'warning Fallback hides a missing seat'].map((text) => history.indexOf(text));
+  const order = ['Round 1', 'critical The seat writes files', 'nit Rename the flag', 'Accepted the hand-off edits', 'Round 2', 'The roster lists a stale seat', 'warning Fallback hides a missing seat', 'nit Tidy the label'].map((text) => history.indexOf(text));
   assert.ok(order.every((index, at) => index > (order[at - 1] ?? -1)), JSON.stringify(order));
   assert.ok(!html.includes('Pick seats'));
+});
+
+test('plan-page draws a finding whose severity a colon follows like one a space follows', () => {
+  const { dir, run } = sandbox();
+  const plan = '# Plan\n\nStatus: executed\n\n## Main changes\n\n- Seat Codex.\n';
+  const log = [
+    'ts\tphase\tdecision\twhy\tevidence\tresult',
+    reviewRow('panel', 'seats opus', 'recorded'),
+    reviewRow('panel', 'warning: The roster lists a stale seat', 'applied: dropped'),
+    reviewRow('panel', 'warning :root selector is too broad', 'dismissed: checked'),
+    reviewRow('panel', 'critical [opus]: The seat writes files', 'applied: read-only brief'),
+  ].join('\n');
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan, 'docs/plans/plan.decisions.tsv': `${log}\n` } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const html = read(root, 'docs/plans/artifacts/plan.html');
+  const history = html.slice(html.lastIndexOf('Review history')).replace(/<[^>]+>/gu, '');
+  assert.ok(history.includes('warning The roster lists a stale seat'), history.slice(0, 400));
+  assert.ok(history.includes('warning :root selector is too broad'), history.slice(0, 400));
+  assert.ok(history.includes('critical [opus]: The seat writes files'), history.slice(0, 400));
 });
 
 test("plan-page draws the flow rail from the log's stage phases and the Status, never from words inside a row", () => {
@@ -2995,6 +3017,16 @@ test('decisions-check takes a panel finding only with a severity, after a seats 
   assert.equal(append('warning The fallback lists stale sessions', 'deferred: outside the ask, owner:').status, 1, 'a deferral with an empty owner');
   assert.equal(append('critical [opus]: The seat writes files', 'deferred: later, owner: user').status, 1, 'a deferred critical finding');
   assert.equal(append('warning The fallback lists stale sessions', 'deferred: outside the ask, owner: user in docs/plans/next.md').status, 0);
+  assert.equal(append('warning: The fallback lists stale sessions', 'dismissed: each read rebuilds the list').status, 0, 'a severity with a colon right after it');
+  assert.equal(append('warnings from both seats', 'dismissed: each read rebuilds the list').status, 1, 'a longer word that starts with a severity');
+  assert.equal(append('warningé The fallback lists stale sessions', 'dismissed: each read rebuilds the list').status, 1, 'a longer word whose next letter is outside ASCII');
+  assert.equal(append('nit９ Rename the flag', 'dismissed: churn').status, 1, 'a longer word whose next digit is outside ASCII');
+  assert.equal(append('warning‍ness is a longer token', 'dismissed: each read rebuilds the list').status, 1, 'a longer word joined by a zero-width joiner');
+  assert.equal(append('nit­picky naming', 'dismissed: churn').status, 1, 'a longer word joined by a soft hyphen');
+  assert.equal(append('warning, nit: two small points', 'dismissed: churn').status, 1, 'a severity that punctuation other than a colon follows');
+  const colon = append('critical: The seat writes files', 'applied: read-only');
+  assert.equal(colon.status, 1, 'a critical finding with a colon where its seats go');
+  assert.match(colon.stderr, /critical \[<seat>, \.\.\.\]: .*opus, gpt-6\.1-sol or lead/);
   assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'log.decisions.tsv'], root).status, 0, 'a whole-log check reads the roster too');
   assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', 'writing', 'deslop on the round 1 fixes', 'why', 'evidence', 'recorded'], root).status, 0);
   assert.equal(append('seats gpt-6-astra @xhigh', 'recorded').status, 0);
