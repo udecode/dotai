@@ -5678,6 +5678,29 @@ test('decisions-check refuses a new trunk step while an earlier one is built and
   assert.equal(append(pr, 'build', 'built: step 3 c.mjs').status, 0, 'outside trunk delivery steps build in parallel');
 });
 
+test('decisions-check refuses a second new plan with nothing landed until the owner answer is quoted', () => {
+  const { dir, run } = sandbox();
+  const files = Object.fromEntries(['a', 'b', 'c', 'd'].map((name) => [`docs/plans/2026-01-01-${name}.md`, `# ${name}\n`]));
+  const root = project(dir, 'app', { files });
+  const append = (log, phase, decision, result = 'recorded') => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', `docs/plans/2026-01-01-${log}.decisions.tsv`, phase, decision, 'why', 'proof: none', result], root);
+  const pivot = (from, to, severity = 'critical') => append(from, 'panel', `${severity} [opus]: The join drops a block`, `open: the run pivots; patch: docs/plans/2026-01-01-${to}.md; owner: the owner; stop: its build`);
+  assert.equal(append('a', 'panel', 'seats opus').status, 0);
+  assert.equal(pivot('a', 'b').status, 0, "the first new plan is the lead's call");
+  assert.equal(pivot('a', 'b', 'warning').status, 0, 'a second finding carried into the same new plan');
+  assert.equal(append('b', 'panel', 'seats opus').status, 0);
+  const stuck = pivot('b', 'c');
+  assert.equal(stuck.status, 1, "the second new plan, from the first new plan's log");
+  assert.match(stuck.stderr, /starts the new plan 2026-01-01-c\.md after 1 new plan since the run's last landing/);
+  assert.equal(append('b', 'owner', 'second plan: the owner asked for a new plan').status, 0);
+  assert.equal(pivot('b', 'c').status, 1, 'an owner row that quotes nothing');
+  assert.equal(append('b', 'owner', 'second plan: the owner said "take the new plan"').status, 0);
+  assert.equal(pivot('b', 'c').status, 0);
+  assert.equal(append('c', 'panel', 'seats opus').status, 0);
+  assert.match(pivot('c', 'd').stderr, /after 2 new plans/, 'each later new plan needs its own answer');
+  assert.equal(append('c', 'delivery', 'step 1 landed as abc1234').status, 0);
+  assert.equal(pivot('c', 'd').status, 0, 'a landing starts the count again');
+});
+
 test('decisions-check requires scope on a proven row and leaves committed rows alone', () => {
   const { dir, run } = sandbox();
   const header = 'ts\tphase\tdecision\twhy\tevidence\tresult';
