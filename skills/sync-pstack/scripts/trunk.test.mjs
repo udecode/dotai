@@ -1750,6 +1750,77 @@ test('a check that ran on a public commit whose companion half arrived after the
   assert.equal(git(remote, 'show', 'next:a.txt'), 'two');
 });
 
+// Puts the helpers on next, so the clone runs its own copy as a worktree does, and returns a commit elsewhere whose land.mjs prints a line.
+function helpersOnNext(fixture) {
+  const { clone, elsewhere } = fixture;
+  cpSync(HELPERS, join(clone, '.agents/pstack'), { recursive: true });
+  git(clone, 'add', '--all');
+  git(clone, 'commit', '--quiet', '-m', 'chore(pstack): sync the helpers');
+  git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
+  const land = readFileSync(join(HELPERS, 'land.mjs'), 'utf8').replace('// Installed by the sync-pstack skill.\n', "// Installed by the sync-pstack skill.\nconsole.log('the rebased land.mjs ran');\n");
+  return elsewhere('.agents/pstack/land.mjs', land, 'chore(pstack): sync a newer land.mjs');
+}
+const ownLand = (clone, args, env = {}) =>
+  spawnSync(process.execPath, [join(clone, '.agents/pstack/land.mjs'), ...args], { cwd: clone, encoding: 'utf8', env: { ...ENV, ...NO_WAIT, ...env } });
+const exits = (clone) =>
+  readFileSync(join(clone, '.git/pstack-land-runs.jsonl'), 'utf8')
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line))
+    .filter((row) => 'exit' in row)
+    .map((row) => row.exit);
+
+test('a landing whose rebase brings a newer land.mjs goes on in a new process that runs the rebased copy, and lands', () => {
+  const fixture = trunk();
+  const { dir, remote, clone, message } = fixture;
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const newer = helpersOnNext(fixture);
+  git(newer, 'push', '--quiet', 'origin', 'HEAD:next');
+  const ran = join(dir, 'ran');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const run = ownLand(clone, ['--message', message(GOOD), '--check', `echo run >> ${ran}`]);
+
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(run.stdout, /the rebase changed \.agents\/pstack or \.agents\/pstack\.json, so land\.mjs goes on in a new process/);
+  assert.equal(run.stdout.match(/the rebased land\.mjs ran/g)?.length, 1, run.stdout);
+  assert.equal(readFileSync(ran, 'utf8'), 'run\n', 'the process that loaded the old helpers ran no check');
+  assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), `${GOOD}\n\nLead: unknown`);
+  assert.deepEqual(exits(clone), ['restarted', 0], 'the restarted process is logged apart, so its minutes are not lost');
+});
+
+test('a landing whose retry rebases onto a newer land.mjs goes on in a new process that checks again, and lands', () => {
+  const fixture = trunk();
+  const { dir, remote, clone, message } = fixture;
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const newer = helpersOnNext(fixture);
+  const ran = join(dir, 'ran');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  const check = `echo run >> ${ran}; [ -e ${ran}.moved ] || { touch ${ran}.moved; git -C ${newer} push --quiet origin HEAD:next; }`;
+
+  const run = ownLand(clone, ['--message', message(GOOD), '--check', check]);
+
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(run.stdout, /origin\/next moved; rebasing and pushing again \(retry 1 of 3\)/);
+  assert.equal(run.stdout.match(/the rebased land\.mjs ran/g)?.length, 1, run.stdout);
+  assert.equal(readFileSync(ran, 'utf8'), 'run\nrun\n');
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'two');
+  assert.deepEqual(exits(clone), ['restarted', 0]);
+});
+
+test('a landing that goes on in a new process counts the minutes the process before it spent toward its 55', () => {
+  const { dir, clone, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const ran = join(dir, 'ran');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', `touch ${ran}`], { ...NO_WAIT, PSTACK_LAND_SPENT_MS: String(55 * 60_000) });
+
+  assert.equal(run.status, 75, run.stderr);
+  assert.match(run.stderr, /at 55 minutes into the run/);
+  assert.equal(existsSync(ran), false);
+});
+
 test('land keeps a failed check at exit 1 when the companion half that arrived belongs to a public commit the clone holds but the check did not run on', () => {
   const fixture = trunk();
   const { dir, clone, message } = fixture;
