@@ -102,7 +102,7 @@
   Remove only a worktree the run created, a task session's own worktree once its task lands, as Landing says, or one the `cleanup` skill marks safe.
 <!-- end -->
 <!-- if delivery=trunk -->
-  Remove only a worktree the run created, its own once its task lands, or one the `cleanup` skill marks safe.
+  Remove only a worktree the run created other than its own, or one the `cleanup` skill marks safe; a session leaves its own for the cleanup scan, which removes it after a quiet day.
 <!-- end -->
   Remove it with `git worktree remove --force <path>` and confirm with `git worktree list`; never run `git worktree prune`, which edits the worktree registry every checkout shares.
 <!-- if delivery!=trunk -->

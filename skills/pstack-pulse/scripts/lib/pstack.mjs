@@ -12,7 +12,7 @@ const PLUGIN = 'pstack@pstack-claude';
 const MARKETPLACE = 'pstack-claude';
 const REPO = 'michael-denyer/pstack-claude';
 
-const SETTINGS = new Set(['default effort', 'session hook']);
+const SETTINGS = new Set(['default effort', 'session hook', 'auto cleanup']);
 const PARENT = new Set(['inherit-parent', 'auto']);
 const ROW = /^([a-z][a-z ,-]*?):\s+(\S.*?)\s*$/u;
 const RESCAN_MS = 60_000;
@@ -51,7 +51,7 @@ function sheetOf(text) {
   const { rows, twice } = rowsOf(text);
   const problems = [...twice].map((key) => `"${key}" is set twice`);
   for (const [key, value] of rows) {
-    if (key === 'session hook') continue;
+    if (key === 'session hook' || key === 'auto cleanup') continue;
     const efforts = key === 'default effort' ? [value].filter((effort) => effort !== 'session') : value.split(',').flatMap((entry) => /\s@(\S+)$/u.exec(entry.trim())?.[1] ?? []);
     for (const effort of efforts) if (rank(effort) < 0) problems.push(`"${key}" names effort ${effort}`);
   }
@@ -172,7 +172,7 @@ function findingsOf(config) {
   const findings = config.problems.map((title) => ({ title }));
   if (codex?.sheet) {
     const same = (a, b) => a?.replace(/\s+/gu, ' ') === b.replace(/\s+/gu, ' ');
-    const drift = [...codex.sheet.rows].filter(([key, value]) => key !== 'session hook' && !same(codex.copied.get(key), value)).map(([key, value]) => `${key}: ${codex.copied.get(key) ?? 'missing'}  (sheet: ${value})`);
+    const drift = [...codex.sheet.rows].filter(([key, value]) => !['session hook', 'auto cleanup'].includes(key) && !same(codex.copied.get(key), value)).map(([key, value]) => `${key}: ${codex.copied.get(key) ?? 'missing'}  (sheet: ${value})`);
     if (drift.length) findings.push({ title: `Codex instructions differ from its sheet on ${drift.length === 1 ? '1 row' : `${drift.length} rows`}`, details: ['~/.codex/AGENTS.md against ~/.codex/pstack-models.md', ...drift] });
   }
   if (!claude.includes) findings.push({ title: 'Claude sessions do not load the models sheet', details: ['~/.claude/CLAUDE.md has no @ include of pstack-models.md'] });
