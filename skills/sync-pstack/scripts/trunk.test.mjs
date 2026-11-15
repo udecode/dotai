@@ -1225,7 +1225,7 @@ test('land pushes a topic branch and opens a PR into next when the clone has no 
   assert.deepEqual(ghLines(dir, 'gh-merge'), ['pr', 'merge', 'https://example.test/pull/7', '--auto', '--squash'], 'a branch with no rules still gets auto-merge');
 });
 
-test("land opens no PR while its author's models sheet seats the wrong panel models, and names each fix", () => {
+test("land opens no PR while its author's models sheet seats Sonnet, Haiku or a low effort or leaves a seat line out, and lets a Codex-only sheet through", () => {
   const land = (sheet) => {
     const { dir, clone, message } = trunk();
     const codex = join(dir, 'codex');
@@ -1237,12 +1237,13 @@ test("land opens no PR while its author's models sheet seats the wrong panel mod
     return helper('land.mjs', clone, ['--message', message(PR)], { ...stubGh(dir), CODEX_THREAD_ID: 'thread', CODEX_HOME: codex });
   };
   const arena = 'arena runners: opus, codex:gpt-6.1-sol @xhigh\n';
-  const bad = land(`${arena}interrogate reviewers: opus, fable, codex:gpt-6.1-sol @medium\n`);
+  const bad = land(`${arena}interrogate reviewers: opus, sonnet, haiku, codex:gpt-6.1-sol @medium\n`);
   assert.equal(bad.status, 1);
-  assert.match(bad.stderr, /`interrogate reviewers:` names fable/u);
+  assert.match(bad.stderr, /`interrogate reviewers:` names sonnet/u);
+  assert.match(bad.stderr, /`interrogate reviewers:` names haiku/u);
   assert.match(bad.stderr, /runs codex:gpt-6\.1-sol @medium, below this project's maxEffort high/u);
-  assert.match(bad.stderr, /add the line `architect runners: opus, codex:gpt-6\.1-sol`/u);
-  const good = land(`All roles inherit gpt-6.1-sol and never dispatch fable.\n${arena}architect runners: opus, codex:gpt-6.1-sol @xhigh\ninterrogate reviewers: claude-opus-5-5, codex:gpt-6.1-sol\n`);
+  assert.match(bad.stderr, /add the line `architect runners: opus, codex:gpt-6\.1-sol`, or `architect runners: codex:gpt-6\.1-sol` without Claude Code/u);
+  const good = land(`All roles inherit gpt-6.1-sol and never dispatch sonnet.\n${arena}architect runners: claude-fable-5-2 @high, codex:gpt-6-astra @xhigh\ninterrogate reviewers: codex:gpt-6.1-sol @high, codex:gpt-6.1-sol\n`);
   assert.equal(good.status, 0, good.stderr);
 });
 
