@@ -3171,8 +3171,10 @@ test("decisions-check counts a pivot's open critical findings like any other", (
   const log = 'docs/plans/2026-01-02-wrap.decisions.tsv';
   writeFileSync(join(root, 'docs/plans/2026-01-02-wrap.md'), '# Wrap\n\nStatus: building\n' + brief());
   writeFileSync(join(root, 'docs/plans/2026-01-02-wrap-2.md'), '# Wrap again\n\nThe pivot from 2026-01-02-wrap.\n\nStatus: planning\n' + brief());
+  mkdirSync(join(root, 'docs/plans/artifacts/wrap'), { recursive: true });
+  writeFileSync(join(root, 'docs/plans/artifacts/wrap/prior-art.md'), '# What other editors do with the unwrap\n');
   const row = (n, result) => ['panel', n ? `critical [opus]: finding ${n}` : 'seats opus', 'why', 'proof: none', result].join('\t');
-  const pivot = (n) => row(n, 'open: the design cannot meet it, patch: docs/plans/2026-01-02-wrap-2.md, owner: user, stop: its build');
+  const pivot = (n) => row(n, 'open: the design cannot meet it, patch: docs/plans/2026-01-02-wrap-2.md, owner: user, stop: its build, prior-art: docs/plans/artifacts/wrap/prior-art.md');
   const batch = (...rows) => {
     writeFileSync(join(root, 'rows.tsv'), [row(0, 'recorded'), ...rows].join('\n') + '\n');
     return helper('append', log, '--from', 'rows.tsv');
@@ -5678,27 +5680,153 @@ test('decisions-check refuses a new trunk step while an earlier one is built and
   assert.equal(append(pr, 'build', 'built: step 3 c.mjs').status, 0, 'outside trunk delivery steps build in parallel');
 });
 
-test('decisions-check refuses a second new plan with nothing landed until the owner answer is quoted', () => {
+const restampInOrder = () => {
+  let tick = 0;
+  return (file, result) => {
+    if (result.status !== 0) return result;
+    const stamp = new Date(Date.UTC(2000, 0, 1) + (tick += 1) * 1000).toISOString().replace(/\.\d{3}Z$/u, 'Z');
+    const lines = readFileSync(file, 'utf8').split('\n');
+    writeFileSync(file, lines.map((line, index) => (index > 0 && line && !line.startsWith('2000-') ? `${stamp}${line.slice(line.indexOf('\t'))}` : line)).join('\n'));
+    return result;
+  };
+};
+
+const pivotRun = (names) => {
   const { dir, run } = sandbox();
-  const files = Object.fromEntries(['a', 'b', 'c', 'd'].map((name) => [`docs/plans/2026-01-01-${name}.md`, `# ${name}\n`]));
-  const root = project(dir, 'app', { files });
-  const append = (log, phase, decision, result = 'recorded') => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', `docs/plans/2026-01-01-${log}.decisions.tsv`, phase, decision, 'why', 'proof: none', result], root);
-  const pivot = (from, to, severity = 'critical') => append(from, 'panel', `${severity} [opus]: The join drops a block`, `open: the run pivots; patch: docs/plans/2026-01-01-${to}.md; owner: the owner; stop: its build`);
+  const files = Object.fromEntries(names.map((name) => [`docs/plans/2026-01-01-${name}.md`, `# ${name}\n`]));
+  const root = project(dir, 'app', { files: { ...files, 'docs/plans/artifacts/run/prior-art.md': '# Prior art\n' } });
+  const tick = restampInOrder();
+  const logOf = (name) => (name === 'run' ? 'docs/plans/artifacts/run/run.decisions.tsv' : `docs/plans/2026-01-01-${name}.decisions.tsv`);
+  const append = (log, phase, decision, result = 'recorded') => tick(join(root, logOf(log)), run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', logOf(log), phase, decision, 'why', 'proof: none', result], root));
+  const pivot = (from, to, severity = 'critical') => append(from, 'panel', `${severity} [opus]: The join drops a block`, `open: the run pivots; patch: docs/plans/2026-01-01-${to}.md; owner: the owner; stop: its build; prior-art: docs/plans/artifacts/run/prior-art.md`);
+  return { append, pivot, root, run, tick };
+};
+
+test('decisions-check refuses a second new plan with nothing landed until the owner answer is quoted', () => {
+  const { append, pivot } = pivotRun(['a', 'b', 'c', 'd']);
   assert.equal(append('a', 'panel', 'seats opus').status, 0);
   assert.equal(pivot('a', 'b').status, 0, "the first new plan is the lead's call");
   assert.equal(pivot('a', 'b', 'warning').status, 0, 'a second finding carried into the same new plan');
   assert.equal(append('b', 'panel', 'seats opus').status, 0);
+  assert.equal(pivot('b', 'a', 'warning').status, 0, "a return into the run's first plan");
   const stuck = pivot('b', 'c');
   assert.equal(stuck.status, 1, "the second new plan, from the first new plan's log");
-  assert.match(stuck.stderr, /starts the new plan 2026-01-01-c\.md after 1 new plan since the run's last landing/);
+  assert.match(stuck.stderr, /starts the new plan 2026-01-01-c\.md after 1 new plan the lead chose since the run's last landing/);
   assert.equal(append('b', 'owner', 'second plan: the owner asked for a new plan').status, 0);
-  assert.equal(pivot('b', 'c').status, 1, 'an owner row that quotes nothing');
+  assert.match(pivot('b', 'c').stderr, /after 1 new plan the lead chose/, 'an owner row that quotes nothing');
   assert.equal(append('b', 'owner', 'second plan: the owner said "take the new plan"').status, 0);
   assert.equal(pivot('b', 'c').status, 0);
   assert.equal(append('c', 'panel', 'seats opus').status, 0);
-  assert.match(pivot('c', 'd').stderr, /after 2 new plans/, 'each later new plan needs its own answer');
+  assert.match(pivot('c', 'd').stderr, /after 1 new plan the lead chose/, "each later new plan needs its own answer, and the owner's plan c does not count");
   assert.equal(append('c', 'delivery', 'step 1 landed as abc1234').status, 0);
   assert.equal(pivot('c', 'd').status, 0, 'a landing starts the count again');
+  assert.equal(append('c', 'owner', 'second plan: the owner said "plan the merge apart"').status, 0);
+  assert.equal(pivot('c', 'e', 'warning').status, 0, 'a plan the owner asked for in their own words');
+  assert.match(pivot('c', 'f', 'warning').stderr, /after 1 new plan the lead chose/, 'only d counts, not the owner-asked e');
+});
+
+test("decisions-check refuses a pivot's first row until it names the prior-art report on the finding's case", () => {
+  const { append: to, root, run, tick } = pivotRun(['a', 'b']);
+  const append = (phase, decision, result) => to('a', phase, decision, result);
+  const pivot = (prior, severity = 'critical') => append('panel', `${severity} [opus]: The join drops a block`, `open: the run pivots; patch: docs/plans/2026-01-01-b.md; owner: the owner; stop: its build${prior}`);
+  assert.equal(append('panel', 'seats opus', 'recorded').status, 0);
+  assert.match(pivot('').stderr, /starts the new plan 2026-01-01-b\.md, and it names no prior-art: report/, 'the first new plan needs one too');
+  assert.match(pivot('; prior-art: docs/plans/artifacts/run/missing.md').stderr, /its prior-art: docs\/plans\/artifacts\/run\/missing\.md is no file under docs\/plans\/artifacts\//);
+  assert.match(pivot('; prior-art: docs/plans/2026-01-01-a.md').stderr, /its prior-art: docs\/plans\/2026-01-01-a\.md is no file under/, 'a file outside the artifacts folder');
+  assert.match(pivot('; prior-art: docs/plans/artifacts/run').stderr, /its prior-art: docs\/plans\/artifacts\/run is no file under/, 'a folder');
+  assert.equal(pivot('; prior-art: [the report](docs/plans/artifacts/run/prior-art.md).').status, 0, 'a Markdown link');
+  assert.equal(pivot('', 'warning').status, 0, 'a finding carried into a plan the log already named');
+  assert.equal(append('delivery', 'step 1 landed as abc1234', 'recorded').status, 0);
+  assert.equal(pivot('', 'warning').status, 0, 'a plan the log named before its last landing');
+  assert.equal(append('owner', 'second plan: the owner said "take it"', 'recorded').status, 0);
+  const next = (prior) => append('panel', 'warning [opus]: The split drops a cell', `open: the run pivots; patch: docs/plans/2026-01-01-c.md; owner: the owner; stop: its build${prior}`);
+  assert.equal(next('; prior-art: `docs/plans/artifacts/run/prior-art.md:3`, read at 2026-01-01').status, 0, 'a cited line and trailing punctuation');
+  const log = 'docs/plans/2026-01-01-a.decisions.tsv';
+  const onto = (plan, prior, evidence = 'proof: none') => tick(join(root, log), run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', log, 'panel', 'warning [opus]: The split drops a cell', 'why', evidence, `open: the run pivots; patch: docs/plans/2026-01-01-${plan}.md; owner: the owner; stop: its build${prior}`], root));
+  const shapes = [
+    ['d', '; prior-art: **docs/plans/artifacts/run/prior-art.md**', 'proof: none', 'a path in bold'],
+    ['e', '; prior-art: "docs/plans/artifacts/run/prior-art.md"', 'proof: none', 'a quoted path'],
+    ['f', '; prior-art: docs/plans/artifacts/run/prior-art.md', 'proof: none; the prior-art: lanes read two projects', 'a prior-art: mention in the evidence before the path in the result'],
+    ['g', '; **prior-art:** docs/plans/artifacts/run/prior-art.md', 'proof: none', 'a label in bold'],
+    ['h', '; Prior-art: docs/plans/artifacts/run/prior-art.md', 'proof: none', 'a capitalized label'],
+  ];
+  for (const [index, [plan, prior, evidence, why]] of shapes.entries()) {
+    assert.equal(append('delivery', `landed as ${index}a1b2c3d`, 'recorded').status, 0);
+    assert.equal(onto(plan, prior, evidence).status, 0, why);
+  }
+  assert.match(onto('i', '; prior-art: docs/plans/artifacts/../2026-01-01-a.md').stderr, /its prior-art: docs\/plans\/2026-01-01-a\.md is no file under/, 'a path that climbs out of the artifacts folder');
+});
+
+test('decisions-check counts a landing only from its fixed row and counts new plans through the run\'s logs', () => {
+  const { append, pivot } = pivotRun(['a', 'b', 'x', 'y']);
+  for (const log of ['run', 'a', 'b', 'x', 'y']) assert.equal(append(log, 'panel', 'seats opus').status, 0);
+  assert.equal(pivot('run', 'a').status, 0, 'a run-folder log starts the first new plan');
+  assert.match(pivot('a', 'b').stderr, /after 1 new plan the lead chose/, "the run folder's log counts toward the second");
+  for (const [decision, result, why] of [
+    ['land step 1 with land.mjs --dry', 'recorded: would land 717cb0f964', 'a dry run'],
+    ['will land step 1 as 8c2d5eaeb3 after review', 'recorded', 'a landing still to come'],
+    ['the land.mjs run for step 1 stopped on a rebase conflict at 53e6272d09', 'recorded', 'a stopped land.mjs run'],
+    ['land step 1', 'recorded: landed cbd8db2914 on next', 'a landing worded another way'],
+    ['step 1 not landed as 53e6272d09: the rebase stopped', 'recorded', 'a row that says the step did not land'],
+  ]) {
+    assert.equal(append('a', 'delivery', decision, result).status, 0);
+    assert.match(pivot('a', 'b').stderr, /after 1 new plan the lead chose[^]*log that row before this one/, why);
+  }
+  assert.equal(append('a', 'ship', 'step 1 landed as afaebad', 'recorded: refusal messages now tested').status, 0);
+  assert.equal(pivot('a', 'b').status, 0, 'the fixed row in any phase, with a sha of letters');
+  assert.equal(append('a', 'delivery', 'landed as 717cb0f964').status, 0);
+  assert.equal(pivot('a', 'b', 'warning').status, 0, 'a finding carried into b after the next landing');
+  assert.equal(pivot('a', 'e', 'warning').status, 0, 'b started before the landing, so e is the first new plan since');
+  assert.equal(pivot('a', 'b', 'warning').status, 0, 'b again after e started: b is still no new plan');
+  assert.match(pivot('b', 'c').stderr, /after 1 new plan the lead chose/, 'the plan e that the earlier log started after its landing');
+  assert.equal(pivot('b', 'e', 'warning').status, 0, "a finding carried into e, which a's log started");
+
+  assert.equal(pivot('x', 'y').status, 0);
+  assert.match(pivot('y', 'z').stderr, /after 1 new plan the lead chose/);
+  assert.equal(append('x', 'delivery', 'landed as 0a1b2c3d').status, 0);
+  assert.equal(pivot('y', 'z').status, 0, 'a landing in the earlier log after it named this one');
+});
+
+test("decisions-check finds the run's last landing by time across its logs", () => {
+  const { append, pivot } = pivotRun(['p', 'q', 'r', 'm', 'n']);
+  assert.equal(append('p', 'panel', 'seats opus').status, 0);
+  assert.equal(pivot('p', 'q').status, 0);
+  assert.equal(append('p', 'delivery', 'step 1 landed as 0a1b2c3d').status, 0);
+  assert.equal(append('q', 'panel', 'seats opus').status, 0);
+  assert.equal(pivot('q', 'r').status, 0);
+  assert.equal(append('p', 'delivery', 'step 2 landed as 1a2b3c4d').status, 0);
+  assert.equal(append('r', 'panel', 'seats opus').status, 0);
+  assert.equal(pivot('r', 's').status, 0, 'a landing in an earlier log after this plan started');
+
+  assert.equal(append('m', 'panel', 'seats opus').status, 0);
+  assert.equal(pivot('m', 'n').status, 0);
+  assert.equal(append('n', 'panel', 'seats opus').status, 0);
+  assert.equal(append('n', 'delivery', 'step 1 landed as 2a3b4c5d').status, 0);
+  assert.equal(pivot('m', 'k', 'warning').status, 0, "a landing in the new plan's log");
+  assert.match(pivot('n', 'o').stderr, /after 1 new plan the lead chose/, "k, which the old log started after the new plan's landing");
+});
+
+test("in a trunk project a worktree's second new plan counts the main checkout's plan logs", () => {
+  const { helper, root, run, worktree } = linkedWorktree('trunk');
+  const tick = restampInOrder();
+  const main = realpathSync(root);
+  writeFileSync(join(root, 'docs/plans/artifacts/prior-art.md'), '# Prior art\n');
+  writeFileSync(join(root, 'docs/plans/2026-01-01-a.md'), '# a\n');
+  writeFileSync(join(worktree, 'docs/plans/2026-01-01-b.md'), '# b\n');
+  const log = (name) => `docs/plans/2026-01-01-${name}.decisions.tsv`;
+  const pivot = (to, plans = 'docs/plans', severity = 'critical') => ['panel', `${severity} [opus]: The join drops a block`, 'why', 'proof: none', `open: the run pivots; patch: ${plans}/2026-01-01-${to}.md; owner: the owner; stop: its build; prior-art: docs/plans/artifacts/prior-art.md`];
+  const seats = ['panel', 'seats opus', 'why', 'proof: none', 'recorded'];
+  const inMain = (name, ...cells) => tick(join(root, log(name)), run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', log(name), ...cells], root));
+  const inWorktree = (name, ...cells) => tick(join(worktree, log(name)), helper('append', log(name), ...cells));
+  assert.equal(inMain('a', ...seats).status, 0);
+  assert.equal(inMain('a', ...pivot('b', `${main}/docs/plans`)).status, 0, "an absolute path into the main checkout's plans directory");
+  assert.equal(existsSync(join(worktree, log('a'))), false);
+  assert.equal(inWorktree('b', ...seats).status, 0);
+  assert.match(inWorktree('b', ...pivot('c')).stderr, /after 1 new plan the lead chose/, "the main checkout's log, read from the worktree");
+  assert.equal(inMain('a', 'delivery', 'landed as 0a1b2c3d', 'why', 'proof: none', 'recorded').status, 0);
+  writeFileSync(join(worktree, log('a')), readFileSync(join(root, log('a')), 'utf8'));
+  assert.equal(inMain('a', ...pivot('e', 'docs/plans', 'warning')).status, 0);
+  assert.match(inWorktree('b', ...pivot('c')).stderr, /after 1 new plan the lead chose/, "the main checkout's newer rows beside the worktree's older copy");
 });
 
 test('decisions-check requires scope on a proven row and leaves committed rows alone', () => {
