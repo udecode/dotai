@@ -348,6 +348,26 @@ function landInFullPool(dir, clone, args, env = {}) {
   return land;
 }
 
+test("a landing asks the pool for one core, and its check takes its own share as a land check instead of running inside the landing's", async () => {
+  const { dir, clone, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const seen = join(dir, 'check-env');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  const land = landInFullPool(dir, clone, ['--message', message(GOOD), '--check', `env > ${seen}`]);
+
+  try {
+    await until(() => land.err.includes('waiting'));
+    assert.match(land.err, /land\.mjs: waiting for 1 of this machine's cores; /);
+    land.free();
+    assert.equal(await land.exited, 0, land.err);
+    const env = readFileSync(seen, 'utf8');
+    assert.match(env, /^PSTACK_LAND_CHECK=1$/m, 'the check cannot tell it runs for a landing');
+    assert.doesNotMatch(env, /^PSTACK_SLOT=/m, "the check's own reserve would return at once on the landing's share");
+  } finally {
+    land.stop();
+  }
+});
+
 test('a landing that waited in the core pool rebases onto the commits next gained meanwhile and checks once', async () => {
   const { dir, remote, clone, message, elsewhere } = trunk();
   git(clone, 'config', 'pstack.delivery', 'push');

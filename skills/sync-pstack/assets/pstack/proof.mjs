@@ -17,7 +17,9 @@
 // more workers than it asked for holds a share for each. It waits while the
 // pool is full or free memory is low, or while the pool still counts the
 // workers of a command that just started. Waiters enter in the order they
-// arrived, except that a waiting landing goes ahead of every waiting proof.
+// arrived, except that a waiting landing goes ahead of every waiting proof,
+// and a small ask that fits now enters past a larger waiter that has waited
+// under five minutes.
 
 import { spawn, spawnSync } from 'node:child_process';
 import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, realpathSync, rmSync, statSync, writeFileSync, writeSync } from 'node:fs';
@@ -46,6 +48,12 @@ function claim(dir, name) {
 const POOL = join(tmpdir(), 'pstack-slots');
 const POOL_LOCK = join(POOL, '.lock');
 const HELD = 'PSTACK_SLOT';
+// land.mjs sets it in its check's environment, so the check's own share enters
+// the pool as a landing.
+export const LAND_CHECK = 'PSTACK_LAND_CHECK';
+// A small ask that fits the free cores now enters past larger waiters until
+// the oldest of them has waited this long, so it never starves them.
+const BACKFILL_MS = 5 * 60_000;
 const MIN_FREE_MEMORY = 0.15;
 // The owner allows twice as many workers as cores (2026-10-26), because the
 // memory floor, not the core count, keeps the machine from freezing. Pool
@@ -120,6 +128,8 @@ function entries(suffix) {
 // or ready to run is one worker, because on a loaded machine its CPU share
 // reads far under the core it would use, and a process whose threads use
 // several cores is that many. Where `ps` cannot run or hangs, nothing counts.
+// The count stops at another holder, such as the check a landing runs when
+// that check takes a share of its own, so no worker counts twice.
 function countWorkers() {
   const { stdout } = spawnSync('ps', ['-A', '-o', 'pid=', '-o', 'ppid=', '-o', 'pcpu=', '-o', 'state='], { encoding: 'utf8', env: { ...process.env, LC_ALL: 'C' }, timeout: 10_000 });
   const children = new Map();
@@ -130,8 +140,8 @@ function countWorkers() {
     if (!children.has(Number(parent))) children.set(Number(parent), []);
     children.get(Number(parent)).push(child);
   }
-  return (root) => {
-    const seen = new Set([root]);
+  return (root, holders) => {
+    const seen = new Set(holders);
     let workers = 0;
     for (const under = [...(children.get(root) ?? [])]; under.length > 0; ) {
       const child = under.pop();
@@ -147,16 +157,19 @@ function countWorkers() {
 // Holds the machine-wide pool's share for `workers` until the returned release
 // runs or this process exits; the release's `waited` is the milliseconds the
 // call waited. A process whose ancestor holds a share takes none, so a proof
-// started inside a proof or a land check never waits on its own parent. A
-// waiter counts the ask of every waiter ahead of it as held, so a small proof
-// never takes the cores a larger waiter ahead of it needs. A `first` waiter,
-// which land.mjs passes, is ahead of every waiter without `first`, and none of
-// those enters while it waits, because a proof's workers can outgrow its ask.
+// started inside a proof never waits on its own parent. A waiter counts the
+// ask of every waiter ahead of it as held, so a small proof never takes the
+// cores a larger waiter ahead of it needs, unless its ask fits the free cores
+// now and the oldest waiter ahead has waited under BACKFILL_MS. A `first`
+// waiter, which land.mjs and its check pass, is ahead of every waiter without
+// `first`, and none of those enters while it waits, because a proof's workers
+// can outgrow its ask.
 // When `giveUp` returns true while the call waits, it leaves the queue and
 // returns null.
-export function reserve(workers, label, { perWorker: coresPerWorker = CORES_PER_WORKER, first = false, giveUp = () => false } = {}) {
+export function reserve(workers, label, { perWorker: coresPerWorker = CORES_PER_WORKER, first: asLanding = false, giveUp = () => false } = {}) {
   const asked = Date.now();
   if (process.env[HELD]) return Object.assign(() => {}, { waited: 0 });
+  const first = asLanding || process.env[LAND_CHECK] === '1';
   const capacity = availableParallelism();
   const want = Math.min(workers * coresPerWorker, capacity);
   mkdirSync(POOL, { recursive: true });
@@ -176,9 +189,11 @@ export function reserve(workers, label, { perWorker: coresPerWorker = CORES_PER_
           since = now;
           writeFileSync(ticket, JSON.stringify({ pid: process.pid, cores: want, label, since, first }));
         }
-        const live = entries('.json').map((holder) => ({
+        const holders = entries('.json');
+        const pids = holders.map((holder) => holder.pid);
+        const live = holders.map((holder) => ({
           ...holder,
-          used: Math.min(capacity, Math.max(holder.cores, tenths(running(holder.pid) * (holder.perWorker ?? CORES_PER_WORKER)))),
+          used: Math.min(capacity, Math.max(holder.cores, tenths(running(holder.pid, pids) * (holder.perWorker ?? CORES_PER_WORKER)))),
         }));
         const held = tenths(live.reduce((sum, holder) => sum + holder.used, 0));
         const watched = live.find((holder) => Math.abs(now - holder.since) < WATCH_MS);
@@ -189,7 +204,8 @@ export function reserve(workers, label, { perWorker: coresPerWorker = CORES_PER_
         const queued = ahead.reduce((sum, waiter) => sum + waiter.cores, 0);
         const landing = first ? undefined : ahead.find((waiter) => waiter.first);
         const free = freeMemory();
-        const fits = held + queued + want <= capacity;
+        const oldest = Math.min(...ahead.map((waiter) => waiter.since));
+        const fits = held + queued + want <= capacity || (held + want <= capacity && now - oldest < BACKFILL_MS);
         if (fits && free >= MIN_FREE_MEMORY && !watched && !landing) {
           writeFileSync(mine, JSON.stringify({ pid: process.pid, cores: want, label, since: now, perWorker: coresPerWorker }));
           rmSync(ticket, { force: true });

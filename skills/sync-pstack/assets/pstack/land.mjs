@@ -55,9 +55,11 @@
 // logins, a commit lands only for them unless it names a source: an issue of
 // this repository or its companion, a card in the suggested-task ledger, or a
 // dated plan in the plans directory that exists.
-// A landing takes one share of the machine's core pool, ahead of every proof
+// A landing takes one core of the machine's core pool, ahead of every proof
 // that waits, the first time it rebuilds or checks, and holds it until it
-// exits. It gives the share back while it waits out a GH006 and takes it again
+// exits. Its check runs with PSTACK_LAND_CHECK=1 and outside that share, so a
+// check that reserves cores through proof.mjs waits as a landing for what it
+// asks, and the pool counts a check that reserves none under the landing. It gives the share back while it waits out a GH006 and takes it again
 // when it next rebuilds or checks. It exits 75 when it still waits for cores
 // at 55 minutes into the run, and after a wait it fetches again and rebases
 // when either tip moved. Each check runs in a process group of its
@@ -79,12 +81,12 @@
 
 import { spawn, spawnSync } from 'node:child_process';
 import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { availableParallelism, devNull, tmpdir } from 'node:os';
+import { devNull, tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { findLead, leadLabel, maxEffort, modelsSheet, runtimeFromEnv, sheetMisses } from './lead.mjs';
 import { defaultsRefusal } from './plan-page.mjs';
-import { alive, reserve } from './proof.mjs';
+import { alive, LAND_CHECK, reserve } from './proof.mjs';
 import { ledgerPath, readTasks, TASK_ID } from './tasks.mjs';
 import { findings } from './writing-check.mjs';
 
@@ -107,6 +109,9 @@ const CLOSING = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)(?::\s*|\s+)(?:[\w.-
 const DATED = /^\d{4}-\d\d-\d\d-[^/]+\.md$/u;
 const PR_SECTIONS = ['Why', 'Verification'];
 const RETRIES = 3;
+// One core covers the git work and the generators. A check that reserves its
+// own cores enters the pool as a landing, so it waits only for what it uses.
+const LAND_WORKERS = 2;
 const DECLINED_WAITS = [1, 2, 4, 8, 16];
 const COMMAND_LIMIT = 60 * 60_000;
 const DEADLINE = COMMAND_LIMIT - 5 * 60_000;
@@ -256,7 +261,7 @@ let cause = null;
 
 function takeCores() {
   if (share) return;
-  share = reserve(Math.ceil(availableParallelism() / 2), 'land.mjs', { first: true, giveUp: () => elapsed() >= DEADLINE });
+  share = reserve(LAND_WORKERS, 'land.mjs', { first: true, giveUp: () => elapsed() >= DEADLINE });
   if (!share) {
     fail(
       `land.mjs still waited for cores at ${DEADLINE / 60_000} minutes into the run. ` +
@@ -914,7 +919,9 @@ const stamp = () =>
 function runCheck(command) {
   if (elapsed() >= DEADLINE) return Promise.resolve({ stopped: true });
   return new Promise((resolve) => {
-    const child = spawn(command, { shell: true, stdio: ['ignore', 'inherit', 'inherit'], detached: true });
+    const env = { ...process.env, [LAND_CHECK]: '1' };
+    delete env.PSTACK_SLOT;
+    const child = spawn(command, { shell: true, stdio: ['ignore', 'inherit', 'inherit'], detached: true, env });
     const killGroup = (signal) => {
       try {
         process.kill(-child.pid, signal);

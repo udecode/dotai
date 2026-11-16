@@ -114,29 +114,6 @@ test('proof waits while other sessions hold the whole core pool and runs once a 
   assert.match(read(dir, 'run/queued-a1.log'), /\nran\nexit=0\n$/);
 });
 
-test('a proof that arrives later never takes the cores an earlier, larger waiter needs', async () => {
-  const { dir, env, args } = corePool('sync-pstack-proof-order-', [{ pid: idle.pid, cores: 1 }]);
-  const start = (name, cores) => {
-    const argv = args(name, `echo ${name}`);
-    argv.splice(argv.indexOf('--'), 0, '--cores', String(cores));
-    const proof = spawn(process.execPath, argv, { cwd: dir, env, stdio: ['ignore', 'pipe', 'pipe'] });
-    proof.stderr.setEncoding('utf8');
-    proof.waited = '';
-    proof.stderr.on('data', (chunk) => (proof.waited += chunk));
-    proof.exited = new Promise((done) => proof.on('exit', done));
-    return proof;
-  };
-
-  const large = start('large', 2 * availableParallelism());
-  await until(() => large.waited.includes('waiting'));
-  const small = start('small', 1);
-  await until(() => small.waited.includes('waiting') || small.exitCode !== null);
-  assert.equal(small.exitCode, null, 'a one-core proof took a free core that an earlier waiter needed');
-  assert.match(small.waited, /proof\.mjs small: waiting for 0\.5 of this machine's cores; 1 of \d+ cores held by other session \(\d+, 1\), and \d+ asked for by 1 waiter ahead$/m);
-  rmSync(join(dir, `tmp/pstack-slots/${idle.pid}.json`));
-  assert.deepEqual(await Promise.all([large.exited, small.exited]), [0, 0]);
-});
-
 test('a landing that waits goes ahead of a proof that started waiting before it, and its release says how long it waited', async () => {
   const { dir, env, args } = corePool('sync-pstack-proof-landing-first-', [{ pid: idle.pid, cores: availableParallelism() }]);
   const proof = background(args('early', 'echo ran'), { cwd: dir, env });
@@ -170,6 +147,68 @@ test('no proof enters while a landing waits, even where both shares fit, because
   assert.match(proof.waited, /proof\.mjs beside: waiting for 0\.5 of this machine's cores; land\.mjs \(\d+\) waits for [\d.]+ cores, and a waiting landing enters before any proof$/m);
   rmSync(ticket);
   assert.equal(await proof.exited, 0);
+});
+
+test('a small proof enters past a larger waiter that has waited under five minutes when the free cores fit it now', () => {
+  const { dir, env, args } = corePool('sync-pstack-proof-backfill-', [{ pid: idle.pid, cores: 1, since: 0 }]);
+  const ticket = { pid: idle.pid, cores: availableParallelism(), label: 'large proof', since: Date.now() - 60_000 };
+  writeFileSync(join(dir, `tmp/pstack-slots/${idle.pid}.wait`), JSON.stringify(ticket));
+
+  const small = spawnSync(process.execPath, args('small', 'echo ran'), { cwd: dir, env, encoding: 'utf8', timeout: 15_000 });
+  assert.equal(small.status, 0, `the one-core proof waited behind a waiter that cannot enter yet:\n${small.stderr}`);
+});
+
+test('a small proof waits behind a larger waiter that has waited five minutes or more', async () => {
+  const { dir, env, args } = corePool('sync-pstack-proof-no-backfill-', [{ pid: idle.pid, cores: 1, since: 0 }]);
+  const ticket = join(dir, `tmp/pstack-slots/${idle.pid}.wait`);
+  writeFileSync(ticket, JSON.stringify({ pid: idle.pid, cores: availableParallelism(), label: 'large proof', since: Date.now() - 6 * 60_000 }));
+  const small = background(args('small', 'echo ran'), { cwd: dir, env });
+
+  await until(() => small.waited.includes('waiting') || small.exitCode !== null);
+  assert.equal(small.exitCode, null, 'a proof entered past a waiter that had waited six minutes');
+  assert.match(small.waited, /and \d+ asked for by 1 waiter ahead$/m);
+  rmSync(ticket);
+  assert.equal(await small.exited, 0);
+});
+
+test("a land check's own share enters as a landing, ahead of a proof that started waiting before it", async () => {
+  const { dir, env, args } = corePool('sync-pstack-proof-land-check-', [{ pid: idle.pid, cores: availableParallelism() }]);
+  const proof = background(args('early', 'echo ran'), { cwd: dir, env });
+  await until(() => proof.waited.includes('waiting'));
+  const took = join(dir, 'took');
+  const check = join(dir, 'check.mjs');
+  writeFileSync(
+    check,
+    `import { writeFileSync } from 'node:fs';\nimport { reserve } from ${JSON.stringify(pathToFileURL(join(HELPERS, 'proof.mjs')).href)};\n` +
+      `reserve(1, 'pnpm check');\nwriteFileSync(${JSON.stringify(took)}, 'took');\n` +
+      'Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 3000);\n'
+  );
+  const land = background([check], { cwd: dir, env: { ...env, PSTACK_LAND_CHECK: '1' } });
+  await until(() => land.waited.includes('waiting'));
+
+  rmSync(join(dir, `tmp/pstack-slots/${idle.pid}.json`));
+  await until(() => existsSync(took) || proof.exitCode !== null);
+  assert.equal(proof.exitCode, null, 'the proof that waited first entered before the land check');
+  assert.deepEqual(await Promise.all([land.exited, proof.exited]), [0, 0]);
+});
+
+test('a holder does not count the workers of a holder under it, so a land check that takes its own share is counted once', async () => {
+  const outer = spawn('sh', ['-c', `sh -c '${busyWorkers(4)}' & wait`], { stdio: 'ignore', detached: true });
+  try {
+    let inner;
+    await until(() => (inner = Number(spawnSync('pgrep', ['-P', String(outer.pid)], { encoding: 'utf8' }).stdout.trim().split('\n')[0])) > 0);
+    const { dir, env, args } = corePool('sync-pstack-proof-nested-holder-', [
+      { pid: outer.pid, cores: 0.5, since: 0, label: 'land.mjs' },
+      { pid: inner, cores: 0.5, since: 0, label: 'pnpm check' },
+    ]);
+    const argv = args('beside', 'echo ran');
+    argv.splice(argv.indexOf('--'), 0, '--cores', String(2 * (availableParallelism() - 3)));
+
+    const beside = spawnSync(process.execPath, argv, { cwd: dir, env, encoding: 'utf8', timeout: 15_000 });
+    assert.equal(beside.status, 0, `the pool counted the inner holder's workers under the outer holder too:\n${beside.stderr}`);
+  } finally {
+    process.kill(-outer.pid, 'SIGKILL');
+  }
 });
 
 test('proof skips a holder whose file vanished after the pool was listed and still refuses a corrupt one', () => {
