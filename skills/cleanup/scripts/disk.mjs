@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 
 const GB = 1024 ** 3;
 const LEVELS = 5;
+const SPLIT_LIMIT = 1000;
+const ARG_BYTES = 100_000;
 
 // du and find exit 1 when they cannot read a folder, and still print what they
 // read everywhere else.
@@ -40,24 +42,66 @@ const entries = (dir) => {
 
 const inside = (path, dir) => path === dir || path.startsWith(`${dir}${sep}`);
 
-async function measure(roots) {
+// The entries share du runs, dealt out in turn so one big folder's children
+// land in different runs, because with one du per path a report over a temp
+// folder of 2.2 million second-level entries had not finished after 27 minutes.
+// A run's paths are capped at ARG_BYTES, well under the
+// 1 MiB kern.argmax past which spawn fails with E2BIG.
+function batchesOf(paths) {
+  const runs = Math.min(availableParallelism() * 4, paths.length);
+  const batches = [];
+  for (let run = 0; run < runs; run++) {
+    let batch = [];
+    let bytes = 0;
+    for (let at = run; at < paths.length; at += runs) {
+      if (batch.length > 0 && bytes + paths[at].length > ARG_BYTES) {
+        batches.push(batch);
+        batch = [];
+        bytes = 0;
+      }
+      batch.push(paths[at]);
+      bytes += paths[at].length + 1;
+    }
+    batches.push(batch);
+  }
+  return batches;
+}
+
+// A root with few entries is measured from two levels down, which splits a
+// folder that holds most of the disk, such as ~/Library, across the cores. -l
+// counts every hard link in full, so an entry's size does not depend on which
+// run measured it. Only the paths a run was given and folders of at least
+// floor bytes are kept, because a temp folder's du prints hundreds of
+// thousands of lines.
+async function measure(roots, floor) {
   const sizes = new Map();
-  const firsts = roots.flatMap(entries);
-  // Measuring from two levels down splits a folder that holds most of the disk,
-  // such as ~/Library, across the cores.
-  const secondLevel = firsts.flatMap((path) => {
-    const inner = entries(path);
-    return inner.length > 0 ? inner : [path];
-  });
-  for (const out of await pool(secondLevel, (path) => output('du', ['-k', '-x', '-d', String(LEVELS - 2), path]))) {
+  const listed = roots.map((root) => [root, entries(root)]);
+  const runs = [];
+  for (const [, firsts] of listed) {
+    const split = firsts.length <= SPLIT_LIMIT;
+    const paths = split
+      ? firsts.flatMap((path) => {
+          const inner = entries(path);
+          return inner.length > 0 ? inner : [path];
+        })
+      : firsts;
+    for (const batch of batchesOf(paths)) runs.push([LEVELS - (split ? 2 : 1), batch]);
+  }
+  const given = new Set(runs.flatMap(([, paths]) => paths));
+  for (const out of await pool(runs, ([depth, paths]) => output('du', ['-k', '-l', '-x', '-d', String(depth), ...paths]))) {
     for (const line of out.split('\n')) {
       const tab = line.indexOf('\t');
-      if (tab > 0) sizes.set(line.slice(tab + 1), Number(line.slice(0, tab)) * 1024);
+      if (tab <= 0) continue;
+      const path = line.slice(tab + 1);
+      const bytes = Number(line.slice(0, tab)) * 1024;
+      if (bytes >= floor || given.has(path)) sizes.set(path, bytes);
     }
   }
   const total = (path) => entries(path).reduce((sum, each) => sum + (sizes.get(each) ?? 0), 0);
-  for (const path of firsts) if (!sizes.has(path)) sizes.set(path, total(path));
-  for (const root of roots) sizes.set(root, total(root));
+  for (const [root, firsts] of listed) {
+    for (const path of firsts) if (!sizes.has(path)) sizes.set(path, total(path));
+    sizes.set(root, firsts.reduce((sum, path) => sum + sizes.get(path), 0));
+  }
   return sizes;
 }
 
@@ -108,23 +152,33 @@ function rowsOf(roots, sizes, min) {
   return rows;
 }
 
-const writtenWithin = async (path, minutes) => (await output('find', [path, '-xdev', '-mmin', `-${minutes}`, '-print', '-quit'])).trim() !== '';
+const pattern = (path) => path.replace(/[*?[\]\\]/gu, '\\$&');
 
+async function writtenWithin(path, minutes, walked) {
+  const prune = walked.length > 0 ? ['(', ...walked.flatMap((each, at) => [...(at > 0 ? ['-o'] : []), '-path', pattern(each)]), ')', '-prune', '-o'] : [];
+  return (await output('find', [path, '-xdev', ...prune, '-mmin', `-${minutes}`, '-print', '-quit'])).trim() !== '';
+}
+
+// A folder's quiet rows were walked a level earlier, so its walk prunes them.
 async function markWrites(rows, minutes) {
   for (const level of [...new Set(rows.map((row) => row.level))].sort((a, b) => b - a)) {
     const checks = [];
     for (const row of rows.filter((each) => each.level === level)) {
       if (row.repo) {
-        for (const member of row.members) checks.push(member);
+        for (const member of row.members) checks.push({ item: member, walked: [] });
         continue;
       }
       const holdsWrittenRow = rows.some((other) => other.level > level && other.written && (other.repo ? other.members.some((member) => inside(member.path, row.path)) : inside(other.path, row.path)));
-      if (holdsWrittenRow) row.written = true;
-      else checks.push(row);
+      if (holdsWrittenRow) {
+        row.written = true;
+        continue;
+      }
+      const below = rows.filter((other) => other.level === level + 1 && (other.repo ? other.path === row.path : dirname(other.path) === row.path));
+      checks.push({ item: row, walked: below.flatMap((other) => (other.repo ? other.members.map((member) => member.path) : [other.path])) });
     }
-    const results = await pool(checks, (check) => writtenWithin(check.path, minutes));
+    const results = await pool(checks, (check) => writtenWithin(check.item.path, minutes, check.walked));
     checks.forEach((check, at) => {
-      check.written = results[at];
+      check.item.written = results[at];
     });
     for (const row of rows.filter((each) => each.level === level && each.repo)) row.written = row.members.some((member) => member.written);
   }
@@ -147,7 +201,7 @@ const defaultRoots = () => [homedir(), '/private/tmp', tmpdir(), '/Applications'
 export async function diskReport({ roots = defaultRoots(), min = 10 * GB, hours = 24 } = {}) {
   const real = [...new Set(roots.filter((root) => existsSync(root)).map((root) => realpathSync(root)))];
   const tops = real.filter((root) => !real.some((other) => other !== root && inside(root, other)));
-  const sizes = await measure(tops);
+  const sizes = await measure(tops, min / 64);
   const rows = rowsOf(tops, sizes, min);
   await markWrites(rows, Math.round(hours * 60));
   return { volume: volumeOf(tops[0] ?? homedir()), hours, rows };
@@ -171,7 +225,7 @@ function render({ volume, hours, rows }) {
     const worktree = row.worktree ? `  (worktree of ${tilde(row.worktree)})` : '';
     lines.push(`${gb(row.bytes).padStart(7)}  ${(row.written ? 'written' : 'quiet').padEnd(10)}  ${indent}${tilde(row.path)}${worktree}`);
   }
-  lines.push('', 'du counts each APFS clone, and each hard link outside one du run, in full, so rows can add up to more than the used space. Quiet means nothing in it was written, not that nothing reads it.');
+  lines.push('', 'du counts each APFS clone and each hard link in full, so rows can add up to more than the used space. Quiet means nothing in it was written, not that nothing reads it.');
   return lines.join('\n');
 }
 
