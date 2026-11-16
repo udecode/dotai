@@ -14,12 +14,11 @@
 // each, and is refused when its --cores is over half the machine's cores.
 // Every proof.mjs and land.mjs check of every session shares the pool, and
 // the pool counts the workers each one runs, so a command that runs
-// more workers than it asked for holds a share for each. It waits while the
-// pool is full or free memory is low, or while the pool still counts the
-// workers of a command that just started. Waiters enter in the order they
-// arrived, except that a waiting landing goes ahead of every waiting proof,
-// and a small ask that fits now enters past a larger waiter that has waited
-// under five minutes.
+// more workers than it asked for holds a share for each. A proof waits while
+// the pool is full or free memory is low, or while the pool still counts the
+// workers of a command that just started; a landing and its check never wait.
+// Waiters enter in the order they arrived, except that a small ask that fits
+// now enters past a larger waiter that has waited under five minutes.
 
 import { spawn, spawnSync } from 'node:child_process';
 import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, realpathSync, rmSync, statSync, writeFileSync, writeSync } from 'node:fs';
@@ -161,12 +160,12 @@ function countWorkers() {
 // ask of every waiter ahead of it as held, so a small proof never takes the
 // cores a larger waiter ahead of it needs, unless its ask fits the free cores
 // now and the oldest waiter ahead has waited under BACKFILL_MS. A `first`
-// waiter, which land.mjs and its check pass, is ahead of every waiter without
-// `first`, and none of those enters while it waits, because a proof's workers
-// can outgrow its ask.
-// When `giveUp` returns true while the call waits, it leaves the queue and
-// returns null.
-export function reserve(workers, label, { perWorker: coresPerWorker = CORES_PER_WORKER, first: asLanding = false, giveUp = () => false } = {}) {
+// call, which land.mjs and its check make, enters at once, whatever the cores
+// and memory, because every session waits on its landing. It still holds a
+// share, so the pool counts its workers against the proofs that queue. A
+// landing from an older land.mjs can still wait, and no call without `first`
+// enters while one does, because a proof's workers can outgrow its ask.
+export function reserve(workers, label, { perWorker: coresPerWorker = CORES_PER_WORKER, first: asLanding = false } = {}) {
   const asked = Date.now();
   if (process.env[HELD]) return Object.assign(() => {}, { waited: 0 });
   const first = asLanding || process.env[LAND_CHECK] === '1';
@@ -206,7 +205,7 @@ export function reserve(workers, label, { perWorker: coresPerWorker = CORES_PER_
         const free = freeMemory();
         const oldest = Math.min(...ahead.map((waiter) => waiter.since));
         const fits = held + queued + want <= capacity || (held + want <= capacity && now - oldest < BACKFILL_MS);
-        if (fits && free >= MIN_FREE_MEMORY && !watched && !landing) {
+        if (first || (fits && free >= MIN_FREE_MEMORY && !watched && !landing)) {
           writeFileSync(mine, JSON.stringify({ pid: process.pid, cores: want, label, since: now, perWorker: coresPerWorker }));
           rmSync(ticket, { force: true });
           process.env[HELD] = '1';
@@ -234,10 +233,6 @@ export function reserve(workers, label, { perWorker: coresPerWorker = CORES_PER_
       }
       if (!reported.has(waiting.kind)) console.error(`${label}: waiting for ${want} of this machine's cores; ${waiting.reason}`);
       reported.add(waiting.kind);
-    }
-    if (giveUp()) {
-      rmSync(ticket, { force: true });
-      return null;
     }
     slept = true;
     sleep(POLL_MS);

@@ -330,12 +330,12 @@ test('a companion push refused after the public half landed rebases that half, c
   assert.match(git(companion, 'log', '-1', '--format=%B', 'next'), new RegExp(`^Lands-With: ${landed}$`, 'mu'));
 });
 
-function landInFullPool(dir, clone, args, env = {}) {
+function landInFullPool(dir, clone, args) {
   const holder = spawn('sleep', ['3600'], { stdio: 'ignore' });
   const pool = join(dir, 'tmp/pstack-slots');
   mkdirSync(pool, { recursive: true });
   writeFileSync(join(pool, `${holder.pid}.json`), JSON.stringify({ pid: holder.pid, cores: availableParallelism(), label: 'other session', since: 0 }));
-  const poolEnv = { ...ENV, TMPDIR: join(dir, 'tmp'), ...env };
+  const poolEnv = { ...ENV, TMPDIR: join(dir, 'tmp') };
   delete poolEnv.PSTACK_SLOT;
   const land = spawn(process.execPath, [join(HELPERS, 'land.mjs'), ...args], { cwd: clone, env: poolEnv, stdio: ['ignore', 'pipe', 'pipe'] });
   land.out = '';
@@ -343,12 +343,11 @@ function landInFullPool(dir, clone, args, env = {}) {
   land.stdout.on('data', (chunk) => (land.out += chunk));
   land.stderr.on('data', (chunk) => (land.err += chunk));
   land.exited = new Promise((done) => land.on('exit', done));
-  land.free = () => rmSync(join(pool, `${holder.pid}.json`));
   land.stop = () => holder.kill();
   return land;
 }
 
-test("a landing asks the pool for one core, and its check takes its own share as a land check instead of running inside the landing's", async () => {
+test("a landing enters a full core pool at once, and its check takes its own share as a land check instead of running inside the landing's", async () => {
   const { dir, clone, message } = trunk();
   git(clone, 'config', 'pstack.delivery', 'push');
   const seen = join(dir, 'check-env');
@@ -356,55 +355,11 @@ test("a landing asks the pool for one core, and its check takes its own share as
   const land = landInFullPool(dir, clone, ['--message', message(GOOD), '--check', `env > ${seen}`]);
 
   try {
-    await until(() => land.err.includes('waiting'));
-    assert.match(land.err, /land\.mjs: waiting for 1 of this machine's cores; /);
-    land.free();
     assert.equal(await land.exited, 0, land.err);
+    assert.doesNotMatch(land.err, /waiting/, 'the landing waited in the core pool');
     const env = readFileSync(seen, 'utf8');
     assert.match(env, /^PSTACK_LAND_CHECK=1$/m, 'the check cannot tell it runs for a landing');
     assert.doesNotMatch(env, /^PSTACK_SLOT=/m, "the check's own reserve would return at once on the landing's share");
-  } finally {
-    land.stop();
-  }
-});
-
-test('a landing that waited in the core pool rebases onto the commits next gained meanwhile and checks once', async () => {
-  const { dir, remote, clone, message, elsewhere } = trunk();
-  git(clone, 'config', 'pstack.delivery', 'push');
-  const ran = join(dir, 'ran');
-  const other = elsewhere('d.txt', 'theirs\n', 'docs(d): land elsewhere');
-  writeFileSync(join(clone, 'a.txt'), 'two\n');
-  const land = landInFullPool(dir, clone, ['--message', message(GOOD), '--check', `echo run >> ${ran} && test -f d.txt`]);
-
-  try {
-    await until(() => land.err.includes('waiting'));
-    assert.match(land.err, /land\.mjs: waiting for \d+(\.\d)? of this machine's cores; /);
-    git(other, 'push', '--quiet', 'origin', 'HEAD:next');
-    land.free();
-
-    assert.equal(await land.exited, 0, land.err);
-    assert.doesNotMatch(land.out, /moved; rebasing/, 'the landing pushed a commit it had not rebased since its wait');
-    assert.equal(readFileSync(ran, 'utf8').trim().split('\n').length, 1, 'the landing checked once, after it caught up');
-    assert.deepEqual(git(remote, 'log', '--format=%s', 'main..next').split('\n'), ['feat(a): change a', 'docs(d): land elsewhere']);
-  } finally {
-    land.stop();
-  }
-});
-
-test('a landing that waited for cores while next stayed put runs its always entry once', async () => {
-  const fixture = trunk();
-  const { dir, remote, clone, message } = fixture;
-  const ran = join(dir, 'ran');
-  seedGeneratedConflict(fixture, `echo run >> ${ran} && node gen.mjs`, { always: true });
-  writeFileSync(join(clone, 'b.txt'), 'three\n');
-  const land = landInFullPool(dir, clone, ['--message', message(GOOD)]);
-
-  try {
-    await until(() => land.err.includes('waiting'));
-    land.free();
-    assert.equal(await land.exited, 0, land.err);
-    assert.equal(readFileSync(ran, 'utf8'), 'run\n', 'a wait with no new commit on either tip reruns nothing');
-    assert.equal(git(remote, 'show', 'next:gen/out.txt'), 'two\nthree');
   } finally {
     land.stop();
   }
@@ -423,27 +378,6 @@ test('a landing at 55 minutes into the run starts no check and exits 75 with the
   assert.match(run.stderr, /land\.mjs stopped touch \S+ at 55 minutes into the run[\s\S]*run land\.mjs again with the same --check options and no --message/);
   assert.equal(existsSync(ran), false, 'the checks did not start');
   assert.equal(git(remote, 'rev-parse', 'next'), base);
-});
-
-test('a landing still waiting for cores at 55 minutes into the run exits 75 before its checks', async () => {
-  const { dir, remote, clone, base, message } = trunk();
-  git(clone, 'config', 'pstack.delivery', 'push');
-  const ran = join(dir, 'ran');
-  const late = join(dir, 'late.mjs');
-  writeFileSync(late, 'const now = performance.now.bind(performance);\nperformance.now = () => now() + 56 * 60_000;\n');
-  writeFileSync(join(clone, 'a.txt'), 'two\n');
-  const land = landInFullPool(dir, clone, ['--message', message(GOOD), '--check', `touch ${ran}`], { NODE_OPTIONS: `--import ${late}` });
-
-  try {
-    await until(() => land.err.includes('waiting'));
-    land.free();
-    assert.equal(await land.exited, 75, land.err);
-    assert.match(land.err, /land\.mjs still waited for cores at 55 minutes into the run[\s\S]*run land\.mjs again with the same --check options and no --message/);
-    assert.equal(existsSync(ran), false, 'the checks did not start');
-    assert.equal(git(remote, 'rev-parse', 'next'), base);
-  } finally {
-    land.stop();
-  }
 });
 
 test('a landing that a signal stops still counts in the run log, as a stopped run', async () => {

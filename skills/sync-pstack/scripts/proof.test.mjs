@@ -114,26 +114,44 @@ test('proof waits while other sessions hold the whole core pool and runs once a 
   assert.match(read(dir, 'run/queued-a1.log'), /\nran\nexit=0\n$/);
 });
 
-test('a landing that waits goes ahead of a proof that started waiting before it, and its release says how long it waited', async () => {
+// Under `--import` of the module this writes, a process reads free memory as 5%, under the pool's 15% floor.
+const lowMemory = (dir) => {
+  const fake = join(dir, 'low-memory.mjs');
+  writeFileSync(
+    fake,
+    "import childProcess from 'node:child_process';\nimport os from 'node:os';\nimport { syncBuiltinESMExports } from 'node:module';\n" +
+      'const spawnSync = childProcess.spawnSync;\n' +
+      "childProcess.spawnSync = (command, ...rest) => (command === 'sysctl' ? { status: 0, stdout: '5\\n' } : spawnSync(command, ...rest));\n" +
+      'os.freemem = () => os.totalmem() / 20;\nsyncBuiltinESMExports();\n'
+  );
+  return `--import ${fake}`;
+};
+
+test('a landing enters at once while other sessions hold every core and free memory is under the floor, and a proof waiting before it keeps waiting', async () => {
   const { dir, env, args } = corePool('sync-pstack-proof-landing-first-', [{ pid: idle.pid, cores: availableParallelism() }]);
   const proof = background(args('early', 'echo ran'), { cwd: dir, env });
   await until(() => proof.waited.includes('waiting'));
+  const lowEnv = { ...env, NODE_OPTIONS: lowMemory(dir) };
+  const empty = corePool('sync-pstack-proof-low-memory-', []);
+  const starved = background(empty.args('starved', 'echo ran'), { cwd: empty.dir, env: { ...empty.env, NODE_OPTIONS: lowEnv.NODE_OPTIONS } });
+  await until(() => starved.waited.includes('waiting') || starved.exitCode !== null);
+  starved.kill();
+  assert.match(starved.waited, /free memory is 5%, under 15%/, 'the low-memory fake does not reach the pool');
   const took = join(dir, 'took');
   const landing = join(dir, 'landing.mjs');
   writeFileSync(
     landing,
     `import { writeFileSync } from 'node:fs';\nimport { reserve } from ${JSON.stringify(pathToFileURL(join(HELPERS, 'proof.mjs')).href)};\n` +
-      `const release = reserve(${Math.ceil(availableParallelism() / 2)}, 'land.mjs', { first: true });\nwriteFileSync(${JSON.stringify(took)}, String(release.waited));\n` +
-      'Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 3000);\n'
+      `const release = reserve(${Math.ceil(availableParallelism() / 2)}, 'land.mjs', { first: true });\nwriteFileSync(${JSON.stringify(took)}, String(release.waited));\n`
   );
-  const land = background([landing], { cwd: dir, env });
-  await until(() => land.waited.includes('waiting'));
 
+  const land = spawnSync(process.execPath, [landing], { cwd: dir, env: lowEnv, encoding: 'utf8', timeout: 15_000 });
+  assert.equal(land.status, 0, land.stderr);
+  assert.doesNotMatch(land.stderr, /waiting/, 'the landing waited in the pool');
+  assert.equal(readFileSync(took, 'utf8'), '0');
+  assert.equal(proof.exitCode, null, 'the proof entered a full pool');
   rmSync(join(dir, `tmp/pstack-slots/${idle.pid}.json`));
-  await until(() => existsSync(took) || proof.exitCode !== null);
-  assert.equal(proof.exitCode, null, 'the proof that waited first took the cores the landing needed');
-  assert.ok(Number(readFileSync(took, 'utf8')) > 0, 'the release reports no wait');
-  assert.deepEqual(await Promise.all([land.exited, proof.exited]), [0, 0]);
+  assert.equal(await proof.exited, 0);
 });
 
 test('no proof enters while a landing waits, even where both shares fit, because its workers can outgrow its ask', async () => {
@@ -171,25 +189,14 @@ test('a small proof waits behind a larger waiter that has waited five minutes or
   assert.equal(await small.exited, 0);
 });
 
-test("a land check's own share enters as a landing, ahead of a proof that started waiting before it", async () => {
-  const { dir, env, args } = corePool('sync-pstack-proof-land-check-', [{ pid: idle.pid, cores: availableParallelism() }]);
-  const proof = background(args('early', 'echo ran'), { cwd: dir, env });
-  await until(() => proof.waited.includes('waiting'));
-  const took = join(dir, 'took');
+test("a land check's own share enters at once while other sessions hold every core", () => {
+  const { dir, env } = corePool('sync-pstack-proof-land-check-', [{ pid: idle.pid, cores: availableParallelism() }]);
   const check = join(dir, 'check.mjs');
-  writeFileSync(
-    check,
-    `import { writeFileSync } from 'node:fs';\nimport { reserve } from ${JSON.stringify(pathToFileURL(join(HELPERS, 'proof.mjs')).href)};\n` +
-      `reserve(1, 'pnpm check');\nwriteFileSync(${JSON.stringify(took)}, 'took');\n` +
-      'Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 3000);\n'
-  );
-  const land = background([check], { cwd: dir, env: { ...env, PSTACK_LAND_CHECK: '1' } });
-  await until(() => land.waited.includes('waiting'));
+  writeFileSync(check, `import { reserve } from ${JSON.stringify(pathToFileURL(join(HELPERS, 'proof.mjs')).href)};\nreserve(1, 'pnpm check');\n`);
 
-  rmSync(join(dir, `tmp/pstack-slots/${idle.pid}.json`));
-  await until(() => existsSync(took) || proof.exitCode !== null);
-  assert.equal(proof.exitCode, null, 'the proof that waited first entered before the land check');
-  assert.deepEqual(await Promise.all([land.exited, proof.exited]), [0, 0]);
+  const run = spawnSync(process.execPath, [check], { cwd: dir, env: { ...env, PSTACK_LAND_CHECK: '1' }, encoding: 'utf8', timeout: 15_000 });
+  assert.equal(run.status, 0, run.stderr);
+  assert.doesNotMatch(run.stderr, /waiting/, 'the land check waited in a full pool');
 });
 
 test('a holder does not count the workers of a holder under it, so a land check that takes its own share is counted once', async () => {
