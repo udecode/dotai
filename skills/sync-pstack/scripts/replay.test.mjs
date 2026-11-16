@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import './test-ps.mjs';
 
 const REPLAY = join(dirname(fileURLToPath(import.meta.url)), '../assets/pstack/replay.mjs');
 const DAY = 86_400_000;

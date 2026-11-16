@@ -260,10 +260,14 @@ function upstream() {
     const cloned = spawnSync('git', ['clone', '-q', '--bare', '--filter=blob:none', url, cache], { encoding: 'utf8' });
     if (cloned.status !== 0) throw new Error(`cannot clone ${url}: ${cloned.stderr.trim()}`);
   };
+  // A bump reads dozens of files at one tag, so each tag is checked once, not once a file.
+  const present = new Set();
   const at = (tag) => {
+    if (present.has(tag)) return;
     ensure();
     if (!has(tag)) spawnSync('git', ['-C', cache, 'fetch', '-q', '--tags', '--force', url]);
     if (!has(tag)) throw new Error(`${url} has no tag ${tag}`);
+    present.add(tag);
   };
   return {
     file(tag, path) {

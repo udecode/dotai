@@ -25,8 +25,11 @@ Install a skill with the Skills CLI, naming the skill and each agent, for exampl
 
 ```sh
 scripts/validate-skills
+scripts/validate-skills --all
 node scripts/build-workflow.mjs
 node scripts/build-workflow.mjs --check
 ```
+
+`validate-skills` checks every skill's frontmatter and the generated catalog. Then it runs only the skill tests that the working tree's changes can reach. A test file runs when it changed, or when it names a changed file or a script that reaches one. A template under a skill's `assets/` reaches the script that renders that folder. `node scripts/affected-tests.mjs --why` prints each pick and the chain that reached it. `--all` runs every test, as a release or a pstack sync does.
 
 `build-workflow.mjs` regenerates `SKILLS.md` and `workflow-manifest.json`, rejects duplicate ownership, resolves dependencies and local Markdown references, and records file checksums and modes. `--forbid '<pattern>'` optionally scans shipped content for project or private vocabulary.

@@ -107,7 +107,7 @@ for (const skill of skills.filter((skill) => skill.capabilities.length)) catalog
 catalog += '\n## Deliberate boundaries\n\ndotai holds shared methods that pstack does not cover. It excludes product-specific schemas, routes, fixtures, provider adapters, release environments and personal configuration; those belong to each project. Framework packages (React, Next.js, Prisma, tRPC and the like) are stack-specific: install named official packages with the Skills CLI after source review. The skills contain no accounts, credentials, personal histories or connector configuration.\n';
 emit('SKILLS.md', catalog);
 
-const distribution = ['README.md', 'SKILLS.md', 'upstream-skills.json', 'scripts/build-workflow.mjs', 'scripts/validate-skills'];
+const distribution = ['README.md', 'SKILLS.md', 'upstream-skills.json', 'scripts/affected-tests.mjs', 'scripts/build-workflow.mjs', 'scripts/validate-skills'];
 const all = [...files, ...distribution.map((file) => join(root, file))].sort();
 const manifest = { schemaVersion: 1, source: 'udecode/dotai', skillsCliVersion: upstream.skillsCliVersion, skills, files: {} };
 for (const file of all) {

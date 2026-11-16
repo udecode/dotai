@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+case "${1:-}" in
+  '') scope='' ;;
+  --all) scope='--all' ;;
+  *) echo "usage: scripts/validate-skills [--all]" >&2; exit 2 ;;
+esac
+
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 SKILLS_DIR="$ROOT/skills"
 fail=0
@@ -81,9 +87,15 @@ if [ "$fail" -ne 0 ]; then
   exit 1
 fi
 
-# No CI runs these, so the commit gate does.
+# No CI runs these, so the commit gate does. By default it runs only the test files the working
+# tree's changes can reach, as scripts/affected-tests.mjs says; a release or a pstack sync runs --all.
 node "$ROOT/scripts/build-workflow.mjs" --check >/dev/null
-tests=("$SKILLS_DIR"/*/scripts/*.test.mjs)
+list="$(node "$ROOT/scripts/affected-tests.mjs" $scope)"
+total="$(node "$ROOT/scripts/affected-tests.mjs" --all | wc -l | tr -d ' ')"
+tests=()
+while IFS= read -r test; do
+  [ -n "$test" ] && tests+=("$ROOT/$test")
+done <<< "$list"
 if [ "${#tests[@]}" -gt 0 ]; then
   if ! out="$(node --test "${tests[@]}" 2>&1)"; then
     printf '%s\n' "$out" | sed -n '/^✖ failing tests/,$p'
@@ -91,4 +103,4 @@ if [ "${#tests[@]}" -gt 0 ]; then
   fi
 fi
 
-echo "skills ok"
+echo "skills ok: ran ${#tests[@]} of $total test files${scope:+ (all)}"
