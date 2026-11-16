@@ -364,6 +364,21 @@ test('after a refusal, --base composes on the live page, an old page lists only 
   assert.equal(pageStop(['stage', live, '--session', 'one', '--base', join(root, 'missing.html')], CLAUDE).code, 2);
 });
 
+test('--new tells a page another claude.ai account made from one this account made and lost', () => {
+  const { root, write, live } = project();
+  const as = (account) => ({ ...CLAUDE, CLAUDE_CODE_ACCOUNT_UUID: account });
+  const linkTo = (url) => write('docs/plans/topics/stage.md', `# Stage\n\nPage: ${url}\n\n## Main changes\n\n- Pages go live.\n`);
+  const fresh = (account) => pageStop(['stage', live, '--session', 'one', '--new'], as(account)).lines.find((line) => line.startsWith('This publish makes a new page'));
+  assert.match(fresh('b'), /add no Defaults row/u, "a page this clone never saw made counts as another account's");
+  assert.match(fresh('b'), /add no Defaults row/u, 'a second --new on the same link agrees with the first');
+  linkTo('https://claude.ai/artifact/b1');
+  pageStop(['stage', live, '--session', 'one'], as('b'));
+  assert.match(fresh('b'), /Defaults row that names the old and new links/u, 'a page this account made and cannot open was deleted');
+  linkTo('https://claude.ai/artifact/b2');
+  assert.match(fresh('c'), /add no Defaults row/u, 'after a switch to another account, the page that account b made moved');
+  assert.match(readFileSync(join(root, '.git/pstack-pages-gone'), 'utf8'), /artifact\/b2\n$/u);
+});
+
 test('the hook sends a failed publish of a plan page that no longer opens to --new, and ignores every other failure', () => {
   const { live } = project();
   const call = callOf(pageStop(['stage', live, '--session', 'one'], CLAUDE).lines);
