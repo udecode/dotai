@@ -309,6 +309,33 @@ test("decisions-check takes a later round's seats row only after a writing row",
   assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'old.decisions.tsv'], root).status, 0, 'a whole-log check leaves rounds already written alone');
 });
 
+test('decisions-check takes a recorded critical finding only with its saved case and fixing step, and holds the reach step until each is settled', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', { files: { 'docs/plans/artifacts/run/void.md': 'case', 'docs/plans/artifacts/run/mark.md': 'case' } });
+  const append = (phase, decision, evidence, result) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', phase, decision, 'why', evidence, result], root);
+  const voidCase = 'proof: docs/plans/artifacts/run/void.md';
+  const markCase = 'proof: docs/plans/artifacts/run/mark.md';
+  const reach = () => append('build', 'built: step 5 index.ts; reach: exports walk from the package root', 'scope: the export test', 'applied: step 5');
+  assert.equal(append('panel', 'seats opus', 'evidence', 'recorded').status, 0);
+  assert.equal(append('panel', 'critical [opus]: The walk skips a void', voidCase, 'recorded: no export reaches the walk').status, 1, 'no fixing step');
+  assert.equal(append('panel', 'critical [opus]: The walk skips a void', 'proof: none', 'recorded: no export reaches the walk, step: 4').status, 1, 'no saved case');
+  assert.equal(append('panel', 'critical [opus]: The walk skips a void', 'proof: docs/plans/artifacts/run/gone.md (missing)', 'recorded: no export reaches the walk, step: 4').status, 1, 'a saved case that is no file');
+  assert.equal(append('panel', 'warning The walk name reads oddly', voidCase, 'recorded: later, step: 4').status, 1, 'a warning is never recorded');
+  assert.equal(append('panel', 'critical [opus]: The walk skips a void', voidCase, 'recorded: no export reaches the walk, step: 4').status, 0);
+  assert.equal(append('panel', 'critical [opus]: The merge drops a mark', markCase, 'recorded: no export reaches the merge, step: 4').status, 0, 'a second recorded finding needs no design question');
+  assert.equal(append('build', 'built: step 3 walk.ts', 'scope: walk tests', 'applied: step 3').status, 0, 'a step that names no reach');
+  const held = reach();
+  assert.equal(held.status, 1);
+  assert.match(held.stderr, /2 recorded critical findings are not settled: critical \[opus\]: The walk skips a void; critical \[opus\]: The merge drops a mark/);
+  assert.equal(append('build', 'built: step 4 walk.ts', `${voidCase}; scope: the void case`, 'fixed: the walk visits voids').status, 0);
+  assert.match(reach().stderr, /a recorded critical finding is not settled: critical \[opus\]: The merge drops a mark/, 'one still waits');
+  assert.equal(append('panel', 'critical [lead]: The merge drops a mark', markCase, 'dismissed: the mark case keeps its mark on the base and the step').status, 0);
+  assert.equal(reach().status, 0, 'every recorded finding settled');
+  assert.equal(append('slice review', 'critical: The walk leaks a listener', 'proof: none', 'recorded: no export reaches the walk, step: 6').status, 1, "a slice review's recorded finding names its saved case too");
+  assert.equal(append('slice review', 'critical: The walk leaks a listener', voidCase, 'recorded: no export reaches the walk, step: 6').status, 0);
+  assert.match(reach().stderr, /not settled: critical: The walk leaks a listener/, "a slice review's recorded finding holds the reach step");
+});
+
 test('decisions-check takes the panel round cap from maxRounds and refuses a cap that is not a whole number', () => {
   const { dir, run } = sandbox();
   const root = project(dir, 'app', { config: { ...CONFIG, maxRounds: 1 } });
