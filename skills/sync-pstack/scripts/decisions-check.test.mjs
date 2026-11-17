@@ -383,11 +383,48 @@ test('decisions-check runs one panel round per plan or step, and one more only a
   round('two.decisions.tsv', 0);
   assert.equal(append('two.decisions.tsv', 'build', 'built: step M0.5, round 1 fixes', 'applied: fixes').status, 0);
   assert.equal(append('two.decisions.tsv', 'panel', 'seats opus').status, 1, 'a dotted step id starts no new count either');
+  for (const step of ['C.3a', 'D']) {
+    assert.equal(append('two.decisions.tsv', 'build', `built: step ${step}. sync.ts`, `applied: step ${step}`).status, 0);
+    assert.equal(append('two.decisions.tsv', 'panel', 'seats opus').status, 0, `step ${step} gets its own round`);
+    assert.equal(append('two.decisions.tsv', 'writing', 'deslop on the round fixes').status, 0);
+    assert.equal(append('two.decisions.tsv', 'build', `built: step ${step}, round 1 fixes`, 'applied: fixes').status, 0);
+    assert.equal(append('two.decisions.tsv', 'panel', 'seats opus').status, 1, `step ${step}'s fixes start no new count`);
+  }
 
   round('three.decisions.tsv', 3);
   assert.equal(check('three.decisions.tsv', 'rounds').status, 0, 'three applied critical findings earn one more round');
   round('three.decisions.tsv', 3);
   assert.equal(append('three.decisions.tsv', 'panel', 'seats opus').status, 1, 'the extra round earns no third');
+});
+
+test('decisions-check rounds --patch caps a reviewed step at the step budget, counting no tests, fixtures, Markdown or excluded globs', () => {
+  const { dir, run } = sandbox();
+  const diff = (count, file) => [`diff --git a/${file} b/${file}`, `--- a/${file}`, `+++ b/${file}`, `@@ -0,0 +1,${count} @@`, ...Array.from({ length: count }, (_, n) => `+line ${n}`)].join('\n');
+  const root = project(dir, 'app', {
+    config: { ...CONFIG, maxRounds: 9, stepBudget: { exclude: ['generated/**'] } },
+    files: {
+      'p399.patch': diff(399, 'src/a.ts'),
+      'p401.patch': diff(401, 'src/a.ts'),
+      'tests.patch': [diff(300, 'src/a.test.ts'), diff(300, '.agents/skills/a/SKILL.md'), diff(200, 'src/__tests__/fixtures/b.json'), diff(100, 'src/a.ts')].join('\n'),
+      'excluded.patch': [diff(500, 'generated/schema.ts'), diff(10, 'src/a.ts')].join('\n'),
+    },
+  });
+  const check = (...args) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), ...args], root);
+  const rounds = (patch) => check('rounds', 'log.decisions.tsv', '--patch', patch);
+  const append = (phase, decision, result) => check('append', 'log.decisions.tsv', phase, decision, 'why', 'the owner message; proof: none', result);
+  assert.equal(append('build', 'built: step 4 a.ts', 'applied: step 4').status, 0);
+  assert.equal(rounds('p399.patch').status, 0, '399 product lines fit');
+  const over = rounds('p401.patch');
+  assert.equal(over.status, 1, '401 product lines do not');
+  assert.match(over.stderr, /changes 401 product lines, past the step budget of 400\. Split the step into lettered steps/);
+  assert.equal(rounds('tests.patch').status, 0, 'tests, Markdown and fixtures do not count');
+  assert.match(rounds('tests.patch').stdout, /changes 100 product line\(s\), and 800 more/);
+  assert.equal(rounds('excluded.patch').status, 0, 'a stepBudget.exclude glob does not count');
+  assert.equal(append('owner', 'big step: "ship the parser whole"', 'decided: one round over the budget').status, 0);
+  assert.equal(rounds('p401.patch').status, 0, "the owner's big step lifts the budget");
+  assert.equal(append('panel', 'seats opus', 'recorded').status, 0);
+  assert.equal(append('writing', 'deslop on the round fixes', 'applied: nothing to cut').status, 0);
+  assert.equal(rounds('p401.patch').status, 1, 'the lift lasts one round');
 });
 
 test('decisions-check refuses a new trunk step while an earlier one is built and not landed', () => {

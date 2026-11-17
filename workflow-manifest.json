@@ -322,7 +322,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
-      "sha256": "32c8f235ed961b10a9f6e94f12f9b3d1d3ee008f79d5b6ae1fa5d02cf19b94f7",
+      "sha256": "ec41f0c0cb208193d1924c09c1ff091a4d6799b1752412f961ae724d96cd3391",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/freeze.mjs": {
@@ -382,7 +382,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/review.mjs": {
-      "sha256": "13f455207dab6830ea6a3683fe0975f9760f8cf19fca21feb7536b0eee8b1417",
+      "sha256": "ba8dd9b26dd9668a17c3187866fbb83f28ec098492b5e6d67039e5353e06a067",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/browser.md": {
@@ -426,7 +426,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/panel.md": {
-      "sha256": "f252aa2fe988a632cd31698e4e56867da5c1318e396f2a78bf407853af7e9211",
+      "sha256": "d9a925e9402aee61c17d495e3d1ae6a6708eeb7b5594a6abd82cd40a850df5ca",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/reflect.md": {
@@ -466,7 +466,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/status.mjs": {
-      "sha256": "d8f8438550b3ce1258ad8cc82990a209f7ac4ccb7d42bda547d239a6a9dd66dd",
+      "sha256": "2a9bc535502de8621c002ddc227ffb0e5393cddbab96de331be4832c679a87a1",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/tasks.mjs": {
@@ -490,7 +490,7 @@
       "mode": 420
     },
     "skills/sync-pstack/references/interview.md": {
-      "sha256": "877a20c1396b79a128e5ac2b016cc430806bb41b4209564b75a2f0bac39e5af5",
+      "sha256": "70220da1f414cad519a684df32d24bf5ad1ca7daf129b6506fd99292aa95ae5e",
       "mode": 420
     },
     "skills/sync-pstack/scripts/apply-refusal.test.mjs": {
@@ -518,7 +518,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/decisions-check.test.mjs": {
-      "sha256": "e3987a5ad9862c3a8497a150766f0b414d5b1d445517b8bf5582f44ff6a38234",
+      "sha256": "a8b726e90e379e41ccb846ed30f16a6dcd7335df5c40d4b1af9593d432541e11",
       "mode": 420
     },
     "skills/sync-pstack/scripts/fixtures/page-files/refusal-prefix.html": {
