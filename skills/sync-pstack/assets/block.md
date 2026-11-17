@@ -31,14 +31,14 @@
 <!-- # overrides poteto-mode/references/codex-tools.md "Apply poteto-mode's task adjustment to that starting level" -->
 <!-- # overrides poteto-mode/references/codex-tools.md "ask for an explicit role or `default effort` level before dispatching" -->
 <!-- # relies poteto-mode/references/codex-tools.md "scripts/codex-session-effort.mjs" -->
-- **Helper effort.** In Claude Code and in Codex, each helper starts at the lead session's effort, capped by `maxEffort` when `.agents/pstack.json` sets one. Before it dispatches, the lead reads that level. In Claude Code it runs `node .agents/pstack/lead.mjs`. In Codex it runs poteto-mode's `codex-session-effort.mjs`, then `lead.mjs` when that script prints no level. The lead passes the level explicitly, as `effort` on an `Agent` call or `reasoning_effort` on `spawn_agent`. When nothing prints a level, the lead uses `maxEffort`, or `high` when the project sets none, and never stops to ask for one. Swarm runners keep the lead's level. A panel seat or an `architect` or arena runner whose models-sheet entry names no level runs at the level `.agents/pstack/rules/panel.md` gives such a `cross.mjs` seat, which is `maxEffort` when the project sets one. A seat rerun as an `Agent` call and a code arena slot run at that level too, because at `high` the retired Astra seat mostly repeated the rest.
+- **Helper effort.** In Claude Code and in Codex, each helper starts at the lead session's effort, capped by `maxEffort` when `.agents/pstack.json` sets one. Before it dispatches, the lead reads that level. In Claude Code it runs `node .agents/pstack/lead.mjs`. In Codex it runs poteto-mode's `codex-session-effort.mjs`, then `lead.mjs` when that script prints no level. The lead passes the level explicitly, as `effort` on an `Agent` call or `reasoning_effort` on `spawn_agent`. When nothing prints a level, the lead uses `maxEffort`, or `high` when the project sets none, and never stops to ask for one. Swarm runners keep the lead's level. A panel seat or an `architect` or arena runner whose models-sheet entry names no level runs at the level `.agents/pstack/rules/panel.md` gives such a `cross.mjs` seat, which is `maxEffort` when the project sets one. A seat rerun as an `Agent` call and a code arena slot run at that level, because at `high` the retired Astra seat mostly repeated the rest.
 <!-- if delivery!=trunk -->
-  Any other helper may run lower for routine work, never below its role's level in the models sheet, and `levels.mjs` still judges each seat against that sheet level.
+  Any other helper may run lower for routine work, never below its role's level in the models sheet, and `levels.mjs` judges each seat against that sheet level.
 <!-- end -->
 <!-- if delivery=trunk -->
-  A code delegate runs at the level its role's line in the models sheet names, below the lead, because the lead designs its brief, reviews its diff and proves the result. Any other helper may run lower for routine work, never below its role's level in the models sheet, and `levels.mjs` still judges each seat against that sheet level.
+  A code delegate runs at the level its role's line in the models sheet names, below the lead, because the lead designs its brief, reviews its diff and proves the result. Any other helper may run lower for routine work, never below its role's level in the models sheet, and `levels.mjs` judges each seat against that sheet level.
 <!-- end -->
-  A Codex seat keeps the level its sheet entry or a project rule names (owner's word, 2026-10-17).
+  A Codex seat keeps the capped level its sheet entry or a project rule names (owner's word, 2026-10-17).
 <!-- if glossary -->
 - Use the words in `{{glossary}}`.
 <!-- end -->
