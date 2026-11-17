@@ -362,7 +362,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/plan-page.mjs": {
-      "sha256": "be986ea62f72e1e9e995ddd237b451b276f038f138f887dbb5ed017bf6b9d784",
+      "sha256": "a46ec2ee76f60f69515039dd66d793731dcc069556eb49e8f1c3f693cdffcd8c",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/proof.mjs": {
@@ -490,7 +490,7 @@
       "mode": 420
     },
     "skills/sync-pstack/references/interview.md": {
-      "sha256": "70220da1f414cad519a684df32d24bf5ad1ca7daf129b6506fd99292aa95ae5e",
+      "sha256": "c6cda7e50e5bdeb46325db171179ac8e1229527a0f72fda38e5be1a5635ad43b",
       "mode": 420
     },
     "skills/sync-pstack/scripts/apply-refusal.test.mjs": {
@@ -550,7 +550,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/plan-page.test.mjs": {
-      "sha256": "89b3f4982c59d0bb10b8f277871fb74f04973734186e1d14ccae37739a11bc9b",
+      "sha256": "f07b62bcff5d5bc7c74574ded1423a210b227b125141206695a59952ad4cd240",
       "mode": 420
     },
     "skills/sync-pstack/scripts/projects.test.mjs": {

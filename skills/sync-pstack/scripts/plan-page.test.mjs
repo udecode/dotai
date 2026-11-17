@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFi
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { BRIEF_ANSWERS, LOG_HEAD, brief, logRow, project, read, sandbox } from './test-sandbox.mjs';
+import { BRIEF_ANSWERS, CONFIG, LOG_HEAD, brief, logRow, project, read, sandbox } from './test-sandbox.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -155,6 +155,25 @@ test('plan-page shows the Demo steps in order right after the brief, inlines eac
   assert.match(html, /<figcaption>Before<\/figcaption>/);
   assert.match(html, /shots\/gone\.png/);
   assert.equal([...html.matchAll(/<dialog class="lightbox"/g)].length, 1, 'a frame opens full size in one shared viewer');
+});
+
+test('plan-page refuses an open plan with more than 8 unticked step boxes, or more than its planBoxes baseline', () => {
+  const { dir, run } = sandbox();
+  const boxes = (open, done) => [...Array.from({ length: done }, (_, n) => `- [x] Done ${n}.`), ...Array.from({ length: open }, (_, n) => `- [ ] Step ${n}.`)].join('\n');
+  const plan = (open, done = 0, status = 'building') => `# Plan\n\nStatus: ${status}\n\n${brief()}\n## Open questions\n\n## Steps\n\n${boxes(open, done)}\n`;
+  const root = project(dir, 'app', {
+    config: { ...CONFIG, planBoxes: { 'old.md': { max: 12, owner: 'zbeyens' } } },
+    files: { 'docs/plans/eight.md': plan(8, 5), 'docs/plans/nine.md': plan(9), 'docs/plans/done.md': plan(9, 0, 'executed'), 'docs/plans/old.md': plan(12) },
+  });
+  const check = (name) => run(process.execPath, [join(HELPERS, 'plan-page.mjs'), `docs/plans/${name}`, '--check'], root);
+  assert.equal(check('eight.md').status, 0, check('eight.md').stderr);
+  const nine = check('nine.md');
+  assert.equal(nine.status, 1);
+  assert.match(nine.stderr, /nine\.md has 9 unticked step boxes under ## Steps, past the cap of 8; give only the next phase step boxes/);
+  assert.equal(check('done.md').status, 0, 'a finished plan keeps its boxes');
+  assert.equal(check('old.md').status, 0, 'a baseline plan at its count renders');
+  writeFileSync(join(root, 'docs/plans/old.md'), plan(13));
+  assert.match(check('old.md').stderr, /old\.md has 13 unticked step boxes under ## Steps, past its planBoxes baseline of 12/, 'a baseline plan that gains a box is refused');
 });
 
 test('plan-page adds the full-size viewer only to a page that shows frames', () => {
