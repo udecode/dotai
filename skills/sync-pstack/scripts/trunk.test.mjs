@@ -2612,6 +2612,11 @@ test('guard denies an edit in the main checkout on next or main, except the arti
   for (const path of ['docs/plans/artifacts/run/log.txt', join(dir, 'down/kept.txt'), join(tree, 'a.txt')]) {
     assert.equal(edit('Write', path), null, path);
   }
+  const slow = join(dir, 'slow-git');
+  mkdirSync(slow);
+  const realGit = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+  writeFileSync(join(slow, 'git'), `#!/bin/sh\nsleep 1.2\nexec ${realGit} "$@"\n`, { mode: 0o755 });
+  assert.equal(edit('Write', join(tree, 'a.txt'), { env: { PATH: `${slow}:${process.env.PATH}` } }), null, 'git calls slower than a second each still decide a worktree edit');
   const broken = { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'broken', GIT_CONFIG_VALUE_0: '1' };
   assert.equal(edit('Write', 'docs/plans/artifacts/run/log.txt', { env: broken })?.permissionDecision, 'deny', 'a git failure refuses the edit');
   git(clone, 'switch', '--quiet', 'main');
