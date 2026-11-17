@@ -136,7 +136,7 @@ test('cross --reach runs a Codex seat on the owner config with network, writing 
     });
   const seat = run(['--to', 'codex', '--reach', '--model', 'gpt-6-astra']);
   assert.equal(seat.status, 0, seat.stderr);
-  assert.match(seat.stdout, /^exec --ignore-rules --skip-git-repo-check -c web_search="live" -m gpt-6-astra --disable hooks --sandbox workspace-write -c sandbox_workspace_write\.network_access=true -o \S+ -- Your working directory is a scratch folder you may write\. The project is \S+: read it by absolute path and never write it\.\n\nreview it\n\nPut your whole answer in your final message\. Nobody reads the files you write in the scratch folder\.\n/u);
+  assert.match(seat.stdout, /^exec --ignore-rules --skip-git-repo-check -c web_search="live" -m gpt-6-astra --disable hooks --sandbox workspace-write -c sandbox_workspace_write\.network_access=true -o \S+ -- Your working directory is a scratch folder you may write\. The project is \S+: read it by absolute path and never write it\.\n\nreview it\n\nPut your whole answer in your final message\. Nobody reads the files you write in the scratch folder, and it is deleted when you finish, so for each file you wrote there that your answer cites or runs, paste its full source and the commands that create any fixture it reads\.\n/u);
   assert.match(seat.stdout, /^cwd=\S*pstack-reach-\S+$/mu);
   assert.match(seat.stdout, /^profile=$/mu);
   const refused = run(['--to', 'codex', '--reach', '--bypass']);
