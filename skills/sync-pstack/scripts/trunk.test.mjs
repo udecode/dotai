@@ -1363,6 +1363,41 @@ test('land --dry runs the message and Defaults refusals without committing, and 
   assert.equal(git(remote, 'rev-parse', 'next'), base);
 });
 
+test('land --dry runs every config landCheck on the working tree outside the landing share, names each that fails and commits nothing', () => {
+  const { dir, clone, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const ran = join(dir, 'ran');
+  const config = JSON.parse(readFileSync(join(clone, '.agents/pstack.json'), 'utf8'));
+  config.landChecks = [`test -f c.txt && echo saw >> ${ran}`, 'test -f d.txt', 'test -z "$PSTACK_LAND_CHECK"'];
+  writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify(config));
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  const head = git(clone, 'rev-parse', 'HEAD');
+
+  const refused = helper('land.mjs', clone, ['--message', message(GOOD), '--dry'], { PSTACK_LAND_CHECK: '1' });
+  assert.equal(refused.status, 1, refused.stdout + refused.stderr);
+  assert.match(refused.stderr, /land checks failed on the working tree, and nothing was committed:\n  test -f c\.txt && echo saw >> \S+\n  test -f d\.txt\n/u);
+  assert.doesNotMatch(refused.stderr, /PSTACK_LAND_CHECK/u);
+  writeFileSync(join(clone, 'c.txt'), 'new\n');
+  writeFileSync(join(clone, 'd.txt'), 'new\n');
+  const passed = helper('land.mjs', clone, ['--message', message(GOOD), '--dry'], { PSTACK_LAND_CHECK: '1' });
+  assert.equal(passed.status, 0, passed.stderr);
+  assert.match(passed.stdout, /landChecks pass; nothing was committed/u);
+  assert.equal(readFileSync(ran, 'utf8'), 'saw\n');
+  assert.equal(git(clone, 'rev-parse', 'HEAD'), head);
+});
+
+test('land --dry that reaches the deadline exits 1, so the lead never answers it with a real land', () => {
+  const { clone, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const config = JSON.parse(readFileSync(join(clone, '.agents/pstack.json'), 'utf8'));
+  config.landChecks = ['true'];
+  writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify(config));
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  const stopped = helper('land.mjs', clone, ['--message', message(GOOD), '--dry'], { PSTACK_LAND_SPENT_MS: String(55 * 60_000) });
+  assert.equal(stopped.status, 1, stopped.stdout + stopped.stderr);
+  assert.match(stopped.stderr, /land\.mjs --dry stopped true at 55 minutes into the run; nothing was committed/u);
+});
+
 const plan = ({ status = 'active', impact }) =>
   `# X\n\nStatus: ${status}\n\nOne.\n\nTwo.\n\nThree.\n\nFour.\n\n## Defaults\n\n| Decision | Pick | Alternative | Word | Impact |\n| --- | --- | --- | --- | --- |\n| Order | a | b | swap | ${impact} |\n`;
 
