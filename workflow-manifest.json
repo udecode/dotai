@@ -17,7 +17,7 @@
     {
       "name": "cleanup",
       "distribution": "bundled",
-      "description": "Find where a disk's space goes, and free disk in a project by removing the git worktrees and Next.js cache folders nothing uses, keeping every worktree a session or process works in and every cache a running server holds. Use for /cleanup, /cleanup disk, \\\"clean up worktrees\\\", \\\"free disk space\\\", \\\"what's using my disk\\\", \\\"where did my disk space go\\\", \\\"what is idle\\\", \\\"delete unused worktrees or builds\\\", or when a session-start hint counts old cleanup candidates.",
+      "description": "Find where a disk's space goes, and free disk in a project by removing the git worktrees, Next.js cache folders and local Docker Postgres test databases nothing uses, keeping every worktree a session or process works in and every cache a running server holds. Use for /cleanup, /cleanup disk, \\\"clean up worktrees\\\", \\\"free disk space\\\", \\\"what's using my disk\\\", \\\"where did my disk space go\\\", \\\"what is idle\\\", \\\"delete unused worktrees or builds\\\", or when a session-start hint counts old cleanup candidates.",
       "category": "Maintenance",
       "dependencies": [],
       "capabilities": [
@@ -138,7 +138,7 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "32100a6ebffd623413f479186a135cf1b8c78a8666b7daee931f5c1b627daa9a",
+      "sha256": "f00a0ced596607f094b69bdbae55082d537b6ceb31bb3bebf9830911e0641dc0",
       "mode": 420
     },
     "scripts/affected-tests.mjs": {
@@ -158,7 +158,15 @@
       "mode": 420
     },
     "skills/cleanup/SKILL.md": {
-      "sha256": "68b98b52f75865d6de8440761b445103494de87ef4d436a6a8653b36decdeef9",
+      "sha256": "04ada75e97e8ce0c3aa2c7a28330e80249d0491547b445e6e76c8796f2c6af32",
+      "mode": 420
+    },
+    "skills/cleanup/scripts/databases.mjs": {
+      "sha256": "b89b54975e73025f83febdb36208120392b7cba47283fba17fa8d04be2b86594",
+      "mode": 420
+    },
+    "skills/cleanup/scripts/databases.test.mjs": {
+      "sha256": "1ffb41967c62027a368b1e28fe9cb13e40e5299e77ab2396df4e0dfabb77edca",
       "mode": 420
     },
     "skills/cleanup/scripts/disk.mjs": {
@@ -170,7 +178,7 @@
       "mode": 420
     },
     "skills/cleanup/scripts/scan.mjs": {
-      "sha256": "5f72a436762a1b72de893feb8d2cd650da6d3845e0616b6544b9a810f932202e",
+      "sha256": "60a1ff63f4dd30e9d8e2f8db23eafec6ed7f84c1b5e0f229718641f93c54d916",
       "mode": 420
     },
     "skills/cleanup/scripts/scan.test.mjs": {
@@ -398,7 +406,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/land.md": {
-      "sha256": "7bee54862886a07afa904cfb2973d4281573c94b0f1c5c9eb0c85f01d3cafec6",
+      "sha256": "f5b394b55a3a0a92dfe41003b8c0f2756f140df890bb9f1bae542a3252dfcbf2",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/linked.md": {
