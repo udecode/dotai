@@ -334,6 +334,7 @@ test('decisions-check takes a recorded critical finding only with its saved case
   assert.equal(append('slice review', 'critical: The walk leaks a listener', 'proof: none', 'recorded: no export reaches the walk, step: 6').status, 1, "a slice review's recorded finding names its saved case too");
   assert.equal(append('slice review', 'critical: The walk leaks a listener', voidCase, 'recorded: no export reaches the walk, step: 6').status, 0);
   assert.match(reach().stderr, /not settled: critical: The walk leaks a listener/, "a slice review's recorded finding holds the reach step");
+  assert.equal(append('build', 'built: step 6 index.ts; reach: exports walk from the package root', `${voidCase}; scope: the listener case`, 'fixed: the walk drops its listener').status, 0, 'a reach step that fixes the recorded case itself');
 });
 
 test('decisions-check takes the panel round cap from maxRounds and refuses a cap that is not a whole number', () => {

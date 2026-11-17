@@ -322,7 +322,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
-      "sha256": "d379e1672e20b6c90ef406c6ab591c4c3b3931757d606f1ed4e54671b53aaa01",
+      "sha256": "6c167e67f5339fc72825c6bd8c5c0bd7f0d808d603a34860ba2fa106446c52e8",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/freeze.mjs": {
@@ -426,7 +426,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/panel.md": {
-      "sha256": "2076f086039df5fc9972f3ed5d9b044f90f055e4ff223a34fde7b481529d9bd3",
+      "sha256": "1b1377553a3437bb4a13444e72546b14985ad48eda0efe0149e5e97f96f563f9",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/reflect.md": {
@@ -518,7 +518,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/decisions-check.test.mjs": {
-      "sha256": "d986b3116af3499cf0c438289cf81fb8bb6b4e3634bcdecb6371bc8ff6aa0029",
+      "sha256": "12384f6aa2082933e4ca61ca3f4a7deb556f47f290c8e592125b9bccecce9725",
       "mode": 420
     },
     "skills/sync-pstack/scripts/fixtures/page-files/refusal-prefix.html": {
