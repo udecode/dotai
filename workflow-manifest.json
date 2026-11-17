@@ -158,7 +158,15 @@
       "mode": 420
     },
     "skills/cleanup/SKILL.md": {
-      "sha256": "04ada75e97e8ce0c3aa2c7a28330e80249d0491547b445e6e76c8796f2c6af32",
+      "sha256": "838b7ed1b2df445a7d67dbbd2def169f1ca2e95af76b09e3c2555e7aea82ccdb",
+      "mode": 420
+    },
+    "skills/cleanup/scripts/daily.mjs": {
+      "sha256": "4e9f0f85fefa596e8cf6891b7d1bd7d8db87ca98220b8cf3e6e8a1381cb39a91",
+      "mode": 420
+    },
+    "skills/cleanup/scripts/daily.test.mjs": {
+      "sha256": "fa24a509d2f4a13a32ac90cf4bc718b66c88489efb3f6c4fae6b318bcc3e907d",
       "mode": 420
     },
     "skills/cleanup/scripts/databases.mjs": {
@@ -414,7 +422,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/long-runs.md": {
-      "sha256": "70bb9f6b6a488827f3456b1b177c459bfacba97a08709257762fd1df3554335c",
+      "sha256": "2a144e25fb01a314998a1587744770eecb2ea41d434fc650f8ff7c2fcc7aabad",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/messages.md": {
