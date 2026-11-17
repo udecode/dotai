@@ -4,7 +4,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, rmSy
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { commit, project, read, sandbox } from './test-sandbox.mjs';
+import { CONFIG, commit, project, read, sandbox } from './test-sandbox.mjs';
 import { chipLedger, linkedWorktree } from './test-ledger.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -2328,9 +2328,9 @@ test('fast work stays owed until a review task covers it, and comes back when th
   assert.match(chip(review, 'reviewed').stderr, /task_r1 is dismissed declined, so it cannot be reviewed/);
 });
 
-test('decisions-check refuses a fourth panel round until a built: or another round: row', () => {
+test('decisions-check refuses a round past a maxRounds of 3 until a built: or another round: row', () => {
   const { dir, run } = sandbox();
-  const root = project(dir, 'app');
+  const root = project(dir, 'app', { config: { ...CONFIG, maxRounds: 3 } });
   const append = (phase, decision, result = 'recorded') => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', phase, decision, 'why', 'evidence', result], root);
   const rounds = (count) => {
     for (let round = 1; round <= count; round += 1) {

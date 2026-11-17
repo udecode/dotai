@@ -55,7 +55,7 @@ test('decisions-check refuses a panel row in the plans directory until its plan 
 
 test('decisions-check takes a panel finding only with a severity, after a seats row, and with an applied, dismissed or owned deferred reason', () => {
   const { dir, run } = sandbox();
-  const root = project(dir, 'app');
+  const root = project(dir, 'app', { config: { ...CONFIG, maxRounds: 9 } });
   const append = (decision, result) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', 'panel', decision, 'why', 'evidence', result], root);
   assert.equal(append('critical The seat writes files', 'applied: read-only').status, 1, 'a finding before any seats row');
   assert.equal(append('seats opus, codex:gpt-6.1-sol @xhigh', 'recorded').status, 0);
@@ -147,6 +147,8 @@ test('decisions-check takes a second open critical finding only with an open des
 
 test("decisions-check takes a review round's second critical finding under redesign-runs only once the log holds a redesign run row", () => {
   const { helper, root } = chipLedger();
+  const config = join(root, '.agents/pstack.json');
+  writeFileSync(config, JSON.stringify({ ...JSON.parse(readFileSync(config, 'utf8')), maxRounds: 9 }));
   mkdirSync(join(root, '.agents/playbooks'), { recursive: true });
   const fix = (setting, eol = '\n') => `---\nextends: bug-fix\nwhen: Use it for a bug report.\n${setting}---\n\n# Bug fix\n`.replaceAll('\n', eol);
   writeFileSync(join(root, '.agents/playbooks/bug-fix.md'), fix('redesign-runs: on\n'));
@@ -288,7 +290,7 @@ test('decisions-check reads a design question through its merged findings and ne
 
 test("decisions-check takes a later round's seats row only after a writing row", () => {
   const { dir, run } = sandbox();
-  const root = project(dir, 'app');
+  const root = project(dir, 'app', { config: { ...CONFIG, maxRounds: 9 } });
   const append = (phase, decision, result = 'recorded') => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', phase, decision, 'why', 'evidence', result], root);
   assert.equal(append('panel', 'seats opus').status, 0, 'the first round');
   assert.equal(append('panel', 'critical [opus]: The guard drops typing', 'applied: the guard reads the composition flag').status, 0);
@@ -354,6 +356,38 @@ test('decisions-check takes the panel round cap from maxRounds and refuses a cap
   assert.notEqual(append('panel', 'seats opus').status, 0, 'a cap that is not a whole number refuses instead of turning the cap off');
   writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ ...CONFIG, maxRounds: null }));
   assert.notEqual(check('rounds', 'log.decisions.tsv').status, 0, 'a null cap refuses, as apply refuses it, instead of reading as the default');
+});
+
+test('decisions-check runs one panel round per plan or step, and one more only after a round that applies three critical findings', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app');
+  const check = (log, ...args) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), ...args.slice(0, 1), log, ...args.slice(1)], root);
+  const append = (log, phase, decision, result = 'recorded') => check(log, 'append', phase, decision, 'why', 'evidence', result);
+  const round = (log, fixes) => {
+    assert.equal(append(log, 'panel', 'seats opus').status, 0);
+    for (let n = 1; n <= fixes; n += 1) assert.equal(append(log, 'panel', `critical [opus]: Finding ${n}`, 'applied: fixed in the step').status, 0);
+    assert.equal(append(log, 'writing', 'deslop on the round fixes').status, 0);
+  };
+  assert.equal(append('two.decisions.tsv', 'build', 'built: step 1 parser.mjs', 'applied: step 1').status, 0);
+  round('two.decisions.tsv', 2);
+  assert.equal(check('two.decisions.tsv', 'rounds').status, 1, 'two applied critical findings earn no second round');
+  const stuck = append('two.decisions.tsv', 'panel', 'seats opus');
+  assert.equal(stuck.status, 1);
+  assert.match(stuck.stderr, /panel round 2 since the last restart, past the cap of 1/);
+  assert.equal(append('two.decisions.tsv', 'build', 'built: step 1 round 1 fixes in parser.mjs', 'applied: fixes').status, 0);
+  assert.equal(append('two.decisions.tsv', 'panel', 'seats opus').status, 1, "a step's own fixes start no new count");
+  assert.equal(append('two.decisions.tsv', 'build', 'built: step 2 lexer.mjs', 'applied: step 2').status, 0);
+  assert.equal(append('two.decisions.tsv', 'panel', 'seats opus').status, 0, 'a new step gets its own round');
+  assert.equal(append('two.decisions.tsv', 'writing', 'deslop on step 2').status, 0);
+  assert.equal(append('two.decisions.tsv', 'build', 'built: step M0.5 effect-ledger.ts', 'applied: step M0.5').status, 0);
+  round('two.decisions.tsv', 0);
+  assert.equal(append('two.decisions.tsv', 'build', 'built: step M0.5, round 1 fixes', 'applied: fixes').status, 0);
+  assert.equal(append('two.decisions.tsv', 'panel', 'seats opus').status, 1, 'a dotted step id starts no new count either');
+
+  round('three.decisions.tsv', 3);
+  assert.equal(check('three.decisions.tsv', 'rounds').status, 0, 'three applied critical findings earn one more round');
+  round('three.decisions.tsv', 3);
+  assert.equal(append('three.decisions.tsv', 'panel', 'seats opus').status, 1, 'the extra round earns no third');
 });
 
 test('decisions-check refuses a new trunk step while an earlier one is built and not landed', () => {
