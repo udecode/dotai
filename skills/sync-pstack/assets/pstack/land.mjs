@@ -123,7 +123,7 @@ const spent = Number(process.env.PSTACK_LAND_SPENT_MS) || 0;
 const elapsed = () => spent + performance.now();
 const STOPS = ['SIGINT', 'SIGTERM', 'SIGHUP'];
 const EX_TEMPFAIL = 75;
-const MOVED = /\[rejected\]|fetch first|non-fast-forward/u;
+const MOVED = /\[rejected\]|fetch first|non-fast-forward|cannot lock ref/u;
 const FRICTION_TOPIC = 'land-friction';
 const FRICTION_BOUND_MINUTES = 60;
 const FRICTION_WINDOW = 24 * 60 * 60_000;

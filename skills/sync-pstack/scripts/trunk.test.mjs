@@ -572,6 +572,27 @@ test('land rebases, checks again and pushes when next moves while its checks run
   assert.deepEqual(git(remote, 'log', '--format=%s', 'main..next').split('\n'), ['feat(a): change a', 'docs(d): land elsewhere']);
 });
 
+test('land rebases, checks again and pushes when GitHub cannot lock next because another push moved it', () => {
+  const { remote, clone, message, elsewhere } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const other = elsewhere('d.txt', 'theirs\n', 'docs(d): land elsewhere');
+  git(other, 'push', '--quiet', 'origin', 'HEAD:refs/heads/side');
+  // receive-pack locks next after this hook runs, so a hook that moves next
+  // once makes the same "cannot lock ref" reply a concurrent push gets.
+  const hook = join(remote, 'hooks', 'pre-receive');
+  writeFileSync(
+    hook,
+    '#!/bin/sh\n[ -e "$GIT_DIR/raced" ] && exit 0\ntouch "$GIT_DIR/raced"\nenv -u GIT_QUARANTINE_PATH -u GIT_OBJECT_DIRECTORY -u GIT_ALTERNATE_OBJECT_DIRECTORIES git update-ref refs/heads/next refs/heads/side\n'
+  );
+  chmodSync(hook, 0o755);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(run.stdout, /origin\/next moved; rebasing and pushing again \(retry 1 of 3\)/);
+  assert.deepEqual(git(remote, 'log', '--format=%s', 'main..next').split('\n'), ['feat(a): change a', 'docs(d): land elsewhere']);
+});
+
 test('land keeps a rebased commit local and unrecorded when the commit next gained while its checks ran breaks them', () => {
   const { dir, remote, clone, message, elsewhere } = trunk();
   git(clone, 'config', 'pstack.delivery', 'push');
