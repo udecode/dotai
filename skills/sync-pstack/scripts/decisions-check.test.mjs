@@ -383,7 +383,7 @@ test('decisions-check runs one panel round per plan or step, and one more only a
   round('two.decisions.tsv', 0);
   assert.equal(append('two.decisions.tsv', 'build', 'built: step M0.5, round 1 fixes', 'applied: fixes').status, 0);
   assert.equal(append('two.decisions.tsv', 'panel', 'seats opus').status, 1, 'a dotted step id starts no new count either');
-  for (const step of ['C.3a', 'D']) {
+  for (const step of ['C.3a', 'D', 'C.7d-a', 'C.7d-b']) {
     assert.equal(append('two.decisions.tsv', 'build', `built: step ${step}. sync.ts`, `applied: step ${step}`).status, 0);
     assert.equal(append('two.decisions.tsv', 'panel', 'seats opus').status, 0, `step ${step} gets its own round`);
     assert.equal(append('two.decisions.tsv', 'writing', 'deslop on the round fixes').status, 0);

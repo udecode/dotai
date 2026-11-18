@@ -330,7 +330,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
-      "sha256": "ec41f0c0cb208193d1924c09c1ff091a4d6799b1752412f961ae724d96cd3391",
+      "sha256": "f9c01c2a2c78017a4c4d71ab92b2aa5e5eb44bb977d812901f9556f7bbde0637",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/freeze.mjs": {
@@ -526,7 +526,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/decisions-check.test.mjs": {
-      "sha256": "a8b726e90e379e41ccb846ed30f16a6dcd7335df5c40d4b1af9593d432541e11",
+      "sha256": "47f073db39e08a1647ce0adc19ddfc7ae550c356b1921d4ccab96078de705647",
       "mode": 420
     },
     "skills/sync-pstack/scripts/fixtures/page-files/refusal-prefix.html": {
