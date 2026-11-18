@@ -26,6 +26,17 @@
       "provenance": null
     },
     {
+      "name": "fseventsd-watchdog",
+      "distribution": "bundled",
+      "description": "Restart macOS fseventsd when its memory leak passes 1 GB, from a root launchd job. Use when fseventsd holds GBs of memory, a Mac with many worktrees swaps or freezes, or to install, check or remove the watchdog.",
+      "category": "Maintenance",
+      "dependencies": [],
+      "capabilities": [
+        "macOS with launchd, and the user running the installer with sudo once"
+      ],
+      "provenance": null
+    },
+    {
       "name": "passwords",
       "distribution": "bundled",
       "description": "Set up unattended 1Password access on a Mac or sign in to websites and apps without repeated human approvals. Use for new-device setup, passwords, authenticator codes, email or SMS verification, passkey alternatives, and blocked logins.",
@@ -138,7 +149,7 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "f00a0ced596607f094b69bdbae55082d537b6ceb31bb3bebf9830911e0641dc0",
+      "sha256": "e99ed529af1f6fef29ea08b3b0473cfbbe6b35eacf7ca5d34b40620e737fc487",
       "mode": 420
     },
     "scripts/affected-tests.mjs": {
@@ -146,7 +157,7 @@
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
-      "sha256": "aad5416e6915589067395dabca9d89b996d1ae4d6153e200e87f1706d2cef54f",
+      "sha256": "4a11d1ba9257de87d6c445ad2f32a7f9b2596e558ce131ce0fbbc6793aa40b44",
       "mode": 420
     },
     "scripts/validate-skills": {
@@ -191,6 +202,18 @@
     },
     "skills/cleanup/scripts/scan.test.mjs": {
       "sha256": "d3d6bc8ac09f86e61d21ac175538612710b6dd1c3ab1a4c00809942eea2c5323",
+      "mode": 420
+    },
+    "skills/fseventsd-watchdog/SKILL.md": {
+      "sha256": "f698528b29dca4be01775f4869a6b967625e1e7ae79f18a7b8cb0dc13b08bb18",
+      "mode": 420
+    },
+    "skills/fseventsd-watchdog/scripts/install.sh": {
+      "sha256": "f9d9d490d638008c56e7c0770490114c4c7448135c1debff076936a6494a954a",
+      "mode": 420
+    },
+    "skills/fseventsd-watchdog/scripts/watchdog.sh": {
+      "sha256": "6045f6581b0e352455be4fcbcab8d650056ac02b0a379aebe90752b20b575e6e",
       "mode": 420
     },
     "skills/passwords/SKILL.md": {
