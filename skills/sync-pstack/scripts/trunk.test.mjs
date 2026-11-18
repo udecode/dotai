@@ -593,6 +593,77 @@ test('land rebases, checks again and pushes when GitHub cannot lock next because
   assert.deepEqual(git(remote, 'log', '--format=%s', 'main..next').split('\n'), ['feat(a): change a', 'docs(d): land elsewhere']);
 });
 
+const [gitMajor, gitMinor] = spawnSync('git', ['--version'], { encoding: 'utf8' }).stdout.match(/(\d+)\.(\d+)/u).slice(1).map(Number);
+const NO_PREPARING = (gitMajor < 2 || (gitMajor === 2 && gitMinor < 54)) && 'needs git 2.54 or later, whose reference-transaction hook has the preparing state';
+const RACED = /another fetch moved \.git-private's origin\/next while land\.mjs fetched it; fetching again \(retry 1 of 2\)/;
+
+// The preparing state runs before git locks the ref, so a hook that moves it
+// there once makes the reply a concurrent fetch from another worktree gets.
+function raceCompanionFetch({ dir, clone }) {
+  const gitDir = join(clone, '.git-private');
+  const raced = join(dir, 'raced');
+  const hook = join(gitDir, 'hooks', 'reference-transaction');
+  writeFileSync(
+    hook,
+    `#!/bin/sh\n[ "$1" = preparing ] || exit 0\nwhile read old new ref; do\n  [ "$ref" = refs/remotes/origin/next ] && [ ! -e "${raced}" ] && touch "${raced}" && git --git-dir="${gitDir}" update-ref "$ref" "$new"\ndone\nexit 0\n`
+  );
+  chmodSync(hook, 0o755);
+}
+
+test('land fetches again when another fetch moves the shared companion ref between its read and its write', { skip: NO_PREPARING }, () => {
+  const fixture = trunk();
+  const { remote, clone, message } = fixture;
+  const { sideElsewhere } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  git(sideElsewhere('c.spec', 'c\n', 'test(c): land elsewhere'), 'push', '--quiet', 'origin', 'HEAD:next');
+  raceCompanionFetch(fixture);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(run.stdout, RACED);
+  assert.doesNotMatch(run.stdout, /moved; rebasing/, 'the retried fetch gave land.mjs the tip it rebased onto');
+  assert.equal(git(remote, 'log', '-1', '--format=%s', 'next'), 'feat(a): change a');
+});
+
+test('a public half checks again before its push when another fetch races the fetch that sees the companion move', { skip: NO_PREPARING }, () => {
+  const fixture = trunk();
+  const { dir, remote, clone, message } = fixture;
+  const { sideElsewhere } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const before = git(remote, 'rev-parse', 'next');
+  const ran = join(dir, 'ran');
+  const once = join(dir, 'once');
+  const theirs = sideElsewhere('a.spec', 'broken\n', 'test(a): break a elsewhere');
+  const check = ['--check', `echo run >> ${ran} && { test -e ${once} || { touch ${once} && git -C ${theirs} push --quiet origin HEAD:next; }; } && ! grep -q broken a.spec`];
+  raceCompanionFetch(fixture);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), ...check]);
+  assert.equal(run.status, 1, run.stderr);
+  assert.match(run.stdout, RACED);
+  assert.equal(readFileSync(ran, 'utf8').trim().split('\n').length, 2, 'the public half is checked again beside the companion commit the raced fetch brought');
+  assert.equal(git(remote, 'rev-parse', 'next'), before, 'a public half that fails beside the companion tip is not pushed');
+});
+
+test('land finds a companion half that reached origin during its check when another fetch races the fetch that looks for it', { skip: NO_PREPARING }, () => {
+  const fixture = trunk();
+  const { remote, clone, message } = fixture;
+  const { sideElsewhere } = split(fixture);
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const halves = landingOnBothVersionFiles(fixture, sideElsewhere);
+  git(halves[0], 'push', '--quiet', 'origin', 'HEAD:next');
+  raceCompanionFetch(fixture);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  const check = `git -C "${halves[1]}" push --quiet origin HEAD:next; test "$(cat b.txt)" = "$(cat a.spec)"`;
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', check]);
+  assert.equal(run.status, 0, run.stderr);
+  assert.match(run.stdout, RACED);
+  assert.ok(run.stdout.includes(`it ran on ${git(halves[0], 'rev-parse', 'HEAD')} without that commit's .git-private half`), run.stdout);
+  assert.equal(git(remote, 'show', 'next:a.txt'), 'two');
+});
+
 test('land keeps a rebased commit local and unrecorded when the commit next gained while its checks ran breaks them', () => {
   const { dir, remote, clone, message, elsewhere } = trunk();
   git(clone, 'config', 'pstack.delivery', 'push');
