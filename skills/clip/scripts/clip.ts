@@ -7,6 +7,9 @@ const ASSETS = `${import.meta.dir}/../assets`
 
 /** The page size a clip films, in CSS pixels, and how many video pixels each one takes. */
 export type View = { width: number; height: number; scale: number }
+export type Modifier = 'Alt' | 'Control' | 'Meta' | 'Shift'
+// CDP's Input.dispatchMouseEvent modifiers bit field.
+const MODIFIER_BITS: Record<Modifier, number> = { Alt: 1, Control: 2, Meta: 4, Shift: 8 }
 
 // The X shape is the owner's go (2026-11-19).
 const x: View = { width: 540, height: 675, scale: 2 }
@@ -150,6 +153,7 @@ export class Clip {
   readonly captions: Beat[] = []
   readonly holds: [number, number][] = []
   private held = false
+  private mods = 0
   private out = ''
   private video = ''
   private t0 = 0
@@ -173,7 +177,20 @@ export class Clip {
       button: type === 'mouseMoved' && !this.held ? 'none' : 'left',
       buttons: this.held ? 1 : 0,
       clickCount,
+      modifiers: this.mods,
     })
+  }
+
+  // A CDP mouse event carries no keyboard state, so a Shift held with page.keyboard.down never reached a drag's pointer events.
+  /** Holds a modifier key, such as Shift for a circle, so each mouse event carries it until `keyUp`. */
+  async keyDown(key: Modifier) {
+    await this.page.keyboard.down(key)
+    this.mods |= MODIFIER_BITS[key]
+  }
+
+  async keyUp(key: Modifier) {
+    this.mods &= ~MODIFIER_BITS[key]
+    await this.page.keyboard.up(key)
   }
 
   wait(ms: number) {
