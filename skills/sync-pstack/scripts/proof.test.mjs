@@ -11,6 +11,9 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 
 const HELPERS = join(HERE, '../assets/pstack');
 
+// Drops the line that names when the machine last started.
+const unbooted = (log) => log.replace(/^boot=\d{4}-\d\d-\d\dT[\d:.]+Z\n/mu, '');
+
 test('proof writes each run to the next attempt log with its command and exit status, under pipefail', () => {
   const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-proof-'));
   const prove = (...command) => spawnSync(process.execPath, [join(HELPERS, 'proof.mjs'), '--dir', join(dir, 'run'), '--name', 'lint', '--', ...command], { cwd: dir, encoding: 'utf8' });
@@ -20,9 +23,27 @@ test('proof writes each run to the next attempt log with its command and exit st
   assert.match(failing.stdout, /log: .*lint-a1\.log exit=1/);
   const passing = prove(process.execPath, '-e', 'console.log("clean")');
   assert.equal(passing.status, 0, passing.stderr);
-  assert.equal(read(dir, 'run/lint-a1.log'), `$ (${realpathSync(dir)}) echo found 2 problems; false | cat\nfound 2 problems\nexit=1\n`);
-  assert.match(read(dir, 'run/lint-a2.log'), /^\$ \(.*\) .*-e 'console\.log\("clean"\)'\nclean\nexit=0\n$/);
+  assert.equal(unbooted(read(dir, 'run/lint-a1.log')), `$ (${realpathSync(dir)}) echo found 2 problems; false | cat\nfound 2 problems\nexit=1\n`);
+  assert.notEqual(unbooted(read(dir, 'run/lint-a1.log')), read(dir, 'run/lint-a1.log'), 'the log does not name when the machine last started');
+  assert.match(read(dir, 'run/lint-a2.log'), /^\$ \(.*\) .*-e 'console\.log\("clean"\)'\nboot=\S+\nclean\nexit=0\n$/);
   assert.match(prove("echo 'héllo—x'").stdout, /^héllo—x\n/u, 'a command line with multibyte text stays out of the output');
+});
+
+test('proof refuses a run whose last attempt logged no exit before the machine last started, unless --force', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-proof-reboot-'));
+  const prove = (...flags) => spawnSync(process.execPath, [join(HELPERS, 'proof.mjs'), '--dir', join(dir, 'run'), '--name', 'big', ...flags, '--', 'true'], { cwd: dir, encoding: 'utf8' });
+  mkdirSync(join(dir, 'run'));
+  writeFileSync(join(dir, 'run/big-a1.log'), '$ (.) pnpm check:big\nboot=2000-01-01T00:00:00.000Z\nshard 3: case 900\n');
+
+  const refused = prove();
+  assert.equal(refused.status, 2);
+  assert.match(refused.stderr, /big-a1\.log logged no exit, and this machine has started again since that run/);
+  assert.equal(existsSync(join(dir, 'run/big-a2.log')), false, 'a refused proof writes no log');
+  assert.equal(prove('--force').status, 0, 'a forced proof did not run');
+  assert.equal(prove().status, 0, 'a run whose last attempt logged its exit was refused');
+  const boot = read(dir, 'run/big-a3.log').match(/^boot=\S+$/mu)[0];
+  writeFileSync(join(dir, 'run/big-a4.log'), `$ (.) pnpm check:big\n${boot}\nshard 3: case 900\n`);
+  assert.equal(prove().status, 0, 'a run whose last attempt still runs under this boot was refused');
 });
 
 test('proof refuses a --timeout over the hour time budget unless --stress, and writes no log for a refused run', () => {
@@ -44,7 +65,7 @@ test('proof stops every process a timed-out command started, so none writes to i
 
   assert.equal(proveWithTimeout(dir, 'late', 'sh -c "sleep 2; echo late-write"; true').status, 1);
   spawnSync('sleep', ['3']);
-  assert.equal(read(dir, 'run/late-a1.log'), `$ (${realpathSync(dir)}) sh -c "sleep 2; echo late-write"; true\ntimed out after 1 seconds\nexit=ETIMEDOUT\n`, 'a process the command started wrote after the timeout');
+  assert.equal(unbooted(read(dir, 'run/late-a1.log')), `$ (${realpathSync(dir)}) sh -c "sleep 2; echo late-write"; true\ntimed out after 1 seconds\nexit=ETIMEDOUT\n`, 'a process the command started wrote after the timeout');
 });
 
 const until = async (done) => {
