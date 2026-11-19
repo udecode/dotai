@@ -1399,7 +1399,7 @@ test('land in a direct clone without push access says to fork and add upstream',
   assert.equal(existsSync(join(dir, 'gh-args')), false, 'no PR is opened');
 });
 
-test('land refuses a message without a Conventional subject or a Beyond the ask, Picks or Not checked line and changes nothing', () => {
+test('land refuses a message without a Conventional subject or a Beyond the ask, Picks or Not checked line, names every problem in one refusal and changes nothing', () => {
   const { remote, clone, base, message } = trunk();
   git(clone, 'config', 'pstack.delivery', 'push');
   writeFileSync(join(clone, 'a.txt'), 'two\n');
@@ -1417,9 +1417,26 @@ test('land refuses a message without a Conventional subject or a Beyond the ask,
   const noUnchecked = helper('land.mjs', clone, ['--message', message('feat(a): change a\n\nWhy a changes.\n\nBeyond the ask: none\nPicks: none\nNot checked:\n')]);
   assert.equal(noUnchecked.status, 1);
   assert.match(noUnchecked.stderr, /the body has no `Not checked:` line; name what the proof did not check/);
-  const badSubject = helper('land.mjs', clone, ['--message', message('Change a.\n\nBeyond the ask: none\n')]);
-  assert.equal(badSubject.status, 1);
-  assert.match(badSubject.stderr, /is not one Conventional Commit/);
+  const everything = helper('land.mjs', clone, ['--message', message('Change a.\nWhy a changes — and how. Closes #12 and fixes #34\n')]);
+  assert.equal(everything.status, 1);
+  for (const problem of [
+    /is not one Conventional Commit/,
+    /a blank line must separate/,
+    /the body has no `Beyond the ask:` line/,
+    /the body has no `Picks:` line/,
+    /the body has no `Not checked:` line/,
+    /breaks the Writing rule[\s\S]*line 2/u,
+    /"Closes #12" closes an issue/,
+    /"fixes #34" closes an issue/,
+  ]) assert.match(everything.stderr, problem);
+  const joined = helper('land.mjs', clone, ['--message', message('feat(a): change a\nBeyond the ask: none\n\nPicks: none\nNot checked: none\n')]);
+  assert.equal(joined.status, 1);
+  assert.match(joined.stderr, /a blank line must separate/);
+  assert.doesNotMatch(joined.stderr, /the body has no/);
+  const fix = helper('land.mjs', clone, ['--message', message('fix(a): repair a\n\nWhy a changes.\n\nBeyond the ask: none\nNot checked: none\n')]);
+  assert.equal(fix.status, 1);
+  assert.match(fix.stderr, /the body has no `Picks:` line/);
+  assert.match(fix.stderr, /the fix names no commit that introduced its bug/);
   assert.equal(git(remote, 'rev-parse', 'next'), base);
   assert.equal(git(clone, 'rev-parse', 'HEAD'), head);
   assert.equal(git(clone, 'status', '--porcelain'), 'M a.txt');
