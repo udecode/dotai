@@ -12,7 +12,7 @@ const sha = (data) => createHash('sha256').update(data).digest('hex');
 const upstream = JSON.parse(readFileSync(join(root, 'upstream-skills.json'), 'utf8'));
 const groups = {
   'Review': ['test-audit'],
-  'Communication': ['walkthrough', 'video-transcripts', 'plan-page'],
+  'Communication': ['clip', 'walkthrough', 'video-transcripts', 'plan-page'],
   'Workflow': ['chips', 'passwords', 'redo'],
   'Maintenance': ['cleanup', 'fseventsd-watchdog', 'sync-pstack', 'worktree-workspace'],
   'Monitoring': ['pstack-pulse', 'rca'],
@@ -20,6 +20,7 @@ const groups = {
 const explicitDependencies = {};
 const requirements = {
   passwords: ['macOS login Keychain, 1Password CLI and an account with service-account access; authorized browser or native-app controls that can consume credentials without exposing them'],
+  clip: ['Bun, ffmpeg and ffprobe; Chromium for playwright-core, which the skill installs on first use'],
   cleanup: ['Node.js 22+, Git and lsof; a session tool that lists sessions with their folders, or a one-day wait before a worktree counts as unused'],
   'fseventsd-watchdog': ['macOS with launchd, and the user running the installer with sudo once'],
   chips: ['Node.js 22+ and Git; the ledger helpers and chips.md rule that sync-pstack installs in .agents/pstack; a suggest tool for cards, with the fallback chips.md gives without one'],
@@ -35,7 +36,7 @@ const requirements = {
 function walk(dir) {
   const paths = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (['__pycache__', '.DS_Store'].includes(entry.name)) continue;
+    if (['__pycache__', '.DS_Store', 'node_modules'].includes(entry.name)) continue;
     const path = join(dir, entry.name);
     if (entry.isSymbolicLink()) throw new Error(`Bundle must be self-contained; symlink: ${path}`);
     if (entry.isDirectory()) paths.push(...walk(path));

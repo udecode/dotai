@@ -1,6 +1,6 @@
 # dotai skills
 
-13 skills: 13 maintained in dotai, plus 0 unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from dotai. Methods load only when relevant; tool access is separate from installation.
+14 skills: 14 maintained in dotai, plus 0 unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from dotai. Methods load only when relevant; tool access is separate from installation.
 
 ## Review (1)
 
@@ -8,10 +8,11 @@
 | --- | --- |
 | [test-audit](skills/test-audit/SKILL.md) | Audit existing tests for low-value, duplicated or implementation-coupled cases and the test-only code they keep alive, then remove or rewrite them on evidence. /test-audit full covers the whole suite and also lists public contracts no test guards. Use for test-audit, /test-audit <scope>, /test-audit full, a test sweep, or pruning tests. Not for writing a new test; the project's Tests rule gates that. |
 
-## Communication (3)
+## Communication (4)
 
 | Skill | Purpose |
 | --- | --- |
+| [clip](skills/clip/SKILL.md) | Record, check and render a demo clip of a web page, or one before-and-after clip of a change, for a chat message, a team post or a social post. Use before recording any clip of an app, before attaching before and after screenshots of a change (one before-and-after clip replaces them), when a clip looks robotic, shaky, rushed or too polished, and when the owner changes how clips look, move or read. |
 | [walkthrough](skills/walkthrough/SKILL.md) | Present final screenshots or rendered artifacts as an annotated walkthrough when visual evidence is requested. |
 | [video-transcripts](skills/video-transcripts/SKILL.md) | Transcribe a supplied local or linked video with Gemini, or from its frames with a Claude subagent when Gemini fails, and check the transcript against one frame per second, when a recording's contents are needed as evidence, such as a bug recording on an issue, PR or comment, or a question about what a video shows. |
 | [plan-page](skills/plan-page/SKILL.md) | Write, check, repair and publish a plan page: a project's plans and subject files under its plans directory, rendered by .agents/pstack/plan-page.mjs and rendered as one local HTML page per subject with a local index of every subject, and published to claude.ai at each hand-back for comments and feedback. The page is how planned work hands back to the user. Use before writing or changing a plan, a subject file in <plans>/topics or its page; at every stop that hands back work with a plan, such as a review verdict other than a review-only panel's, a next answer or a playbook's close; before writing or updating a PR body, which renders from the PR's plan, or a comment about your commits on someone else's PR; when a plan page or its claude.ai artifact looks wrong or refuses to render; to republish a page; or to change the page shape or a playbook's page sections. |
@@ -55,6 +56,7 @@ These skills remain installed when a tool is absent; an unavailable live action 
 
 - **chips:** Node.js 22+ and Git; the ledger helpers and chips.md rule that sync-pstack installs in .agents/pstack; a suggest tool for cards, with the fallback chips.md gives without one.
 - **cleanup:** Node.js 22+, Git and lsof; a session tool that lists sessions with their folders, or a one-day wait before a worktree counts as unused.
+- **clip:** Bun, ffmpeg and ffprobe; Chromium for playwright-core, which the skill installs on first use.
 - **fseventsd-watchdog:** macOS with launchd, and the user running the installer with sudo once.
 - **passwords:** macOS login Keychain, 1Password CLI and an account with service-account access; authorized browser or native-app controls that can consume credentials without exposing them.
 - **plan-page:** Node.js 22+ and Git; the renderer that sync-pstack installs in .agents/pstack; the Artifact tool to publish.
