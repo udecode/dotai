@@ -180,7 +180,7 @@
       "mode": 420
     },
     "skills/cleanup/SKILL.md": {
-      "sha256": "838b7ed1b2df445a7d67dbbd2def169f1ca2e95af76b09e3c2555e7aea82ccdb",
+      "sha256": "19ca60ac0bb18239a900f227b9f909670607b9eb9730bb7f0cf04ebc7e46c194",
       "mode": 420
     },
     "skills/cleanup/scripts/daily.mjs": {
@@ -208,11 +208,11 @@
       "mode": 420
     },
     "skills/cleanup/scripts/scan.mjs": {
-      "sha256": "60a1ff63f4dd30e9d8e2f8db23eafec6ed7f84c1b5e0f229718641f93c54d916",
+      "sha256": "d3c1015b8ad0520e54d686933283deed41990d5bec5a062eb64b141ebb9aee67",
       "mode": 420
     },
     "skills/cleanup/scripts/scan.test.mjs": {
-      "sha256": "d3d6bc8ac09f86e61d21ac175538612710b6dd1c3ab1a4c00809942eea2c5323",
+      "sha256": "7e50396852b4e1e2672d039b0e8da8a009ae1bd23829d95b142b55ce87c8cc52",
       "mode": 420
     },
     "skills/clip/SKILL.md": {
