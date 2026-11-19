@@ -24,7 +24,7 @@ export async function main(argv) {
   const readDirs = [];
   let dir;
   let prompt;
-  let timeout = 1800;
+  let timeout;
   let offline = false;
   let effortRoot;
   for (let index = 0; index < argv.length; index += 1) {
@@ -64,7 +64,7 @@ export async function main(argv) {
       seats.push({ name: match[1], runtime: match[2], model: match[3], effort: match[4] });
     }
   }
-  if (!dir || !prompt?.trim() || seats.length === 0 || !(timeout > 0 && timeout <= 3300)) {
+  if (!dir || !prompt?.trim() || seats.length === 0 || !(timeout === undefined || timeout > 0)) {
     console.error(usage);
     return 2;
   }

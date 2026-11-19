@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpath
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { realPs } from './test-ps.mjs';
 import { sandbox } from './test-sandbox.mjs';
 
@@ -144,7 +144,7 @@ test('cross --reach runs a Codex seat on the owner config with network, writing 
   assert.equal(refused.stdout, '');
 });
 
-const FAKE_AGY = '#!/usr/bin/env node\nconsole.log(JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd() }));\n';
+const FAKE_AGY = '#!/usr/bin/env node\nconsole.log(JSON.stringify({ event: "init" }));\nconsole.log(JSON.stringify({ event: "result", result: { status: "success", response: JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd() }) } }));\n';
 
 test('cross runs an agy seat from a scratch folder on the model for its effort, reading any file, writing only that folder and denying what it would ask for', () => {
   const { dir, home } = sandbox();
@@ -161,7 +161,7 @@ test('cross runs an agy seat from a scratch folder on the model for its effort, 
   const { args, cwd } = JSON.parse(seat.stdout);
   assert.match(cwd, /pstack-reach-/u);
   assert.equal(existsSync(cwd), false, 'the scratch folder is deleted once the seat answers');
-  assert.deepEqual(args.slice(2), ['--model', 'gemini-4-neon-xhigh', '--settings', args[5], '--sandbox']);
+  assert.deepEqual(args.slice(2), ['--model', 'gemini-4-neon-xhigh', '--settings', args[5], '--sandbox', '--output-format', 'stream-json']);
   assert.equal(args[0], '-p');
   assert.ok(args[1].startsWith(`Your working directory is a scratch folder you may write. The project is ${project}: read it by absolute path and never write it. Every shell command you run stays in agy's sandbox. Never ask to run one outside it`), args[1]);
   assert.match(args[1], /\n\nreview it\n\nPut your whole answer in your final message\./u);
@@ -367,28 +367,31 @@ test('cross refuses the retired write, events and resume flags before launching 
   assert.equal(existsSync(launched), true);
 });
 
-test('cross refuses a --timeout over the hour time budget before launching, unless --stress', () => {
+test('cross sets no time limit of its own, and stops only a run that shows no sign of work', () => {
   const { dir, home } = sandbox();
   const bin = join(dir, 'bin');
   mkdirSync(bin);
-  const launched = join(dir, 'launched');
-  writeFileSync(join(bin, 'codex'), `#!/bin/sh\ntouch ${launched}\nwhile [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; *) shift ;; esac; done\necho ok > "$out"\n`, { mode: 0o755 });
-  const run = (...flags) =>
-    spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', ...flags, 'build it'], {
-      cwd: dir,
-      encoding: 'utf8',
-      env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1' },
-    });
-  const refused = run('--timeout', '3601');
-  assert.equal(refused.status, 2);
-  assert.match(refused.stderr, /--timeout 3601 is over the 3600-second time budget/);
-  assert.equal(existsSync(launched), false, 'a refused run launched Codex');
-  assert.equal(run('--timeout', '3600').status, 0, 'a run at the budget launches');
-  assert.equal(run('--timeout', '3601', '--stress').status, 0, 'a stress run past the budget launches');
-  assert.equal(run('--bypass', '--timeout', '21600').status, 0, 'a coding run at its six-hour budget launches');
-  const long = run('--bypass', '--timeout', '21601');
-  assert.equal(long.status, 2);
-  assert.match(long.stderr, /--timeout 21601 is over the 21600-second budget of a --bypass coding run/);
+  const answer = 'while [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2 ;; *) shift ;; esac; done\n';
+  const fakes = {
+    silent: '#!/bin/sh\nsleep 30\n',
+    busy: `#!/bin/sh\n${answer}for i in 1 2 3 4 5 6 7 8 9 10; do echo step >&2; sleep 0.3; done\necho worked > "$out"\n`,
+  };
+  const ask = (fake, runtime = 'codex') => {
+    writeFileSync(join(bin, runtime), fakes[fake] ?? fake, { mode: 0o755 });
+    const drive = join(dir, 'drive.mjs');
+    writeFileSync(drive, `import { ask } from ${JSON.stringify(pathToFileURL(join(HELPERS, 'cross.mjs')).href)};\nconsole.log(JSON.stringify(await ask(${JSON.stringify(runtime)}, 'review it', { cwd: process.cwd(), idle: 1 })));\n`);
+    const run = spawnSync(process.execPath, [drive], { cwd: dir, encoding: 'utf8', env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '' } });
+    assert.equal(run.status, 0, run.stderr);
+    return JSON.parse(run.stdout);
+  };
+  const silent = ask('silent');
+  assert.equal(silent.ok, false);
+  assert.match(silent.text, /^no sign of work for 1 seconds: /u);
+  const busy = ask('busy');
+  assert.deepEqual([busy.ok, busy.text], [true, 'worked'], 'a run that keeps printing outlives the idle limit');
+  const transcripts = join(home, '.claude/projects/p');
+  const writing = `#!/bin/sh\nwhile [ $# -gt 0 ]; do case "$1" in --session-id) id="$2"; shift 2 ;; *) shift ;; esac; done\nmkdir -p ${transcripts}\nfor i in 1 2 3 4 5 6 7 8 9 10; do echo '{}' >> ${transcripts}/$id.jsonl; sleep 0.3; done\necho reviewed\n`;
+  assert.deepEqual(ask(writing, 'claude'), { runtime: 'claude', ok: true, text: 'reviewed', seat: 'opus @default' }, 'a Claude run that only writes its transcript outlives the idle limit');
 });
 
 test('a stopped cross run kills a runtime that ignores SIGTERM, and deletes its folders', async () => {

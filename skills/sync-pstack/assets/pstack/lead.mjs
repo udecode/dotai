@@ -59,10 +59,11 @@ function claudeRun(lines, upTo = lines.length - 1) {
   return null;
 }
 
+export const claudeTranscript = (sessionId) => filesUnder(join(claudeHome(), 'projects'), 1).find((file) => basename(file) === `${sessionId}.jsonl`) ?? null;
+
 /** The model and effort a finished `claude -p --session-id <id>` run used. */
 export function claudeSessionRun(sessionId) {
-  const projects = join(claudeHome(), 'projects');
-  const path = filesUnder(projects, 1).find((file) => basename(file) === `${sessionId}.jsonl`);
+  const path = claudeTranscript(sessionId);
   return path ? claudeRun(tailLines(path)) : null;
 }
 

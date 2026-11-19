@@ -153,6 +153,7 @@ test('replay takes a case from each Introduced-by line of a fix commit, and none
 
   const run = p.replay([...SEATS, '--clean', '0', '--dry-run']);
   assert.equal(run.status, 0, run.stderr);
+  assert.match(run.stdout, /, no seat time limit\./u);
   assert.deepEqual(
     caseLines(run.stdout).map((line) => line.split(' ').slice(1, 4).join(' ')),
     [`${intro.slice(0, 10)} -> ${fix.slice(0, 10)}`],
@@ -192,15 +193,18 @@ test('replay refuses a --case whose introducing commit is not an ancestor of the
   assert.equal(existsSync(p.run) && readdirSync(p.run).length > 0, false, 'a refused run writes no packet');
 });
 
-test('replay refuses a seat that names no effort, and a --timeout that would not leave the setup and the judge their share of the hour', () => {
+test('replay refuses a seat that names no effort, and a --timeout that is not a number of seconds', () => {
   const p = trunkWithFakeRuntimes();
   traced(p);
   const bare = p.replay(['--seat', 'opus=claude:opus', '--dry-run']);
   assert.equal(bare.status, 2);
   assert.match(bare.stderr, /name each seat's effort as the panel runs it, such as opus=claude:opus@xhigh/u);
-  const long = p.replay([...SEATS, '--timeout', '2500', '--dry-run']);
-  assert.equal(long.status, 2);
-  assert.match(long.stderr, /--timeout takes 1 to \d+ seconds/u);
+  const zero = p.replay([...SEATS, '--timeout', '0', '--dry-run']);
+  assert.equal(zero.status, 2);
+  assert.match(zero.stderr, /--timeout takes a number of seconds/u);
+  const long = p.replay([...SEATS, '--timeout', '7200', '--dry-run']);
+  assert.equal(long.status, 0, long.stderr);
+  assert.match(long.stdout, /7200 s per seat round/u);
 });
 
 test("a case's prompt holds the introducing commit's message, diff and plan, asks for every finding with its severity, and holds neither the fix, the decision log nor a commit sha", () => {

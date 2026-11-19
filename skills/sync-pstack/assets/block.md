@@ -27,7 +27,7 @@
   `cross.mjs` caps every run it starts, `chips brief` prints each card's capped effort, and `levels.mjs` judges against the capped levels.
 <!-- end -->
 <!-- # overrides poteto-mode/SKILL.md "The role's `@level`, or the sheet's `default effort` line, sets its starting level" -->
-<!-- # overrides poteto-mode/SKILL.md "Lower it one step for judgment and two or more steps for routine work." -->
+<!-- # overrides poteto-mode/SKILL.md "lower it one step for judgment, and two or more steps for routine work" -->
 <!-- # overrides poteto-mode/references/codex-tools.md "Apply poteto-mode's task adjustment to that starting level" -->
 <!-- # overrides poteto-mode/references/codex-tools.md "ask for an explicit role or `default effort` level before dispatching" -->
 <!-- # relies poteto-mode/references/codex-tools.md "scripts/codex-session-effort.mjs" -->
@@ -48,7 +48,7 @@
 
 <!-- # Each "overrides" note names pstack text an override replaces; sync-pstack refuses a bump that drops it. -->
 <!-- # overrides poteto-mode/playbooks/feature.md "Run **Opening a PR**" -->
-<!-- # overrides poteto-mode/playbooks/opening-a-pr.md "Work from a git worktree off main." -->
+<!-- # overrides poteto-mode/playbooks/opening-a-pr.md "Work from a git worktree off trunk" -->
 <!-- if delivery=push -->
 - **Delivery.** A completed task runs its writing passes, then `{{lintFix}}` as its last check that edits code, then commits and pushes `{{branch}}`. No PR, merge or force-push unless the user asks. pstack's Opening a PR, Babysit and Shipping playbooks apply only to a requested PR, and their "worktree off main" step never applies.
 <!-- end -->
@@ -123,14 +123,14 @@
 <!-- # relies ../agents/comment-sicko.md "Report only." -->
 - **The lead writes the code.** The lead agent edits the current checkout and verifies on the running artifact. Subagents do research, review and read-only fan-out; a Codex worker the Codex workers rule starts also writes. That covers comment-sicko in `no-comments`: its brief forbids every edit and asks for each verdict with its exact replacement text, and the lead applies the ones it accepts. No per-delegate worktrees unless the user asks. This replaces every pstack playbook step that delegates implementation or attempts to a subagent or gives a delegate its own worktree, as in Feature, Bug fix, Refactoring, Perf issue and Hillclimb.
 <!-- if proof -->
-<!-- # overrides poteto-mode/playbooks/multi-phase-plan.md "Run each full swarm per `skills/swarm/SKILL.md`." -->
-  The `{{proof}}` skill is pstack's driver skill here. Bug fixes reproduce and verify through it, and its proof replaces the swarm lanes of pstack's Multi-phase plan.
+<!-- # relies poteto-mode/playbooks/multi-phase-plan.md "Each live box drives the real surface through the driver skill" -->
+  The `{{proof}}` skill is pstack's driver skill here. Bug fixes reproduce and verify through it.
 <!-- end -->
 <!-- end -->
 <!-- if delivery=trunk -->
 <!-- if proof -->
-<!-- # overrides poteto-mode/playbooks/multi-phase-plan.md "Run each full swarm per `skills/swarm/SKILL.md`." -->
-- **Proof.** The `{{proof}}` skill is pstack's driver skill here. Bug fixes reproduce and verify through it, and its proof replaces the swarm lanes of pstack's Multi-phase plan.
+<!-- # relies poteto-mode/playbooks/multi-phase-plan.md "Each live box drives the real surface through the driver skill" -->
+- **Proof.** The `{{proof}}` skill is pstack's driver skill here. Bug fixes reproduce and verify through it.
 <!-- end -->
 <!-- end -->
 <!-- # adds -->
@@ -141,11 +141,10 @@
 <!-- if delivery=trunk -->
   Bookkeeping never takes a call of its own: a retitle, a todo update, a decision-log append, a page publish or a plan-page render goes out in the same message as the next working call, the closing 👀 rename as the Session title rule says, and several decision rows go in one append (owner's word, 2026-10-17).
 <!-- end -->
-<!-- # overrides how/SKILL.md "Spawn all explorers in a single message" -->
 <!-- # overrides arena/SKILL.md "The judge is never from the parent's family" -->
 <!-- # overrides setup-pstack/SKILL.md "An `inherit-parent` or `auto` value never judges." -->
-<!-- # relies how/references/explorer-prompt.md "# Explorer Prompt Template" -->
-- **Extraction.** The session's own model keeps every judgment: plans, designs, the code the lead writes, synthesis, explainers, judges, cross-judges, a second reader that checks extracted claims, and reflect's synthesis with every decision on what it applies. In Claude Code, a role that only finds evidence for the lead to judge runs on Codex when the models sheet gives it a `codex:<model> @<effort>` value; today that is the `how explorer` role, which gets pstack's explorer prompt. It runs through `cross.mjs --reach`, with the user's Codex config, connectors, web search and network, writing only a scratch folder. Before using an answer, the lead checks it covers every source and lookup its brief asked for. A seat that fails, returns nothing or leaves one uncovered, reported or not, reruns once on its model for the part still missing, unless refused for security, and the page names any gap left. In Claude Code, when the lead would otherwise read several unread files to find where a change goes, it asks such a seat for the spans and call sites instead, confirms the call sites with its own `git grep` of each changed symbol, then reads in full the function it changes and each caller whose behavior the change can break.
+<!-- # relies how/SKILL.md "that explores and explains in one pass" -->
+- **Extraction.** The session's own model keeps every judgment: plans, designs, the code the lead writes, synthesis, explainers, judges, cross-judges, a second reader that checks extracted claims, and reflect's synthesis with every decision on what it applies. In Claude Code, a seat that only finds evidence for the lead to judge runs on Codex when the models sheet's `how explorer` line gives a `codex:<model> @<effort>` value; `how`'s own subagent explains, so it stays on the session's model. It runs through `cross.mjs --reach`, with the user's Codex config, connectors, web search and network, writing only a scratch folder. Before using an answer, the lead checks it covers every source and lookup its brief asked for. A seat that fails, returns nothing or leaves one uncovered, reported or not, reruns once on its model for the part still missing, unless refused for security, and the page names any gap left. In Claude Code, when the lead would otherwise read several unread files to find where a change goes, it asks such a seat for the spans and call sites instead, confirms the call sites with its own `git grep` of each changed symbol, then reads in full the function it changes and each caller whose behavior the change can break.
 <!-- if codexLanes -->
   A read-only fan-out reader the lead starts itself whose sources are all files on disk, such as a map, inventory or sweep lane, runs the same way on the `how explorer` line's model with `cross.mjs` and the lead's brief, which excludes build output.
 <!-- end -->
@@ -153,8 +152,7 @@
 <!-- # adds -->
 - **Codex workers.** Read `.agents/pstack/rules/codex.md` in full before you write a planned change of more than a few lines or one that needs its own test loop. Read it too before a long run's mechanical slice that a command proves done, such as a codemod, a benchmark protocol run or a fix loop that ends when typecheck or lint passes, and whenever the owner says to have Codex do it. It says when Codex writes the code instead of you.
 <!-- end -->
-<!-- # overrides arena/SKILL.md "If the `Agent` tool rejects a configured entry, run that seat on its family's default" -->
-<!-- # overrides arena/SKILL.md "or drop the seat and say so when there is none" -->
+<!-- # overrides arena/SKILL.md "If the `Agent` tool rejects a slug, use the nearest valid slug of the same family or drop the seat" -->
 <!-- # overrides arena/SKILL.md "Give each candidate its own output location" -->
 <!-- # overrides arena/SKILL.md "Spawn all N subagents in one message with `run_in_background: true`" -->
 <!-- # overrides arena/SKILL.md "If a candidate produces no output, proceed with N-1 and note the dropout." -->
@@ -166,15 +164,15 @@
 <!-- # overrides interrogate/SKILL.md "Keep repros in your own worktree." -->
 <!-- # overrides interrogate/SKILL.md "That covers style, naming, structure, and risks that need a future change to matter." -->
 <!-- # overrides interrogate/SKILL.md "Keep a finding when the output shows the failure and the failure breaks the intent. Drop the rest." -->
-<!-- # overrides arena/SKILL.md "the candidates by path label" -->
+<!-- # overrides arena/SKILL.md "the judge scores each candidate, by path label" -->
 <!-- # overrides arena/SKILL.md "If the candidates converge on one shape, that is strong agreement." -->
-<!-- # overrides poteto-mode/SKILL.md "Contested design → the **interrogate** skill (multi-model adversarial) before shipping." -->
-<!-- # overrides poteto-mode/playbooks/feature.md "`architect` for parallel design exploration." -->
+<!-- # overrides poteto-mode/SKILL.md "Contested design → **interrogate**." -->
+<!-- # overrides poteto-mode/playbooks/feature.md "`architect` for the shape." -->
 <!-- # overrides poteto-mode/playbooks/feature.md "If the design is contested, `interrogate` before shipping." -->
 <!-- # overrides blast-radius/SKILL.md "For a big or wide change, run it as an `arena`." -->
 <!-- # overrides figure-it-out/SKILL.md "For one-way-door design decisions, run the **architect** skill (it runs **arena**)." -->
 <!-- # overrides babysit/SKILL.md "Use `interrogate` before opening if the diff is contested" -->
-<!-- # overrides architect/SKILL.md "For adversarial pressure on the design before implementing, run the **interrogate** skill on the synthesized sketch." -->
+<!-- # overrides architect/SKILL.md "For a large or contested design, run the **arena** skill instead of sketching alone." -->
 <!-- # relies poteto-mode/playbooks/bug-fix.md "Skip those skills and step 3's `architect`, even across a function boundary, only when all of these hold:" -->
 <!-- # relies principle-attack-the-premise/SKILL.md "Write the premise down and test it directly before you write another fix that assumes it." -->
 - **Panel review.** A pstack panel, `/pstack:interrogate` with the configured seats, runs without asking for the work this project's reviews list names and wherever a pstack playbook step or skill calls for it, such as a contested design. `architect` and arena run the same way, such as for Feature's design exploration or a fix that crosses a function boundary outside Bug fix's focused-fix exception. A change to agent prose alone gets none of them, except as `.agents/pstack/rules/panel.md` says. On the user's word, "panel" runs a panel on the current plan or diff, "arena" runs an arena bakeoff of the current artifact, and "full" runs `architect`, then a panel on the plan and another on the diff. Before you launch any panel, `architect` or arena seat, or log a panel row, read `.agents/pstack/rules/panel.md` in full; it holds the Panel review and Review rules.
@@ -187,7 +185,7 @@
 <!-- end -->
 <!-- # overrides poteto-mode/SKILL.md "Reversible work and external actions" -->
 - **Messages and shared resources.** A "can we X?" question gets a measured answer and a proposal, not the action. Before you send or draft a message another person can read, such as an email, a chat message, or a comment, review, label or close on an issue or PR, before you spend shared quota, and before you run an access grant, read `.agents/pstack/rules/messages.md` in full.
-<!-- # overrides poteto-mode/playbooks/babysit.md "Dismiss noise with the concrete disproof on the thread." -->
+<!-- # overrides poteto-mode/playbooks/babysit.md "dismiss noise with a concrete disproof" -->
 <!-- section tests -->
 <!-- # overrides poteto-mode/playbooks/bug-fix.md "Stage the commits so the failing repro lands before the fix in git history." -->
 - **Tests.** Before you write, change or cut a test, read `.agents/pstack/rules/tests.md` in full.
@@ -197,9 +195,7 @@
 - **Browser drives.** Before you type into a page through a browser tool, or judge anything on it that scrolls, animates or loads lazily, read `.agents/pstack/rules/browser.md` in full; it holds how each runtime's browser delivers keys, draws frames and handles the clipboard.
 <!-- end -->
 <!-- section plans -->
-<!-- # overrides poteto-mode/playbooks/multi-phase-plan.md "Unless the operator names a path, write the file under the agent store" -->
 <!-- # overrides show-me-your-work/SKILL.md "Use the helper `scripts/log.sh" -->
-<!-- # overrides poteto-mode/playbooks/orchestrate.md "Keep the program's state in a store under `~/.claude/orchestrate/<slug>/`, outside the repo, with `notes.md` as its tracker." -->
 <!-- # overrides poteto-mode/playbooks/autopilot-full.md "write the full program objective into `notes.md` in the program's store under `~/.claude/orchestrate/<slug>/`" -->
 <!-- # overrides poteto-mode/playbooks/autopilot-full.md "the objective in the store's `notes.md`" -->
 <!-- # overrides poteto-mode/playbooks/autopilot-full.md "start a decision trail in the program's store under `~/.claude/orchestrate/<slug>/`" -->
@@ -207,21 +203,18 @@
 - **Plans and trails.** Before you draft or write a plan, in plan mode or a plan file, or write a decision-log row or a proof log, read `.agents/pstack/rules/trails.md` in full.
 <!-- end -->
 <!-- if delivery=trunk -->
-- **Plans and trails.** When work spans sessions, as an Orchestrate or Autopilot-full program does, accepts a narrower proof or has a suggested task waiting on its result, or its project playbook keeps a plan or publishes a page, keep its plan in the repository as `{{plans}}/<date>-<slug>.md` and its show-me-your-work decision log beside it as `{{plans}}/<date>-<slug>.decisions.tsv`. Other work that keeps a decision log keeps it in its run directory as `<slug>.decisions.tsv` and hands back in its reply, which names what landed, its proof and limits, each pick the owner would notice with the word that reverses it, and whatever another rule would put in its plan or on its page. A later session that continues such work writes its plan then, from that reply and the run's log. An Orchestrate or Autopilot-full program keeps its objective in its dated plan. Its worker roster, each agent's id and stuck-after time and its other running state go in the run directory, never in a store under `~/.claude/orchestrate/<slug>/`. A command run as proof writes its log through `node .agents/pstack/proof.mjs --dir <run directory> --name <name> -- <command>`, which records the command line and exit status, and the row that claims the proof cites that log. The lead queues rows in decision order in a TSV in the run directory, five tab-separated cells each, phase, decision, why, evidence and result, and writes them with `node .agents/pstack/decisions-check.mjs append <log> --from <queue>`, which writes the batch only when every row passes. Each result starts with a status word, such as fixed, partial, verified, open, gap or decided. A fixed, verified or proven row puts `scope:` in its evidence, naming what the proof checked and its inputs. A `partial`, `open`, `gap`, `blocked` or `inconclusive` row names `proof: <path>`, an existing file under `{{plans}}/artifacts/`, or `proof: none` when it grades no file, and each artifact path a row cites must exist. An `accepted` row names the file it accepts as `proof: <path>` and the plan's Defaults word that accepts it as `word: <word>`. An earlier labeled row must have graded that file partial, open, gap, blocked or inconclusive. The run directory is the main checkout's `{{plans}}/artifacts/<slug>/`, written by absolute path, because git ignores it and removing a worktree deletes that worktree's copy. A worktree session writes it with the shell, because the Claude Code desktop app refuses that session's Edit and Write of any main-checkout file. Never commit proof logs, pre-edit copies or other run artifacts. The lead saves each report from a helper that runs in the background, such as a reviewer started with the `Agent` tool, to a file in the run directory when it arrives and before it acts on it, because after a compaction that report lives only in the helper's transcript.
+- **Plans and trails.** When work spans sessions, as an Autopilot-full program does, accepts a narrower proof or has a suggested task waiting on its result, or its project playbook keeps a plan or publishes a page, keep its plan in the repository as `{{plans}}/<date>-<slug>.md` and its show-me-your-work decision log beside it as `{{plans}}/<date>-<slug>.decisions.tsv`. Other work that keeps a decision log keeps it in its run directory as `<slug>.decisions.tsv` and hands back in its reply, which names what landed, its proof and limits, each pick the owner would notice with the word that reverses it, and whatever another rule would put in its plan or on its page. A later session that continues such work writes its plan then, from that reply and the run's log. An Autopilot-full program keeps its objective in its dated plan. Its worker roster, each agent's id and stuck-after time and its other running state go in the run directory, never in a store under `~/.claude/orchestrate/<slug>/`. A command run as proof writes its log through `node .agents/pstack/proof.mjs --dir <run directory> --name <name> -- <command>`, which records the command line and exit status, and the row that claims the proof cites that log. The lead queues rows in decision order in a TSV in the run directory, five tab-separated cells each, phase, decision, why, evidence and result, and writes them with `node .agents/pstack/decisions-check.mjs append <log> --from <queue>`, which writes the batch only when every row passes. Each result starts with a status word, such as fixed, partial, verified, open, gap or decided. A fixed, verified or proven row puts `scope:` in its evidence, naming what the proof checked and its inputs. A `partial`, `open`, `gap`, `blocked` or `inconclusive` row names `proof: <path>`, an existing file under `{{plans}}/artifacts/`, or `proof: none` when it grades no file, and each artifact path a row cites must exist. An `accepted` row names the file it accepts as `proof: <path>` and the plan's Defaults word that accepts it as `word: <word>`. An earlier labeled row must have graded that file partial, open, gap, blocked or inconclusive. The run directory is the main checkout's `{{plans}}/artifacts/<slug>/`, written by absolute path, because git ignores it and removing a worktree deletes that worktree's copy. A worktree session writes it with the shell, because the Claude Code desktop app refuses that session's Edit and Write of any main-checkout file. Never commit proof logs, pre-edit copies or other run artifacts. The lead saves each report from a helper that runs in the background, such as a reviewer started with the `Agent` tool, to a file in the run directory when it arrives and before it acts on it, because after a compaction that report lives only in the helper's transcript.
 <!-- end -->
-<!-- # overrides poteto-mode/playbooks/multi-phase-plan.md "Hand back. Post the plan path" -->
-<!-- # overrides poteto-mode/playbooks/multi-phase-plan.md "Copy the skeleton below into the plan file and fill every placeholder." -->
-<!-- # overrides poteto-mode/playbooks/multi-phase-plan.md "Run `node skills/poteto-mode/scripts/check-plan.mjs <plan.md>` from the installed plugin" -->
+<!-- # overrides poteto-mode/playbooks/multi-phase-plan.md "Hand back the plan path and stop." -->
+<!-- # overrides poteto-mode/playbooks/multi-phase-plan.md "Write the plan file. Open with what changes" -->
 - **Plan pages.** Before you draft or change a plan, in plan mode or a plan file, and at every stop that hands back work with a plan, read `.agents/pstack/rules/pages.md` in full; it holds what the page and the hand-back reply contain.
 <!-- if delivery=trunk -->
   In Claude Code, each append to a plan's decision log and each `Status:` change also runs `node .agents/pstack/page-stop.mjs stage <plan>` in the same command, except from a plan's close edit before its last land.mjs run until that run exits 0, as `.agents/pstack/rules/land.md` says.
 <!-- end -->
 <!-- # overrides poteto-mode/playbooks/prototype.md "let the user pick directions before building" -->
 <!-- # overrides poteto-mode/playbooks/worktree-cleanup.md "`wip`, `untracked`, `ignored`, `reflog`, locked, and in-use pause" -->
-<!-- # overrides poteto-mode/SKILL.md "If the evidence rules out the change the user asked for, show it and stop." -->
-<!-- # overrides poteto-mode/SKILL.md "If the `Agent` tool rejects that too, continue with the calling skill's fallback." -->
-<!-- # overrides poteto-mode/SKILL.md "use the closest valid slug of the role's family from the error's list of valid slugs" -->
-<!-- # overrides poteto-mode/SKILL.md "or omit `model` so the subagent runs on the parent model when the list has none" -->
+<!-- # overrides poteto-mode/SKILL.md "Fall back to the role's line or default, then the calling skill's fallback, then the closest valid slug of the same family, then omit `model`." -->
+<!-- # overrides poteto-mode/playbooks/multi-phase-plan.md "A PR that changes an interaction waits for the operator's review before merge." -->
 - **Autopilot.** Work runs to its close without waiting for the owner. Each call the owner could make gets an attention level, as the `plan-page` skill's memo rules define it: `safe` when the pick is easy to undo and the lead is sure, `look` when it is costly or hard to undo or the lead is unsure, and `answer` when it cannot be taken back or has no clear pick. The lead takes the pick of every call, records it as a Defaults row, or in a planless run's reply, with the word that reverses it, and keeps going; a call with no clear pick takes its most reversible option. A call few would notice, such as where to push, gets at most a decision-log row, never a Defaults row or a line in the reply. Only these stop the run under Open questions, whatever their level: a production deploy or release, a push to `main`, a force-push to a shared branch, deleting data the run did not create and a models-sheet model that cannot run, except a Codex one refused for security.
 <!-- section long-runs -->
 <!-- section plans -->
@@ -232,26 +225,25 @@
   Such a finding never waits in Open work, in a suggested task or in a deferred row, unless the owner kept that row until a date in their own words. A suggested task holds only side work outside the run's target or a measurement the Time budget rule sends there, and its ledger row names what it waits for, such as this run, so `chips` shows when the owner can start it.
   A request that asks only for a plan or a prototype ends there and builds nothing, a pivot plan included, and the page shows its picks. The owner adds a stop for one request with "stop at plan", which waits once the plan is written, "stop at design", which waits for the owner's pick among the design options, or "stop before ship", which waits before delivery. "panel" and "hold" work at any point. A project's standing stop goes in its own rules outside this block.
 <!-- if delivery!=trunk -->
-<!-- # overrides poteto-mode/playbooks/babysit.md "Declare the mode and resolve the forge before any poll." -->
+<!-- # overrides poteto-mode/playbooks/babysit.md "Declare the mode in your first line, before any poll." -->
 - **Babysit levels.** Before Babysit's first step on a PR, unless the run only reviews it, run `node .agents/pstack/levels.mjs` on the decision log of each plan the PR links. It marks a lead stretch `below` when Codex led it or it ran below this session's model and effort. It marks a panel, architect or arena round `below` when a seat is missing or ran below the models sheet and this file's seat overrides. When it marks any unit `below`, or when an agent made a PR that links no log, such as one on a `codex/` branch, run the `redo` skill on the PR first. Redo's step 6 is this Babysit, and that Babysit skips this check. Otherwise Babysit runs as written.
 <!-- end -->
 <!-- # adds -->
 <!-- # overrides poteto-mode/SKILL.md "A correctness or data gap gets a tracked issue" -->
 <!-- # overrides poteto-mode/playbooks/autonomous-run.md "Put out-of-band fixes in their own PR." -->
-<!-- # overrides poteto-mode/playbooks/orchestrate.md "Keep only the fixes that block the program, and park the rest as follow-ups." -->
-<!-- # overrides reflect/SKILL.md "File each Backlog item to your team's devex or backlog tracker without waiting." -->
+<!-- # overrides reflect/SKILL.md "What a lint, script or check could enforce goes to the backlog, not into prose." -->
 <!-- # overrides poteto-mode/playbooks/autopilot-full.md "everything else goes in a follow-up" -->
 - **Suggested tasks.** The `chips` skill runs the project's suggested tasks, and `.agents/pstack/rules/chips.md` holds their law: the ledger, the waits and topics, the cards, the effort, the sweep, the base-branch check and the fallback for a runtime without a suggest tool. The lead loads the skill and runs its Offer mode before it suggests side work for the owner to start in a new session, its Drop mode when the owner drops one, its Close mode at the last hand-back of a run that offered a task, and its sweep only where chips.md's Sweep says. A suggested task's session logs its own task's rows from its brief alone, runs no sweep and loads the skill only to offer, card or drop a task. The ledger is the project's tracker. Where pstack files a tracked issue, a follow-up or a reflect Backlog item, or puts an out-of-band fix in its own PR, the lead lists it in Open work instead, or offers a task for a new P0 or P1 finding, or, in its domain, for an item its verdict judges or a babysit finding, as chips.md's Offer says. The lead fixes in the run a discovery that blocks it, and a skill, rule or helper in the way, as the Improve the workflow mid-task rule says.
 <!-- end -->
 <!-- section fast -->
 <!-- # overrides poteto-mode/SKILL.md "Route bulk to subagents, keep summaries in the main thread." -->
-<!-- # overrides poteto-mode/playbooks/feature.md "`architect` for parallel design exploration." -->
+<!-- # overrides poteto-mode/playbooks/feature.md "`architect` for the shape." -->
 <!-- # overrides poteto-mode/playbooks/feature.md "If the design is contested, `interrogate` before shipping." -->
 <!-- # overrides poteto-mode/playbooks/bug-fix.md "Delegate investigation and the fix to subagents, stay in the lead." -->
 <!-- # overrides poteto-mode/playbooks/bug-fix.md "If it crosses a function boundary, `architect` first." -->
 <!-- # overrides poteto-mode/playbooks/perf-issue.md "If it crosses a function boundary, `architect` first." -->
 <!-- # overrides no-comments/SKILL.md "Spawn comment-sicko. Act on accepted findings." -->
-<!-- # overrides show-me-your-work/SKILL.md "spawn a subagent on a different model family" -->
+<!-- # overrides show-me-your-work/SKILL.md "spawn a subagent on a model from another family" -->
 - **Fast.** The owner's word "fast", or a suggested task whose card title ends in "(fast)", runs the request on the main lane, with no subagent or seat. Before you run one that way, read `.agents/pstack/rules/fast.md` in full.
 <!-- end -->
 <!-- section long-runs -->
@@ -259,9 +251,9 @@
 - **Long runs.** Before a multi-slice build after "go", `/loop`, `/goal`, a pause or a resume, and after every compaction, read `.agents/pstack/rules/long-runs.md` in full.
 <!-- end -->
 <!-- # adds -->
-- **Time budget.** No command, proof or seat that a run starts takes more than an hour, except a stress run, and nothing waits for the host's load to drop (owner's word). Read `.agents/pstack/rules/time.md` in full before you start one that may run long, such as a proof or a benchmark protocol, after a gate fails under load, and before you offer a measurement that cannot fit the hour.
+- **Time budget.** No command or proof that a run starts takes more than an hour, except a stress run, and nothing waits for the host's load to drop (owner's word). Read `.agents/pstack/rules/time.md` in full before you start one that may run long, such as a proof or a benchmark protocol, after a gate fails under load, and before you offer a measurement that cannot fit the hour.
 <!-- # adds -->
-<!-- # overrides show-me-your-work/SKILL.md "spawn a subagent on a different model family" -->
+<!-- # overrides show-me-your-work/SKILL.md "spawn a subagent on a model from another family" -->
 <!-- # overrides show-me-your-work/SKILL.md "Every reply for a run that produced a trail ends with" -->
 <!-- # overrides poteto-mode/SKILL.md "keep an uncommitted `todo.md` Markdown checklist in the work dir, next to the decision trail" -->
 - **Todo list and close.** Where pstack opens a todo list, add after the playbook steps one todo per explicit user ask, quoted, and one per gate this file makes the work trigger, such as proof, the writing passes, then review, then the last check and delivery. A checklist file poteto-mode keeps is `<slug>.todo.md` in the run directory and holds these todos too. A standing preference, such as the reply language, is a constraint todo that covers every user-visible line, progress lines, `AskUserQuestion` text and text after a compaction included, and stays open until the close. Each owner message that arrives mid-run becomes a quoted todo when it arrives, and a direct question in it gets a plain answer in the next reply. Before every final reply, reread this run's user messages, corrections included; add any ask that has no todo, then finish it or skip it with a reason.
@@ -270,12 +262,11 @@
 <!-- end -->
 <!-- # adds -->
 - **Session title.** When the runtime has a tool that renames the current session, read `.agents/pstack/rules/title.md` before the run's first stage and after a compaction or a resume, and retitle the session as it says whenever a stage starts or the run's state changes.
-<!-- # overrides poteto-mode/SKILL.md "Open each final report with it too, your final reply included" -->
+<!-- # overrides poteto-mode/SKILL.md "Open each subagent brief, PR `## Why`, and final report with the goal." -->
 <!-- # relies bro/SKILL.md "like one human talking to another" -->
-<!-- # relies unslop/SKILL.md "## Patterns to detect and fix" -->
+<!-- # relies unslop/SKILL.md "Rule numbers are stable ids that other skills cite." -->
 - **Writing.** Read `.agents/pstack/rules/writing.md` in full before a session's first reply and after a compaction. Everything you write follows it.
-<!-- # overrides poteto-mode/SKILL.md "the **technical-writing** skill (`/technical-writing`), on top of **unslop**" -->
-<!-- # overrides poteto-mode/playbooks/opening-a-pr.md "Write every PR title, description, and commit body with `/technical-writing`" -->
+<!-- # overrides poteto-mode/SKILL.md "Docs, PR descriptions, commit messages → **technical-writing**, on top of **unslop**." -->
 - **Writing passes.** pstack triggers four separate writing passes; run one per kind of change, once per batch of work, never once per edit. A pass counts only when its skill's text is in the current context: the lead invokes the skill for its first pass, and until the next compaction a later pass runs from that loaded text without invoking it again. A pass from memory after a compaction is not the pass, and its todo stays open. Product code gets `deslop`, then `no-comments`, once over every change since its last pass, before any review and before it is committed or handed back at the task's close, except that a panel round's fixes run `no-comments` only when their diff, `deslop`'s edits included, adds, changes or removes a comment line.
 <!-- if delivery!=trunk -->
   Each panel round's fixes get their writing passes before the lead freezes the next round's tree, and `decisions-check.mjs append` refuses every `seats` row after a log's first unless a `writing` row follows the previous `seats` row. The `writing` row says when `no-comments` skipped.
@@ -286,9 +277,9 @@
   Docs, plans, agent files, commit bodies and PR text get one `unslop` pass after drafting. Mechanical bookkeeping, such as a ticked box or a decision row that only records a command's result, gets no pass of its own. Other new prose, a Close included, gets one `unslop` pass before it is committed or handed back at the task's close, and one pass covers every pending change in every file that delivery carries. A progress reply or an answer mid-run is not a hand-back (owner's word, 2026-10-17). Run the writing passes and review fixes before an expensive runtime proof; a finding that changes behavior reopens the proof it touches, or the claim narrows to the bytes actually proven. `technical-writing` is a reference for plans, PRDs and RFCs, not a required pass. Replies are written clean as drafted, with no separate pass.
 <!-- section commits -->
 <!-- if delivery!=trunk -->
-<!-- # overrides poteto-mode/playbooks/opening-a-pr.md "Use `##` headings, not bold lead-ins, in this order" -->
-<!-- # relies poteto-mode/playbooks/opening-a-pr.md "Subject is short, imperative, and names a real symbol when one carries the change" -->
-- **Commit and PR text.** Commits use Conventional Commits, `type(scope): subject`, with the type, scope and subject Opening a PR's Titles rule gives a PR title. The body explains why in a short paragraph and describes the final behavior; it never restates the subject or lists intermediate attempts. A PR targets `{{branch}}` and opens ready, not as a draft, and never while `{{check}}` fails unless the user says so.
+<!-- # overrides poteto-mode/playbooks/opening-a-pr.md "Body: a one-minute briefing under 40 lines with these `##` headings in order" -->
+<!-- # relies poteto-mode/playbooks/opening-a-pr.md "Title: `type(scope): subject`, naming a real symbol when one carries the change." -->
+- **Commit and PR text.** Commits use Conventional Commits, `type(scope): subject`, with the type, scope and subject Opening a PR gives a PR title. The body explains why in a short paragraph and describes the final behavior; it never restates the subject or lists intermediate attempts. A PR targets `{{branch}}` and opens ready, not as a draft, and never while `{{check}}` fails unless the user says so.
 <!-- if protected -->
   It never targets `{{protected}}`.
 <!-- end -->
@@ -302,18 +293,10 @@
 <!-- # adds -->
 - **Blocked.** For an unclear tool or access failure, allow two informed attempts or ten minutes, whichever comes first. Then finish a bounded repair, ask once for the exact human action under the page's Needs you, or move to other ready work.
 <!-- # overrides reflect/SKILL.md "prints the first path whose opening typed prompt carries the fragment" -->
-<!-- # overrides reflect/SKILL.md "One message, three `Agent` calls" -->
-<!-- # overrides reflect/SKILL.md "Pass each template verbatim, substituting the transcript path or digest where marked." -->
-<!-- # overrides reflect/SKILL.md "It returns an Accepted / Rejected / Backlog list." -->
-<!-- # overrides reflect/SKILL.md "Present the synthesizer's full Accepted / Rejected / Backlog output and wait for explicit approval" -->
-<!-- # overrides reflect/SKILL.md "would enforce more reliably to Backlog" -->
+<!-- # overrides reflect/SKILL.md "and wait for approval before editing any skill." -->
 <!-- # overrides reflect/SKILL.md "After approval, copy the skill folder there and edit the copy." -->
 <!-- # overrides reflect/SKILL.md "Never open a PR or push." -->
 <!-- # overrides correct/SKILL.md "fix the most frequent classes now, one commit each" -->
-<!-- # relies reflect/references/tooling-reviewer.md "You are a reviewer applying the tooling lens to a session transcript." -->
-<!-- # relies reflect/references/judgment-reviewer.md "You are a reviewer applying the judgment lens to a session transcript." -->
-<!-- # relies reflect/references/divergent-reviewer.md "You are a reviewer applying the divergent lens to a session transcript." -->
-<!-- # relies reflect/references/synthesizer.md "Synthesize three reviewers' findings from the active transcript into skill edits, backlog items, or rejections." -->
 - **Improve the workflow mid-task.** When a skill, rule, script or helper gets in the way, fix it then, separately from the task's change, and keep working. A card session fixes friction it worked around once its task lands, as chips.md's Landing says. When the user corrects the same mistake a second time, in code or in a shell or tool command a rule already forbade, run `/pstack:correct` on that class, which fixes it with architecture, types or a check before any rule text.
   After a run of pstack's Autonomous run playbook or a project playbook built on it, an audit, or any session where the user corrected the workflow, run `/pstack:reflect` before the final reply. The Autopilot rule alone does not make a run autonomous.
   Before `/pstack:reflect`, `/pstack:correct`, a new or changed check, or an edit to an agent file such as a skill, a rule or `AGENTS.md`, read `.agents/pstack/rules/reflect.md` in full; it holds the rest of this rule and the Corrections and Agent files rules.
