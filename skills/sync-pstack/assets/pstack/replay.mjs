@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Installed by the sync-pstack skill.
-// Usage: node .agents/pstack/replay.mjs --dir <run dir> --seat <name>=<claude|codex>:<model>@<effort>... [--case <introducing sha>:<fix sha>]... [--limit <n>] [--clean <n>] [--timeout <seconds>] [--dry-run]
+// Usage: node .agents/pstack/replay.mjs --dir <run dir> --seat <name>=<claude|codex|agy>:<model>@<effort>... [--case <introducing sha>:<fix sha>]... [--limit <n>] [--clean <n>] [--timeout <seconds>] [--dry-run]
 // Replays panel seats on bugs that landed, to measure which seat would have
 // caught each one. A case pairs a fix commit on <branch>, the branch
 // .agents/pstack.json names, fetched from the remote land.mjs rebases onto,
@@ -43,8 +43,8 @@ import { fileURLToPath } from 'node:url';
 import { ask, GIVE_UP_MS, onStop, STOP_GRACE_MS } from './cross.mjs';
 
 const USAGE =
-  'Usage: node .agents/pstack/replay.mjs --dir <run dir> --seat <name>=<claude|codex>:<model>@<effort>... [--case <introducing sha>:<fix sha>]... [--limit <n>] [--clean <n>] [--timeout <seconds>] [--dry-run]';
-const SEAT = /^([\w-]+)=(claude|codex):([^@\s]+)@(\w+)$/u;
+  'Usage: node .agents/pstack/replay.mjs --dir <run dir> --seat <name>=<claude|codex|agy>:<model>@<effort>... [--case <introducing sha>:<fix sha>]... [--limit <n>] [--clean <n>] [--timeout <seconds>] [--dry-run]';
+const SEAT = /^([\w-]+)=(claude|codex|agy):([^@\s]+)@(\w+)$/u;
 const PAIR = /^([\da-f]{7,40}):([\da-f]{7,40})$/iu;
 const FIX = /^fix(\([^()\s]+\))?!?: /u;
 const REVERT = /^(?:revert(\([^()\s]+\))?!?: |Revert ")/u;

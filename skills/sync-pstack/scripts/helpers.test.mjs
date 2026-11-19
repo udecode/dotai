@@ -447,7 +447,20 @@ test('levels counts a round at target when its provider refused a seat for secur
   writeFileSync(join(dir, 'log.tsv'), log('opus @xhigh, codex:gpt-6.1-sol @xhigh missing'));
   assert.match(run().stdout, /^ {2}below line 3: panel .*\(gpt-6\.1-sol missing\)$/mu);
   writeFileSync(join(dir, 'log.tsv'), log('opus @xhigh skipped, codex:gpt-6.1-sol @xhigh'));
-  assert.match(run().stdout, /^ {2}below line 3: panel .*\(opus missing\)$/mu, 'only a Codex provider skips a seat');
+  assert.match(run().stdout, /^ {2}below line 3: panel .*\(opus missing\)$/mu, 'a Claude provider never skips a seat');
+});
+
+test('levels reads an agy seat by its Gemini model, skipped when Gemini refused it and below when it ran under its sheet level', () => {
+  const { dir, run } = levelsRun(['--lead', 'claude-opus-5-5 @xhigh', 'log.tsv'], { claude: 'interrogate reviewers: opus, codex:gpt-6.1-sol @xhigh, agy:gemini-4-neon @xhigh\ndefault effort: xhigh' });
+  const log = (seats) => ['ts\tphase\tdecision\twhy\tevidence\tresult', 'T\tlead\tclaude-opus-5-5 @xhigh\tw\te\trecorded', `T\tpanel\tseats ${seats}\tw\te\trecorded`, ''].join('\n');
+  writeFileSync(join(dir, 'log.tsv'), log('opus @xhigh, gpt-6.1-sol @xhigh, gemini-4-neon @xhigh'));
+  assert.match(run().stdout, /^ {2}at line 3: panel opus @xhigh, gpt-6\.1-sol @xhigh, gemini-4-neon @xhigh$/mu);
+  writeFileSync(join(dir, 'log.tsv'), log('opus @xhigh, gpt-6.1-sol @xhigh, agy:gemini-4-neon @xhigh skipped'));
+  assert.match(run().stdout, /^ {2}at line 3: panel .*gemini-4-neon @xhigh skipped$/mu);
+  writeFileSync(join(dir, 'log.tsv'), log('opus @xhigh, gpt-6.1-sol @xhigh, gemini-4-neon @high'));
+  assert.match(run().stdout, /^ {2}below line 3: panel .*\(gemini-4-neon @high is below @xhigh\)$/mu);
+  writeFileSync(join(dir, 'log.tsv'), log('opus @xhigh, gpt-6.1-sol @xhigh'));
+  assert.match(run().stdout, /^ {2}below line 3: panel .*\(gemini-4-neon missing\)$/mu);
 });
 
 test('levels refuses a missing log, a flag with no value, and a round the models sheet has no line for', () => {

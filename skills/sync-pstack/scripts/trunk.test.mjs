@@ -1288,7 +1288,7 @@ test("land opens no PR while its author's models sheet seats Sonnet, Haiku or a 
   assert.match(bad.stderr, /`interrogate reviewers:` names sonnet/u);
   assert.match(bad.stderr, /`interrogate reviewers:` names haiku/u);
   assert.match(bad.stderr, /runs codex:gpt-6\.1-sol @medium, below this project's maxEffort high/u);
-  assert.match(bad.stderr, /add the line `architect runners: opus, codex:gpt-6\.1-sol`, or `architect runners: codex:gpt-6\.1-sol` without Claude Code/u);
+  assert.match(bad.stderr, /add the line `architect runners: opus, codex:gpt-6\.2-sol`, or `architect runners: codex:gpt-6\.2-sol` without Claude Code/u);
   const good = land(`All roles inherit gpt-6.1-sol and never dispatch sonnet.\n${arena}architect runners: claude-fable-5-2 @high, codex:gpt-6-astra @xhigh\ninterrogate reviewers: codex:gpt-6.1-sol @high, codex:gpt-6.1-sol\n`);
   assert.equal(good.status, 0, good.stderr);
 });

@@ -330,7 +330,7 @@ export function sheetMisses(text, max) {
   for (const role of SEAT_ROLES) {
     const value = roles.get(role);
     if (value === undefined) {
-      misses.push(`add the line \`${role}: opus, codex:gpt-6.1-sol\`, or \`${role}: codex:gpt-6.1-sol\` without Claude Code`);
+      misses.push(`add the line \`${role}: opus, codex:gpt-6.2-sol\`, or \`${role}: codex:gpt-6.2-sol\` without Claude Code`);
       continue;
     }
     for (const [model, at] of value.split(',').map((entry) => entry.trim().split(/\s+/u))) {

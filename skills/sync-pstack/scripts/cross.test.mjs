@@ -114,7 +114,7 @@ test('cross --bypass runs a Codex worker on the owner config with hooks and no s
     });
   const worker = run(['--to', 'codex', '--bypass']);
   assert.equal(worker.status, 0, worker.stderr);
-  assert.match(worker.stdout.trim(), /^exec -m gpt-6\.1-sol --dangerously-bypass-approvals-and-sandbox -o \S+ -- research it PSTACK_READ_ONLY=unset$/u, 'a worker that writes is not marked read-only');
+  assert.match(worker.stdout.trim(), /^exec -m gpt-6\.2-sol --dangerously-bypass-approvals-and-sandbox -o \S+ -- research it PSTACK_READ_ONLY=unset$/u, 'a worker that writes is not marked read-only');
   for (const args of [['--to', 'claude', '--bypass'], ['--to', 'codex', '--bypass', '--ignore-user-config']]) {
     const refused = run(args);
     assert.equal(refused.status, 2, args.join(' '));
@@ -142,6 +142,63 @@ test('cross --reach runs a Codex seat on the owner config with network, writing 
   const refused = run(['--to', 'codex', '--reach', '--bypass']);
   assert.equal(refused.status, 2);
   assert.equal(refused.stdout, '');
+});
+
+const FAKE_AGY = '#!/usr/bin/env node\nconsole.log(JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd() }));\n';
+
+test('cross runs an agy seat from a scratch folder on the model for its effort, reading any file, writing only that folder and denying what it would ask for', () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'agy'), FAKE_AGY, { mode: 0o755 });
+  const seat = spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'agy', '--effort', 'xhigh', 'review it'], {
+    cwd: dir,
+    encoding: 'utf8',
+    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1' },
+  });
+  assert.equal(seat.status, 0, seat.stderr);
+  const project = realpathSync(dir);
+  const { args, cwd } = JSON.parse(seat.stdout);
+  assert.match(cwd, /pstack-reach-/u);
+  assert.equal(existsSync(cwd), false, 'the scratch folder is deleted once the seat answers');
+  assert.deepEqual(args.slice(2), ['--model', 'gemini-4-neon-xhigh', '--settings', args[5], '--sandbox']);
+  assert.equal(args[0], '-p');
+  assert.ok(args[1].startsWith(`Your working directory is a scratch folder you may write. The project is ${project}: read it by absolute path and never write it. Every shell command you run stays in agy's sandbox. Never ask to run one outside it`), args[1]);
+  assert.match(args[1], /\n\nreview it\n\nPut your whole answer in your final message\./u);
+  assert.deepEqual(JSON.parse(args[5]), {
+    agentMode: '',
+    toolPermission: 'proceed-in-sandbox',
+    permissions: { allow: ['read_file(*)', `write_file(${cwd})`, 'read_url(*)', 'mcp(*)'], deny: [`write_file(${project})`, 'execute_url(*)'] },
+  });
+  assert.match(seat.stderr, /^seat: gemini-4-neon @xhigh$/mu);
+});
+
+test('seats runs an offline agy seat with no web, denies writes to every folder it may read, and skips a seat Gemini filters block', () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'agy'), FAKE_AGY, { mode: 0o755 });
+  writeFileSync(join(bin, 'claude'), '#!/bin/sh\necho "claude answered"\n', { mode: 0o755 });
+  mkdirSync(join(dir, 'transcripts'));
+  const answers = join(dir, 'answers');
+  const seats = (env = {}) =>
+    spawnSync(process.execPath, [join(HELPERS, 'seats.mjs'), '--dir', answers, '--prompt', 'Break this diff.', '--offline', '--read-dir', join(dir, 'transcripts'), 'neon=agy:gemini-4-neon@high', 'opus=claude:opus'], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '', ...env },
+    });
+  const offline = seats();
+  assert.equal(offline.status, 0, offline.stderr);
+  const { args } = JSON.parse(readFileSync(join(answers, 'neon.md'), 'utf8'));
+  const { permissions } = JSON.parse(args[args.indexOf('--settings') + 1]);
+  assert.equal(args[args.indexOf('--model') + 1], 'gemini-4-neon-high');
+  assert.doesNotMatch(permissions.allow.join(' '), /read_url/u);
+  assert.deepEqual(permissions.deny, [`write_file(${realpathSync(dir)})`, `write_file(${realpathSync(join(dir, 'transcripts'))})`, 'execute_url(*)', 'read_url(*)', 'mcp(*)']);
+  writeFileSync(join(bin, 'agy'), "#!/bin/sh\necho \"This request was blocked by Gemini's filters. They can occasionally trigger by mistake.\"\n", { mode: 0o755 });
+  const filtered = seats();
+  assert.equal(filtered.status, 0, 'a round whose only failure is a provider refusal still passes');
+  assert.match(filtered.stdout, /^neon: skipped, its provider refused the prompt for safety, seat: gemini-4-neon @high$/mu);
+  assert.match(readFileSync(join(answers, 'neon.err'), 'utf8'), /^refused: safety$/mu);
 });
 
 function browserMachine({ profiles = ['Ellie QA'], appVersion = '26.1', stubborn = false } = {}) {

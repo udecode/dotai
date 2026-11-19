@@ -34,7 +34,7 @@ test('smoke runs each prompt in both runtimes from the project root, without CLA
   });
   assert.equal(result.status, 0, result.stderr);
   assert.ok(result.stdout.replace(/--session-id [\da-f-]{36} /u, '').includes(`claude in ${root} CLAUDECODE=unset PSTACK_READ_ONLY=1: -p --model opus --add-dir ${home}/.claude/plugins --permission-mode plan -- the toolbar closes`), result.stdout);
-  assert.ok(result.stdout.includes(`codex in ${root} with exec --ignore-rules -m gpt-6.1-sol --sandbox read-only: the toolbar closes`), result.stdout);
+  assert.ok(result.stdout.includes(`codex in ${root} with exec --ignore-rules -m gpt-6.2-sol --sandbox read-only: the toolbar closes`), result.stdout);
   assert.doesNotMatch(result.stdout, /noise/);
 });
 
