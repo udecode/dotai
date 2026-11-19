@@ -36,7 +36,7 @@
   Any other helper may run lower for routine work, never below its role's level in the models sheet, and `levels.mjs` judges each seat against that sheet level.
 <!-- end -->
 <!-- if delivery=trunk -->
-  A code delegate runs at the level its role's line in the models sheet names, at or below the lead's, because the lead designs its brief, reviews its diff and proves the result. Any other helper may run lower for routine work, never below its role's level in the models sheet, and `levels.mjs` judges each seat against that sheet level.
+  A code delegate runs at the level its role's line in the models sheet names, because the lead designs its brief, reviews its diff and proves the result. Any other helper may run lower for routine work, never below its role's level in the models sheet, and `levels.mjs` judges each seat against that sheet level.
 <!-- end -->
   A Codex seat keeps the capped level its sheet entry or a project rule names (owner's word, 2026-10-17).
 <!-- if glossary -->
