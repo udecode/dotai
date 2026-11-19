@@ -408,12 +408,13 @@ test('decisions-check rounds --patch caps a reviewed step at the step budget, co
   const { dir, run } = sandbox();
   const diff = (count, file) => [`diff --git a/${file} b/${file}`, `--- a/${file}`, `+++ b/${file}`, `@@ -0,0 +1,${count} @@`, ...Array.from({ length: count }, (_, n) => `+line ${n}`)].join('\n');
   const root = project(dir, 'app', {
-    config: { ...CONFIG, maxRounds: 9, stepBudget: { exclude: ['generated/**'] } },
+    config: { ...CONFIG, maxRounds: 9, stepBudget: { exclude: ['generated/**'] }, generated: [{ paths: ['build/**'], command: 'true' }] },
     files: {
       'p399.patch': diff(399, 'src/a.ts'),
       'p401.patch': diff(401, 'src/a.ts'),
       'tests.patch': [diff(300, 'src/a.test.ts'), diff(300, '.agents/skills/a/SKILL.md'), diff(200, 'src/__tests__/fixtures/b.json'), diff(100, 'src/a.ts')].join('\n'),
       'excluded.patch': [diff(500, 'generated/schema.ts'), diff(10, 'src/a.ts')].join('\n'),
+      'rebuilt.patch': [diff(500, 'build/out.js'), diff(500, 'docs/plans/2026-01-01-a.decisions.tsv'), diff(10, 'src/a.ts')].join('\n'),
     },
   });
   const check = (...args) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), ...args], root);
@@ -427,6 +428,7 @@ test('decisions-check rounds --patch caps a reviewed step at the step budget, co
   assert.equal(rounds('tests.patch').status, 0, 'tests, Markdown and fixtures do not count');
   assert.match(rounds('tests.patch').stdout, /changes 100 product line\(s\), and 800 more/);
   assert.equal(rounds('excluded.patch').status, 0, 'a stepBudget.exclude glob does not count');
+  assert.equal(rounds('rebuilt.patch').status, 0, "the config's generated output and the plans directory's records do not count");
   assert.equal(append('owner', 'big step: "ship the parser whole"', 'decided: one round over the budget').status, 0);
   assert.equal(rounds('p401.patch').status, 0, "the owner's big step lifts the budget");
   assert.equal(append('panel', 'seats opus', 'recorded').status, 0);

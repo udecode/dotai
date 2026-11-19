@@ -56,15 +56,19 @@
 //        under <plans>/artifacts/> in its evidence, and refuse a build row whose decision
 //        starts with "built:" and holds reach: <text> while such a row has no later panel or
 //        build row whose evidence names the same proof: file and whose result starts with
-//        applied, dismissed, fixed or verified.
+//        applied, dismissed, fixed or verified. They refuse a build row to a log in a git
+//        checkout whose change builds a dated plan's step past the step budget, as
+//        status.mjs's stepLines counts it, unless a changed decision log holds an owner
+//        row starting "big step:" with no later "landed as" row.
 //        node .agents/pstack/decisions-check.mjs rounds <log> [--patch <file>]
 //        (exits 1 when the log is at the cap of panel rounds since its last restart, the
 //        maxRounds in .agents/pstack.json or 1, plus one round after a round that applied
 //        three or more critical findings; a built: row restarts the count only for a step
 //        the log has not built before; with --patch, also exits 1 when the patch
 //        changes more product lines than stepBudget.lines in .agents/pstack.json, 400 by
-//        default, not counting tests, specs, fixtures, Markdown or stepBudget.exclude
-//        globs, unless an owner row starting "big step:" follows the last seats row)
+//        default, not counting tests, specs, fixtures, Markdown, the plans directory, the
+//        config's generated paths or stepBudget.exclude globs, unless an owner row
+//        starting "big step:" follows the last seats row)
 //        node .agents/pstack/decisions-check.mjs chips [--fetch] [--session <id>] [<ledger>]
 //        (prints every open suggested task as ready, started, waiting or unmigrated,
 //        by priority, listing P0 and P1 in full and counting the rest unless chips all,
@@ -117,7 +121,7 @@ import { findLead, leadLabel, maxEffort, runtimeFolder } from './lead.mjs';
 import { cli as pageStop } from './page-stop.mjs';
 import { contextOf, pageUrlOf, parsePlan } from './plan-page.mjs';
 import { board, boardState, briefOf, CHIP_STATES, cleanupOf, chipRowProblems, baseRedProblems, gitMerges, groupsOf, hasToken, ledgerPath, namesOwner, newChipRowProblems, newId, offeredAt, readShip, readTasks, recordRow, renderBoard, renderGroups, SESSION, staleReport, startedOverlaps, withoutPlannedWrites } from './tasks.mjs';
-import { acceptedWord, bracketSeats, committedLines, decisionLogs, BIG_STEP, defaultsWords, isAcceptingWord, isHandOffReview, liftsStep, NOT_PASSED, overBudget, proofLabels, proofStates, PROVEN, runPaths, seatRoster, SEATS, severityOf, STAGE_PHASES, stageOfRow, STATUSES, statusOf, stepBudget, stepChange, tidy } from './status.mjs';
+import { acceptedWord, BIG_STEP, bracketSeats, committedLines, decisionLogs, defaultsWords, isAcceptingWord, isHandOffReview, liftsStep, NOT_PASSED, overBudget, proofLabels, proofStates, PROVEN, runPaths, seatRoster, SEATS, severityOf, STAGE_PHASES, stageOfRow, STATUSES, statusOf, stepBudget, stepLines, stepRecords, tidy } from './status.mjs';
 
 const HEADER = 'ts\tphase\tdecision\twhy\tevidence\tresult';
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/u;
@@ -173,20 +177,19 @@ const gitIn = (dir, ...args) => {
   const run = spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8', maxBuffer: 1 << 28 });
   return run.error || run.status !== 0 ? null : run.stdout.replace(/\n$/u, '');
 };
-// A build row logged while the checkout that holds the log builds a dated plan's step past the step budget,
-// so a lead that builds with the shell or with Codex meets the budget at its next build row, not at the panel.
 function buildBudgetProblems(path, lines, where) {
   const dir = dirname(resolve(path));
   const top = existsSync(dir) ? gitIn(dir, 'rev-parse', '--show-toplevel') : null;
   if (top === null) return [];
   const config = projectConfig();
-  const step = stepChange(top, config, gitIn);
+  const step = stepLines(top, config, gitIn);
   const { lines: budget } = stepBudget(config);
   if (!step || step.product <= budget) return [];
+  const { logs, planned } = stepRecords(top, config, gitIn, step.files);
   const log = join(realpathSync(dir), basename(path));
   const dated = /^\d{4}-\d{2}-\d{2}-[^/]+\.decisions\.tsv$/u.test(basename(log)) && dirname(log) === join(top, config.plans || 'docs/plans');
-  if (!step.planned && !dated) return [];
-  if (liftsStep(lines.join('\n')) || step.logs.some((other) => other !== log && liftsStep(readFileSync(other, 'utf8')))) return [];
+  if (!planned && !dated) return [];
+  if (liftsStep(lines.join('\n')) || logs.some((other) => other !== log && liftsStep(readFileSync(other, 'utf8')))) return [];
   return [`${where}: ${top}'s change since ${step.base} ${overBudget(step.product, budget)}. Split it before you log more of its build`];
 }
 const capMessage = ({ rounds }) =>
