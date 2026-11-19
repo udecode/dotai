@@ -110,14 +110,14 @@
 //        of archived ones to remove, and a report line with each task's commits; --session
 //        names this session, whose own tasks it skips)
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, normalize, relative, resolve } from 'node:path';
 import { findLead, leadLabel, maxEffort, runtimeFolder } from './lead.mjs';
 import { cli as pageStop } from './page-stop.mjs';
 import { contextOf, pageUrlOf, parsePlan } from './plan-page.mjs';
 import { board, boardState, briefOf, CHIP_STATES, cleanupOf, chipRowProblems, baseRedProblems, gitMerges, groupsOf, hasToken, ledgerPath, namesOwner, newChipRowProblems, newId, offeredAt, readShip, readTasks, recordRow, renderBoard, renderGroups, SESSION, staleReport, startedOverlaps, withoutPlannedWrites } from './tasks.mjs';
-import { acceptedWord, bracketSeats, committedLines, decisionLogs, defaultsWords, globMatcher, isAcceptingWord, isHandOffReview, NOT_PASSED, proofLabels, proofStates, PROVEN, runPaths, seatRoster, SEATS, severityOf, STAGE_PHASES, stageOfRow, STATUSES, statusOf, tidy } from './status.mjs';
+import { acceptedWord, bracketSeats, committedLines, decisionLogs, BIG_STEP, defaultsWords, isAcceptingWord, isHandOffReview, liftsStep, NOT_PASSED, overBudget, proofLabels, proofStates, PROVEN, runPaths, seatRoster, SEATS, severityOf, STAGE_PHASES, stageOfRow, STATUSES, statusOf, stepBudget, stepChange, tidy } from './status.mjs';
 
 const HEADER = 'ts\tphase\tdecision\twhy\tevidence\tresult';
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/u;
@@ -151,12 +151,6 @@ const roundState = (lines) => {
   for (const line of lines) trackRound(state, line);
   return state;
 };
-const STEP_EXCLUDE = ['**/*.test.*', '**/*.spec.*', '**/__tests__/**', '**/fixtures/**', '**/*.md', '**/*.mdx'];
-const stepBudget = () => {
-  const { stepBudget: { lines = 400, exclude = [] } = {} } = projectConfig();
-  if (!Number.isInteger(lines) || lines < 1) throw new Error(`.agents/pstack.json: stepBudget.lines is ${JSON.stringify(lines)}, not a whole number of 1 or more`);
-  return { lines, excluded: globMatcher([...STEP_EXCLUDE, ...exclude]) };
-};
 function patchLines(patch, excluded) {
   const count = { product: 0, other: 0 };
   let file = null;
@@ -172,9 +166,29 @@ function patchLines(patch, excluded) {
 // An owner's "big step:" row lifts the step budget for the next round only, so a seats row after it ends the lift.
 const bigStep = (lines) => lines.reduce((lifted, line) => {
   const [, phase, decision = ''] = line.split('\t');
-  if (phase === 'owner' && /^big step:\s*\S/u.test(decision)) return true;
+  if (phase === 'owner' && BIG_STEP.test(decision)) return true;
   return opens(line) ? false : lifted;
 }, false);
+const gitIn = (dir, ...args) => {
+  const run = spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8', maxBuffer: 1 << 28 });
+  return run.error || run.status !== 0 ? null : run.stdout.replace(/\n$/u, '');
+};
+// A build row logged while the checkout that holds the log builds a dated plan's step past the step budget,
+// so a lead that builds with the shell or with Codex meets the budget at its next build row, not at the panel.
+function buildBudgetProblems(path, lines, where) {
+  const dir = dirname(resolve(path));
+  const top = existsSync(dir) ? gitIn(dir, 'rev-parse', '--show-toplevel') : null;
+  if (top === null) return [];
+  const config = projectConfig();
+  const step = stepChange(top, config, gitIn);
+  const { lines: budget } = stepBudget(config);
+  if (!step || step.product <= budget) return [];
+  const log = join(realpathSync(dir), basename(path));
+  const dated = /^\d{4}-\d{2}-\d{2}-[^/]+\.decisions\.tsv$/u.test(basename(log)) && dirname(log) === join(top, config.plans || 'docs/plans');
+  if (!step.planned && !dated) return [];
+  if (liftsStep(lines.join('\n')) || step.logs.some((other) => other !== log && liftsStep(readFileSync(other, 'utf8')))) return [];
+  return [`${where}: ${top}'s change since ${step.base} ${overBudget(step.product, budget)}. Split it before you log more of its build`];
+}
 const capMessage = ({ rounds }) =>
   `this would be panel round ${rounds + 1} since the last restart, past the cap of ${roundCap()}, and the last round applied fewer than ${EXTRA_ROUND_FIXES} critical findings, or already was the one extra round. Stop reviewing: settle each open finding as applied, dismissed on its proof, recorded when no user can reach its case, deferred with its owner when it is not critical, or open with its patch:, owner: and stop: when the Panel review rule lets it stay open, then build the plan or land the step. A built: row for a step this log has not built yet, or an owner row whose decision starts with "another round:" and quotes the owner, starts the count again; a built: row for a step already built does not`;
 const pastCap = ({ rounds, applied }) => rounds >= roundCap() && !(rounds === roundCap() && applied >= EXTRA_ROUND_FIXES);
@@ -648,6 +662,8 @@ function append(path, batch, run, miss = null) {
     recordRow(chips, cells, stamp);
     rows.push(row);
   }
+  const build = rows.findIndex((row) => row.split('\t')[1] === 'build');
+  if (found.length === 0 && build !== -1) found.push(...buildBudgetProblems(path, [...existing, ...rows], count > 1 ? `${path} (new row ${build + 1 - attribution.length})` : `${path} (new row)`));
   if (found.length > 0) return found;
   const added = rows.map((row) => `${row}\n`).join('');
   if (text !== null) {
@@ -726,11 +742,11 @@ function dispatch() {
         console.error(patchFile ? `no patch at ${patchFile}` : 'Usage: node .agents/pstack/decisions-check.mjs rounds <log.decisions.tsv> --patch <file>');
         return 2;
       }
-      const budget = stepBudget();
+      const budget = stepBudget(projectConfig());
       const { product, other } = patchLines(readFileSync(patchFile, 'utf8'), budget.excluded);
-      console.info(`the patch changes ${product} product line(s), and ${other} more in tests, fixtures, Markdown and stepBudget.exclude globs; the step budget is ${budget.lines}`);
+      console.info(`the patch changes ${product} product line(s), and ${other} more in tests, fixtures, Markdown, generated output and stepBudget.exclude globs; the step budget is ${budget.lines}`);
       if (product > budget.lines && !bigStep(lines)) {
-        console.error(`the patch changes ${product} product lines, past the step budget of ${budget.lines}. Split the step into lettered steps that land one by one, such as step 4a and step 4b, each with its own diff round, or log an owner row whose decision starts "big step:" and quotes the owner, which lifts the budget for one round`);
+        console.error(`the patch ${overBudget(product, budget.lines)}, which lifts the budget for one round`);
         status = 1;
       }
     }

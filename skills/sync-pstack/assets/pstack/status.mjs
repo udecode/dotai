@@ -3,7 +3,7 @@
 // cited proof is a path under <plans>/artifacts/.
 
 import { spawnSync } from 'node:child_process';
-import { closeSync, existsSync, lstatSync, openSync, readdirSync, readSync, realpathSync } from 'node:fs';
+import { closeSync, existsSync, lstatSync, openSync, readdirSync, readFileSync, readSync, realpathSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 
 const GLOB = { '**/': '(?:.*/)?', '**': '.*', '*': '[^/]*', '?': '[^/]' };
@@ -12,6 +12,87 @@ export const globMatcher = (globs = []) => {
   const patterns = globs.map((glob) => new RegExp(`^${glob.replace(/[.+^${}()|[\]\\]/gu, '\\$&').replace(/\*\*\/|\*\*|\*|\?/gu, (token) => GLOB[token])}$`, 'u'));
   return (path) => patterns.some((pattern) => pattern.test(path));
 };
+
+const STEP_EXCLUDE = ['**/*.test.*', '**/*.spec.*', '**/__tests__/**', '**/fixtures/**', '**/*.md', '**/*.mdx'];
+// The most product lines one reviewed step may change, and the paths that do not count: tests, fixtures, Markdown,
+// the plans directory's records, the output the config's generated commands rebuild and the stepBudget.exclude globs.
+export const stepBudget = (config) => {
+  const { stepBudget: { lines = 400, exclude = [] } = {}, generated = [], plans = 'docs/plans' } = config;
+  if (!Number.isInteger(lines) || lines < 1) throw new Error(`.agents/pstack.json: stepBudget.lines is ${JSON.stringify(lines)}, not a whole number of 1 or more`);
+  return { lines, excluded: globMatcher([...STEP_EXCLUDE, `${plans}/**`, ...generated.flatMap((entry) => entry.paths ?? []), ...exclude]) };
+};
+export const BIG_STEP = /^big step:\s*\S/u;
+const LANDED_ROW = /^(?:step \S+ )?landed as \S/u;
+// An owner's "big step:" row lifts the budget of the step a worktree builds until the log records a landing.
+export const liftsStep = (text) =>
+  text.split('\n').reduce((lifted, line) => {
+    const [, phase, decision = ''] = line.split('\t');
+    if (phase === 'owner' && BIG_STEP.test(decision)) return true;
+    return LANDED_ROW.test(decision) ? false : lifted;
+  }, false);
+export const overBudget = (product, lines) =>
+  `changes ${product} product lines, past the step budget of ${lines}. Split the step into lettered steps that land one by one, such as step 4a and step 4b, each with its own diff round, or log an owner row whose decision starts "big step:" and quotes the owner`;
+
+const countLines = (path) => {
+  let text;
+  try {
+    text = readFileSync(path);
+  } catch {
+    return 0;
+  }
+  if (text.includes(0)) return 0;
+  const lines = text.toString('utf8').split('\n').length;
+  return text.at(-1) === 10 ? lines - 1 : lines;
+};
+
+// The unlanded change of the checkout at `top`: the product lines it changes from where its HEAD left the
+// config's branch on upstream or origin, untracked files included, in the companion repository too when the
+// checkout holds its git directory, and the decision logs and dated plans it changes. `run(dir, ...args)` runs
+// git in dir and returns its output, or null when it fails. Null when the checkout has no such branch to measure from.
+export function stepChange(top, config, run) {
+  const { excluded } = stepBudget(config);
+  const plans = `${config.plans || 'docs/plans'}/`;
+  const halves = [[]];
+  if (config.companion?.dir && existsSync(join(top, config.companion.dir))) halves.push([`--git-dir=${join(top, config.companion.dir)}`, `--work-tree=${top}`]);
+  const step = { product: 0, base: null, sha: null, logs: [], planned: false };
+  for (const [index, half] of halves.entries()) {
+    const git = (...args) => run(top, ...half, ...args);
+    const ref = ['upstream', 'origin'].map((remote) => `${remote}/${config.branch}`).find((name) => git('rev-parse', '--verify', '--quiet', `${name}^{commit}`) !== null);
+    const base = ref && git('merge-base', 'HEAD', ref);
+    if (!base) {
+      if (index === 0) return null;
+      continue;
+    }
+    step.base ??= `${ref} at ${base.slice(0, 10)}`;
+    step.sha ??= base.slice(0, 10);
+    const numstat = git('diff', '--numstat', '-z', base);
+    if (numstat === null) throw new Error(`git diff --numstat ${base} failed in ${top}`);
+    const fields = numstat.split('\0');
+    const files = [];
+    for (let at = 0; at < fields.length - 1; at += 1) {
+      const [added, deleted, path] = fields[at].split('\t');
+      // A rename's numstat leaves the path empty and names the old and new paths in the next two fields.
+      const file = path === '' ? fields[(at += 2)] : path;
+      files.push(file);
+      if (added !== '-' && !excluded(file)) step.product += Number(added) + Number(deleted);
+    }
+    // The companion tracks a few paths in the public checkout, so every public file reads as untracked there.
+    if (index === 0) {
+      const untracked = git('ls-files', '--others', '--exclude-standard', '-z');
+      if (untracked === null) throw new Error(`git ls-files --others failed in ${top}`);
+      for (const file of untracked.split('\0').filter(Boolean)) {
+        files.push(file);
+        if (!excluded(file)) step.product += countLines(join(top, file));
+      }
+    }
+    for (const file of files) {
+      if (!file.startsWith(plans) || file.slice(plans.length).includes('/')) continue;
+      if (file.endsWith('.decisions.tsv')) step.logs.push(join(top, file));
+      if (/^\d{4}-\d{2}-\d{2}-[^/]+\.(?:md|decisions\.tsv)$/u.test(file.slice(plans.length))) step.planned = true;
+    }
+  }
+  return step;
+}
 
 const LANDED = ['done', 'complete', 'completed', 'shipped', 'executed', 'implemented', 'fixed', 'released', 'merged', 'verified', 'landed'];
 

@@ -372,7 +372,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "fccc8097c617ba548b45b63d2d3b194e3a04816a7e51889f7f0855026b5cedd6",
+      "sha256": "2ec26da7181fa5b65f38357d78d3856857ebfaf8f30dae5120b7bb56708a639b",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/checkout.mjs": {
@@ -400,7 +400,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
-      "sha256": "0331d3cddb94ecb27b8c1e74e30c85330c692f40fac215b6fb91883723c23067",
+      "sha256": "b69e961e1306dec0baff5b2ac424c6b603bdf00d4b1810f6dce137215e2b8b23",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/freeze.mjs": {
@@ -408,7 +408,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/guard.mjs": {
-      "sha256": "851d8b88b732ac0c29d29b6705a83a50b1070aa818face7544adefed2a6cd5be",
+      "sha256": "43e958e437bb61e7b39c8e08f283a50f236dc3f38df2080fcaa95345866a6a05",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/head.mjs": {
@@ -444,7 +444,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/proof.mjs": {
-      "sha256": "8f62e9399ce4a24310129bba1d6d049c466bce1ce81110ebd36c53741c181261",
+      "sha256": "6df99d9c8059a4d9e7b42c7457b3ad92a7d3427f2f819b4487655fd4f1627a8c",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/replay.mjs": {
@@ -504,7 +504,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/panel.md": {
-      "sha256": "f3020de8f7a9b1b087f2ca77bcd28cd75028931e936b0d9cc4138a71f38dc5dc",
+      "sha256": "d6d9375f4ade365b29977e8613a9ad626d6b741d516fb84d489f9ea0848a8327",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/reflect.md": {
@@ -544,7 +544,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/status.mjs": {
-      "sha256": "547e5a65ef990df37139553d4ecaeb5a11808590492ed2e27ddb247ea9abdebc",
+      "sha256": "9acb51e73ca20c5388eee842406baa3fcc8ab9bbfd13d0a456c8a3e65f779176",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/tasks.mjs": {
