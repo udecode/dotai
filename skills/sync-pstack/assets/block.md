@@ -167,15 +167,15 @@
 <!-- # overrides arena/SKILL.md "the judge scores each candidate, by path label" -->
 <!-- # overrides arena/SKILL.md "If the candidates converge on one shape, that is strong agreement." -->
 <!-- # overrides poteto-mode/SKILL.md "Contested design → **interrogate**." -->
-<!-- # overrides poteto-mode/playbooks/feature.md "`architect` for the shape." -->
+<!-- # relies poteto-mode/playbooks/feature.md "`architect` for the shape." -->
 <!-- # overrides poteto-mode/playbooks/feature.md "If the design is contested, `interrogate` before shipping." -->
 <!-- # overrides blast-radius/SKILL.md "For a big or wide change, run it as an `arena`." -->
-<!-- # overrides figure-it-out/SKILL.md "For one-way-door design decisions, run the **architect** skill (it runs **arena**)." -->
+<!-- # relies figure-it-out/SKILL.md "For one-way-door design decisions, run the **architect** skill (it runs **arena**)." -->
 <!-- # overrides babysit/SKILL.md "Use `interrogate` before opening if the diff is contested" -->
 <!-- # overrides architect/SKILL.md "For a large or contested design, run the **arena** skill instead of sketching alone." -->
 <!-- # relies poteto-mode/playbooks/bug-fix.md "Skip those skills and step 3's `architect`, even across a function boundary, only when all of these hold:" -->
 <!-- # relies principle-attack-the-premise/SKILL.md "Write the premise down and test it directly before you write another fix that assumes it." -->
-- **Panel review.** A pstack panel, `/pstack:interrogate` with the configured seats, runs without asking for the work this project's reviews list names and wherever a pstack playbook step or skill calls for it, such as a contested design. `architect` and arena run the same way, such as for Feature's design exploration or a fix that crosses a function boundary outside Bug fix's focused-fix exception. A change to agent prose alone gets none of them, except as `.agents/pstack/rules/panel.md` says. On the user's word, "panel" runs a panel on the current plan or diff, "arena" runs an arena bakeoff of the current artifact, and "full" runs `architect`, then a panel on the plan and another on the diff. Before you launch any panel, `architect` or arena seat, or log a panel row, read `.agents/pstack/rules/panel.md` in full; it holds the Panel review and Review rules.
+- **Panel review.** A pstack panel, `/pstack:interrogate` with the configured seats, runs without asking for the work this project's reviews list names and wherever a pstack playbook step or skill calls for it, such as a contested design. An arena runs the same way. `architect` runs its runners only where `.agents/pstack/rules/panel.md` says, and runs pstack's own sketch elsewhere. A change to agent prose alone gets none of them, except as `.agents/pstack/rules/panel.md` says. On the user's word, "panel" runs a panel on the current plan or diff, "arena" runs an arena bakeoff of the current artifact, and "full" runs `architect`, then a panel on the plan and another on the diff. Before you launch any panel, `architect` or arena seat, or log a panel row, read `.agents/pstack/rules/panel.md` in full; it holds the Panel review and Review rules.
 <!-- if reviewList -->
   The reviews list, each row named by its id:
 {{reviewList}}
