@@ -53,8 +53,12 @@
 // branch or the protected branch, except the plans artifacts directory, which
 // holds the suggested-task ledger and the run directories; a linked worktree,
 // even one nested in the main checkout's folder, is its own checkout and
-// passes. It refuses the edit when git or the guard itself fails, because a
-// hook that exits with an error lets the edit through.
+// passes. In a checkout of this repository whose change builds a dated plan's
+// step, it also denies an edit of a file the step budget counts once the change
+// is past that budget, as status.mjs's stepChange counts it, unless a changed
+// decision log holds an owner "big step:" row with no later "landed as" row. It
+// refuses the edit when git or the guard itself fails, because a hook that exits
+// with an error lets the edit through.
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, lstatSync, readFileSync, readlinkSync, realpathSync, statSync } from 'node:fs';

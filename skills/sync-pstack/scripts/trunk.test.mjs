@@ -2739,6 +2739,52 @@ test('guard denies an edit in the main checkout on next or main, except the arti
   assert.equal(edit('Edit', 'a.txt')?.permissionDecision, 'deny', 'a config without a branch name refuses the edit');
 });
 
+test("guard and a build row refuse a dated plan's step past the step budget while it is built, and pass a step within it", () => {
+  const { dir, clone } = trunk();
+  const tree = join(dir, 'tree');
+  git(clone, 'worktree', 'add', '--quiet', '-b', 'step', tree, 'origin/next');
+  const config = join(clone, '.agents/pstack.json');
+  writeFileSync(config, JSON.stringify({ ...JSON.parse(readFileSync(config, 'utf8')), generated: [{ paths: ['gen/**'], command: 'true' }] }));
+  const edit = (path) => {
+    const run = spawnSync(process.execPath, [join(clone, '.agents/pstack/guard.mjs')], { input: JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: join(tree, path) }, cwd: tree }), encoding: 'utf8', env: ENV });
+    assert.equal(run.status, 0, run.stderr);
+    return run.stdout ? JSON.parse(run.stdout).hookSpecificOutput : null;
+  };
+  const lines = (count) => Array.from({ length: count }, (_, n) => `line ${n}\n`).join('');
+  const log = join(tree, 'docs/plans/2026-01-01-ids.decisions.tsv');
+  const row = (phase, decision) => writeFileSync(log, `${existsSync(log) ? readFileSync(log, 'utf8') : 'ts\tphase\tdecision\twhy\tevidence\tresult\n'}2026-01-01T00:00:00Z\t${phase}\t${decision}\twhy\tproof: none\tdecided: x\n`);
+  const build = () => helper('decisions-check.mjs', clone, ['append', log, 'build', 'built: step 2 ids', 'why', 'proof: none', 'applied: step 2']);
+  mkdirSync(join(tree, 'src'));
+  mkdirSync(join(tree, 'gen'));
+  mkdirSync(join(tree, 'docs/plans'), { recursive: true });
+  writeFileSync(join(tree, 'src/a.ts'), lines(400));
+  writeFileSync(join(tree, 'gen/schema.ts'), lines(900));
+  writeFileSync(join(tree, 'src/a.test.ts'), lines(900));
+  row('plan', 'step 2 stores ids');
+  assert.equal(edit('src/b.ts'), null, '400 product lines fit; generated output and tests do not count');
+  writeFileSync(join(tree, 'src/a.ts'), lines(401));
+  const over = edit('src/b.ts');
+  assert.equal(over?.permissionDecision, 'deny', '401 untracked product lines do not');
+  assert.match(over.permissionDecisionReason, /change since origin\/next at [0-9a-f]{10} changes 401 product lines, past the step budget of 400\. Split the step into lettered steps that land one by one, such as step 4a and step 4b, each with its own diff round, or log an owner row whose decision starts "big step:" and quotes the owner/u);
+  for (const path of ['src/a.test.ts', 'docs/notes.md', 'gen/schema.ts', 'docs/plans/2026-01-01-ids.md']) assert.equal(edit(path), null, `${path} stays editable`);
+  const refused = build();
+  assert.equal(refused.status, 1, 'a build row past the budget');
+  assert.match(refused.stderr, /changes 401 product lines, past the step budget of 400\. Split the step into lettered steps/u);
+  git(tree, 'add', '--all');
+  git(tree, 'commit', '--quiet', '-m', 'wip');
+  assert.equal(edit('src/b.ts')?.permissionDecision, 'deny', 'committed work still counts until it lands');
+  row('owner', 'big step: "build step 2 whole"');
+  assert.equal(edit('src/b.ts'), null, "the owner's big step lifts the budget");
+  assert.equal(build().status, 0, 'and lets the build row in');
+  row('delivery', 'step 2 landed as 1234567abc');
+  assert.equal(edit('src/b.ts')?.permissionDecision, 'deny', 'until the log records a landing');
+  const unplanned = join(dir, 'unplanned');
+  git(clone, 'worktree', 'add', '--quiet', '--detach', unplanned, 'origin/next');
+  writeFileSync(join(unplanned, 'big.ts'), lines(900));
+  const free = spawnSync(process.execPath, [join(clone, '.agents/pstack/guard.mjs')], { input: JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: join(unplanned, 'big.ts') }, cwd: unplanned }), encoding: 'utf8', env: ENV });
+  assert.equal(free.stdout, '', 'a change that changes no dated plan or its log is no plan step');
+});
+
 test('setup copies env files and installs dependencies in a new worktree, once', () => {
   const { dir, clone } = trunk();
   mkdirSync(join(clone, 'apps/web'), { recursive: true });
