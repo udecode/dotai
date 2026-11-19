@@ -45,7 +45,7 @@ function trunk({ lint = false } = {}) {
   git(remote, 'config', 'receive.autogc', 'false');
   git(dir, 'clone', '--quiet', remote, clone);
   mkdirSync(join(clone, '.agents/pstack'), { recursive: true });
-  cpSync(join(HELPERS, 'guard.mjs'), join(clone, '.agents/pstack/guard.mjs'));
+  for (const helper of ['guard.mjs', 'status.mjs']) cpSync(join(HELPERS, helper), join(clone, `.agents/pstack/${helper}`));
   const fix = join(dir, 'fix.mjs');
   writeFileSync(fix, "import { readFileSync, writeFileSync } from 'node:fs';\nfor (const file of process.argv.slice(2)) writeFileSync(file, readFileSync(file, 'utf8').toUpperCase());\n");
   const config = { branch: 'next', protected: 'main', plans: 'docs/plans', ...(lint ? { lintFix: `node ${fix}` } : {}) };

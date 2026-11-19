@@ -505,7 +505,7 @@ async function budgetDenial(config, file, cwd) {
 const input = JSON.parse(readFileSync(0, 'utf8'));
 if (!existsSync(CONFIG)) process.exit(0);
 if (EDIT_TOOLS.has(input.tool_name)) {
-  const file = input.tool_input?.namepath ?? input.tool_input?.notebook_path;
+  const file = input.tool_input?.file_path ?? input.tool_input?.notebook_path;
   if (typeof file !== 'string') process.exit(0);
   let reason;
   try {
