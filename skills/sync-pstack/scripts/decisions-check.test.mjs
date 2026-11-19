@@ -94,6 +94,13 @@ test('decisions-check takes a panel finding only with a severity, after a seats 
   assert.equal(append('seats gpt-6-astra @xhigh, codex:gpt-6.1-sol @xhigh missing', 'recorded').status, 0);
   assert.equal(append('critical [gpt-6.1-sol]: The seat writes files', 'applied: read-only').status, 1, 'a seat the seats row marks missing');
   assert.equal(append('critical [gpt-6-astra]: The seat writes files', 'applied: read-only').status, 0, 'a seat that answered beside a missing one');
+  assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', 'writing', 'deslop on the round 3 fixes', 'why', 'evidence', 'recorded'], root).status, 0);
+  const claudeSkipped = append('seats opus @xhigh skipped, codex:gpt-6.1-sol @xhigh', 'recorded');
+  assert.equal(claudeSkipped.status, 1, 'a Claude seat marked skipped');
+  assert.match(claudeSkipped.stderr, /only a Codex seat is marked skipped/u);
+  assert.equal(append('seats opus @xhigh, codex:gpt-6.1-sol @xhigh skipped', 'recorded').status, 0);
+  assert.equal(append('critical [gpt-6.1-sol]: The seat writes files', 'applied: read-only').status, 1, 'a seat the seats row marks skipped');
+  assert.equal(append('critical [opus]: The seat writes files', 'applied: read-only').status, 0, 'a seat that answered beside a skipped one');
 });
 
 test('decisions-check takes an open panel finding only with its patch and owner', () => {

@@ -277,6 +277,18 @@ test('plan-page keeps an older iteration\'s open question in Needs you under a n
 
 const reviewRow = (phase, decision, result) => `2026-01-01T00:00:00Z\t${phase}\t${decision}\twhy\tevidence\t${result}`;
 
+test('plan-page shows a skipped seat as skipped, never as a seat that answered', () => {
+  const { dir, run } = sandbox();
+  const plan = '# Plan\n\nStatus: executed\n\n## Main changes\n\n- Seat Codex.\n';
+  const log = ['ts\tphase\tdecision\twhy\tevidence\tresult', reviewRow('panel', 'seats claude-opus-5-5 @xhigh, gpt-6.1-sol @xhigh skipped', 'recorded'), reviewRow('panel', 'seats claude-opus-5-5 @xhigh, gpt-6.1-sol @xhigh', 'recorded')].join('\n');
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan, 'docs/plans/plan.decisions.tsv': `${log}\n` } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const html = read(root, 'docs/plans/artifacts/plan.html');
+  const header = html.slice(html.indexOf('<header'), html.indexOf('</header>')).replace(/<[^>]+>/gu, ' ').replace(/\s+/gu, ' ');
+  assert.match(header, /Reviews claude-opus-5-5 xhigh ×2 gpt-6\.1-sol xhigh skipped gpt-6\.1-sol xhigh /);
+});
+
 test("plan-page counts each seat's rounds in the header and lists every round at the bottom by priority", () => {
   const { dir, run } = sandbox();
   const plan = '# Plan\n\nStatus: executed\n\n## Main changes\n\n- Seat Codex.\n';

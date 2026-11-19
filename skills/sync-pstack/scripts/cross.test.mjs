@@ -470,6 +470,76 @@ test('cross keeps the exit code of a runtime that failed before its deadline whi
   assert.match(failed.stderr, /^exit 7: own failure$/mu, failed.stderr);
 });
 
+// A fake `codex exec` that fails the way Codex 0.169 does: its session log names
+// the error's kind, and connector warnings follow the `ERROR:` line on stderr.
+const refusingCodex = (bin, kind) => {
+  const id = '019a8c3e-1f2b-7ae0-8c9b-00000000c0de';
+  const event = JSON.stringify({ type: 'event_msg', payload: { type: 'task_complete', error: { message: 'This content was flagged for possible cybersecurity risk.', codex_error_info: kind } } });
+  const script = [
+    '#!/bin/sh',
+    'day="${CODEX_HOME:-$HOME/.codex}/sessions/$(date +%Y/%m/%d)"',
+    'mkdir -p "$day"',
+    `echo '${event}' > "$day/rollout-2026-11-19T08-36-09-${id}.jsonl"`,
+    `echo "session id: ${id}" >&2`,
+    'echo \'ERROR:  relation "missing" does not exist\' >&2',
+    'echo "ERROR: This content was flagged for possible cybersecurity risk." >&2',
+    'for n in 1 2 3 4 5 6; do echo "WARN codex_mcp::rmcp_client: shutdown $n" >&2; done',
+    'exit 1',
+    '',
+  ].join('\n');
+  writeFileSync(join(bin, 'codex'), script, { mode: 0o755 });
+};
+
+test("cross names a Codex refusal by its session log's message, and marks a security refusal wherever Codex keeps its home", () => {
+  for (const [kind, refused, lane, codexHome] of [
+    ['cyber_policy', true, [], ''],
+    ['usage_limit_exceeded', false, [], ''],
+    ['cyber_policy', true, ['--reach'], '.'],
+  ]) {
+    const label = `${kind} ${lane.join(' ')} CODEX_HOME=${codexHome}`;
+    const { dir, home } = sandbox();
+    const bin = join(dir, 'bin');
+    mkdirSync(bin);
+    refusingCodex(bin, kind);
+    const seat = spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'codex', ...lane, '--model', 'gpt-6.1-sol', 'review it'], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: { ...process.env, HOME: home, CODEX_HOME: codexHome, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '' },
+    });
+    assert.equal(seat.status, 1, label);
+    assert.match(seat.stderr, /^exit 1: This content was flagged for possible cybersecurity risk\.$/mu, `${label}\n${seat.stderr}`);
+    assert.doesNotMatch(seat.stderr, /shutdown|relation/u, label);
+    assert.equal(/^refused: security$/mu.test(seat.stderr), refused, label);
+  }
+});
+
+test('seats skips a Codex seat its provider refuses for security, and fails a round where no seat answered', () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'claude'), '#!/bin/sh\necho "claude: found one gap"\n', { mode: 0o755 });
+  refusingCodex(bin, 'cyber_policy');
+  const answers = join(dir, 'answers');
+  const seats = (folder, ...roster) =>
+    spawnSync(process.execPath, [join(HELPERS, 'seats.mjs'), '--dir', folder, '--prompt', 'Break this diff.', ...roster], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: { ...process.env, HOME: home, CODEX_HOME: '', PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '' },
+    });
+  const round = seats(answers, 'opus=claude:opus', 'sol=codex:gpt-6.1-sol');
+  assert.equal(round.status, 0, round.stdout);
+  assert.match(round.stdout, /^sol: skipped, its provider refused the prompt for security, seat: gpt-6\.1-sol @default$/mu);
+  assert.match(readFileSync(join(answers, 'sol.err'), 'utf8'), /^refused: security$/mu);
+  const unwritable = join(dir, 'unwritable');
+  mkdirSync(join(unwritable, 'sol.md'), { recursive: true });
+  const unwritten = seats(unwritable, 'opus=claude:opus', 'sol=codex:gpt-6.1-sol');
+  assert.equal(unwritten.status, 1, 'a refused seat whose answer file cannot be written');
+  assert.match(unwritten.stdout, /^sol: failed, EISDIR/mu, unwritten.stdout);
+  assert.equal(seats(answers, 'sol=codex:gpt-6.1-sol').status, 1, 'a round whose only seat was refused has no answer');
+  writeFileSync(join(bin, 'claude'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+  assert.equal(seats(answers, 'opus=claude:opus', 'sol=codex:gpt-6.1-sol').status, 1, 'a failed seat beside a refused one');
+});
+
 test('cross reports why a runtime failed when it prints the reason on stdout', () => {
   const { dir, home } = sandbox();
   const bin = join(dir, 'bin');

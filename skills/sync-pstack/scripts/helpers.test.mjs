@@ -439,6 +439,17 @@ test("levels caps the lead and every seat target at the project's maxEffort", ()
   assert.match(run().stderr, /maxEffort is "huge", not one of low, medium, high, xhigh, max/);
 });
 
+test('levels counts a round at target when its provider refused a seat for security, and below when the seat is missing', () => {
+  const { dir, run } = levelsRun(['--lead', 'claude-opus-5-5 @xhigh', 'log.tsv'], { claude: 'interrogate reviewers: opus, codex:gpt-6.1-sol @xhigh\ndefault effort: xhigh' });
+  const log = (seats) => ['ts\tphase\tdecision\twhy\tevidence\tresult', 'T\tlead\tclaude-opus-5-5 @xhigh\tw\te\trecorded', `T\tpanel\tseats ${seats}\tw\te\trecorded`, ''].join('\n');
+  writeFileSync(join(dir, 'log.tsv'), log('opus @xhigh, codex:gpt-6.1-sol @xhigh skipped'));
+  assert.match(run().stdout, /^ {2}at line 3: panel opus @xhigh, gpt-6\.1-sol @xhigh skipped$/mu);
+  writeFileSync(join(dir, 'log.tsv'), log('opus @xhigh, codex:gpt-6.1-sol @xhigh missing'));
+  assert.match(run().stdout, /^ {2}below line 3: panel .*\(gpt-6\.1-sol missing\)$/mu);
+  writeFileSync(join(dir, 'log.tsv'), log('opus @xhigh skipped, codex:gpt-6.1-sol @xhigh'));
+  assert.match(run().stdout, /^ {2}below line 3: panel .*\(opus missing\)$/mu, 'only a Codex provider skips a seat');
+});
+
 test('levels refuses a missing log, a flag with no value, and a round the models sheet has no line for', () => {
   const { dir, run } = levelsRun([], { claude: 'interrogate reviewers: opus @high\ndefault effort: high' });
   writeFileSync(join(dir, 'log.tsv'), LEVELS_LOG);
