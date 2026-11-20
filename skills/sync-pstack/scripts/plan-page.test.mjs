@@ -205,6 +205,27 @@ test('plan-page diffs a before and after pair line by line', () => {
   assert.deepEqual([rows('same'), rows('del'), rows('add')], [['setup()', 'setup()'], ['old()'], ['next()']]);
 });
 
+test('plan-page counts a blank before or after fence as no lines on the page and in the PR body', () => {
+  const { dir, run } = sandbox();
+  const pair = (before, after) => `\`\`\`ts before\n${before}\`\`\`\n\n\`\`\`ts after\n${after}\`\`\`\n`;
+  const pairs = [pair('', 'a()\n\nb()\n'), pair('  \n\n', 'added()\n'), pair('removed()\n', ''), pair('', '')];
+  const plan = `# Plan\n\nStatus: done\n\n${brief()}## Public API\n\n${pairs.join('\n')}`;
+  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan } });
+  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
+  assert.equal(result.status, 0, result.stderr);
+  const html = read(root, 'docs/plans/artifacts/plan.html');
+  const rows = (kind) => [...html.matchAll(new RegExp(`class="row ${kind}"><span class="num">(\\d+)</span><span class="sign">[^<]*</span><code class="language-ts">([^<]*)</code>`, 'gu'))].map((match) => `${match[1]} ${match[2]}`);
+  const tallies = [...html.matchAll(/class="tally (?:del|add)">([^<]*)</gu)].map((match) => match[1]);
+  assert.deepEqual(
+    [rows('same'), rows('del'), rows('add'), tallies],
+    [[], ['1 removed()'], ['1 a()', '2  ', '3 b()', '1 added()'], ['−0', '+3', '−0', '+1', '−1', '+0', '−0', '+0']]
+  );
+  const pr = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md', '--pr'], root);
+  assert.equal(pr.status, 0, pr.stderr);
+  const diffs = [...read(root, 'docs/plans/artifacts/plan.pr.md').matchAll(/```diff\n([^`]*)```/gu)].map((match) => match[1]);
+  assert.deepEqual(diffs, ['+a()\n+\n+b()\n', '+added()\n', '-removed()\n', '']);
+});
+
 test('plan-page renders a short-dash table and a stray pipe line instead of hanging', () => {
   const { dir } = sandbox();
   const plan = '# Plan\n\nStatus: done\n\n## Notes\n\n| # | Pass |\n| -: | --- |\n| 1 | ground |\n\n| a pipe that starts no table\n';
