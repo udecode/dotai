@@ -173,7 +173,7 @@ test('cross runs an agy seat from a scratch folder on the model for its effort, 
   assert.match(seat.stderr, /^seat: gemini-4-neon @xhigh$/mu);
 });
 
-test('seats runs an offline agy seat with no web, denies writes to every folder it may read, and skips a seat Gemini filters block', () => {
+test('seats runs an offline agy seat with no web, denies writes to every folder it may read, and skips a seat Gemini filters block or that fails', () => {
   const { dir, home } = sandbox();
   const bin = join(dir, 'bin');
   mkdirSync(bin);
@@ -199,6 +199,10 @@ test('seats runs an offline agy seat with no web, denies writes to every folder 
   assert.equal(filtered.status, 0, 'a round whose only failure is a provider refusal still passes');
   assert.match(filtered.stdout, /^neon: skipped, its provider refused the prompt for safety, seat: gemini-4-neon @high$/mu);
   assert.match(readFileSync(join(answers, 'neon.err'), 'utf8'), /^refused: safety$/mu);
+  writeFileSync(join(bin, 'agy'), '#!/bin/sh\necho "error: Individual quota reached. Resets in 4m25s." >&2\nexit 3\n', { mode: 0o755 });
+  const limited = seats();
+  assert.equal(limited.status, 0, 'a round whose only failure is a Gemini seat still passes');
+  assert.match(limited.stdout, /^neon: skipped, exit 3: error: Individual quota reached\. Resets in 4m25s\., seat: gemini-4-neon @high$/mu);
 });
 
 function browserMachine({ profiles = ['Ellie QA'], appVersion = '26.1', stubborn = false } = {}) {
