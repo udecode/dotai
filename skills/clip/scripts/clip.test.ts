@@ -1,4 +1,7 @@
 import { describe, expect, test } from 'bun:test'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import {
   captionHtml,
   captionOverlay,
@@ -10,6 +13,7 @@ import {
   checkTitle,
   checkTrail,
   CLIP,
+  renderClip,
   fitCrop,
   fixCaption,
   reviewTake,
@@ -204,4 +208,19 @@ describe('captions and bars', () => {
     expect(stroke(1)).toBeCloseTo(1)
     expect(stroke(0.05)).toBeGreaterThan(0.02)
   })
+})
+
+describe('the title bar', () => {
+  test('shrinks a long title until it fits one line with its badge, at the same size on both halves', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'clip-bar-'))
+    const clip = join(dir, 'page.mp4')
+    Bun.spawnSync(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', 'color=c=white:s=540x400:d=0.3', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', clip])
+    const bar = { tag: 'markdown', title: 'keep your yaml front matter intact' }
+    const before = await renderClip(clip, join(dir, 'before.mp4'), { bar, side: 'Before' })
+    const after = await renderClip(clip, join(dir, 'after.mp4'), { bar, side: 'After' })
+    expect(before.titlePx).toBeLessThan(CLIP.titlePx.max)
+    expect(after.titlePx).toBe(before.titlePx)
+    expect((await renderClip(clip, join(dir, 'short.mp4'), { bar: { tag: 'board', title: 'notes' } })).titlePx).toBe(CLIP.titlePx.max)
+    await expect(renderClip(clip, join(dir, 'none.mp4'), { side: 'After' })).rejects.toThrow('needs a title bar')
+  }, 60_000)
 })

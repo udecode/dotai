@@ -39,7 +39,7 @@ The recorder runs on Bun and ffmpeg. The first time, and whenever `<skill dir>/s
 A change to something a reader already saw, such as a control, a layout, copy, a style or a gesture that behaved wrong, shows as one clip of the old behavior and then the new, not as two images. A feature with nothing before it gets a plain clip.
 
 1. Run the same scene twice with the same shape and crop, once against the code before the change, such as a worktree at the parent commit or the deployed site, and once against the change. Caption what each half shows, such as `Old toolbar` and `New toolbar`. A half where nothing moves holds its result with `read(1500)`, so the viewer can read it.
-2. Review both takes, then run `bun <skill dir>/scripts/clip.ts render <after take> <out.mp4> --before <before take>`, with the same bar flags as a plain clip. It labels each half Before or After in its footer, plays them in that order, and refuses two takes whose frames differ in size.
+2. Review both takes, then run `bun <skill dir>/scripts/clip.ts render <after take> <out.mp4> --before <before take>`, with the same bar flags as a plain clip. It puts a Before or After badge at the end of each half's title line, plays them in that order, and refuses two takes whose frames differ in size.
 3. Read the stills of both halves.
 
 ## Method
@@ -92,9 +92,9 @@ When the owner corrects the same thing a second time, make it a check that fails
 - While a button is down, the drawn cursor stays within 0.5 px of the pointer and never turns back on its own. (`checkTrail` in `scripts/clip.ts`)
 - The drawn cursor jumps at most 2 px at a press, and turns back at most 3 times on free moves. (`checkTrail` in `scripts/clip.ts`)
 - While a button is down, the pointer moves every frame, at most 25 ms apart at the 90th percentile, so a stroke grows smoothly. (`checkTrail` in `scripts/clip.ts`)
-- A title bar holds a one-word lowercase tag and a lowercase title of at most 6 words, on one line at 36 px, shrunk down to 24 px to fit. (`checkTitle`, `renderClip` in `scripts/clip.ts`)
+- A title bar holds a one-word lowercase tag and a lowercase title of at most 6 words, on one line at 36 px, shrunk as far as the line needs to fit with its badge. Under 24 px, a phone shows it under 14 pt, so render suggests a shorter title. (`checkTitle`, `renderClip`, `renderTake` in `scripts/clip.ts`)
 - A crop has even sides inside the viewport. Render rounds and clamps it on its own. (`fitCrop` in `scripts/clip.ts`)
 - A clip films X's shape, a page 540 px wide and 4:5 tall at 2× pixels, unless it opens with `{ shape: 'wide' }`. Its page text shows at 9 pt or more in a phone's feed, which shows a clip about 312 pt wide. (`openClip`, `reviewTake` in `scripts/clip.ts`)
 - Render refuses an X-shape clip without a title bar, so the clip a team chat gets is the one X can post. (`checkBar` in `scripts/clip.ts`)
-- A change to something a reader already saw shows as one clip, the take before the change and then the take after it, each half labeled Before or After in its footer. Both takes film the same shape and crop, and the whole clip keeps the length and size limits. (`checkPair`, `renderCompare` in `scripts/clip.ts`)
+- A change to something a reader already saw shows as one clip, the take before the change and then the take after it, each half with a Before or After badge at the end of the title bar. Both takes film the same shape and crop, and the whole clip keeps the length and size limits. (`checkPair`, `renderCompare` in `scripts/clip.ts`)
 <!-- /rules -->

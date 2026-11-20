@@ -60,7 +60,7 @@ export const RULES: { rule: string; check: string }[] = [
   { rule: `While a button is down, the drawn cursor stays within ${CLIP.heldLagPx} px of the pointer and never turns back on its own.`, check: 'checkTrail' },
   { rule: `The drawn cursor jumps at most ${CLIP.pressJumpPx} px at a press, and turns back at most ${CLIP.freeFlips} times on free moves.`, check: 'checkTrail' },
   { rule: `While a button is down, the pointer moves every frame, at most ${CLIP.heldGapMs} ms apart at the 90th percentile, so a stroke grows smoothly.`, check: 'checkTrail' },
-  { rule: `A title bar holds a one-word lowercase tag and a lowercase title of at most ${CLIP.titleWords} words, on one line at ${CLIP.titlePx.max} px, shrunk down to ${CLIP.titlePx.min} px to fit.`, check: 'checkTitle, renderClip' },
+  { rule: `A title bar holds a one-word lowercase tag and a lowercase title of at most ${CLIP.titleWords} words, on one line at ${CLIP.titlePx.max} px, shrunk as far as the line needs to fit with its badge. Under ${CLIP.titlePx.min} px, a phone shows it under ${titleMinPt} pt, so render suggests a shorter title.`, check: 'checkTitle, renderClip, renderTake' },
   { rule: 'A crop has even sides inside the viewport. Render rounds and clamps it on its own.', check: 'fitCrop' },
   {
     rule: `A clip films X's shape, a page ${CLIP.x.width} px wide and 4:5 tall at ${CLIP.x.scale}× pixels, unless it opens with \`{ shape: 'wide' }\`. Its page text shows at ${CLIP.phoneTextPt} pt or more in a phone's feed, which shows a clip about ${CLIP.feedPt} pt wide.`,
@@ -68,7 +68,7 @@ export const RULES: { rule: string; check: string }[] = [
   },
   { rule: 'Render refuses an X-shape clip without a title bar, so the clip a team chat gets is the one X can post.', check: 'checkBar' },
   {
-    rule: 'A change to something a reader already saw shows as one clip, the take before the change and then the take after it, each half labeled Before or After in its footer. Both takes film the same shape and crop, and the whole clip keeps the length and size limits.',
+    rule: 'A change to something a reader already saw shows as one clip, the take before the change and then the take after it, each half with a Before or After badge at the end of the title bar. Both takes film the same shape and crop, and the whole clip keeps the length and size limits.',
     check: 'checkPair, renderCompare',
   },
 ]
@@ -615,11 +615,14 @@ const KEYCAP = 'display:inline-block;min-width:1.4em;text-align:center;padding:3
 // A caption in the page's own colors read as page text and got missed, and the owner picked a black footer over a black pill (2026-11-19).
 const FOOT_BG = '#0a0a0a'
 const CAPTION = 'display:inline-flex;align-items:center;gap:8px;font:700 26px/1 Inter;color:#fff;padding:2px'
-const SIDE = 'display:inline-block;font:700 15px/1 Inter;letter-spacing:0.08em;text-transform:uppercase;color:#a3a3a3;padding:2px'
-const SIDE_INSET_PX = 20
+// A footer label was easy to miss, so the side shows as a badge at the end of the title line, light before and green after (the owner, 2026-11-20).
+const SIDES = ['Before', 'After'] as const
+const BADGE: Record<(typeof SIDES)[number], string> = { Before: 'background:#e5e5e5;color:#525252', After: 'background:#16a34a;color:#fff' }
+const badgeStyle = (side: Side) =>
+  `flex:none;align-self:center;font:700 0.42em/1 Inter;letter-spacing:0.06em;text-transform:uppercase;padding:0.45em 0.8em 0.4em;border-radius:999px;${BADGE[side]}`
 
 /** Which half of a before-and-after clip a take is. */
-export type Side = 'Before' | 'After'
+export type Side = (typeof SIDES)[number]
 
 export const captionHtml = (text: string) =>
   text
@@ -631,13 +634,15 @@ export const captionHtml = (text: string) =>
 /** A title bar: a gray one-word area tag, then what you do. It carries no post number, because the owner may delete a post (2026-11-19). */
 export type Bar = { tag: string; title: string }
 
-/** Stacks an optional title bar above the clip and a caption bar below it, with the `side` label at the footer's left, and encodes at 60 fps. Bars draw at the clip's `scale`, so they keep their size beside the page. */
+/** Stacks an optional title bar, with the `side` badge at the end of its line, above the clip and a caption bar below it, and encodes at 60 fps. Bars draw at the clip's `scale`, so they keep their size beside the page. Returns the title's size after it shrank to fit. */
 export async function renderClip(
   clip: string,
   out: string,
   { bar, captions = [], scale = 1, side }: { bar?: Bar; captions?: Beat[]; scale?: number; side?: Side } = {},
-): Promise<void> {
+): Promise<{ titlePx?: number }> {
+  if (side && !bar) throw new Error(`a ${side.toLowerCase()} half needs a title bar, where its badge goes; render it with --tag and --title`)
   if (bar) checkTitle(bar.tag, bar.title)
+  let titlePx: number | undefined
   captions.forEach(c => checkCaption(c.text))
   const [pixels, duration] = (
     await run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width:format=duration', '-of', 'default=nw=1:nk=1', clip])
@@ -648,7 +653,7 @@ export async function renderClip(
   const width = pixels / scale
   const dir = mkdtempSync(join(tmpdir(), 'clip-'))
   const windows = captionWindows(captions, duration)
-  const foot = windows.length > 0 || !!side
+  const foot = windows.length > 0
   try {
     const browser = await chromium.launch()
     try {
@@ -660,11 +665,6 @@ export async function renderClip(
       if (foot) {
         await page.setContent(`${style}<div id="foot" style="width:${width}px;height:${FOOT_PX}px;background:${FOOT_BG}"></div>`)
         await page.locator('#foot').screenshot({ path: join(dir, 'foot.png') })
-        if (side) {
-          await page.setContent(`${style}<div id="side" style="${SIDE}">${side}</div>`)
-          await page.evaluate(() => document.fonts.ready)
-          await page.locator('#side').screenshot({ path: join(dir, 'side.png'), omitBackground: true })
-        }
         for (const [i, w] of windows.entries()) {
           await page.setContent(`${style}<div id="keys" style="${CAPTION}">${captionHtml(w.text)}</div>`)
           await page.evaluate(() => document.fonts.ready)
@@ -673,17 +673,28 @@ export async function renderClip(
       }
       if (bar) {
         await page.setContent(`${style}
-<div id="bar" style="width:${width}px;box-sizing:border-box;padding:22px 40px 18px;background:#fafafa;border-bottom:1px solid #e5e5e5;font:600 ${CLIP.titlePx.max}px/1.1 Cal;color:#0a0a0a;white-space:nowrap;overflow:hidden;display:flex;gap:0.3em"><span style="color:#a3a3a3">${esc(bar.tag)} /</span><span>${esc(bar.title)}</span></div>`)
-        const px = await page.evaluate(async ({ min, max }) => {
-          await document.fonts.ready
-          const el = document.getElementById('bar')!
-          for (let size = max; size >= min; size--) {
-            el.style.fontSize = `${size}px`
-            if (el.scrollWidth <= el.clientWidth) return size
-          }
-          return 0
-        }, CLIP.titlePx)
-        if (!px) throw new Error(`title "${bar.title}" does not fit one line at ${CLIP.titlePx.min}px on a ${width}px clip; shorten it`)
+<div id="bar" style="width:${width}px;box-sizing:border-box;padding:22px 40px 18px;background:#fafafa;border-bottom:1px solid #e5e5e5;font:600 ${CLIP.titlePx.max}px/1.1 Cal;color:#0a0a0a;white-space:nowrap;overflow:hidden;display:flex;gap:0.3em"><span style="flex:none;color:#a3a3a3">${esc(bar.tag)} /</span><span style="flex:none">${esc(bar.title)}</span>${side ? `<span style="flex:1 0 0.6em"></span><span id="badge" style="${badgeStyle(side)}">${side}</span>` : ''}</div>`)
+        // Both halves of a before-and-after clip fit the wider badge, so the title keeps its size across the cut.
+        titlePx = await page.evaluate(
+          async ({ max, labels }) => {
+            await document.fonts.ready
+            const el = document.getElementById('bar')!
+            const badge = document.getElementById('badge')
+            const real = badge?.textContent
+            const fitsWith = (label?: string) => {
+              if (badge && label) badge.textContent = label
+              return el.scrollWidth <= el.clientWidth
+            }
+            let size = max
+            for (; size > 1; size--) {
+              el.style.fontSize = `${size}px`
+              if (badge ? labels.every(fitsWith) : fitsWith()) break
+            }
+            if (badge) badge.textContent = real!
+            return size
+          },
+          { max: CLIP.titlePx.max, labels: [...SIDES] },
+        )
         await page.locator('#bar').screenshot({ path: join(dir, 'bar.png') })
       }
     } finally {
@@ -696,19 +707,14 @@ export async function renderClip(
       inputs.push('-loop', '1', '-i', join(dir, `keys-${i}.png`))
       graph += `;${captionOverlay(w, `v${i}`, `${layers.length + i}:v`, `v${i + 1}`, FOOT_PX * scale)}`
     })
-    let last = `v${windows.length}`
-    if (side) {
-      inputs.push('-loop', '1', '-i', join(dir, 'side.png'))
-      const f = FOOT_PX * scale
-      graph += `;[${last}][${layers.length + windows.length}:v]overlay=x=${SIDE_INSET_PX * scale}:y=H-${f}+(${f}-h)/2[side]`
-      last = 'side'
-    }
+    const last = `v${windows.length}`
     // An odd height pads one row under the footer, so it takes the footer's color.
     graph += `;[${last}]pad=ceil(iw/2)*2:ceil(ih/2)*2:color=${foot ? FOOT_BG : '#fafafa'},format=yuv420p`
     await run(['ffmpeg', '-v', 'error', '-y', ...inputs, '-filter_complex', graph, '-t', duration.toFixed(3), '-c:v', 'libx264', '-r', String(CLIP.fps), '-movflags', '+faststart', out])
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
+  return { titlePx }
 }
 
 /** A still just before each caption gives way to the next, and one on the last frame, so whoever sends the clip can read what it shows. */
@@ -790,7 +796,8 @@ export async function renderTake(dir: string, out: string, opts: { bar?: Bar; si
     captions = shiftBeats(captions, cuts)
     review.fixes.push(`cut ${tenth(cuts.reduce((n, [a, b]) => n + b - a, 0))} s where nothing moved: ${cuts.map(([a, b]) => `${tenth(b - a)} s at ${tenth(a)} s`).join(', ')}`)
   }
-  await renderClip(clip, out, { bar: opts.bar, captions, scale: take.view?.scale, side: opts.side })
+  const { titlePx } = await renderClip(clip, out, { bar: opts.bar, captions, scale: take.view?.scale, side: opts.side })
+  if (titlePx && titlePx < CLIP.titlePx.min) review.suggests.push(`the title bar shrank to ${titlePx} px to fit one line, under the ${CLIP.titlePx.min} px a phone reads at ${titleMinPt} pt; shorten the title`)
   review.fails.push(...(await reviewFile(out)))
   const signals = await clipSignals(clip, take)
   await Bun.write(join(dir, 'signals.json'), JSON.stringify(signals, null, 2))
@@ -815,7 +822,7 @@ export async function renderCompare(
   out: string,
   opts: { bar?: Bar } = {},
 ): Promise<Review & { stills: string[]; signals?: Signals }> {
-  const fails = checkPair(readTake(before).take, readTake(after).take)
+  const fails = [...checkPair(readTake(before).take, readTake(after).take), ...(opts.bar ? [] : ['a before-and-after clip needs a title bar, where its Before and After badges go; render it with --tag and --title'])]
   if (fails.length) return { fails, fixes: [], suggests: [], stills: [] }
   const halves: [string, Side][] = [
     [before, 'Before'],
