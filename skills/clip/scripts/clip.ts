@@ -70,7 +70,7 @@ export const RULES: { rule: string; check: string }[] = [
   },
   { rule: 'Render refuses an X-shape clip without a title bar, so the clip a team chat gets is the one X can post.', check: 'checkBar' },
   {
-    rule: `A change to something a reader already saw shows as one clip, the take before the change and then the take after it, each half with a Before or After badge at the end of the title bar. It ends on the last frame of both takes for ${CLIP.compareHoldS} s, side by side or stacked, whichever shows them larger, each with its badge. Both takes film the same shape and crop, and the whole clip keeps the length and size limits.`,
+    rule: `A change to something a reader already saw shows as one clip, the take before the change and then the take after it, each half with a Before or After badge at the end of the title bar. It ends on the last frame of both takes for ${CLIP.compareHoldS} s, side by side or stacked, whichever shows them larger, each with its badge above it. The After frame shrinks into its slot instead of cutting away, on a spring with no overshoot and motion blur, and render adds a strip of that move to the stills. Both takes film the same shape and crop, and the whole clip keeps the length and size limits.`,
     check: 'checkPair, renderCompare, renderEndPage',
   },
 ]
@@ -720,7 +720,7 @@ export async function renderClip(
   return { titlePx }
 }
 
-/** Lays the last frame of the before and after page clips into one frame of the same size, side by side or stacked, whichever shows them larger, each with its badge, and holds it for `CLIP.compareHoldS` s. */
+/** Ends a before-and-after clip on both results at the page's size: the After page's last frame shrinks into its slot as the Before one slides in, side by side or stacked, whichever shows them larger, each with its badge above it, then both hold, `CLIP.compareHoldS` s in all. */
 export async function renderEndPage(pages: [before: string, after: string], out: string, scale = 1) {
   const [w, h] = (await run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', pages[1]])).trim().split(',').map(Number)
   const dir = mkdtempSync(join(tmpdir(), 'clip-end-'))
@@ -731,25 +731,54 @@ export async function renderEndPage(pages: [before: string, after: string], out:
       await run(['ffmpeg', '-v', 'error', '-y', '-sseof', '-0.5', '-i', page, '-update', '1', png])
       frames.push(`data:image/png;base64,${readFileSync(png).toString('base64')}`)
     }
-    const [width, height, gap] = [w / scale, h / scale, 16]
-    const fit = (cols: number, rows: number) => Math.min((width - gap * (cols + 1)) / cols / width, (height - gap * (rows + 1)) / rows / height)
+    const [width, height, gap, label] = [w / scale, h / scale, 16, 36]
+    const fit = (cols: number, rows: number) => Math.min((width - gap * (cols + 1)) / cols / width, (height - gap * (rows + 1) - rows * label) / rows / height)
     const row = fit(2, 1) >= fit(1, 2)
     const k = Math.max(fit(2, 1), fit(1, 2))
-    const panel = (side: Side, src: string) =>
-      `<div style="position:relative;flex:none;width:${width * k}px;height:${height * k}px;border:1px solid #d4d4d4;border-radius:8px;overflow:hidden;box-sizing:border-box;background:#fff"><img src="${src}" style="display:block;width:100%;height:100%"><span style="position:absolute;top:8px;right:8px;display:flex;font-size:${CLIP.titlePx.max}px"><span style="${badgeStyle(side)};box-shadow:0 1px 3px rgba(0,0,0,0.3)">${side}</span></span></div>`
+    const [pw, ph] = [width * k, height * k]
+    const slots = [0, 1].map(i =>
+      row
+        ? { x: (width - 2 * pw - gap) / 2 + i * (pw + gap), y: (height - ph - label) / 2 + label, w: pw, h: ph }
+        : { x: (width - pw) / 2, y: (height - 2 * (ph + label) - gap) / 2 + label + i * (ph + label + gap), w: pw, h: ph },
+    )
+    // The After frame never cuts away: it shrinks from the whole page into its slot, so the eye follows it there (the owner, 2026-11-20).
+    const from = [row ? { ...slots[0], x: -pw - gap } : { ...slots[0], y: -ph - gap }, { x: 0, y: 0, w: width, h: height }]
+    const motion = { spring: 16, starts: [0.06, 0], labelAt: 0.15, moveS: 0.65, sub: 8 }
+    const panel = (side: Side, i: number) =>
+      `<div class="panel" style="position:absolute;overflow:hidden;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.12)"><img src="${frames[i]}" style="display:block;width:100%;height:100%"></div><span class="label" style="position:absolute;left:${slots[i].x + slots[i].w / 2}px;top:${slots[i].y - 8}px;display:flex;font-size:${CLIP.titlePx.max}px"><span style="${badgeStyle(side)}">${side}</span></span>`
     const inter = `@font-face{font-family:Inter;font-weight:700;src:url(data:font/ttf;base64,${readFileSync(`${ASSETS}/Inter-Bold.ttf`).toString('base64')})}`
+    const seek = `const M=${JSON.stringify({ ...motion, slots, from })};
+const spring=t=>t<=0?0:1-Math.exp(-M.spring*t)*(1+M.spring*t);
+const panels=[...document.querySelectorAll('.panel')],labels=[...document.querySelectorAll('.label')];
+window.seek=t=>{panels.forEach((el,i)=>{const p=spring(t-M.starts[i]),a=M.from[i],b=M.slots[i];
+el.style.left=a.x+(b.x-a.x)*p+'px';el.style.top=a.y+(b.y-a.y)*p+'px';el.style.width=a.w+(b.w-a.w)*p+'px';el.style.height=a.h+(b.h-a.h)*p+'px';el.style.borderRadius=(i?8*p:8)+'px'});
+const q=spring(t-M.labelAt);labels.forEach(el=>{el.style.opacity=q;el.style.transform='translate(-50%,calc(-100% + '+(1-q)*6+'px))'})};`
     const browser = await chromium.launch()
+    const moveFrames = Math.round(motion.moveS * CLIP.fps)
     try {
       const page = await browser.newPage({ deviceScaleFactor: scale, viewport: { width: Math.ceil(width), height: Math.ceil(height) } })
       await page.setContent(
-        `<style>${inter}body{margin:0}</style><div id="end" style="width:${width}px;height:${height}px;background:#f5f5f5;display:flex;flex-direction:${row ? 'row' : 'column'};align-items:center;justify-content:center;gap:${gap}px">${SIDES.map((side, i) => panel(side, frames[i])).join('')}</div>`,
+        `<style>${inter}body{margin:0}</style><div id="end" style="position:relative;overflow:hidden;width:${width}px;height:${height}px;background:#f5f5f5">${SIDES.map(panel).join('')}</div><script>${seek}</script>`,
       )
       await page.evaluate(() => document.fonts.ready)
-      await page.locator('#end').screenshot({ path: join(dir, 'end.png') })
+      const shoot = async (t: number, png: string) => {
+        await page.evaluate(at => (window as unknown as { seek: (t: number) => void }).seek(at), t)
+        await page.locator('#end').screenshot({ path: join(dir, png) })
+      }
+      // Each frame blends sub-frames drawn at exact times, so the move has motion blur and renders the same every run.
+      for (let i = 0; i < moveFrames * motion.sub; i++) await shoot(i / (CLIP.fps * motion.sub), `m${String(i).padStart(4, '0')}.png`)
+      await shoot(moveFrames / CLIP.fps, 'hold.png')
     } finally {
       await browser.close()
     }
-    await run(['ffmpeg', '-v', 'error', '-y', '-loop', '1', '-framerate', String(CLIP.fps), '-i', join(dir, 'end.png'), '-t', String(CLIP.compareHoldS), '-vf', `scale=${w}:${h},format=yuv420p`, '-c:v', 'libx264', '-crf', '16', '-r', String(CLIP.fps), out])
+    const size = `scale=${w}:${h},setsar=1`
+    await run([
+      'ffmpeg', '-v', 'error', '-y',
+      '-framerate', String(CLIP.fps * motion.sub), '-i', join(dir, 'm%04d.png'),
+      '-loop', '1', '-framerate', String(CLIP.fps), '-t', (CLIP.compareHoldS - moveFrames / CLIP.fps).toFixed(3), '-i', join(dir, 'hold.png'),
+      '-filter_complex', `[0:v]tmix=frames=${motion.sub},select='eq(mod(n\\,${motion.sub})\\,${motion.sub - 1})',setpts=N/${CLIP.fps}/TB,${size}[m];[1:v]${size}[s];[m][s]concat=n=2:v=1,format=yuv420p[v]`,
+      '-map', '[v]', '-c:v', 'libx264', '-crf', '16', '-r', String(CLIP.fps), out,
+    ])
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -892,7 +921,12 @@ export async function renderCompare(
   review.fails.push(...(await reviewFile(out)))
   const seconds = await durationOf(out)
   if (seconds > CLIP.maxSeconds + 0.05) review.fails.push(`${out} runs ${tenth(seconds)} s, over ${CLIP.maxSeconds} s; shorten either take`)
-  return { ...review, stills: [...results.flatMap(r => r.stills), ...(await stills(end, [], join(after, 'stills-end')))], signals: results[1].signals }
+  const endStills = await stills(end, [], join(after, 'stills-end'))
+  // A strip of the move, every third frame, shows a pop or an overlap that the held stills miss.
+  const strip = join(after, 'stills-end', 'move.png')
+  const moveAt = (await durationOf(parts[0])) + (await durationOf(parts[1]))
+  await run(['ffmpeg', '-v', 'error', '-y', '-ss', moveAt.toFixed(3), '-i', out, '-t', '0.7', '-vf', 'fps=20,scale=320:-1,tile=7x2', '-frames:v', '1', strip])
+  return { ...review, stills: [...results.flatMap(r => r.stills), strip, ...endStills], signals: results[1].signals }
 }
 
 const durationOf = async (file: string) => Number((await run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', file])).trim())

@@ -226,7 +226,7 @@ describe('the title bar', () => {
     expect((await renderClip(clip, join(dir, 'end.mp4'), { bar, badgeRoom: true })).titlePx).toBe(before.titlePx)
   }, 60_000)
 
-  test('ends a before-and-after clip on both last frames, held at the page size', async () => {
+  test('ends a before-and-after clip on both last frames, moving there from the After frame without a cut', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'clip-end-'))
     const pages = ['white', 'gray'].map(c => {
       const page = join(dir, `${c}.mp4`)
@@ -238,5 +238,9 @@ describe('the title bar', () => {
     const probe = Bun.spawnSync(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height:format=duration', '-of', 'default=nw=1:nk=1', out]).stdout.toString().trim().split('\n').map(Number)
     expect(probe.slice(0, 2)).toEqual([540, 400])
     expect(probe[2]).toBeCloseTo(CLIP.compareHoldS, 1)
+    const gray = (seek: string[]) => Bun.spawnSync(['ffmpeg', '-v', 'error', ...seek, '-i', out, '-frames:v', '1', '-vf', 'scale=1:1', '-f', 'rawvideo', '-pix_fmt', 'gray', '-']).stdout[0]
+    const after = Bun.spawnSync(['ffmpeg', '-v', 'error', '-i', pages[1], '-frames:v', '1', '-vf', 'scale=1:1', '-f', 'rawvideo', '-pix_fmt', 'gray', '-']).stdout[0]
+    expect(Math.abs(gray([]) - after)).toBeLessThan(3)
+    expect(gray(['-sseof', '-0.1']) - after).toBeGreaterThan(40)
   }, 60_000)
 })
