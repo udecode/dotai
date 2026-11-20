@@ -72,7 +72,7 @@ export const RULES: { rule: string; check: string }[] = [
   },
   { rule: 'Render refuses an X-shape clip without a title bar, so the clip a team chat gets is the one X can post.', check: 'checkBar' },
   {
-    rule: `A change to something a reader already saw shows as one clip, the take before the change and then the take after it, each half with a Before or After badge at the end of the title bar. The After take pushes in for ${CLIP.pushS} s from the side where the end puts it. The clip ends on the last frame of both takes for ${CLIP.compareHoldS} s, cropped to the area where they differ and zoomed in no further than the page has pixels for, side by side or stacked, each badge above its panel or to its left, whichever shows them larger. The After frame shrinks into its slot instead of cutting away, and the footer slides out of the frame. Both moves run on a spring with no overshoot and motion blur, and render adds a strip of each move to the stills. Both takes film the same shape and crop, and the whole clip keeps the length and size limits.`,
+    rule: `A change to something a reader already saw shows as one clip, the take before the change and then the take after it, each half with a Before or After badge at the end of the title bar. The After take pushes in from the right in ${CLIP.pushS} s, like the next slide, and the end brings the Before panel back from the left. The clip ends on the last frame of both takes for ${CLIP.compareHoldS} s, cropped to the area where they differ and zoomed in no further than the page has pixels for, side by side or stacked, each badge above its panel or to its left, whichever shows them larger. The After frame shrinks into its slot instead of cutting away, and the footer slides out of the frame. Both moves run on a spring with no overshoot and motion blur, and render adds a strip of each move to the stills. Both takes film the same shape and crop, and the whole clip keeps the length and size limits.`,
     check: 'checkPair, renderCompare, renderPush, renderEndPage, endLayout, changedBox',
   },
 ]
@@ -849,16 +849,16 @@ async function frameOf(clip: string, at: 'first' | 'last', png: string) {
 const pageSize = async (clip: string, scale: number) =>
   (await run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', clip])).trim().split(',').map(n => Number(n) / scale)
 
-/** Pushes the Before page's last frame out and the After page's first frame in, from the side where the end puts the After result, `CLIP.pushS` s. */
-export async function renderPush(pages: [before: string, after: string], row: boolean, out: string, scale = 1) {
+/** Pushes the Before page's last frame out to the left as the After page's first frame comes in from the right, like the next slide, `CLIP.pushS` s. A vertical push read as a scroll (the owner, 2026-11-20). */
+export async function renderPush(pages: [before: string, after: string], out: string, scale = 1) {
   const [width, height] = await pageSize(pages[1], scale)
   const dir = mkdtempSync(join(tmpdir(), 'clip-push-'))
   try {
     const [a, b] = [await frameOf(pages[0], 'last', join(dir, 'a.png')), await frameOf(pages[1], 'first', join(dir, 'b.png'))]
     const img = (id: string, src: string) => `<img id="${id}" src="${src}" style="position:absolute;left:0;top:0;width:${width}px;height:${height}px">`
     // The spring is scaled to end at exactly 1, so the push lands on the After half's first frame.
-    const seek = `const spring=${springJs(16)},end=spring(${CLIP.pushS}),d=${(row ? width : height) + 16},axis='${row ? 'X' : 'Y'}';
-window.seek=t=>{const p=spring(t)/end;a.style.transform='translate'+axis+'('+-p*d+'px)';b.style.transform='translate'+axis+'('+(1-p)*d+'px)'};`
+    const seek = `const spring=${springJs(16)},end=spring(${CLIP.pushS}),d=${width + 16};
+window.seek=t=>{const p=spring(t)/end;a.style.transform='translateX('+-p*d+'px)';b.style.transform='translateX('+(1-p)*d+'px)'};`
     const html = `<style>body{margin:0}</style><div id="stage" style="position:relative;overflow:hidden;width:${width}px;height:${height}px;background:#f5f5f5">${img('a', a)}${img('b', b)}</div><script>${seek}</script>`
     await renderMotion({ html, width, height, scale }, { moveS: CLIP.pushS, holdS: 0 }, out)
   } finally {
@@ -866,7 +866,7 @@ window.seek=t=>{const p=spring(t)/end;a.style.transform='translate'+axis+'('+-p*
   }
 }
 
-/** Ends a before-and-after clip on both results, cropped to where the two last frames differ. The After page's last frame shrinks into its slot as the Before one slides in, as `endLayout` places them. A `caption` draws the footer the After half ends on and slides it out of the frame, so the panels take its height. Both then hold, `CLIP.compareHoldS` s in all. Returns whether the panels sit side by side. */
+/** Ends a before-and-after clip on both results, cropped to where the two last frames differ. The After page's last frame shrinks into its slot as the Before one slides in, as `endLayout` places them. A `caption` draws the footer the After half ends on and slides it out of the frame, so the panels take its height. Both then hold, `CLIP.compareHoldS` s in all. */
 export async function renderEndPage(pages: [before: string, after: string], out: string, { scale = 1, caption }: { scale?: number; caption?: string } = {}) {
   const [width, pageH] = await pageSize(pages[1], scale)
   // The badges say which panel is which, so the end drops the footer instead of captioning it again (the owner, 2026-11-20).
@@ -884,17 +884,16 @@ export async function renderEndPage(pages: [before: string, after: string], out:
     }
     // A phone shows a whole page too small to read beside another, so both panels show only the area that changed, with some page around it (the owner, 2026-11-20).
     const crop = cropAround(changedBox(rgb[0], rgb[1], qw, qh), [width / qw, pageH / qh], width, pageH)
-    let row = true
     const prepare = async (page: Page) => {
       const [bw, bh] = await page.evaluate(() =>
         [...document.querySelectorAll('.label')].reduce(([w, h], el) => [Math.max(w, el.getBoundingClientRect().width), Math.max(h, el.getBoundingClientRect().height)], [0, 0]),
       )
       // An X page films at 2× pixels, so its changed area zooms up to 2× and stays sharp in a phone feed, which shows the frame at under 1,000 device pixels (the owner wants it read on a phone, 2026-11-20).
       const layout = endLayout(crop, width, height, [bw, bh], scale)
-      row = layout.row
       // Each panel is a window on its whole page, which `s` scales and `tx`, `ty` place.
       const to = layout.slots.map(s => ({ ...s, s: layout.k, tx: s.x - layout.k * crop.x, ty: s.y - layout.k * crop.y }))
-      const away = row ? { x: -(to[0].x + to[0].w) - layout.gap, y: 0 } : { x: 0, y: -(to[0].y + to[0].h) - layout.gap }
+      // The Before panel comes back from the left, where the push sent it.
+      const away = { x: -(to[0].x + to[0].w) - layout.gap, y: 0 }
       // The After frame never cuts away. It shrinks from the whole page into its slot, so the eye follows it there (the owner, 2026-11-20).
       const from = [
         { ...to[0], x: to[0].x + away.x, y: to[0].y + away.y, tx: to[0].tx + away.x, ty: to[0].ty + away.y },
@@ -922,7 +921,6 @@ const q=spring(t-T.labelAt);labels.forEach((el,i)=>{const l=M.labels[i];el.style
     const html = `<style>${inter}body{margin:0}</style><div id="stage" style="position:relative;overflow:hidden;width:${width}px;height:${height}px;background:#f5f5f5">${SIDES.map(panel).join('')}${foot}</div><script>${seek}</script>`
     const moveS = 0.65
     await renderMotion({ html, width, height, scale }, { moveS, holdS: CLIP.compareHoldS - Math.round(moveS * CLIP.fps) / CLIP.fps, prepare }, out)
-    return { row }
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -1057,10 +1055,10 @@ export async function renderCompare(
   const endPage = join(after, 'end-page.mp4')
   const end = join(after, 'end.mp4')
   const scale = readTake(after).take.view?.scale ?? 1
-  const { row } = await renderEndPage([first.clip, last.clip], endPage, { scale, caption: last.captions.at(-1)?.text })
-  // A cut between two takes of one scene reads as the clip starting over, so the After take pushes in from the side where the end puts it (the owner, 2026-11-20).
+  await renderEndPage([first.clip, last.clip], endPage, { scale, caption: last.captions.at(-1)?.text })
+  // A cut between two takes of one scene reads as the clip starting over, so the After take pushes in (the owner, 2026-11-20).
   const [push, pushed] = [join(after, 'push.mp4'), join(after, 'pushed.mp4')]
-  await renderPush([first.clip, last.clip], row, push, scale)
+  await renderPush([first.clip, last.clip], push, scale)
   await run(['ffmpeg', '-v', 'error', '-y', '-i', push, '-i', last.clip, '-filter_complex', '[0:v]setsar=1[a];[1:v]setsar=1[b];[a][b]concat=n=2:v=1:a=0,format=yuv420p[v]', '-map', '[v]', '-c:v', 'libx264', '-crf', '16', '-r', String(CLIP.fps), pushed])
   await renderClip(pushed, join(after, 'half.mp4'), { bar: opts.bar, captions: last.captions.map(c => ({ ...c, t: c.t + CLIP.pushS })), scale, side: 'After' })
   // The end page draws the footer the After half ends on and slides it away, so the end clip has none of its own.

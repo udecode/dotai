@@ -295,7 +295,7 @@ describe('the title bar', () => {
       return page
     }) as [string, string]
     const out = join(dir, 'push.mp4')
-    await renderPush(pages, true, out)
+    await renderPush(pages, out)
     const duration = Number(Bun.spawnSync(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', out]).stdout.toString())
     expect(duration).toBeCloseTo(CLIP.pushS, 1)
     const luma = (seek: string[], crop = 'iw:ih:0:0') =>
