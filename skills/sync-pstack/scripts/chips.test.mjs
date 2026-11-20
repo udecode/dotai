@@ -2413,3 +2413,22 @@ test('a row its chip state forbids changes nothing, so a pulled row in any order
   appendFileSync(join(root, LEDGER), `2026-01-03T00:00:00Z\tchip\ttask_a1 Fix the lexer\twhy\tevidence\tdismissed declined\n`);
   assert.match(chips('brief', 'task_a1').stdout, /^State: Started\./mu);
 });
+
+test('decisions-check refuses a finding that stops its session before landing, and the brief drops one an older row holds', () => {
+  const { LEDGER, chips, helper, root } = chipLedger();
+  const proof = 'writes: README.md; topic: docs; priority: P1; repro: steps';
+  const stop = 'The badge links a dead page. Stop before land.mjs so a teammate can retest on a local server.';
+  for (const why of [stop, 'the badge links a dead page; stop just before landing']) {
+    const refused = helper('append', LEDGER, 'chip', 'task_a1 Fix the stale badge', why, proof, 'offered');
+    assert.equal(refused.status, 1, why);
+    assert.match(refused.stderr, /never has its session stop before landing/u, why);
+  }
+  const nearMiss = helper('append', LEDGER, 'chip', 'task_a1 Stop land.mjs from committing deletions', 'land.mjs stops before the push when a check fails', proof, 'offered');
+  assert.equal(nearMiss.status, 0, nearMiss.stderr);
+  const folded = helper('append', LEDGER, 'chip', 'task_a1 Stop land.mjs from committing deletions', 'Stop before land.mjs for a local check.', 'writes: README.md', 'folded');
+  assert.match(folded.stderr, /never has its session stop before landing/u, 'a folded row adds a finding too');
+  appendFileSync(join(root, LEDGER), `2026-01-02T00:00:00Z\tchip\ttask_b2 Fix the dead link\t${stop}\twrites: docs/a.md; topic: links; priority: P1; repro: steps\toffered\n`);
+  const brief = chips('brief', 'task_b2').stdout;
+  assert.match(brief, /^- The badge links a dead page\. Land once the proof passes/mu);
+  assert.doesNotMatch(brief, /Stop before land/u);
+});
