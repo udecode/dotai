@@ -30,8 +30,8 @@ The recorder runs on Bun and ffmpeg. The first time, and whenever `<skill dir>/s
    ```
 
 2. Run `bun <scene>.ts <take dir>`. It writes `clip.webm`, `trail.json` and `take.json` there.
-3. Run `bun <skill dir>/scripts/clip.ts review <take dir>`, with `--x` for an X clip, and fix it as Review and fix says.
-4. Run `bun <skill dir>/scripts/clip.ts render <take dir> <out.mp4>`, with `--tag <tag> --title "<title>"` for a title bar. It refuses a take with a FAIL, cuts it, adds the bars, encodes at 60 fps, reviews the file, and writes one still at the end of each caption into `<take dir>/stills/`, printing a `STILL` line for each. Its `SIGNALS` line, saved as `<take dir>/signals.json`, gives the clip's length, when something first moves, the share of time something moves, how much of the frame the result changes, and the page text's size on a phone.
+3. Run `bun <skill dir>/scripts/clip.ts review <take dir>` and fix it as Review and fix says.
+4. Run `bun <skill dir>/scripts/clip.ts render <take dir> <out.mp4> --tag <tag> --title "<title>"`. The title bar is the clip's headline, a one-word area tag and what you do in a few lowercase words, such as `board / a whiteboard inside your doc`. It refuses a take with a FAIL, cuts it, adds the bars, encodes at 60 fps, reviews the file, and writes one still at the end of each caption into `<take dir>/stills/`, printing a `STILL` line for each. Its `SIGNALS` line, saved as `<take dir>/signals.json`, gives the clip's length, when something first moves, the share of time something moves, how much of the frame the result changes, and the page text's size on a phone.
 5. Read every still before the clip goes anywhere.
 
 ## Before and after
@@ -50,11 +50,11 @@ These are the parts no check can see.
 - Call `beat()` as each action starts. Its caption says what you do in a few words, such as `Draw a note`. A keyboard clip shows its keys, such as `[N] [Enter]`, because the video cannot.
 - Show the feature where a reader meets it, inside the page or document around it, and crop to the feature and that context.
 - Keep it drafty, snappy and straight to the point. Open on the action and end on the result. Add no zoom, frame, wallpaper, motion blur or music. The owner turned down Screen Studio polish and called about 14 s for four beats the pace (2026-11-18), then found long pauses lose the viewer (2026-11-19). Render cuts every still stretch on its own, so a `wait` only paces an action. Where a viewer must read something that just appeared, such as a toast or a label, hold with `read(ms)`, about 1 s for a label and 2 to 3 s for a toast, and render keeps that hold whole.
-- Film light mode unless the change is about dark mode. A clip films the page at 1100 by 720. An X clip opens with `{ shape: 'x' }`, a 540 by 675 page, so lay its scene out for a narrow page and stack the steps down the frame.
+- Film light mode unless the change is about dark mode. A clip films a 540 by 675 page, X's shape, so lay the scene out for a narrow page and stack the steps down the frame. `{ shape: 'wide' }` films 1100 by 720, only for a clip that answers a question in chat and never goes out as a demo.
 - A page behind a sign-in opens with `{ storageState: '<file>' }`, the Playwright storage state the project's own login helper saves.
 - Ease a pen stroke with `stroke`, which starts already moving, because the `minimumJerk` curve dwells at the start and pools ink in a blob.
 - A clip with no mouse, such as a keyboard clip, opens with `{ cursor: false }`, so no idle cursor sits on the page.
-- A clip sent inside a chat message needs no title bar, because the message already says what changed. A clip posted alone, such as on X, always has one.
+- A demo is one clip for the team chat and for X, so the same file can go out on X later (owner, 2026-11-20). Its title bar repeats the message in chat, and is its headline on X.
 
 ## Review and fix
 
@@ -94,6 +94,7 @@ When the owner corrects the same thing a second time, make it a check that fails
 - While a button is down, the pointer moves every frame, at most 25 ms apart at the 90th percentile, so a stroke grows smoothly. (`checkTrail` in `scripts/clip.ts`)
 - A title bar holds a one-word lowercase tag and a lowercase title of at most 6 words, on one line at 36 px, shrunk down to 24 px to fit. (`checkTitle`, `renderClip` in `scripts/clip.ts`)
 - A crop has even sides inside the viewport. Render rounds and clamps it on its own. (`fitCrop` in `scripts/clip.ts`)
-- An X clip opens with `{ shape: 'x' }`, which films the page 540 px wide and 4:5 tall at 2× pixels. Its page text shows at 9 pt or more in a phone's feed, which shows a clip about 312 pt wide. (`openClip`, `reviewTake` in `scripts/clip.ts`)
+- A clip films X's shape, a page 540 px wide and 4:5 tall at 2× pixels, unless it opens with `{ shape: 'wide' }`. Its page text shows at 9 pt or more in a phone's feed, which shows a clip about 312 pt wide. (`openClip`, `reviewTake` in `scripts/clip.ts`)
+- Render refuses an X-shape clip without a title bar, so the clip a team chat gets is the one X can post. (`checkBar` in `scripts/clip.ts`)
 - A change to something a reader already saw shows as one clip, the take before the change and then the take after it, each half labeled Before or After in its footer. Both takes film the same shape and crop, and the whole clip keeps the length and size limits. (`checkPair`, `renderCompare` in `scripts/clip.ts`)
 <!-- /rules -->

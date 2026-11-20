@@ -4,6 +4,7 @@ import {
   captionOverlay,
   captionWindows,
   changedPct,
+  checkBar,
   checkCaption,
   checkPair,
   checkTitle,
@@ -109,6 +110,19 @@ describe('a take', () => {
     expect(reviewTake(wide, [], { x: true }).fails).toEqual([expect.stringContaining('shows at 4.5 pt')])
     expect(reviewTake(wide, []).fails).toEqual([])
     expect(reviewTake({ ...wide, textPx: undefined }, [], { x: true }).suggests).toEqual([expect.stringContaining('no text size')])
+  })
+
+  test('judges an X-shape take at the X pace without being asked', () => {
+    const long = take([{ t: 0.4, text: 'Draw a note' }, { t: 15, text: 'Connect them' }], 17)
+    expect(reviewTake(long, []).suggests).toEqual([expect.stringContaining('an X clip reads best')])
+    expect(reviewTake({ ...long, view: CLIP.wide }, []).suggests).toEqual([])
+  })
+
+  test('refuses an X-shape clip without a title bar, so the chat clip is the one X can post', () => {
+    const one = take([{ t: 0.4, text: 'Draw a note' }])
+    expect(checkBar(one)).toEqual([expect.stringContaining('needs a title bar')])
+    expect(checkBar(one, { tag: 'board', title: 'notes in your doc' })).toEqual([])
+    expect(checkBar({ ...one, view: CLIP.wide })).toEqual([])
   })
 
   test('counts typing as motion and a blinking caret as still', () => {

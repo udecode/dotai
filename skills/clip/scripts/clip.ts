@@ -63,9 +63,10 @@ export const RULES: { rule: string; check: string }[] = [
   { rule: `A title bar holds a one-word lowercase tag and a lowercase title of at most ${CLIP.titleWords} words, on one line at ${CLIP.titlePx.max} px, shrunk down to ${CLIP.titlePx.min} px to fit.`, check: 'checkTitle, renderClip' },
   { rule: 'A crop has even sides inside the viewport. Render rounds and clamps it on its own.', check: 'fitCrop' },
   {
-    rule: `An X clip opens with \`{ shape: 'x' }\`, which films the page ${CLIP.x.width} px wide and 4:5 tall at ${CLIP.x.scale}× pixels. Its page text shows at ${CLIP.phoneTextPt} pt or more in a phone's feed, which shows a clip about ${CLIP.feedPt} pt wide.`,
+    rule: `A clip films X's shape, a page ${CLIP.x.width} px wide and 4:5 tall at ${CLIP.x.scale}× pixels, unless it opens with \`{ shape: 'wide' }\`. Its page text shows at ${CLIP.phoneTextPt} pt or more in a phone's feed, which shows a clip about ${CLIP.feedPt} pt wide.`,
     check: 'openClip, reviewTake',
   },
+  { rule: 'Render refuses an X-shape clip without a title bar, so the clip a team chat gets is the one X can post.', check: 'checkBar' },
   {
     rule: 'A change to something a reader already saw shows as one clip, the take before the change and then the take after it, each half labeled Before or After in its footer. Both takes film the same shape and crop, and the whole clip keeps the length and size limits.',
     check: 'checkPair, renderCompare',
@@ -360,7 +361,8 @@ export async function openClip(
   {
     cursor = true,
     colorScheme = 'light',
-    shape = 'wide',
+    // One demo serves the team chat and X, so X's shape is the default (owner, 2026-11-20).
+    shape = 'x',
     storageState,
   }: { cursor?: boolean; colorScheme?: 'light' | 'dark'; shape?: 'wide' | 'x'; storageState?: string } = {},
 ) {
@@ -458,7 +460,14 @@ export function fitCrop(c: Crop, view: { width: number; height: number } = CLIP.
 
 /** The rules a take can break before it is rendered, with what render fixes on its own and what would make it better. */
 /** `cutS` is the still time render cuts, so the length rules judge the clip a viewer gets. */
-export function reviewTake(take: Take, trail: TrailRow[], { x = false, cutS = 0 }: { x?: boolean; cutS?: number } = {}): Review {
+export const isX = (take: Take) => take.view?.width === CLIP.x.width
+
+/** An X-shape clip may go out on X alone, where the title bar is its headline. */
+export function checkBar(take: Take, bar?: Bar): string[] {
+  return isX(take) && !bar ? ['an X-shape clip needs a title bar; render it with --tag <tag> --title "<title>"'] : []
+}
+
+export function reviewTake(take: Take, trail: TrailRow[], { x = isX(take), cutS = 0 }: { x?: boolean; cutS?: number } = {}): Review {
   const fails = [...checkTrail(trail, take.trailFrom).problems]
   const fixes: string[] = []
   const suggests: string[] = []
@@ -765,14 +774,14 @@ export const printReview = ({ fails, fixes, suggests, stills = [], signals }: Re
 }
 
 /** Reviews a take, refuses it on a FAIL, then cuts and renders it, reviews the file, and writes its stills and its signals.json. */
-export async function renderTake(dir: string, out: string, opts: { bar?: Bar; x?: boolean; side?: Side } = {}): Promise<Review & { stills: string[]; signals?: Signals }> {
+export async function renderTake(dir: string, out: string, opts: { bar?: Bar; side?: Side } = {}): Promise<Review & { stills: string[]; signals?: Signals }> {
   const { take, trail } = readTake(dir)
   const raw = join(dir, 'cut.mp4')
   let captions = await cut(take, raw)
   const duration = await durationOf(raw)
   const holds = (take.holds ?? []).map(([a, b]) => [a + CLIP.stillLeadS, b + CLIP.stillLeadS] as [number, number])
   const cuts = squeezePlan(await stillStretches(raw, take.view?.scale), captions.map(c => c.t), duration, holds)
-  const review = reviewTake(take, trail, { x: opts.x, cutS: cuts.reduce((n, [a, b]) => n + b - a, 0) })
+  const review = reviewTake(take, trail, { cutS: cuts.reduce((n, [a, b]) => n + b - a, 0) })
   if (review.fails.length) return { ...review, stills: [] }
   let clip = raw
   if (cuts.length) {
@@ -804,7 +813,7 @@ export async function renderCompare(
   before: string,
   after: string,
   out: string,
-  opts: { bar?: Bar; x?: boolean } = {},
+  opts: { bar?: Bar } = {},
 ): Promise<Review & { stills: string[]; signals?: Signals }> {
   const fails = checkPair(readTake(before).take, readTake(after).take)
   if (fails.length) return { fails, fixes: [], suggests: [], stills: [] }
@@ -844,22 +853,26 @@ if (import.meta.main) {
     const at = args.indexOf(`--${name}`)
     return at === -1 ? undefined : args[at + 1]
   }
-  const x = args.includes('--x')
   if (cmd === 'review' && args[0]) {
     const { take, trail } = readTake(args[0])
-    const review = reviewTake(take, trail, { x })
+    const review = reviewTake(take, trail)
     printReview(review)
     process.exit(review.fails.length ? 1 : 0)
   } else if (cmd === 'render' && args[0] && args[1] && !args[1].startsWith('--')) {
     const tag = flag('tag')
     const title = flag('title')
     const before = flag('before')
-    const opts = { bar: tag && title ? { tag, title } : undefined, x }
+    const opts = { bar: tag && title ? { tag, title } : undefined }
+    const barFails = checkBar(readTake(args[0]).take, opts.bar)
+    if (barFails.length) {
+      printReview({ fails: barFails, fixes: [], suggests: [] })
+      process.exit(1)
+    }
     const review = before ? await renderCompare(before, args[0], args[1], opts) : await renderTake(args[0], args[1], opts)
     printReview(review)
     process.exit(review.fails.length ? 1 : 0)
   } else {
-    console.error('usage: bun scripts/clip.ts review <take dir> [--x] | render <take dir> <out.mp4> [--before <take dir>] [--tag <tag> --title <title>] [--x]')
+    console.error('usage: bun scripts/clip.ts review <take dir> | render <take dir> <out.mp4> [--before <take dir>] [--tag <tag> --title <title>]')
     process.exit(2)
   }
 }
