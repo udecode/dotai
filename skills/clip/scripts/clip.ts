@@ -33,6 +33,8 @@ export const CLIP = {
   // "Pauses are a bit too long, humans should not lose attention" (the owner, 2026-11-19): a stretch where nothing moves gets cut down to these.
   stillMaxS: 0.7,
   endHoldS: 1,
+  // A before-and-after clip ends on both results at once, so the reader compares them without remembering the first half (the owner, 2026-11-20).
+  compareHoldS: 2,
   stillLeadS: 0.2,
   caretPx: 50,
   stillLevel: 16,
@@ -68,8 +70,8 @@ export const RULES: { rule: string; check: string }[] = [
   },
   { rule: 'Render refuses an X-shape clip without a title bar, so the clip a team chat gets is the one X can post.', check: 'checkBar' },
   {
-    rule: 'A change to something a reader already saw shows as one clip, the take before the change and then the take after it, each half with a Before or After badge at the end of the title bar. Both takes film the same shape and crop, and the whole clip keeps the length and size limits.',
-    check: 'checkPair, renderCompare',
+    rule: `A change to something a reader already saw shows as one clip, the take before the change and then the take after it, each half with a Before or After badge at the end of the title bar. It ends on the last frame of both takes for ${CLIP.compareHoldS} s, side by side or stacked, whichever shows them larger, each with its badge. Both takes film the same shape and crop, and the whole clip keeps the length and size limits.`,
+    check: 'checkPair, renderCompare, renderEndPage',
   },
 ]
 
@@ -634,13 +636,14 @@ export const captionHtml = (text: string) =>
 /** A title bar: a gray one-word area tag, then what you do. It carries no post number, because the owner may delete a post (2026-11-19). */
 export type Bar = { tag: string; title: string }
 
-/** Stacks an optional title bar, with the `side` badge at the end of its line, above the clip and a caption bar below it, and encodes at 60 fps. Bars draw at the clip's `scale`, so they keep their size beside the page. Returns the title's size after it shrank to fit. */
+/** Stacks an optional title bar, with the `side` badge at the end of its line, above the clip and a caption bar below it, and encodes at 60 fps. Bars draw at the clip's `scale`, so they keep their size beside the page. `badgeRoom` keeps the badge's room empty, so a clip that follows both halves keeps their title size. Returns the title's size after it shrank to fit. */
 export async function renderClip(
   clip: string,
   out: string,
-  { bar, captions = [], scale = 1, side }: { bar?: Bar; captions?: Beat[]; scale?: number; side?: Side } = {},
+  { bar, captions = [], scale = 1, side, badgeRoom }: { bar?: Bar; captions?: Beat[]; scale?: number; side?: Side; badgeRoom?: boolean } = {},
 ): Promise<{ titlePx?: number }> {
-  if (side && !bar) throw new Error(`a ${side.toLowerCase()} half needs a title bar, where its badge goes; render it with --tag and --title`)
+  const label = side ?? (badgeRoom ? SIDES[0] : undefined)
+  if (label && !bar) throw new Error('a before-and-after clip needs a title bar, where its badges go; render it with --tag and --title')
   if (bar) checkTitle(bar.tag, bar.title)
   let titlePx: number | undefined
   captions.forEach(c => checkCaption(c.text))
@@ -673,7 +676,7 @@ export async function renderClip(
       }
       if (bar) {
         await page.setContent(`${style}
-<div id="bar" style="width:${width}px;box-sizing:border-box;padding:22px 40px 18px;background:#fafafa;border-bottom:1px solid #e5e5e5;font:600 ${CLIP.titlePx.max}px/1.1 Cal;color:#0a0a0a;white-space:nowrap;overflow:hidden;display:flex;gap:0.3em"><span style="flex:none;color:#a3a3a3">${esc(bar.tag)} /</span><span style="flex:none">${esc(bar.title)}</span>${side ? `<span style="flex:1 0 0.6em"></span><span id="badge" style="${badgeStyle(side)}">${side}</span>` : ''}</div>`)
+<div id="bar" style="width:${width}px;box-sizing:border-box;padding:22px 40px 18px;background:#fafafa;border-bottom:1px solid #e5e5e5;font:600 ${CLIP.titlePx.max}px/1.1 Cal;color:#0a0a0a;white-space:nowrap;overflow:hidden;display:flex;gap:0.3em"><span style="flex:none;color:#a3a3a3">${esc(bar.tag)} /</span><span style="flex:none">${esc(bar.title)}</span>${label ? `<span style="flex:1 0 0.6em"></span><span id="badge" style="${badgeStyle(label)}${side ? '' : ';visibility:hidden'}">${label}</span>` : ''}</div>`)
         // Both halves of a before-and-after clip fit the wider badge, so the title keeps its size across the cut.
         titlePx = await page.evaluate(
           async ({ max, labels }) => {
@@ -715,6 +718,41 @@ export async function renderClip(
     rmSync(dir, { recursive: true, force: true })
   }
   return { titlePx }
+}
+
+/** Lays the last frame of the before and after page clips into one frame of the same size, side by side or stacked, whichever shows them larger, each with its badge, and holds it for `CLIP.compareHoldS` s. */
+export async function renderEndPage(pages: [before: string, after: string], out: string, scale = 1) {
+  const [w, h] = (await run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', pages[1]])).trim().split(',').map(Number)
+  const dir = mkdtempSync(join(tmpdir(), 'clip-end-'))
+  try {
+    const frames: string[] = []
+    for (const [i, page] of pages.entries()) {
+      const png = join(dir, `${i}.png`)
+      await run(['ffmpeg', '-v', 'error', '-y', '-sseof', '-0.5', '-i', page, '-update', '1', png])
+      frames.push(`data:image/png;base64,${readFileSync(png).toString('base64')}`)
+    }
+    const [width, height, gap] = [w / scale, h / scale, 16]
+    const fit = (cols: number, rows: number) => Math.min((width - gap * (cols + 1)) / cols / width, (height - gap * (rows + 1)) / rows / height)
+    const row = fit(2, 1) >= fit(1, 2)
+    const k = Math.max(fit(2, 1), fit(1, 2))
+    const panel = (side: Side, src: string) =>
+      `<div style="position:relative;flex:none;width:${width * k}px;height:${height * k}px;border:1px solid #d4d4d4;border-radius:8px;overflow:hidden;box-sizing:border-box;background:#fff"><img src="${src}" style="display:block;width:100%;height:100%"><span style="position:absolute;top:8px;right:8px;display:flex;font-size:${CLIP.titlePx.max}px"><span style="${badgeStyle(side)};box-shadow:0 1px 3px rgba(0,0,0,0.3)">${side}</span></span></div>`
+    const inter = `@font-face{font-family:Inter;font-weight:700;src:url(data:font/ttf;base64,${readFileSync(`${ASSETS}/Inter-Bold.ttf`).toString('base64')})}`
+    const browser = await chromium.launch()
+    try {
+      const page = await browser.newPage({ deviceScaleFactor: scale, viewport: { width: Math.ceil(width), height: Math.ceil(height) } })
+      await page.setContent(
+        `<style>${inter}body{margin:0}</style><div id="end" style="width:${width}px;height:${height}px;background:#f5f5f5;display:flex;flex-direction:${row ? 'row' : 'column'};align-items:center;justify-content:center;gap:${gap}px">${SIDES.map((side, i) => panel(side, frames[i])).join('')}</div>`,
+      )
+      await page.evaluate(() => document.fonts.ready)
+      await page.locator('#end').screenshot({ path: join(dir, 'end.png') })
+    } finally {
+      await browser.close()
+    }
+    await run(['ffmpeg', '-v', 'error', '-y', '-loop', '1', '-framerate', String(CLIP.fps), '-i', join(dir, 'end.png'), '-t', String(CLIP.compareHoldS), '-vf', `scale=${w}:${h},format=yuv420p`, '-c:v', 'libx264', '-crf', '16', '-r', String(CLIP.fps), out])
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 }
 
 /** A still just before each caption gives way to the next, and one on the last frame, so whoever sends the clip can read what it shows. */
@@ -780,7 +818,12 @@ export const printReview = ({ fails, fixes, suggests, stills = [], signals }: Re
 }
 
 /** Reviews a take, refuses it on a FAIL, then cuts and renders it, reviews the file, and writes its stills and its signals.json. */
-export async function renderTake(dir: string, out: string, opts: { bar?: Bar; side?: Side } = {}): Promise<Review & { stills: string[]; signals?: Signals }> {
+/** Renders a take's clip and returns its review, its stills and, once it renders, the page clip without bars and its captions. */
+export async function renderTake(
+  dir: string,
+  out: string,
+  opts: { bar?: Bar; side?: Side } = {},
+): Promise<Review & { stills: string[]; signals?: Signals; page?: { clip: string; captions: Beat[] } }> {
   const { take, trail } = readTake(dir)
   const raw = join(dir, 'cut.mp4')
   let captions = await cut(take, raw)
@@ -801,7 +844,7 @@ export async function renderTake(dir: string, out: string, opts: { bar?: Bar; si
   review.fails.push(...(await reviewFile(out)))
   const signals = await clipSignals(clip, take)
   await Bun.write(join(dir, 'signals.json'), JSON.stringify(signals, null, 2))
-  return { ...review, stills: await stills(out, captions, join(dir, 'stills')), signals }
+  return { ...review, stills: await stills(out, captions, join(dir, 'stills')), signals, page: { clip, captions } }
 }
 
 /** What stops two takes from playing as one before-and-after clip: a different page shape or crop would change the frame between the halves. */
@@ -828,7 +871,7 @@ export async function renderCompare(
     [before, 'Before'],
     [after, 'After'],
   ]
-  const results: (Review & { stills: string[]; signals?: Signals })[] = []
+  const results: Awaited<ReturnType<typeof renderTake>>[] = []
   for (const [dir, side] of halves) results.push(await renderTake(dir, join(dir, 'half.mp4'), { ...opts, side }))
   const label = (side: Side, lines: string[]) => lines.map(l => `${side}: ${l}`)
   const review: Review = {
@@ -837,12 +880,19 @@ export async function renderCompare(
     suggests: results.flatMap((r, i) => label(halves[i][1], r.suggests)),
   }
   if (review.fails.length) return { ...review, stills: [] }
-  const parts = halves.map(([dir]) => join(dir, 'half.mp4'))
-  await run(['ffmpeg', '-v', 'error', '-y', ...parts.flatMap(p => ['-i', p]), '-filter_complex', '[0:v][1:v]concat=n=2:v=1:a=0,format=yuv420p[v]', '-map', '[v]', '-c:v', 'libx264', '-r', String(CLIP.fps), '-movflags', '+faststart', out])
+  const [first, last] = results.map(r => r.page!)
+  const endPage = join(after, 'end-page.mp4')
+  const end = join(after, 'end.mp4')
+  const scale = readTake(after).take.view?.scale
+  await renderEndPage([first.clip, last.clip], endPage, scale)
+  // The end clip takes a caption only when the halves have one, so all three parts keep one height.
+  await renderClip(endPage, end, { bar: opts.bar, captions: last.captions.length ? [{ t: 0, text: 'Before and after' }] : [], scale, badgeRoom: true })
+  const parts = [...halves.map(([dir]) => join(dir, 'half.mp4')), end]
+  await run(['ffmpeg', '-v', 'error', '-y', ...parts.flatMap(p => ['-i', p]), '-filter_complex', '[0:v][1:v][2:v]concat=n=3:v=1:a=0,format=yuv420p[v]', '-map', '[v]', '-c:v', 'libx264', '-r', String(CLIP.fps), '-movflags', '+faststart', out])
   review.fails.push(...(await reviewFile(out)))
   const seconds = await durationOf(out)
   if (seconds > CLIP.maxSeconds + 0.05) review.fails.push(`${out} runs ${tenth(seconds)} s, over ${CLIP.maxSeconds} s; shorten either take`)
-  return { ...review, stills: results.flatMap(r => r.stills), signals: results[1].signals }
+  return { ...review, stills: [...results.flatMap(r => r.stills), ...(await stills(end, [], join(after, 'stills-end')))], signals: results[1].signals }
 }
 
 const durationOf = async (file: string) => Number((await run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', file])).trim())

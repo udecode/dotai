@@ -14,6 +14,7 @@ import {
   checkTrail,
   CLIP,
   renderClip,
+  renderEndPage,
   fitCrop,
   fixCaption,
   reviewTake,
@@ -222,5 +223,20 @@ describe('the title bar', () => {
     expect(after.titlePx).toBe(before.titlePx)
     expect((await renderClip(clip, join(dir, 'short.mp4'), { bar: { tag: 'board', title: 'notes' } })).titlePx).toBe(CLIP.titlePx.max)
     await expect(renderClip(clip, join(dir, 'none.mp4'), { side: 'After' })).rejects.toThrow('needs a title bar')
+    expect((await renderClip(clip, join(dir, 'end.mp4'), { bar, badgeRoom: true })).titlePx).toBe(before.titlePx)
+  }, 60_000)
+
+  test('ends a before-and-after clip on both last frames, held at the page size', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'clip-end-'))
+    const pages = ['white', 'gray'].map(c => {
+      const page = join(dir, `${c}.mp4`)
+      Bun.spawnSync(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', `color=c=${c}:s=540x400:d=0.3`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', page])
+      return page
+    }) as [string, string]
+    const out = join(dir, 'end.mp4')
+    await renderEndPage(pages, out)
+    const probe = Bun.spawnSync(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height:format=duration', '-of', 'default=nw=1:nk=1', out]).stdout.toString().trim().split('\n').map(Number)
+    expect(probe.slice(0, 2)).toEqual([540, 400])
+    expect(probe[2]).toBeCloseTo(CLIP.compareHoldS, 1)
   }, 60_000)
 })
