@@ -415,6 +415,7 @@ test('decisions-check rounds --patch caps a reviewed step at the step budget, co
       'tests.patch': [diff(300, 'src/a.test.ts'), diff(300, '.agents/skills/a/SKILL.md'), diff(200, 'src/__tests__/fixtures/b.json'), diff(100, 'src/a.ts')].join('\n'),
       'excluded.patch': [diff(500, 'generated/schema.ts'), diff(10, 'src/a.ts')].join('\n'),
       'rebuilt.patch': [diff(500, 'build/out.js'), diff(500, 'docs/plans/2026-01-01-a.decisions.tsv'), diff(10, 'src/a.ts')].join('\n'),
+      'quoted.patch': [diff(1, 'docs/a.md'), diff(401, 'src/caf\\303\\251.ts').replace(/a\/(\S+) b\/(\S+)/u, '"a/$1" "b/$2"')].join('\n'),
     },
   });
   const check = (...args) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), ...args], root);
@@ -429,6 +430,7 @@ test('decisions-check rounds --patch caps a reviewed step at the step budget, co
   assert.match(rounds('tests.patch').stdout, /changes 100 product line\(s\), and 800 more/);
   assert.equal(rounds('excluded.patch').status, 0, 'a stepBudget.exclude glob does not count');
   assert.equal(rounds('rebuilt.patch').status, 0, "the config's generated output and the plans directory's records do not count");
+  assert.match(rounds('quoted.patch').stdout, /changes 401 product line\(s\), and 1 more/, 'a path git quotes still counts');
   assert.equal(append('owner', 'big step: "ship the parser whole"', 'decided: one round over the budget').status, 0);
   assert.equal(rounds('p401.patch').status, 0, "the owner's big step lifts the budget");
   assert.equal(append('panel', 'seats opus', 'recorded').status, 0);
