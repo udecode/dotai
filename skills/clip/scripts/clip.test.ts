@@ -6,6 +6,7 @@ import {
   captionHtml,
   captionOverlay,
   captionWindows,
+  changedBox,
   changedPct,
   checkBar,
   checkCaption,
@@ -243,4 +244,30 @@ describe('the title bar', () => {
     expect(Math.abs(gray([]) - after)).toBeLessThan(3)
     expect(gray(['-sseof', '-0.1']) - after).toBeGreaterThan(40)
   }, 60_000)
+
+  test('ends on the area that changed, at its own size, so a phone can read it', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'clip-end-'))
+    const pages = ['', ',drawbox=x=70:y=100:w=400:h=40:color=black:t=fill'].map((box, i) => {
+      const page = join(dir, `${i}.mp4`)
+      Bun.spawnSync(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', `color=c=white:s=540x400:d=0.3${box}`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', page])
+      return page
+    }) as [string, string]
+    const out = join(dir, 'end.mp4')
+    await renderEndPage(pages, out)
+    const last = Bun.spawnSync(['ffmpeg', '-v', 'error', '-sseof', '-0.1', '-i', out, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'gray', '-']).stdout
+    // The whole page side by side would show the 400 by 40 bar at under half its size, about 3,400 dark pixels.
+    expect(last.filter(v => v < 64).length).toBeGreaterThan(12_000)
+  }, 60_000)
+
+  test('a moved cursor does not widen the changed area', () => {
+    const [w, h] = [100, 100]
+    const before = new Uint8Array(w * h * 3).fill(255)
+    const after = before.slice()
+    const paint = (x0: number, y0: number, bw: number, bh: number) => {
+      for (let y = y0; y < y0 + bh; y++) after.fill(0, 3 * (y * w + x0), 3 * (y * w + x0 + bw))
+    }
+    paint(10, 20, 60, 6)
+    paint(90, 90, 2, 2)
+    expect(changedBox(before, after, w, h)).toEqual({ x: 6, y: 16, w: 68, h: 14 })
+  })
 })

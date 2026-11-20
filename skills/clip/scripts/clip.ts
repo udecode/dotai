@@ -70,8 +70,8 @@ export const RULES: { rule: string; check: string }[] = [
   },
   { rule: 'Render refuses an X-shape clip without a title bar, so the clip a team chat gets is the one X can post.', check: 'checkBar' },
   {
-    rule: `A change to something a reader already saw shows as one clip, the take before the change and then the take after it, each half with a Before or After badge at the end of the title bar. It ends on the last frame of both takes for ${CLIP.compareHoldS} s, side by side or stacked, whichever shows them larger, each with its badge above it. The After frame shrinks into its slot instead of cutting away, on a spring with no overshoot and motion blur, and render adds a strip of that move to the stills. Both takes film the same shape and crop, and the whole clip keeps the length and size limits.`,
-    check: 'checkPair, renderCompare, renderEndPage',
+    rule: `A change to something a reader already saw shows as one clip, the take before the change and then the take after it, each half with a Before or After badge at the end of the title bar. It ends on the last frame of both takes for ${CLIP.compareHoldS} s, cropped to the area where they differ and shown no larger than its own size, side by side or stacked, whichever shows them larger, each with its badge above it. The After frame shrinks into its slot instead of cutting away, on a spring with no overshoot and motion blur, and render adds a strip of that move to the stills. Both takes film the same shape and crop, and the whole clip keeps the length and size limits.`,
+    check: 'checkPair, renderCompare, renderEndPage, changedBox',
   },
 ]
 
@@ -720,38 +720,107 @@ export async function renderClip(
   return { titlePx }
 }
 
-/** Ends a before-and-after clip on both results at the page's size: the After page's last frame shrinks into its slot as the Before one slides in, side by side or stacked, whichever shows them larger, each with its badge above it, then both hold, `CLIP.compareHoldS` s in all. */
+type Box = { x: number; y: number; w: number; h: number }
+
+/** Where two RGB frames of `w`×`h` pixels differ, as a box in those pixels, or undefined when they match. A blob under a quarter of the largest one, such as a cursor that moved, does not count. */
+export function changedBox(a: Uint8Array, b: Uint8Array, w: number, h: number): Box | undefined {
+  const r = 4
+  const on = new Uint8Array(w * h)
+  for (let i = 0; i < w * h; i++) on[i] = Math.max(Math.abs(a[3 * i] - b[3 * i]), Math.abs(a[3 * i + 1] - b[3 * i + 1]), Math.abs(a[3 * i + 2] - b[3 * i + 2])) > 32 ? 1 : 0
+  // Grown by r pixels, so the letters of one line join into one blob.
+  const grow = (src: Uint8Array, dx: number, dy: number) =>
+    src.map((_, i) => {
+      const [x, y] = [i % w, Math.floor(i / w)]
+      for (let d = -r; d <= r; d++) {
+        const [u, v] = [x + d * dx, y + d * dy]
+        if (u >= 0 && u < w && v >= 0 && v < h && src[v * w + u]) return 1
+      }
+      return 0
+    })
+  const mask = grow(grow(on, 1, 0), 0, 1)
+  const blobs: (Box & { area: number })[] = []
+  for (let start = 0; start < mask.length; start++) {
+    if (mask[start] !== 1) continue
+    const stack = [start]
+    mask[start] = 2
+    let [x0, y0, x1, y1, area] = [w, h, 0, 0, 0]
+    while (stack.length) {
+      const i = stack.pop()!
+      const [x, y] = [i % w, Math.floor(i / w)]
+      ;[x0, y0, x1, y1, area] = [Math.min(x0, x), Math.min(y0, y), Math.max(x1, x), Math.max(y1, y), area + 1]
+      for (const [u, v] of [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]])
+        if (u >= 0 && u < w && v >= 0 && v < h && mask[v * w + u] === 1) {
+          mask[v * w + u] = 2
+          stack.push(v * w + u)
+        }
+    }
+    blobs.push({ x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1, area })
+  }
+  const big = Math.max(0, ...blobs.map(b => b.area))
+  const kept = blobs.filter(b => b.area >= big / 4)
+  if (!kept.length) return undefined
+  const [x0, y0] = [Math.min(...kept.map(b => b.x)), Math.min(...kept.map(b => b.y))]
+  return { x: x0, y: y0, w: Math.max(...kept.map(b => b.x + b.w)) - x0, h: Math.max(...kept.map(b => b.y + b.h)) - y0 }
+}
+
+/** The page area a before-and-after end shows: the changed box, scaled by `unit` to CSS pixels, with 16 px of page around it, at least half the page wide and a quarter tall. The whole page when nothing changed or the area would cover most of it. */
+function cropAround(box: Box | undefined, unit: [x: number, y: number], width: number, height: number): Box {
+  const page = { x: 0, y: 0, w: width, h: height }
+  if (!box) return page
+  const span = (start: number, len: number, min: number, size: number) => {
+    const n = Math.min(size, Math.max(len + 32, min))
+    return [Math.min(Math.max(start + len / 2 - n / 2, 0), size - n), n]
+  }
+  const [x, w] = span(box.x * unit[0], box.w * unit[0], width / 2, width)
+  const [y, h] = span(box.y * unit[1], box.h * unit[1], height / 4, height)
+  return w * h > 0.8 * width * height ? page : { x, y, w, h }
+}
+
+/** Ends a before-and-after clip on both results at the page's size, cropped to where the two last frames differ: the After page's last frame shrinks into its slot as the Before one slides in, side by side or stacked, whichever shows them larger, each with its badge above it, then both hold, `CLIP.compareHoldS` s in all. */
 export async function renderEndPage(pages: [before: string, after: string], out: string, scale = 1) {
   const [w, h] = (await run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', pages[1]])).trim().split(',').map(Number)
   const dir = mkdtempSync(join(tmpdir(), 'clip-end-'))
   try {
+    const [width, height, gap, label] = [w / scale, h / scale, 16, 36]
+    // The two frames compare at half the page's CSS size, enough to find a changed line of text.
+    const [qw, qh] = [Math.round(width / 2), Math.round(height / 2)]
     const frames: string[] = []
+    const rgb: Uint8Array[] = []
     for (const [i, page] of pages.entries()) {
       const png = join(dir, `${i}.png`)
       await run(['ffmpeg', '-v', 'error', '-y', '-sseof', '-0.5', '-i', page, '-update', '1', png])
       frames.push(`data:image/png;base64,${readFileSync(png).toString('base64')}`)
+      rgb.push(Bun.spawnSync(['ffmpeg', '-v', 'error', '-i', png, '-vf', `scale=${qw}:${qh}`, '-pix_fmt', 'rgb24', '-f', 'rawvideo', '-']).stdout)
     }
-    const [width, height, gap, label] = [w / scale, h / scale, 16, 36]
-    const fit = (cols: number, rows: number) => Math.min((width - gap * (cols + 1)) / cols / width, (height - gap * (rows + 1) - rows * label) / rows / height)
+    // A phone shows a whole page too small to read beside another, so both panels show only the area that changed, with some page around it (the owner, 2026-11-20).
+    const crop = cropAround(changedBox(rgb[0], rgb[1], qw, qh), [width / qw, height / qh], width, height)
+    const fit = (cols: number, rows: number) => Math.min(1, (width - gap * (cols + 1)) / cols / crop.w, (height - gap * (rows + 1) - rows * label) / rows / crop.h)
     const row = fit(2, 1) >= fit(1, 2)
     const k = Math.max(fit(2, 1), fit(1, 2))
-    const [pw, ph] = [width * k, height * k]
+    const [pw, ph] = [crop.w * k, crop.h * k]
     const slots = [0, 1].map(i =>
       row
         ? { x: (width - 2 * pw - gap) / 2 + i * (pw + gap), y: (height - ph - label) / 2 + label, w: pw, h: ph }
         : { x: (width - pw) / 2, y: (height - 2 * (ph + label) - gap) / 2 + label + i * (ph + label + gap), w: pw, h: ph },
     )
+    // Each panel is a window on its whole page, which `s` scales and `tx`, `ty` place.
+    const to = slots.map(s => ({ ...s, s: k, tx: s.x - k * crop.x, ty: s.y - k * crop.y }))
+    const away = row ? { x: -(to[0].x + to[0].w) - gap, y: 0 } : { x: 0, y: -(to[0].y + to[0].h) - gap }
     // The After frame never cuts away: it shrinks from the whole page into its slot, so the eye follows it there (the owner, 2026-11-20).
-    const from = [row ? { ...slots[0], x: -pw - gap } : { ...slots[0], y: -ph - gap }, { x: 0, y: 0, w: width, h: height }]
+    const from = [
+      { ...to[0], x: to[0].x + away.x, y: to[0].y + away.y, tx: to[0].tx + away.x, ty: to[0].ty + away.y },
+      { x: 0, y: 0, w: width, h: height, s: 1, tx: 0, ty: 0 },
+    ]
     const motion = { spring: 16, starts: [0.06, 0], labelAt: 0.15, moveS: 0.65, sub: 8 }
     const panel = (side: Side, i: number) =>
-      `<div class="panel" style="position:absolute;overflow:hidden;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.12)"><img src="${frames[i]}" style="display:block;width:100%;height:100%"></div><span class="label" style="position:absolute;left:${slots[i].x + slots[i].w / 2}px;top:${slots[i].y - 8}px;display:flex;font-size:${CLIP.titlePx.max}px"><span style="${badgeStyle(side)}">${side}</span></span>`
+      `<div class="panel" style="position:absolute;overflow:hidden;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.12)"><img src="${frames[i]}" style="position:absolute;display:block;max-width:none"></div><span class="label" style="position:absolute;left:${slots[i].x + slots[i].w / 2}px;top:${slots[i].y - 8}px;display:flex;font-size:${CLIP.titlePx.max}px"><span style="${badgeStyle(side)}">${side}</span></span>`
     const inter = `@font-face{font-family:Inter;font-weight:700;src:url(data:font/ttf;base64,${readFileSync(`${ASSETS}/Inter-Bold.ttf`).toString('base64')})}`
-    const seek = `const M=${JSON.stringify({ ...motion, slots, from })};
+    const seek = `const M=${JSON.stringify({ ...motion, width, height, from, to })};
 const spring=t=>t<=0?0:1-Math.exp(-M.spring*t)*(1+M.spring*t);
 const panels=[...document.querySelectorAll('.panel')],labels=[...document.querySelectorAll('.label')];
-window.seek=t=>{panels.forEach((el,i)=>{const p=spring(t-M.starts[i]),a=M.from[i],b=M.slots[i];
-el.style.left=a.x+(b.x-a.x)*p+'px';el.style.top=a.y+(b.y-a.y)*p+'px';el.style.width=a.w+(b.w-a.w)*p+'px';el.style.height=a.h+(b.h-a.h)*p+'px';el.style.borderRadius=(i?8*p:8)+'px'});
+window.seek=t=>{panels.forEach((el,i)=>{const p=spring(t-M.starts[i]),a=M.from[i],b=M.to[i],v=k=>a[k]+(b[k]-a[k])*p,img=el.firstChild;
+el.style.left=v('x')+'px';el.style.top=v('y')+'px';el.style.width=v('w')+'px';el.style.height=v('h')+'px';el.style.borderRadius=(i?8*p:8)+'px';
+img.style.left=v('tx')-v('x')+'px';img.style.top=v('ty')-v('y')+'px';img.style.width=M.width*v('s')+'px';img.style.height=M.height*v('s')+'px'});
 const q=spring(t-M.labelAt);labels.forEach(el=>{el.style.opacity=q;el.style.transform='translate(-50%,calc(-100% + '+(1-q)*6+'px))'})};`
     const browser = await chromium.launch()
     const moveFrames = Math.round(motion.moveS * CLIP.fps)
