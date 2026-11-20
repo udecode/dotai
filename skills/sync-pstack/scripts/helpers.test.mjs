@@ -449,6 +449,17 @@ test('levels counts a round at target when its provider refused a seat for secur
   assert.match(run().stdout, /^ {2}below line 3: panel .*\(opus missing\)$/mu, 'a Claude provider never skips a seat');
 });
 
+test('levels counts a seat that answered on its sheet fallback, and below when neither model answered', () => {
+  const { dir, run } = levelsRun(['--lead', 'claude-opus-5-5 @high', 'log.tsv'], { claude: 'interrogate reviewers: opus @high, codex:gpt-6.2-astra @high or fable @high\ndefault effort: high' });
+  const log = (seats) => ['ts\tphase\tdecision\twhy\tevidence\tresult', 'T\tlead\tclaude-opus-5-5 @high\tw\te\trecorded', `T\tpanel\tseats ${seats}\tw\te\trecorded`, ''].join('\n');
+  writeFileSync(join(dir, 'log.tsv'), log('claude-opus-5-5 @high, claude-fable-5-2 @high'));
+  assert.match(run().stdout, /^ {2}at line 3: panel /mu);
+  writeFileSync(join(dir, 'log.tsv'), log('claude-opus-5-5 @high, gpt-6.2-astra @high'));
+  assert.match(run().stdout, /^ {2}at line 3: panel /mu);
+  writeFileSync(join(dir, 'log.tsv'), log('claude-opus-5-5 @high'));
+  assert.match(run().stdout, /^ {2}below line 3: panel .*\(gpt-6\.2-astra missing\)$/mu);
+});
+
 test('levels reads an agy seat by its Gemini model, skipped when Gemini refused it and below when it ran under its sheet level', () => {
   const { dir, run } = levelsRun(['--lead', 'claude-opus-5-5 @xhigh', 'log.tsv'], { claude: 'interrogate reviewers: opus, codex:gpt-6.1-sol @xhigh, agy:gemini-4-neon @xhigh\ndefault effort: xhigh' });
   const log = (seats) => ['ts\tphase\tdecision\twhy\tevidence\tresult', 'T\tlead\tclaude-opus-5-5 @xhigh\tw\te\trecorded', `T\tpanel\tseats ${seats}\tw\te\trecorded`, ''].join('\n');

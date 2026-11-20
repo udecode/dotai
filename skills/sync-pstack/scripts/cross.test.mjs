@@ -604,6 +604,31 @@ test('seats skips a Codex seat its provider refuses for security, and fails a ro
   assert.equal(seats(answers, 'opus=claude:opus', 'sol=codex:gpt-6.1-sol').status, 1, 'a failed seat beside a refused one');
 });
 
+test('seats runs a Codex seat on its fallback when Codex is missing or past its limit, and fails one without a fallback', () => {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'claude'), '#!/bin/sh\necho "claude: found one gap"\n', { mode: 0o755 });
+  writeFileSync(join(bin, 'codex'), '#!/bin/sh\necho "codex: not logged in" >&2\nexit 1\n', { mode: 0o755 });
+  const seats = (folder, ...roster) =>
+    spawnSync(process.execPath, [join(HELPERS, 'seats.mjs'), '--dir', folder, '--prompt', 'Break this diff.', ...roster], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: { ...process.env, HOME: home, CODEX_HOME: '', PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '' },
+    });
+  const missing = join(dir, 'missing');
+  const round = seats(missing, 'opus=claude:opus', 'astra=codex:gpt-6.2-astra@high|claude:fable@high');
+  assert.equal(round.status, 0, round.stdout);
+  assert.match(round.stdout, /^astra: ok, on its fallback fable after gpt-6\.2-astra failed/mu, round.stdout);
+  assert.match(readFileSync(join(missing, 'astra.md'), 'utf8'), /found one gap/u);
+  assert.match(readFileSync(join(missing, 'astra.err'), 'utf8'), /^fallback: claude:fable@high, after gpt-6\.2-astra failed/mu);
+  assert.equal(seats(join(dir, 'bare'), 'opus=claude:opus', 'astra=codex:gpt-6.2-astra@high').status, 1, 'a failed Codex seat without a fallback still fails the round');
+  refusingCodex(bin, 'usage_limit_exceeded');
+  const limited = seats(join(dir, 'limited'), 'opus=claude:opus', 'sol=codex:gpt-6.2-sol@xhigh|claude:opus@high');
+  assert.equal(limited.status, 0, limited.stdout);
+  assert.match(limited.stdout, /^sol: ok, on its fallback opus after gpt-6\.2-sol failed/mu, 'a seat past its usage limit runs its fallback instead of being skipped');
+});
+
 test('cross reports why a runtime failed when it prints the reason on stdout', () => {
   const { dir, home } = sandbox();
   const bin = join(dir, 'bin');
