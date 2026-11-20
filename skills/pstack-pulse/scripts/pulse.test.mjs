@@ -212,8 +212,8 @@ test('a project card lists sessions that need you, then working ones, then the o
   const titles = { scrub: '🚧 scrub (4/9)', shipper: 'shipper' };
   const card = () => planBoard(viewsOf(sessions, {}, {}, titles), { now: T0 + 60_000, shippedToday: 1 }).cards[0][1].body.content_state;
   assert.deepEqual(card().metrics, [
-    { label: 'Build', value: '🚧 busy', color: 'blue' },
-    { label: 'Build 4/9', value: '🚧 scrub', color: 'yellow' },
+    { label: 'Working', value: '🚧 busy', color: 'blue' },
+    { label: 'Working 4/9', value: '🚧 scrub', color: 'yellow' },
   ]);
   assert.equal(card().subtitle, '1 working · 1 to resume');
   reduce(sessions, { ...ask('asker', 3), cwd: '/w/ellie' });

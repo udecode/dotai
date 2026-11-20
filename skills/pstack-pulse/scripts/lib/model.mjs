@@ -254,11 +254,12 @@ export function reduce(sessions, observation) {
 }
 
 const LIVE_STAGES = ['now', 'waiting', 'blocked', 'stopped'];
-// The pstack Session title rule leads each title with its stage or state emoji and ends it with (n/total).
-const TITLE_STAGES = { '📝': 'Plan', '📐': 'Design', '👥': 'Plan review', '🚧': 'Build', '✍': 'Writing', '🔎': 'Code review', '🧪': 'Verify', '🕵': 'Audit', '🚀': 'Ship', '🧠': 'Reflect', '🟠': 'Waiting', '🔴': 'Blocked', '💤': 'Paused' };
+const TITLE_STATES = { '🚧': 'Working', '🟠': 'Waiting', '🔴': 'Blocked', '💤': 'Paused' };
+const OLD_STAGE_TITLES = { '📝': 'Plan', '📐': 'Design', '👥': 'Plan review', '✍': 'Writing', '🔎': 'Code review', '🧪': 'Verify', '🕵': 'Audit', '🚀': 'Ship', '🧠': 'Reflect' };
 
 export function titleStageOf(title) {
-  const label = TITLE_STAGES[/^(\p{Extended_Pictographic})\uFE0F?\s/u.exec(title ?? '')?.[1]];
+  const emoji = /^(\p{Extended_Pictographic})\uFE0F?\s/u.exec(title ?? '')?.[1];
+  const label = TITLE_STATES[emoji] ?? OLD_STAGE_TITLES[emoji];
   if (!label) return null;
   const count = /\((\d+)\/(\d+)[^)]*\)\s*$/u.exec(title);
   return count ? { label, step: Number(count[1]), total: Number(count[2]) } : { label, step: 1, total: 1 };

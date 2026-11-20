@@ -961,58 +961,20 @@ test('unknown identity never attributes foreign readers and remains unknown in l
   assert.match(header, /Lead claude-opus-5-5 medium Lead unknown Reviews gpt-6-astra high/);
 });
 
-test('decisions-check append names the stage a batch moves the log into', () => {
-  const { dir, run } = sandbox();
-  const root = project(dir, 'app');
-  const append = (phase, decision, result = 'recorded') => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', phase, decision, 'why', 'evidence', result], root);
-  assert.match(append('architect', 'three runners').stdout, /Stage: Design\. Rename the session/);
-  assert.doesNotMatch(append('architect', 'picked the base').stdout, /Stage:/, 'a row in the same stage');
-  assert.match(append('build', 'built: the helper').stdout, /Stage: Build\./);
-  assert.match(append('panel', 'seats opus').stdout, /Stage: Code review\./, 'a panel round after a build reviews the code');
-  assert.doesNotMatch(append('writing', 'deslop on the round 1 fixes').stdout, /Stage:/, "a review round's writing pass stays under that review's stage");
-  assert.doesNotMatch(append('panel', 'seats opus').stdout, /Stage:/, 'the next round stays in Code review');
-  assert.match(append('verify', 'Prove the helper').stdout, /Stage: Verify\./);
+test("the page rail counts a bug fix row as the build a panel round reviews, keeps a review round's writing under that review and counts a hand-off review as Audit", async () => {
+  const { stageOfRow } = await import(join(HELPERS, 'status.mjs'));
+  const stages = (phases) => phases.map((_, index) => stageOfRow(phases, index));
+  assert.deepEqual(stages(['repro', 'fix', 'panel']), [undefined, 'Build', 'Code review']);
+  assert.deepEqual(stages(['architect', 'panel', 'build', 'panel', 'writing', 'panel', 'verify', 'review-trail']), ['Design', 'Plan review', 'Build', 'Code review', 'Code review', 'Code review', 'Verify', 'Audit']);
 });
 
-test('decisions-check append counts a bug fix row as the build a panel round reviews', () => {
-  const { dir, run } = sandbox();
-  const root = project(dir, 'app');
-  const append = (phase, decision) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', phase, decision, 'why', 'evidence', 'recorded'], root);
-  append('repro', 'Reproduce the report');
-  assert.match(append('fix', 'Merge the ranges').stdout, /Stage: Build\./);
-  assert.match(append('panel', 'seats opus').stdout, /Stage: Code review\./, 'a panel round after a fix row reviews the code');
-});
-
-test('decisions-check append names the stage when a batch leaves the stage and comes back to it', () => {
-  const { dir, run } = sandbox();
-  const root = project(dir, 'app');
-  const append = (...args) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', ...args], root);
-  assert.match(append('verify', 'Prove the helper', 'why', 'evidence', 'recorded').stdout, /Stage: Verify\./);
-  writeFileSync(join(root, 'queue.tsv'), 'build\tbuilt: the fix\twhy\tevidence\trecorded\nverify\tProve the fix\twhy\tevidence\trecorded\n');
-  assert.match(append('--from', 'queue.tsv').stdout, /Stage: Build, then Verify\./, 'a batch that builds and verifies again names both stages');
-});
-
-test('decisions-check append names Audit when a hand-off reviewer row follows', () => {
-  const { dir, run } = sandbox();
-  const root = project(dir, 'app');
-  const append = (phase, decision) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', phase, decision, 'why', 'evidence', 'recorded'], root);
-  assert.match(append('verify', 'Prove the helper').stdout, /Stage: Verify\./);
-  assert.match(append('review-trail', 'Check the trail').stdout, /Stage: Audit\./, 'the rail counts review phases as Audit');
-});
-
-test("decisions-check append warns once when a babysit plan's first review or ship row lands before its page", () => {
-  const { dir, run } = sandbox();
-  const plan = (fields) => `# Babysit\n\nStatus: building\n${fields}\n## Steps\n\n- [ ] Repair it.\n`;
-  const root = project(dir, 'app', {
-    files: { 'docs/plans/b.md': plan('Playbook: babysit\n'), 'docs/plans/p.md': plan('Page: https://claude.ai/artifact/x\nPlaybook: babysit\n'), 'docs/plans/f.md': plan('Playbook: feature\n') },
-  });
-  const append = (slug, phase) => {
-    const result = run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', `docs/plans/${slug}.decisions.tsv`, phase, 'a decision', 'why', 'evidence', 'recorded'], root);
+test('decisions-check append prints no stage, page publish or page warning', () => {
+  const { dir, env } = sandbox();
+  const root = project(dir, 'app', { config: { delivery: 'push' }, files: { 'docs/plans/b.md': '# Babysit\n\nStatus: building\nPlaybook: babysit\n\n## Steps\n\n- [ ] Repair it.\n' } });
+  const claude = { ...env, CLAUDECODE: '1', CLAUDE_CODE_SESSION_ID: 'one' };
+  for (const phase of ['build', 'review', 'verify']) {
+    const result = spawnSync(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'docs/plans/b.decisions.tsv', phase, 'a decision', 'why', 'evidence', 'recorded'], { cwd: root, encoding: 'utf8', env: claude });
     assert.equal(result.status, 0, result.stderr);
-    return /has no Page: line/.test(result.stderr);
-  };
-  assert.equal(append('b', 'build'), false, 'a build row is not yet a public action');
-  assert.ok(append('b', 'review'), "the first review row of an unpublished babysit plan warns, under babysit's own review phase");
-  assert.equal(append('b', 'delivery'), false, 'only the first review or ship row warns');
-  for (const slug of ['p', 'f']) assert.equal(append(slug, 'deliver'), false, `${slug}.md has a page or is not a babysit plan`);
+    assert.doesNotMatch(`${result.stdout}${result.stderr}`, /Stage:|Rename the session|Page: line|page publish|Nothing to send|Artifact/u);
+  }
 });

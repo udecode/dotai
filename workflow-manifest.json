@@ -61,7 +61,7 @@
     {
       "name": "plan-page",
       "distribution": "bundled",
-      "description": "Write, check, repair and publish a plan page: a project's plans and subject files under its plans directory, rendered by .agents/pstack/plan-page.mjs and rendered as one local HTML page per subject with a local index of every subject, and published to claude.ai at each hand-back for comments and feedback. The page is how planned work hands back to the user. Use before writing or changing a plan, a subject file in <plans>/topics or its page; at every stop that hands back work with a plan, such as a review verdict other than a review-only panel's, a next answer or a playbook's close; before writing or updating a PR body, which renders from the PR's plan, or a comment about your commits on someone else's PR; when a plan page or its claude.ai artifact looks wrong or refuses to render; to republish a page; or to change the page shape or a playbook's page sections.",
+      "description": "Write, check, repair and publish a plan page: a project's plans and subject files under its plans directory, rendered by .agents/pstack/plan-page.mjs and rendered as one local HTML page per subject with a local index of every subject, and published to claude.ai at each hand-back of page work, such as an architecture or API adoption plan, for comments and feedback. Use before writing or changing a plan, a subject file in <plans>/topics or its page; at every stop that hands back page work, such as a plan written or a playbook's close; before writing or updating a PR body, which renders from the PR's plan, or a comment about your commits on someone else's PR; when a plan page or its claude.ai artifact looks wrong or refuses to render; to republish a page; or to change the page shape or a playbook's page sections.",
       "category": "Communication",
       "dependencies": [],
       "capabilities": [
@@ -160,7 +160,7 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "f4781065d39a381d915eb33d70752cba917047b5671f6f43087ca38bd7dda96b",
+      "sha256": "69a4a81550a23ae36adc4da4f73aee4517d12331dff9bbf801f30c9fc053706a",
       "mode": 420
     },
     "scripts/affected-tests.mjs": {
@@ -216,7 +216,7 @@
       "mode": 420
     },
     "skills/clip/SKILL.md": {
-      "sha256": "5901dea8ca14c7ec2436d1005967d82b57daf1539c1d9f70b6643cfb7bbbdc77",
+      "sha256": "2a94f934e60cfaa560dae4d66f87580a1c8e78f20653628fa69e3e2bd6cbd6b7",
       "mode": 420
     },
     "skills/clip/assets/CalSans-SemiBold.ttf": {
@@ -232,11 +232,11 @@
       "mode": 420
     },
     "skills/clip/scripts/clip.test.ts": {
-      "sha256": "42901fbdf840ac7153ba0b15c580c9fe0ea27802f93e9e44ab1a8dc7abd96085",
+      "sha256": "a3eeba45b7207184365dc0a43cf42d151745ccb3c34fb7d5c0908b55402d4fe9",
       "mode": 420
     },
     "skills/clip/scripts/clip.ts": {
-      "sha256": "b3d5bc7acd46174c3fcaba15e781a819e9a4e21a8a1575ba6bfe3a6d2fc229f9",
+      "sha256": "9b27a4aaa4730d8887379ff58354a65399e24f29c759c7046f69d8efe17b443b",
       "mode": 420
     },
     "skills/clip/scripts/package.json": {
@@ -284,7 +284,7 @@
       "mode": 420
     },
     "skills/plan-page/SKILL.md": {
-      "sha256": "f9bd88565c1c5730fa48ca4be0dd6fbfdac40008c5bfe6120296f327b8630f47",
+      "sha256": "6a1c3334b9f6d9cf8fce1ffc36b0b05a55d75726cf359979ddaa274a62b1c751",
       "mode": 420
     },
     "skills/plan-page/references/shape.md": {
@@ -292,7 +292,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/SKILL.md": {
-      "sha256": "15622a3e291d077ab09871eadea2c3cd0c83c5c82984b077532135e55e18ffec",
+      "sha256": "0f6c26667a6e268775cc333a1ac7ebf91bc1dc091f8d00fe42236b18179de38b",
       "mode": 420
     },
     "skills/pstack-pulse/desktop/index.html": {
@@ -336,7 +336,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/model.mjs": {
-      "sha256": "800b09fc1a210a6d275135c00126748624f930763f69d2dcbaa7c488c4e76b74",
+      "sha256": "affacb181fdffa9b4cff1298a8c099339904a28237634816073c9109f2771108",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/phone.mjs": {
@@ -352,7 +352,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/scripts/pulse.test.mjs": {
-      "sha256": "cb589424eb1351eacc6530ea176bbd0b710f8b21f75cba76d6126f47da8bdbf1",
+      "sha256": "baf520349d33f7123573063d0d9c81c85a8ef3332c07e6f5341291575cd73750",
       "mode": 420
     },
     "skills/rca/SKILL.md": {
@@ -372,7 +372,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "92899c25a042d8bd3af8d6e8fd0e1f01b1472423887256f1a7ff451d92ed88ae",
+      "sha256": "763f72e51b224e614f27994e163a34bd68a2d4718524e62f99ec08bed466f76b",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/checkout.mjs": {
@@ -400,7 +400,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
-      "sha256": "5c0aea8478fa453da87f787febabe5b721cd17a541ae3c5598e85202277085f6",
+      "sha256": "30c4501a1f716b614e0d43ec40691bf65596eb8ab9c0d7a8d67ea79d2a32c9a7",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/freeze.mjs": {
@@ -432,7 +432,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/page-stop.mjs": {
-      "sha256": "a5cbac2e60f285addaa9c69b7b095586cf44cad3462146b194250c7dd976fabf",
+      "sha256": "32a72996ed02570bf6368e27f6ccce5a44d28fcbc147d77ec4978e68d8d09ad4",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/plan-open.mjs": {
@@ -468,11 +468,11 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/chips.md": {
-      "sha256": "7a5944f839faa7de7e6abf2c1d46d963691e842a50a08f64527ee080826fd79a",
+      "sha256": "1d2f6f95117e5638dc6cf02d9083d5b6152545cd3c136418a68d5f6334281b85",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/close.md": {
-      "sha256": "412a3f9081dbb493083d90ec36022e29d1db5772493ec7d6afc0b4e261f0d15b",
+      "sha256": "4ca99cfb4ed8c7fdcc80857e772f17415fb3d04f060502faa55ea1c53bca4f4a",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/codex.md": {
@@ -484,7 +484,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/land.md": {
-      "sha256": "6aacba7aa2da59ef38d26d2a2aab83f92aec131c48561fccff99fb10d2c85e35",
+      "sha256": "ca3c5606514d7142e2d0a7257557b8eafba8db72aa350f742100077c61255b61",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/linked.md": {
@@ -492,7 +492,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/long-runs.md": {
-      "sha256": "2a144e25fb01a314998a1587744770eecb2ea41d434fc650f8ff7c2fcc7aabad",
+      "sha256": "101985d34577d937d99666ffc2e11829c05cd48924f163a9a63dcab15b21b568",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/messages.md": {
@@ -500,15 +500,15 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/pages.md": {
-      "sha256": "bb3cd5682db8d86b13c8e849a4357d4047c63531c9ee5166b8112090c74f6e16",
+      "sha256": "549e71eb1787b545267a3a0477e66d04331795717fcbecd84d3a99b6af56b3d7",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/panel.md": {
-      "sha256": "1b4c928a53d0819d1451fc9c3d5f5e1e61c56ad884c2389eb82d387dc599b144",
+      "sha256": "ff6a7f0b14e87b99ac481ac595ca8fb4824b971fb0a007d82bbe72d74bbf178a",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/reflect.md": {
-      "sha256": "0db916230d3b53f03786a69f491f98f68870155cc3bb9b8e9bce9a3d7cd57951",
+      "sha256": "cb6c3d2adb5ac2730c6a44bcf1295066e40b0c474737d2321762e2d12d930cf9",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/tests.md": {
@@ -520,11 +520,11 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/title.md": {
-      "sha256": "7df1a3355c12c7054525f52a9e08018e758418f9a33738c6bd4232e2e31348da",
+      "sha256": "cc0c1f1e44566e7ee06fbd61f3eae7cfca4a871053cb9d54260292ae3e8efba1",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/trails.md": {
-      "sha256": "3d71ba8378b087f54383c629851da952163637ff0f605a42cb1daa9d06576dae",
+      "sha256": "2b562e474c4a942af059701229a5f9083d3ea0e81f4ac28780823d0c6d7f5e24",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/writing.md": {
@@ -548,11 +548,11 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/tasks.mjs": {
-      "sha256": "3f096db8e20b4bf08ee12c00ffea2a7477a25646b6c3b9933f7fbda03489e7c6",
+      "sha256": "b8cef3e76d9cfe46b16777a36a4ff07c32161f8163d8227968632f41fc9a055a",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/title.mjs": {
-      "sha256": "2c530dd09c7f545393939aa7446f362c8fb7ffc9ea4a3f0f597d31c302bbdc84",
+      "sha256": "af0ed076449d8f91bd22d1a28c494ffd3c1b0df547104fa173ba0577e59bc7db",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/writing-check.mjs": {
@@ -568,7 +568,7 @@
       "mode": 420
     },
     "skills/sync-pstack/references/interview.md": {
-      "sha256": "4423f037c383f4c6de448a55be314d7e0900084cf31c0cc805c84c0fff76599d",
+      "sha256": "4026c9271069a23615ffbcbb56384175c5ec6c13c607814a94bc53a543a6b9df",
       "mode": 420
     },
     "skills/sync-pstack/scripts/apply-refusal.test.mjs": {
@@ -588,7 +588,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/chips.test.mjs": {
-      "sha256": "f9bb0cabd008f5ca6c273a7db4cddeb129075d6fd84c735020d99c11b792e679",
+      "sha256": "4995a155dad3df6a1867306f8bac08c233179c9868afcf5802d95cd5fb0e92d6",
       "mode": 420
     },
     "skills/sync-pstack/scripts/cross.test.mjs": {
@@ -596,7 +596,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/decisions-check.test.mjs": {
-      "sha256": "c1bbfe9da5b02efedb4380e98ecaa37f3814841ee27afb379edd00d3d6a914fa",
+      "sha256": "4b8947af42cb4f67ab584487caf4a43fc1dbdfbc339bb9f3b01b7227da750810",
       "mode": 420
     },
     "skills/sync-pstack/scripts/fixtures/page-files/refusal-prefix.html": {
@@ -704,7 +704,7 @@
       "mode": 493
     },
     "skills/walkthrough/SKILL.md": {
-      "sha256": "62653ef36a5f58b62fe1dc1fe51e93a9435a0ea8f7e75a5921d4a3cfc5e4992e",
+      "sha256": "73b043c2e12404915bab1bfb4b136a9fd00ee0fd826172b9469ca92a08c50542",
       "mode": 420
     },
     "skills/walkthrough/agents/openai.yaml": {
