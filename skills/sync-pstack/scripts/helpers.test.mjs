@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { once } from 'node:events';
 import { appendFileSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -623,7 +624,7 @@ test('scorecard counts fixes by whether they name the commit that introduced the
 // A bare origin whose next holds the helpers and a trunk config whose checkout
 // ignores the plans artifacts, with clones of it standing in for main checkouts.
 function ledgerRemote(files = {}) {
-  const { dir, run } = sandbox();
+  const { dir, env, run } = sandbox();
   const origin = join(dir, 'origin.git');
   const seed = join(dir, 'seed');
   run('git', ['init', '-q', '--bare', '-b', 'next', origin]);
@@ -648,7 +649,7 @@ function ledgerRemote(files = {}) {
   const setup = (cwd) => run(process.execPath, [join(cwd, '.agents/pstack/setup.mjs')], cwd);
   const onRef = () => execFileSync('git', ['--git-dir', origin, 'show', 'refs/pstack/ledger:suggested-tasks.decisions.tsv'], { encoding: 'utf8', maxBuffer: 1 << 30 });
   const next = () => run('git', ['--git-dir', origin, 'rev-parse', 'next']).stdout;
-  return { clone, next, onRef, run, seed, setup };
+  return { clone, env, next, onRef, run, seed, setup };
 }
 
 test('setup keeps the ignored ledger in step with refs/pstack/ledger on origin and never commits to the branch', () => {
@@ -672,17 +673,105 @@ test('setup keeps the ignored ledger in step with refs/pstack/ledger on origin a
   const elsewhere = setup(other);
   assert.match(elsewhere.stdout, /added 3001 ledger row\(s\) from refs\/pstack\/ledger/);
   assert.match(elsewhere.stdout, /pushed 1 ledger row\(s\)/);
-  assert.equal(readFileSync(join(other, ledger), 'utf8'), `row from another clone\n${old}row 1\n`);
+  assert.equal(readFileSync(join(other, ledger), 'utf8'), `${old}row 1\nrow from another clone\n`, "the ref's rows come first");
 
   writeFileSync(join(main, ledger), `${old}row 1\nhalf a row\n`);
   const again = setup(main);
   assert.match(again.stdout, /added 1 ledger row\(s\)/);
   assert.match(again.stdout, /pushed 1 ledger row\(s\)/);
-  assert.equal(readFileSync(join(main, ledger), 'utf8'), `${old}row 1\nhalf a row\nrow from another clone\n`);
+  assert.equal(readFileSync(join(main, ledger), 'utf8'), `${old}row 1\nrow from another clone\nhalf a row\n`);
   assert.equal(onRef(), `${old}row 1\nrow from another clone\nhalf a row\n`);
   assert.equal(setup(main).stdout, '', 'a ledger in step with the ref changes nothing');
   assert.equal(next(), base, 'no session start commits to next');
   assert.equal(run('git', ['-C', main, 'status', '--porcelain']).stdout, '');
+});
+
+test("setup gives every clone the ref's rows in the ref's order and moves a row the ref's state forbids to the refused file", () => {
+  const { clone, onRef, run, setup } = ledgerRemote();
+  const ledger = 'docs/plans/artifacts/suggested-tasks.decisions.tsv';
+  const chip = (ts, evidence, result) => `${ts}\tchip\tt_0000000a Keep one ledger order\tclones disagree\t${evidence}\t${result}\n`;
+  const a = clone('a');
+  const b = clone('b');
+  for (const main of [a, b]) {
+    mkdirSync(join(main, 'docs/plans/artifacts'), { recursive: true });
+    writeFileSync(join(main, ledger), `ts\tphase\tdecision\twhy\tevidence\tresult\n${chip('2026-11-01T00:00:00Z', 'writes: README.md; topic: ledger; priority: P1; repro: steps', 'offered')}`);
+  }
+  assert.match(setup(a).stdout, /pushed 2 ledger row\(s\)/);
+  // Written straight into each file, as an offline clone or an older helper would.
+  const dismissed = chip('2026-11-02T00:00:00Z', 'owner declined it', 'dismissed declined');
+  const started = chip('2026-11-03T00:00:00Z', 'session: s1', 'started');
+  appendFileSync(join(a, ledger), dismissed);
+  appendFileSync(join(b, ledger), started);
+
+  setup(a);
+  const refused = setup(b);
+  assert.equal(refused.status, 0, refused.stderr);
+  assert.match(refused.stdout, /refused t_0000000a started: .*t_0000000a is dismissed declined, so it cannot be started/);
+  setup(a);
+  assert.equal(readFileSync(join(a, ledger), 'utf8'), readFileSync(join(b, ledger), 'utf8'), 'both clones hold the same bytes');
+  assert.equal(readFileSync(join(b, ledger), 'utf8'), onRef());
+  for (const main of [a, b]) {
+    const brief = run(process.execPath, [join(main, '.agents/pstack/decisions-check.mjs'), 'chips', 'brief', 't_0000000a'], main);
+    assert.match(brief.stderr, /t_0000000a is dismissed declined, so there is nothing to start/, `${main} reads the chip as dismissed`);
+  }
+  const kept = readFileSync(join(b, 'docs/plans/artifacts/suggested-tasks.refused.tsv'), 'utf8');
+  assert.ok(kept.startsWith(started.trimEnd()), "the refused file keeps B's started row");
+  assert.match(kept, /\tt_0000000a started: t_0000000a is dismissed declined, so it cannot be started\n$/u, 'with its reason in a last cell');
+});
+
+test("a push the ref moved under after its append pulled fetches and checks again, so another clone's dismissal still wins", async () => {
+  const { clone, onRef, setup } = ledgerRemote();
+  const ledger = 'docs/plans/artifacts/suggested-tasks.decisions.tsv';
+  const chip = (ts, evidence, result) => `${ts}\tchip\tt_0000000a Keep one ledger order\tclones disagree\t${evidence}\t${result}\n`;
+  const a = clone('a');
+  mkdirSync(join(a, 'docs/plans/artifacts'), { recursive: true });
+  writeFileSync(join(a, ledger), `ts\tphase\tdecision\twhy\tevidence\tresult\n${chip('2026-11-01T00:00:00Z', 'writes: README.md; topic: ledger; priority: P1; repro: steps', 'offered')}`);
+  assert.match(setup(a).stdout, /pushed 2 ledger row\(s\)/);
+  const b = clone('b');
+  mkdirSync(join(b, 'docs/plans/artifacts'), { recursive: true });
+  assert.match(setup(b).stdout, /added 2 ledger row\(s\)/);
+
+  const { syncLedger } = await import(join(a, '.agents/pstack/tasks.mjs'));
+  const lock = { touch() {}, release() {} };
+  const pulled = syncLedger(join(a, ledger), ['-C', a], lock, { push: false });
+  const dismissed = chip('2026-11-02T00:00:00Z', 'owner declined it', 'dismissed declined');
+  appendFileSync(join(b, ledger), dismissed);
+  assert.match(setup(b).stdout, /pushed 1 ledger row\(s\)/);
+  appendFileSync(join(a, ledger), chip('2026-11-03T00:00:00Z', 'session: s1', 'started'));
+
+  const pushed = syncLedger(join(a, ledger), ['-C', a], lock, { checked: pulled.tip });
+  assert.deepEqual(pushed.refused.map(({ problem }) => problem), ['t_0000000a started: t_0000000a is dismissed declined, so it cannot be started']);
+  assert.equal(pushed.pending, 0);
+  assert.ok(onRef().endsWith(dismissed), "the ref ends with B's dismissal");
+  assert.equal(readFileSync(join(a, ledger), 'utf8'), onRef());
+});
+
+test('two appends that race in one clone take turns under the ledger lock, so a topic gets one open design question', async () => {
+  const { clone, env } = ledgerRemote();
+  const ledger = 'docs/plans/artifacts/suggested-tasks.decisions.tsv';
+  const main = clone('main');
+  mkdirSync(join(main, 'docs/plans/artifacts'), { recursive: true });
+  const lock = join(main, '.git', 'pstack-ledger.lock');
+  mkdirSync(lock);
+  const offer = (id) => {
+    const child = spawn(process.execPath, [join(main, '.agents/pstack/decisions-check.mjs'), 'append', ledger, 'chip', `${id} Decide the ledger order`, 'finding', 'writes: README.md; topic: ledger; kind: decide; priority: P1; repro: steps', 'offered'], { cwd: main, env });
+    const output = { stderr: '' };
+    child.stderr.on('data', (chunk) => {
+      output.stderr += chunk;
+    });
+    const exited = once(child, 'close').then(([code]) => ({ code, ...output }));
+    const running = new Promise((resolve) => {
+      child.stderr.on('data', () => output.stderr.includes('Waiting for the ledger lock') && resolve());
+      exited.then(resolve);
+    });
+    return { exited, running };
+  };
+  const appends = [offer('t_0000000b'), offer('t_0000000c')];
+  await Promise.all(appends.map((each) => each.running));
+  rmSync(lock, { recursive: true });
+  const results = await Promise.all(appends.map((each) => each.exited));
+  assert.deepEqual(results.map((each) => each.code).sort(), [0, 1], results.map((each) => each.stderr).join('\n'));
+  assert.match(results.find((each) => each.code === 1).stderr, /topic ledger already has the open design question t_0000000[bc]/);
 });
 
 test("setup keeps the ledger on the companion repository's origin once the checkout holds its git directory", () => {

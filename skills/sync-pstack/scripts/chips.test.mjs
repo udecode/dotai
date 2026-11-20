@@ -2405,3 +2405,11 @@ test("an effort change on a carded task lists its card in the holder's withdrawa
   assert.equal(chip(parser, 'uncarded', 'card: c1').status, 0);
   assert.match(chips('--session', 's1').stdout, /Do, card pass[\s\S]*card task_c1:/);
 });
+
+test('a row its chip state forbids changes nothing, so a pulled row in any order cannot undo a start', () => {
+  const { LEDGER, chips, offer, root } = chipLedger();
+  assert.equal(offer('task_a1 Fix the lexer', 'src/l.ts', 'topic: lexer').status, 0);
+  appendFileSync(join(root, LEDGER), `2026-01-02T00:00:00Z\tchip\ttask_a1 Fix the lexer\twhy\tsession: s1\tstarted\n`);
+  appendFileSync(join(root, LEDGER), `2026-01-03T00:00:00Z\tchip\ttask_a1 Fix the lexer\twhy\tevidence\tdismissed declined\n`);
+  assert.match(chips('brief', 'task_a1').stdout, /^State: Started\./mu);
+});

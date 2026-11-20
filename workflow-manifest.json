@@ -17,7 +17,7 @@
     {
       "name": "cleanup",
       "distribution": "bundled",
-      "description": "Find where a disk's space goes, and free disk in a project by removing the git worktrees, Next.js cache folders and local Docker Postgres test databases nothing uses, keeping every worktree a session or process works in and every cache a running server holds. Use for /cleanup, /cleanup disk, \\\"clean up worktrees\\\", \\\"free disk space\\\", \\\"what's using my disk\\\", \\\"where did my disk space go\\\", \\\"what is idle\\\", \\\"delete unused worktrees or builds\\\", or when a session-start hint counts old cleanup candidates.",
+      "description": "Find where a disk's space goes, and free disk in a project by removing the git worktrees, Next.js cache folders, local Docker Postgres test databases, idle Bun, npx and uv cache entries and unused anonymous Docker volumes nothing uses, keeping every worktree a session or process works in and every cache a running server holds. Use for /cleanup, /cleanup disk, \\\"clean up worktrees\\\", \\\"free disk space\\\", \\\"what's using my disk\\\", \\\"where did my disk space go\\\", \\\"what is idle\\\", \\\"delete unused worktrees or builds\\\", or when a session-start hint counts old cleanup candidates.",
       "category": "Maintenance",
       "dependencies": [],
       "capabilities": [
@@ -160,7 +160,7 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "69a4a81550a23ae36adc4da4f73aee4517d12331dff9bbf801f30c9fc053706a",
+      "sha256": "020b8ff13759cf884a6d01f3f46964fb7f2175aa3369e23eca4ea3ed542bc5d8",
       "mode": 420
     },
     "scripts/affected-tests.mjs": {
@@ -180,11 +180,11 @@
       "mode": 420
     },
     "skills/cleanup/SKILL.md": {
-      "sha256": "872d3e0aff5323d1b87c508e737dc4f167a96a599b1e903e373a94f72e1d49b8",
+      "sha256": "2b8223e30cc1a073fbef498b6bdbebb3e447430ab01383237bf77803e7509ecf",
       "mode": 420
     },
     "skills/cleanup/scripts/daily.mjs": {
-      "sha256": "4e9f0f85fefa596e8cf6891b7d1bd7d8db87ca98220b8cf3e6e8a1381cb39a91",
+      "sha256": "7415d82a5f27d9c29e8ffabfc29818a6b1a67c05a0b5d045624c61dbf45c4b3c",
       "mode": 420
     },
     "skills/cleanup/scripts/daily.test.mjs": {
@@ -207,6 +207,14 @@
       "sha256": "dd99eaeb30d0fb783084f5ade9eeb1462d31821e81f243de188d5e8b4d54a3f2",
       "mode": 420
     },
+    "skills/cleanup/scripts/machine.mjs": {
+      "sha256": "095ebdf3b7209fd21838bbf409760ee291437d18509879b50662544230cdf7ad",
+      "mode": 420
+    },
+    "skills/cleanup/scripts/machine.test.mjs": {
+      "sha256": "332df104ecc153bf30155fb1bb231f5c0254fb4f6bc144c396d39c9f946a5658",
+      "mode": 420
+    },
     "skills/cleanup/scripts/scan.mjs": {
       "sha256": "1efa2321c057a98ce744f234991430b7531fa678c876b3f4e66ab3e072c1f542",
       "mode": 420
@@ -216,7 +224,7 @@
       "mode": 420
     },
     "skills/clip/SKILL.md": {
-      "sha256": "8e693131545b4e90e04fbe7a4bf6af6bc0891e8f96fe436f9716f5066449576e",
+      "sha256": "bc5c335a057fd35a18718a64ab510a83eb414ac013649f4f81816432db23946c",
       "mode": 420
     },
     "skills/clip/assets/CalSans-SemiBold.ttf": {
@@ -232,11 +240,11 @@
       "mode": 420
     },
     "skills/clip/scripts/clip.test.ts": {
-      "sha256": "0734cc38df4a1e57c08e97aaf23318bc55b3f32eca4229e1ee798778ecd10578",
+      "sha256": "0de4ac2a389ef1e23ab85d88d50d8916196142d90207695ab387545ddc6900b4",
       "mode": 420
     },
     "skills/clip/scripts/clip.ts": {
-      "sha256": "7537309d76b7d1224b386f6a91a9cc9bde24a676832ffb3ec548216e91f1fb95",
+      "sha256": "25f8a2c1ed4325792e25071ed93c457fe45a8f362996084f1c55a057a449d391",
       "mode": 420
     },
     "skills/clip/scripts/package.json": {
@@ -400,7 +408,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
-      "sha256": "30c4501a1f716b614e0d43ec40691bf65596eb8ab9c0d7a8d67ea79d2a32c9a7",
+      "sha256": "790e3cda9c3a77fe0feda5c7f792481bc33094c5b34369747b73f25ae131c528",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/freeze.mjs": {
@@ -468,7 +476,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/chips.md": {
-      "sha256": "1d2f6f95117e5638dc6cf02d9083d5b6152545cd3c136418a68d5f6334281b85",
+      "sha256": "9d7269416915e828825aa1d6d0f439ba81d78de646678adaabe57caf23742ddd",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/close.md": {
@@ -540,7 +548,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/setup.mjs": {
-      "sha256": "8eb616da302ee118b352844286f663d9a7eab0d147ccfb9a3534fe21104f2cac",
+      "sha256": "9f28d0167141f31fe5371d060d80198b3475769b6486f23d482242e3fa9a6674",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/status.mjs": {
@@ -548,7 +556,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/tasks.mjs": {
-      "sha256": "b8cef3e76d9cfe46b16777a36a4ff07c32161f8163d8227968632f41fc9a055a",
+      "sha256": "d2ea081a8142dda66d354c60370c0fc0b23b5e556259a03fe1bd3b081597fe1d",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/title.mjs": {
@@ -588,7 +596,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/chips.test.mjs": {
-      "sha256": "4995a155dad3df6a1867306f8bac08c233179c9868afcf5802d95cd5fb0e92d6",
+      "sha256": "56f65ea16f429bce2516f855ddd79ec166684b2ee9f883ad707715c397c9f200",
       "mode": 420
     },
     "skills/sync-pstack/scripts/cross.test.mjs": {
@@ -616,7 +624,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/helpers.test.mjs": {
-      "sha256": "e0b2450a30c4bf21a3d8f1c03ef696c66045a47b74522e8bfe62328335b668ce",
+      "sha256": "4d66e65b817da84a29f2905639aa0fc4e7d6d3d4ff49a2c696ba26130759e7a7",
       "mode": 420
     },
     "skills/sync-pstack/scripts/lead.test.mjs": {
