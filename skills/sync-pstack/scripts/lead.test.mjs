@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { asDarwinPsPrints, bashCommandOf, claudeInvocationRun, claudeSessionRun, invocationRun, ranAs, runtimeFromEnv } from '../assets/pstack/lead.mjs';
+import { asDarwinPsPrints, bashCommandOf, claudeInvocationRun, claudeSessionRun, invocationRun, pluginLag, ranAs, runtimeFromEnv } from '../assets/pstack/lead.mjs';
 
 const LEAD = fileURLToPath(new URL('../assets/pstack/lead.mjs', import.meta.url));
 const identity = { runtime: 'codex', thread: 'child', session: 'parent', invocation: 'exec-12345678-1234-1234-1234-123456789abc' };
@@ -189,4 +189,28 @@ test('a finished Claude run reads its last record whole, whatever its characters
   } finally {
     process.env.HOME = previous;
   }
+});
+
+test('an install older than the pinned tag lags, in the checkout Claude Code loads it for, and a Codex cache lags without the tag', () => {
+  const home = mkdtempSync(join(tmpdir(), 'lag-home-'));
+  const main = mkdtempSync(join(tmpdir(), 'lag-main-'));
+  execFileSync('git', ['init', '-q', main]);
+  mkdirSync(join(main, '.claude'));
+  writeFileSync(join(main, '.claude/settings.json'), JSON.stringify({ extraKnownMarketplaces: { 'pstack-claude': { source: { source: 'github', repo: 'michael-denyer/pstack-claude', ref: 'v0.9.145' } } } }));
+  mkdirSync(join(home, '.claude/plugins'), { recursive: true });
+  const installs = (entries) => writeFileSync(join(home, '.claude/plugins/installed_plugins.json'), JSON.stringify({ version: 2, plugins: { 'pstack@pstack-claude': entries } }));
+  const env = { HOME: home };
+  installs([{ scope: 'user', version: '0.9.145' }, { scope: 'project', projectPath: main, version: '0.9.99' }]);
+  assert.deepEqual(pluginLag('claude', main, env), { pin: '0.9.145', installed: '0.9.99', cwd: main, command: 'claude plugin marketplace add michael-denyer/pstack-claude#v0.9.145 && claude plugin update pstack@pstack-claude --scope project' });
+  installs([{ scope: 'user', version: '0.9.145' }, { scope: 'project', projectPath: main, version: '0.9.150' }]);
+  assert.equal(pluginLag('claude', main, env), null, 'a newer install passes');
+  installs([{ scope: 'user', version: '0.9.145' }]);
+  assert.equal(pluginLag('claude', main, env), null, 'without a project install the user install counts');
+  installs([]);
+  assert.match(pluginLag('claude', main, env).command, /claude plugin install pstack@pstack-claude --scope project$/u);
+  assert.equal(pluginLag(null, main, env), null, 'a shell outside any session is not checked');
+  mkdirSync(join(home, '.codex/plugins/cache/pstack-claude/pstack/0.9.143'), { recursive: true });
+  assert.equal(pluginLag('codex', main, env).installed, '0.9.143');
+  mkdirSync(join(home, '.codex/plugins/cache/pstack-claude/pstack/0.9.145'));
+  assert.equal(pluginLag('codex', main, env), null);
 });
