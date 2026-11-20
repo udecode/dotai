@@ -34,6 +34,8 @@ The recorder runs on Bun and ffmpeg. The first time, and whenever `<skill dir>/s
 4. Run `bun <skill dir>/scripts/clip.ts render <take dir> <out.mp4> --tag <tag> --title "<title>"`. The title bar is the clip's headline, a one-word area tag and what you do in a few lowercase words, such as `board / a whiteboard inside your doc`. It refuses a take with a FAIL, cuts it, adds the bars, encodes at 60 fps, reviews the file, and writes one still at the end of each caption into `<take dir>/stills/`, printing a `STILL` line for each. Its `SIGNALS` line, saved as `<take dir>/signals.json`, gives the clip's length, when something first moves, the share of time something moves, how much of the frame the result changes, and the page text's size on a phone.
 5. Read every still before the clip goes anywhere.
 
+A clip shown in a Claude session stays local. A clip an agent makes for a team chat goes out the way that project's chat rule says. Where that rule names a preview route, the clip goes to the owner first as a preview and posts only once the owner approves it there, never straight to a channel.
+
 ## Before and after
 
 A change to something a reader already saw, such as a control, a layout, copy, a style or a gesture that behaved wrong, shows as one clip of the old behavior and then the new, not as two images. A feature with nothing before it gets a plain clip.
