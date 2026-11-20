@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { asDarwinPsPrints, bashCommandOf, claudeInvocationRun, claudeSessionRun, invocationRun, pluginLag, ranAs, runtimeFromEnv } from '../assets/pstack/lead.mjs';
+import { asDarwinPsPrints, bashCommandOf, claudeInvocationRun, claudeSessionRun, invocationRun, modelsSheet, pluginLag, ranAs, runtimeFromEnv } from '../assets/pstack/lead.mjs';
 
 const LEAD = fileURLToPath(new URL('../assets/pstack/lead.mjs', import.meta.url));
 const identity = { runtime: 'codex', thread: 'child', session: 'parent', invocation: 'exec-12345678-1234-1234-1234-123456789abc' };
@@ -221,4 +221,14 @@ test('an install older than the pinned tag lags, in the checkout Claude Code loa
   assert.equal(pluginLag('codex', main, env).installed, '0.9.143');
   mkdirSync(join(home, '.codex/plugins/cache/pstack-claude/pstack/0.9.145'));
   assert.equal(pluginLag('codex', main, env), null);
+});
+
+test("a committed project sheet replaces the person's Claude Code sheet, and Codex keeps its own", () => {
+  const root = mkdtempSync(join(tmpdir(), 'sheet-root-'));
+  const env = { HOME: '/home/someone' };
+  assert.equal(modelsSheet('claude', env, root), '/home/someone/.claude/pstack-models.md');
+  mkdirSync(join(root, '.claude'));
+  writeFileSync(join(root, '.claude/pstack-models.md'), 'default effort: high\n');
+  assert.equal(modelsSheet('claude', env, root), join(root, '.claude/pstack-models.md'));
+  assert.equal(modelsSheet('codex', env, root), '/home/someone/.codex/pstack-models.md');
 });

@@ -68,6 +68,8 @@ const HELPER_FILES = {
   'writing-check.mjs': [],
 };
 const RULES = join(HELPERS, 'rules');
+// Claude Code reads a project sheet at the repository root in place of each person's, so every teammate runs the same models.
+export const PROJECT_SHEET = '.claude/pstack-models.md';
 export const RULE_FILES = {
   'browser.md': { blockRule: 'Browser drives', gates: ['browser'] },
   'chips.md': { blockRule: 'Suggested tasks', gates: ['plans'] },
@@ -757,17 +759,17 @@ export function apply(root, { tag, force = false, write = true, dispositions } =
   const skipped = new Set(config.skip ?? []);
   const offGate = (gates) => gates.find((gate) => (isCondition(gate) ? !holds(gate, config) : skipped.has(gate)));
   const files = [
-    ...Object.entries(HELPER_FILES).map(([name, gates]) => [name, gates, false]),
-    ...Object.entries(RULE_FILES).map(([name, { gates }]) => [`rules/${name}`, gates, true]),
+    ...Object.entries(HELPER_FILES).map(([name, gates]) => [`pstack/${name}`, gates, false, `${HELPER_DIR}/${name}`]),
+    ...Object.entries(RULE_FILES).map(([name, { gates }]) => [`pstack/rules/${name}`, gates, true, `${HELPER_DIR}/rules/${name}`]),
+    ['pstack-models.md', [], false, PROJECT_SHEET],
   ];
-  for (const [name, gates, rule] of files) {
-    const path = `${HELPER_DIR}/${name}`;
+  for (const [name, gates, rule, path] of files) {
     const present = existsSync(join(root, path)) ? readFileSync(join(root, path), 'utf8') : null;
     const edited = present !== null && sha(present) !== stored.synced?.files?.[path];
     const build = (text, settings) => (rule ? `${render(text, settings)}\n` : text);
     const off = offGate(gates);
     if (off === undefined) {
-      const source = build(readFileSync(join(HELPERS, name), 'utf8'), config);
+      const source = build(readFileSync(join(SKILL, 'assets', name), 'utf8'), config);
       synced.files[path] = sha(source);
       for (const [, imported] of rule ? [] : source.matchAll(/^\s*import\b[^'"]*['"]\.\/([^'"]+)['"]/gmu)) {
         if (!HELPER_FILES[imported] || offGate(HELPER_FILES[imported]) !== undefined) {
@@ -776,7 +778,7 @@ export function apply(root, { tag, force = false, write = true, dispositions } =
       }
       if (present === source) continue;
       if (edited && !force) {
-        const last = lastVersion(stored, `assets/pstack/${name}`, (text) => build(text, withDerived(root, stored)), stored.synced?.files?.[path]);
+        const last = lastVersion(stored, `assets/${name}`, (text) => build(text, withDerived(root, stored)), stored.synced?.files?.[path]);
         refusals.push({
           path,
           reason: 'the helper was edited since the last sync',
@@ -1589,7 +1591,7 @@ function preflight(root, { allowDirty, dryRun }) {
   if (!['pr', 'trunk'].includes(config.delivery) && branch !== config.branch) {
     refusals.push({ path: 'git', reason: `the checkout is on ${branch || 'a detached HEAD'}, not ${config.branch}` });
   }
-  const dirty = allowDirty ? '' : gitRaw(root, 'status', '--porcelain', '--', 'AGENTS.md', CONFIG, HELPER_DIR, '.claude/settings.json');
+  const dirty = allowDirty ? '' : gitRaw(root, 'status', '--porcelain', '--', 'AGENTS.md', CONFIG, HELPER_DIR, PROJECT_SHEET, '.claude/settings.json');
   if (dirty?.trim()) {
     refusals.push({ path: 'git', reason: `uncommitted edits to files the sync writes; commit them or pass --allow-dirty:\n${dirty.trimEnd().replace(/^/gmu, '    ')}` });
   }
