@@ -377,7 +377,6 @@ const LEVELS_LOG = [
 
 const LEVELS_SHEET = [
   'interrogate reviewers: opus, codex:gpt-6-astra @high, codex:gpt-6.1-sol @xhigh',
-  'architect runners: opus, codex:gpt-6-astra @high, codex:gpt-6.1-sol @xhigh',
   'default effort: high',
 ].join('\n');
 
@@ -404,16 +403,15 @@ test('levels lists each lead stretch and seat round below this session or the co
       '  at lines 7-9: lead claude-opus-5-5 @xhigh',
       '  below line 7: panel opus @high, gpt-6-astra @high, gpt-6.1-sol @xhigh (gpt-6-astra @high is below @xhigh)',
       '  below line 8: panel opus @high, gpt-6-astra @xhigh missing, gpt-6.1-sol @xhigh missing, opus same-family (gpt-6-astra missing; gpt-6.1-sol missing)',
-      '  at line 9: architect opus @high, gpt-6-astra @xhigh, gpt-6.1-sol @xhigh',
       '  below line 11: lead gpt-6.1-sol @xhigh (led in Codex, and plans start in Claude Code)',
-      '5 of 8 units below target',
+      '5 of 7 units below target',
       '',
     ].join('\n'),
   );
 });
 
 test('levels in a Codex session keeps Claude-led stretches and takes the session effort for a seat with none', () => {
-  const codex = 'interrogate reviewers: opus, codex:gpt-6-astra @high, codex:gpt-6.1-sol @xhigh\narchitect runners: opus @high, codex:gpt-6-astra @high, codex:gpt-6.1-sol @xhigh\ndefault effort: session';
+  const codex = 'interrogate reviewers: opus, codex:gpt-6-astra @high, codex:gpt-6.1-sol @xhigh\ndefault effort: session';
   const { dir, run } = levelsRun(['--lead', 'gpt-6.1-sol @xhigh', 'log.tsv'], { codex });
   writeFileSync(join(dir, 'log.tsv'), LEVELS_LOG);
   const result = run();
@@ -465,7 +463,7 @@ test('levels reads an agy seat by its Gemini model, skipped when Gemini refused 
 });
 
 test('levels refuses a missing log, a flag with no value, and a round the models sheet has no line for', () => {
-  const { dir, run } = levelsRun([], { claude: 'interrogate reviewers: opus @high\ndefault effort: high' });
+  const { dir, run } = levelsRun([], { claude: 'arena runners: opus @high\ndefault effort: high' });
   writeFileSync(join(dir, 'log.tsv'), LEVELS_LOG);
   const usage = run();
   assert.equal(usage.status, 1);
@@ -475,7 +473,7 @@ test('levels refuses a missing log, a flag with no value, and a round the models
   assert.match(run(['--lead', 'claude-opus-5-5 @xhigh', 'gone.tsv']).stderr, /^gone\.tsv does not exist/u);
   const noLine = run(['--lead', 'claude-opus-5-5 @xhigh', 'log.tsv']);
   assert.equal(noLine.status, 1);
-  assert.match(noLine.stderr, /no "architect runners:" line, so line 9 cannot be judged; pass --seats/u);
+  assert.match(noLine.stderr, /no "interrogate reviewers:" line, so line 5 cannot be judged; pass --seats/u);
   const seats = run(['--lead', 'claude-opus-5-5 @xhigh', '--seats', 'opus @high, codex:gpt-6-astra @high, codex:gpt-6.1-sol @xhigh', 'log.tsv']);
   assert.equal(seats.status, 0, seats.stderr);
   assert.match(seats.stdout, /^ {2}at line 7: panel /mu);

@@ -1278,18 +1278,18 @@ test("land opens no PR while its author's models sheet seats Sonnet, Haiku or a 
     mkdirSync(codex);
     writeFileSync(join(codex, 'pstack-models.md'), sheet);
     const config = join(clone, '.agents/pstack.json');
-    writeFileSync(config, JSON.stringify({ ...JSON.parse(readFileSync(config, 'utf8')), maxEffort: 'high' }));
+    writeFileSync(config, JSON.stringify({ ...JSON.parse(readFileSync(config, 'utf8')), maxEffort: 'xhigh' }));
     writeFileSync(join(clone, 'a.txt'), 'two\n');
     return helper('land.mjs', clone, ['--message', message(PR)], { ...stubGh(dir), CODEX_THREAD_ID: 'thread', CODEX_HOME: codex });
   };
   const arena = 'arena runners: opus, codex:gpt-6.1-sol @xhigh\n';
-  const bad = land(`${arena}interrogate reviewers: opus, sonnet, haiku, codex:gpt-6.1-sol @medium\n`);
+  const bad = land(`interrogate reviewers: opus, sonnet, haiku, codex:gpt-6.1-sol @medium\n`);
   assert.equal(bad.status, 1);
   assert.match(bad.stderr, /`interrogate reviewers:` names sonnet/u);
   assert.match(bad.stderr, /`interrogate reviewers:` names haiku/u);
-  assert.match(bad.stderr, /runs codex:gpt-6\.1-sol @medium, below this project's maxEffort high/u);
-  assert.match(bad.stderr, /add the line `architect runners: opus, codex:gpt-6\.2-sol`, or `architect runners: codex:gpt-6\.2-sol` without Claude Code/u);
-  const good = land(`All roles inherit gpt-6.1-sol and never dispatch sonnet.\n${arena}architect runners: claude-fable-5-2 @high, codex:gpt-6-astra @xhigh\ninterrogate reviewers: codex:gpt-6.1-sol @high, codex:gpt-6.1-sol\n`);
+  assert.match(bad.stderr, /runs codex:gpt-6\.1-sol @medium, below the seat floor high/u);
+  assert.match(bad.stderr, /add the line `arena runners: opus, codex:gpt-6\.2-sol`, or `arena runners: codex:gpt-6\.2-sol` without Claude Code/u);
+  const good = land(`All roles inherit gpt-6.1-sol and never dispatch sonnet.\n${arena}interrogate reviewers: codex:gpt-6.1-sol @high, codex:gpt-6.1-sol\n`);
   assert.equal(good.status, 0, good.stderr);
 });
 
