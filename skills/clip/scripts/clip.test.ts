@@ -19,6 +19,7 @@ import {
   renderEndPage,
   renderPush,
   fitCrop,
+  openClip,
   fixCaption,
   reviewTake,
   shiftBeats,
@@ -310,6 +311,24 @@ describe('the title bar', () => {
     expect(luma(mid, '60:400:0:0')).toBeGreaterThan(200)
     expect(luma(mid, '60:400:480:0')).toBeLessThan(60)
   }, 60_000)
+
+  test('fades the cursor once it rests and shows it again as it moves', async () => {
+    const clip = await openClip('data:text/html,<body></body>')
+    const opacity = () => clip.page.evaluate(() => Number([...document.documentElement.children].find(el => el.querySelector('svg'))!.style.opacity))
+    try {
+      await clip.page.mouse.move(100, 100)
+      await clip.page.mouse.move(200, 200, { steps: 10 })
+      await clip.page.waitForTimeout(150)
+      expect(await opacity()).toBeGreaterThan(0.9)
+      await clip.page.waitForTimeout((CLIP.cursorIdleS + CLIP.cursorFadeS) * 1000 + 300)
+      expect(await opacity()).toBe(0)
+      await clip.page.mouse.move(260, 260, { steps: 10 })
+      await clip.page.waitForTimeout(150)
+      expect(await opacity()).toBeGreaterThan(0.9)
+    } finally {
+      await clip.page.context().browser()!.close()
+    }
+  }, 30_000)
 
   test('a moved cursor does not widen the changed area', () => {
     const [w, h] = [100, 100]

@@ -35,6 +35,9 @@ export const CLIP = {
   endHoldS: 0.6,
   // Each half of a before-and-after clip ends sooner, because the end frame holds both results next; a second of stillness after each result read as a stall (the owner, 2026-11-20).
   compareEndS: 0.4,
+  // The cursor fades once the hand rests, the way Screen Studio hides it, so no scene moves it off the result and no cut makes it jump (the owner, 2026-11-20).
+  cursorIdleS: 0.5,
+  cursorFadeS: 0.25,
   // A before-and-after clip ends on both results at once, so the reader compares them without remembering the first half (the owner, 2026-11-20).
   compareHoldS: 2,
   // The push from the Before take to the After take, which the clip's length limit pays for.
@@ -63,6 +66,7 @@ export const RULES: { rule: string; check: string }[] = [
   { rule: 'A caption is white text on a black footer under the clip, so it never reads as page text. Keys show as white keycaps in it.', check: 'captionHtml, renderClip' },
   { rule: `A caption is a short sentence of at most ${CLIP.captionWords} words with no closing period. It starts with a capital, unless it starts with a [Key]. Render fixes the capital and the period on its own.`, check: 'checkCaption, fixCaption' },
   { rule: 'A caption switches on as its action starts and off as the next one starts, with no fade.', check: 'captionOverlay' },
+  { rule: `The drawn cursor fades out over ${CLIP.cursorFadeS} s once it has rested ${CLIP.cursorIdleS} s with no button down, and shows again as it moves, so a scene never moves it off the result.`, check: 'drawCursor' },
   { rule: `While a button is down, the drawn cursor stays within ${CLIP.heldLagPx} px of the pointer and never turns back on its own.`, check: 'checkTrail' },
   { rule: `The drawn cursor jumps at most ${CLIP.pressJumpPx} px at a press, and turns back at most ${CLIP.freeFlips} times on free moves.`, check: 'checkTrail' },
   { rule: `While a button is down, the pointer moves every frame, at most ${CLIP.heldGapMs} ms apart at the 90th percentile, so a stroke grows smoothly.`, check: 'checkTrail' },
@@ -99,7 +103,7 @@ export type TrailRow = [number, number, number, number, number, number]
 export type Review = { fails: string[]; fixes: string[]; suggests: string[] }
 
 // Headless recordings draw no pointer, so shapes would appear on their own.
-function drawCursor() {
+function drawCursor({ idleS, fadeS }: { idleS: number; fadeS: number }) {
   const draw = () => {
     const c = document.createElement('div')
     c.innerHTML =
@@ -112,9 +116,12 @@ function drawCursor() {
     let down = false
     let press = 1
     let last = performance.now()
+    let active = last
+    let shown = 0
     const follow = (e: PointerEvent) => {
       target.x = e.clientX
       target.y = e.clientY
+      active = performance.now()
     }
     addEventListener('pointermove', follow, true)
     addEventListener('pointerdown', e => ((down = true), follow(e)), true)
@@ -140,6 +147,10 @@ function drawCursor() {
         }
       }
       press += ((down ? 0.86 : 1) - press) * Math.min(1, dt * 30)
+      if (down || Math.hypot(v.x, v.y) > 5) active = now
+      // It comes back faster than it goes, so a move never starts unseen.
+      shown = now - active < idleS * 1000 ? Math.min(1, shown + dt / (fadeS / 3)) : Math.max(0, shown - dt / fadeS)
+      c.style.opacity = String(shown)
       ;((window as any).__trail ??= []).push([now, down ? 1 : 0, p.x, p.y, target.x, target.y])
       c.style.transform = `translate(${p.x - 2}px,${p.y - 1.5}px) scale(${press})`
       requestAnimationFrame(frame)
@@ -376,7 +387,7 @@ export async function openClip(
   // With only the context's deviceScaleFactor, Chrome screencast an X page at 540 px into a 1080 px frame.
   const browser = await chromium.launch({ args: [`--force-device-scale-factor=${view.scale}`] })
   const ctx = await browser.newContext({ colorScheme, viewport: { width: view.width, height: view.height }, deviceScaleFactor: view.scale, storageState })
-  if (cursor) await ctx.addInitScript(drawCursor)
+  if (cursor) await ctx.addInitScript(drawCursor, { idleS: CLIP.cursorIdleS, fadeS: CLIP.cursorFadeS })
   const page = await ctx.newPage()
   await page.goto(url, { waitUntil: 'networkidle' })
   return new Clip(browser, ctx, page, await ctx.newCDPSession(page), view)

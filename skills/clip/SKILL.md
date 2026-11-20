@@ -63,7 +63,7 @@ Every take goes through review before anyone sees it, and you fix what it finds 
 - `FAIL` lines break a rule. Fix the scene and record again. Never send or show a clip with a FAIL. Each line names its fix.
 - `FIXED` lines are what render corrected on its own, such as a caption's capital or a crop's odd side. Fix the scene too, so the next take is clean.
 - `TRY` lines would make the clip better. Apply each one that does, and say which you skipped and why.
-- Then judge the stills for what no check sees. The frame shows what its caption says, typed text is complete and spelled right, nothing covers the feature, such as a style panel or an open menu, the cursor is off the result on the last frame, and the page around the feature reads.
+- Then judge the stills for what no check sees. The frame shows what its caption says, typed text is complete and spelled right, nothing covers the feature, such as a style panel or an open menu, and the page around the feature reads. The cursor fades on its own once it rests, so end on the result without moving it away.
 - Report in a line or two what you fixed and what you would still change. When a rule makes a clip worse, say so and propose the change.
 
 ## When the owner changes a rule
@@ -89,6 +89,7 @@ When the owner corrects the same thing a second time, make it a check that fails
 - A caption is white text on a black footer under the clip, so it never reads as page text. Keys show as white keycaps in it. (`captionHtml`, `renderClip` in `scripts/clip.ts`)
 - A caption is a short sentence of at most 6 words with no closing period. It starts with a capital, unless it starts with a [Key]. Render fixes the capital and the period on its own. (`checkCaption`, `fixCaption` in `scripts/clip.ts`)
 - A caption switches on as its action starts and off as the next one starts, with no fade. (`captionOverlay` in `scripts/clip.ts`)
+- The drawn cursor fades out over 0.25 s once it has rested 0.5 s with no button down, and shows again as it moves, so a scene never moves it off the result. (`drawCursor` in `scripts/clip.ts`)
 - While a button is down, the drawn cursor stays within 0.5 px of the pointer and never turns back on its own. (`checkTrail` in `scripts/clip.ts`)
 - The drawn cursor jumps at most 2 px at a press, and turns back at most 3 times on free moves. (`checkTrail` in `scripts/clip.ts`)
 - While a button is down, the pointer moves every frame, at most 25 ms apart at the 90th percentile, so a stroke grows smoothly. (`checkTrail` in `scripts/clip.ts`)
