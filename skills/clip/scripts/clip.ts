@@ -33,6 +33,8 @@ export const CLIP = {
   // "Pauses are a bit too long, humans should not lose attention" (the owner, 2026-11-19): a stretch where nothing moves gets cut down to these.
   stillMaxS: 0.7,
   endHoldS: 1,
+  // Each half of a before-and-after clip ends sooner, because the end frame holds both results next; a second of stillness after each result read as a stall (the owner, 2026-11-20).
+  compareEndS: 0.4,
   // A before-and-after clip ends on both results at once, so the reader compares them without remembering the first half (the owner, 2026-11-20).
   compareHoldS: 2,
   // The push from the Before take to the After take, which the clip's length limit pays for.
@@ -72,8 +74,8 @@ export const RULES: { rule: string; check: string }[] = [
   },
   { rule: 'Render refuses an X-shape clip without a title bar, so the clip a team chat gets is the one X can post.', check: 'checkBar' },
   {
-    rule: `A change to something a reader already saw shows as one clip, the take before the change and then the take after it, each half with a Before or After badge at the end of the title bar. The After take pushes in from the right in ${CLIP.pushS} s, like the next slide, and the end brings the Before panel back from the left. The clip ends on the last frame of both takes for ${CLIP.compareHoldS} s, cropped to the area where they differ and zoomed in no further than the page has pixels for, side by side or stacked, each badge above its panel or to its left, whichever shows them larger. The After frame shrinks into its slot instead of cutting away, and the footer slides out of the frame. Both moves run on a spring with no overshoot and motion blur, and render adds a strip of each move to the stills. Both takes film the same shape and crop, and the whole clip keeps the length and size limits.`,
-    check: 'checkPair, renderCompare, renderPush, renderEndPage, endLayout, changedBox',
+    rule: `A change to something a reader already saw shows as one clip, the take before the change and then the take after it, each half with a Before or After badge at the end of the title bar. The After take pushes in from the right in ${CLIP.pushS} s, like the next slide, and the end brings the Before panel back from the left. Each half holds its result ${CLIP.compareEndS} s at most before what comes next, unless the scene marks a longer \`read(ms)\`. The clip ends on the last frame of both takes for ${CLIP.compareHoldS} s, cropped to the area where they differ and zoomed in no further than the page has pixels for, side by side or stacked, each badge above its panel or to its left, whichever shows them larger. The After frame shrinks into its slot instead of cutting away, and the footer slides out of the frame. Both moves run on a spring with no overshoot and motion blur, and render adds a strip of each move to the stills. Both takes film the same shape and crop, and the whole clip keeps the length and size limits.`,
+    check: 'checkPair, renderCompare, renderPush, renderEndPage, endLayout, changedBox, squeezePlan',
   },
 ]
 
@@ -565,14 +567,14 @@ export function stillRuns(changed: [number, number][], duration: number): [numbe
 }
 
 /** The still frames to cut: each still stretch, split where a caption starts, keeps at most `stillMaxS`, or `endHoldS` at the end, plus any `read` hold in it, and each caption keeps `beatMinS`. */
-export function squeezePlan(stills: [number, number][], starts: number[], duration: number, holds: [number, number][] = []): [number, number][] {
+export function squeezePlan(stills: [number, number][], starts: number[], duration: number, holds: [number, number][] = [], endHoldS = CLIP.endHoldS): [number, number][] {
   const cuts: [number, number][] = []
   for (const [from, to] of stills) {
     const edges = [from, ...starts.filter(s => s > from && s < to), to]
     for (let i = 0; i + 1 < edges.length; i++) {
       const [a, b] = [edges[i], edges[i + 1]]
       const read = Math.max(0, ...holds.filter(([h0, h1]) => h0 < b && h1 > a).map(([, h1]) => h1))
-      const keepTo = Math.min(b, Math.max(a + (b >= duration - 0.02 ? CLIP.endHoldS : CLIP.stillMaxS), read))
+      const keepTo = Math.min(b, Math.max(a + (b >= duration - 0.02 ? endHoldS : CLIP.stillMaxS), read))
       if (b - keepTo > 0.05) cuts.push([keepTo, b])
     }
   }
@@ -993,14 +995,14 @@ export const printReview = ({ fails, fixes, suggests, stills = [], signals }: Re
 export async function renderTake(
   dir: string,
   out: string,
-  opts: { bar?: Bar; side?: Side } = {},
+  opts: { bar?: Bar; side?: Side; endHoldS?: number } = {},
 ): Promise<Review & { stills: string[]; signals?: Signals; page?: { clip: string; captions: Beat[] } }> {
   const { take, trail } = readTake(dir)
   const raw = join(dir, 'cut.mp4')
   let captions = await cut(take, raw)
   const duration = await durationOf(raw)
   const holds = (take.holds ?? []).map(([a, b]) => [a + CLIP.stillLeadS, b + CLIP.stillLeadS] as [number, number])
-  const cuts = squeezePlan(await stillStretches(raw, take.view?.scale), captions.map(c => c.t), duration, holds)
+  const cuts = squeezePlan(await stillStretches(raw, take.view?.scale), captions.map(c => c.t), duration, holds, opts.endHoldS)
   const review = reviewTake(take, trail, { cutS: cuts.reduce((n, [a, b]) => n + b - a, 0) })
   if (review.fails.length) return { ...review, stills: [] }
   let clip = raw
@@ -1043,7 +1045,7 @@ export async function renderCompare(
     [after, 'After'],
   ]
   const results: Awaited<ReturnType<typeof renderTake>>[] = []
-  for (const [dir, side] of halves) results.push(await renderTake(dir, join(dir, 'half.mp4'), { ...opts, side }))
+  for (const [dir, side] of halves) results.push(await renderTake(dir, join(dir, 'half.mp4'), { ...opts, side, endHoldS: CLIP.compareEndS }))
   const label = (side: Side, lines: string[]) => lines.map(l => `${side}: ${l}`)
   const review: Review = {
     fails: results.flatMap((r, i) => label(halves[i][1], r.fails)),

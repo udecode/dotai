@@ -94,6 +94,10 @@ describe('a take', () => {
     expect(squeezePlan([[2, 2.6]], [0.2], 6)).toEqual([])
   })
 
+  test('ends each half of a before-and-after clip sooner, since the end frame holds both results', () => {
+    expect(squeezePlan([[7.5, 10]], [0.2, 4], 10, [], CLIP.compareEndS)).toEqual([[7.9, 10]])
+  })
+
   test('keeps a read hold whole, such as a toast at the end', () => {
     // The table clip's refusal toast lost 2.4 s of reading time to the end hold before read() existed.
     expect(squeezePlan([[11.4, 14]], [0.2, 9], 14, [[11.4, 13.4]])).toEqual([[13.4, 14]])
