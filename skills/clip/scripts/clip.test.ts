@@ -82,7 +82,7 @@ describe('a take', () => {
 
   test('cuts a long still stretch down, splitting it where a caption starts', () => {
     // The popover clip: the popover sat open for 2.2 s, across the start of the next caption at 3.1 s.
-    expect(squeezePlan([[1.1, 3.3]], [0.2, 3.1, 5.9], 9)).toEqual([[1.8, 3.1]])
+    expect(squeezePlan([[1.1, 3.3]], [0.2, 3.1, 5.9], 9)).toEqual([[1.5, 3.1]])
   })
 
   test('keeps each caption up long enough to read', () => {
@@ -90,8 +90,8 @@ describe('a take', () => {
   })
 
   test('holds the last frame a little longer than a still in the middle', () => {
-    expect(squeezePlan([[7.5, 10]], [0.2, 4], 10)).toEqual([[8.5, 10]])
-    expect(squeezePlan([[2, 2.6]], [0.2], 6)).toEqual([])
+    expect(squeezePlan([[7.5, 10]], [0.2, 4], 10)).toEqual([[8.1, 10]])
+    expect(squeezePlan([[2, 2.3]], [0.2], 6)).toEqual([])
   })
 
   test('ends each half of a before-and-after clip sooner, since the end frame holds both results', () => {
@@ -101,7 +101,7 @@ describe('a take', () => {
   test('keeps a read hold whole, such as a toast at the end', () => {
     // The table clip's refusal toast lost 2.4 s of reading time to the end hold before read() existed.
     expect(squeezePlan([[11.4, 14]], [0.2, 9], 14, [[11.4, 13.4]])).toEqual([[13.4, 14]])
-    expect(squeezePlan([[11.4, 14]], [0.2, 9], 14)).toEqual([[12.4, 14]])
+    expect(squeezePlan([[11.4, 14]], [0.2, 9], 14)).toEqual([[12, 14]])
   })
 
   test('moves later captions back by the time cut before them', () => {

@@ -85,7 +85,7 @@ When the owner corrects the same thing a second time, make it a check that fails
 - A clip runs at most 20 s and 8 MB. An X clip aims for 16 s or less. (`reviewTake`, `reviewFile` in `scripts/clip.ts`)
 - The first caption shows within 0.8 s, so the clip opens on the action. (`reviewTake` in `scripts/clip.ts`)
 - Each caption stays up at least 1.2 s. (`reviewTake` in `scripts/clip.ts`)
-- Nothing on screen sits still for more than 0.7 s, or 1 s at the end. Render cuts the extra still frames on its own, but never takes a caption under 1.2 s and never cuts a hold the scene marks with `read(ms)`. (`squeezePlan`, `renderTake` in `scripts/clip.ts`)
+- Nothing on screen sits still for more than 0.4 s, or 0.6 s at the end. Render cuts the extra still frames on its own, but never takes a caption under 1.2 s and never cuts a hold the scene marks with `read(ms)`. (`squeezePlan`, `renderTake` in `scripts/clip.ts`)
 - A caption is white text on a black footer under the clip, so it never reads as page text. Keys show as white keycaps in it. (`captionHtml`, `renderClip` in `scripts/clip.ts`)
 - A caption is a short sentence of at most 6 words with no closing period. It starts with a capital, unless it starts with a [Key]. Render fixes the capital and the period on its own. (`checkCaption`, `fixCaption` in `scripts/clip.ts`)
 - A caption switches on as its action starts and off as the next one starts, with no fade. (`captionOverlay` in `scripts/clip.ts`)

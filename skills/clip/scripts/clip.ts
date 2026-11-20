@@ -30,9 +30,9 @@ export const CLIP = {
   xSeconds: 16,
   firstBeatS: 0.8,
   beatMinS: 1.2,
-  // "Pauses are a bit too long, humans should not lose attention" (the owner, 2026-11-19): a stretch where nothing moves gets cut down to these.
-  stillMaxS: 0.7,
-  endHoldS: 1,
+  // A stretch where nothing moves gets cut down to these. "Pauses are a bit too long, humans should not lose attention" (the owner, 2026-11-19), and the pause after a result still dragged at 0.7 s and 1 s (the owner, 2026-11-20).
+  stillMaxS: 0.4,
+  endHoldS: 0.6,
   // Each half of a before-and-after clip ends sooner, because the end frame holds both results next; a second of stillness after each result read as a stall (the owner, 2026-11-20).
   compareEndS: 0.4,
   // A before-and-after clip ends on both results at once, so the reader compares them without remembering the first half (the owner, 2026-11-20).
