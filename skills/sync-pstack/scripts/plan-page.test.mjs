@@ -583,6 +583,50 @@ test("plan-page --folded refuses an executed plan until the subject file holds i
   assert.match(unclosed.stderr, /needs a ## Close before --folded/);
 });
 
+test('plan-page --folded keeps the calls of a plan with a Built by: line on its page and folds its rows', () => {
+  const { dir, run } = sandbox();
+  const handed = DELTA_PLAN.replace('Topic: drag', 'Topic: drag\nBuilt by: the drag build') + CLOSE;
+  const rowsOnly = '# Drag\n\n## Public API\n\n```ts\nold();\n```\n\n## Layer and owner\n\n| Change | Layer |\n| --- | --- |\n| Schema landing | Plite |\n| Upload veto | Plite |\n';
+  const fold = (topic, plan) => run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md', '--folded'], deltaProject(mkdtempSync(join(dir, 'case-')), topic, plan));
+  const open = fold(rowsOnly, handed);
+  assert.equal(open.status, 0, open.stderr);
+  const closed = fold(rowsOnly, handed.replace('Status: planning', 'Status: closed: Pursue verdict'));
+  assert.equal(closed.status, 0, closed.stderr);
+  const unfolded = fold(DELTA_TOPIC, handed);
+  assert.equal(unfolded.status, 1, 'its rows still fold');
+  assert.match(unfolded.stderr, /does not show the added row "Schema landing"/);
+  const early = fold(rowsOnly.replace('old();', 'next();'), handed);
+  assert.equal(early.status, 1, 'its calls stay out of the subject');
+  assert.match(early.stderr, /already shows the after side of a ## Public API pair; keep the plan's calls on its page until the drag build builds them/);
+  const unmarked = fold(rowsOnly, DELTA_PLAN.replace('Status: planning', 'Status: superseded: by the drag build') + CLOSE);
+  assert.equal(unmarked.status, 1, 'a closed plan without the line keeps the call check');
+  assert.match(unmarked.stderr, /does not show the after line "next\(\);".*Built by: line/);
+  const extra = '\n## Panel ownership\n\n| Delta | Surface | Owner |\n| --- | --- | --- |\n| added | Reply controls | Kit |\n';
+  const missing = fold(rowsOnly, handed + extra);
+  assert.equal(missing.status, 1, 'a Delta table under a heading the subject lacks');
+  assert.match(missing.stderr, /does not show the added row "Reply controls" of ## Panel ownership/);
+});
+
+test('plan-page checks the build plan beside a plan with a Built by: line as if that plan were absent', () => {
+  const { dir, run } = sandbox();
+  const pair = (before, after) => `## Public API\n\n\`\`\`ts before\n${before}\n\`\`\`\n\n\`\`\`ts after\n${after}\n\`\`\`\n`;
+  const verdict = (before, after) => `# Verdict\n\nStatus: closed: Pursue verdict\nTopic: drag\nBuilt by: the drag build\n\n${pair(before, after)}${CLOSE}`;
+  const build = (status, before, after) => `# Landing\n\nStatus: ${status}\nTopic: drag\n\n${pair(before, after)}${brief()}`;
+  const render = (topic, plan, other, flags = []) =>
+    run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/2026-01-01-landing.md', ...flags], project(mkdtempSync(join(dir, 'case-')), 'app', {
+      files: { 'docs/plans/topics/drag.md': topic, 'docs/plans/2026-01-01-landing.md': plan, ...(other ? { 'docs/plans/2025-12-01-verdict.md': other } : {}) },
+    }));
+  const early = '# Drag\n\n## Public API\n\n```ts\nnext();\n```\n';
+  const unmasked = render(early, build('planning', 'old();', 'next();'), verdict('old();', 'next();'));
+  assert.equal(unmasked.status, 1, 'the verdict carrying the same pair hides no early fold');
+  assert.match(unmasked.stderr, /already shows the after side of a ## Public API pair/);
+  const order = '# Drag\n\n## Public API\n\n```ts\n// a.ts\nend();\nbegin();\n```\n';
+  const done = build('executed', '// a.ts\nold();', '// a.ts\nbegin();\nend();') + CLOSE;
+  const scrambled = render(order, done, verdict('// a.ts\nold();', '// a.ts\nbegin();\nend();'), ['--folded']);
+  assert.equal(scrambled.status, 1, "the verdict's before fence hides no block order");
+  assert.match(scrambled.stderr, /does not show the after block of a ## Public API pair in order/);
+});
+
 test("plan-page shows the leader's Close after Needs you, keeps it on top once executed, and drops it when newer work opens", () => {
   const { dir, run } = sandbox();
   const topic = '# Workflow\n\nThe subject lead.\n\n## Main changes\n\n- Pages follow subjects.\n';
