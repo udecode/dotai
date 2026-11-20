@@ -1216,10 +1216,10 @@ export function renderPlaybook(root, name) {
   return out.join('\n').trimEnd();
 }
 
-export function smoke(root, prompts, { timeout = 900 } = {}) {
+export function smoke(root, prompts, { timeout = 900, runtimes = ['claude'] } = {}) {
   const readDirs = [join(homedir(), '.claude/plugins')];
   return Promise.all(
-    prompts.flatMap((prompt) => ['claude', 'codex'].map((runtime) => ask(runtime, prompt, { cwd: root, timeout, hooks: true, userConfig: true, readDirs }).then((answer) => ({ ...answer, prompt })))),
+    prompts.flatMap((prompt) => runtimes.map((runtime) => ask(runtime, prompt, { cwd: root, timeout, hooks: true, userConfig: true, readDirs }).then((answer) => ({ ...answer, prompt })))),
   );
 }
 
@@ -1402,12 +1402,13 @@ export function verify(root) {
   }
 
   // A line's code spans count only where every Markdown reader pairs its
-  // backticks the same way: single backticks, an even count, no table row, no
-  // span left open earlier in its paragraph, and nothing outside the spans that
-  // could claim a backtick first. That is an escaped backtick, a link
-  // destination, title or label, a footnote label or a GFM bare URL that could
-  // hold one, or any `<`, because the HTML and autolink grammar is too large to
-  // copy. Only spaces and tabs make a line blank.
+  // backticks the same way: each backtick run closes on its own line with the
+  // next run of the same length, no table row, no span left open earlier in its
+  // paragraph, and nothing outside the spans that could claim a backtick first.
+  // That is an escaped backtick, a link destination, title or label, a footnote
+  // label or a GFM bare URL that could hold one, or any `<`, because the HTML
+  // and autolink grammar is too large to copy. Only spaces and tabs make a line
+  // blank.
   const holds = (line, from, close) => {
     for (let index = from; index < line.length; index++) {
       if (line[index] === '`') return true;
@@ -1456,10 +1457,17 @@ export function verify(root) {
       let closed = true;
       return lines.flatMap((line) => {
         const ticks = [...line.matchAll(/`+/gu)];
-        const pairs = ticks.flatMap((tick, index) => (index % 2 === 0 && ticks[index + 1] ? [[tick.index, ticks[index + 1].index]] : []));
+        const pairs = [];
+        let open = 0;
+        while (open < ticks.length) {
+          const close = ticks.findIndex((tick, at) => at > open && tick[0] === ticks[open][0]);
+          if (close < 0) break;
+          pairs.push([ticks[open].index, ticks[close].index]);
+          open = close + 1;
+        }
         const inside = (at) => pairs.some(([start, end]) => start < at && at < end);
         const claimed = [...line.matchAll(/[<\\[\]]|(?:https?|ftp):\/\/|www\./giu)].some(({ index }) => !inside(index) && claims(line, index));
-        const plain = ticks.every(([tick]) => tick.length === 1) && ticks.length % 2 === 0 && !(table && line.includes('|')) && !claimed;
+        const plain = open === ticks.length && !(table && line.includes('|')) && !claimed;
         const spans = closed && plain ? pairs : [];
         closed &&= plain;
         return [...line.matchAll(/\]\(([^)\s#]+)(?:#[^)]*)?\)/gu)].filter((link) => !spans.some(([start, end]) => start < link.index && link.index < end)).map((link) => link[1]);
@@ -1686,7 +1694,7 @@ const HELP = `Usage: node sync-pstack.mjs <command> [options]
                                    off its branch or with uncommitted edits to the files it writes. Skips a
                                    project whose config sets autoSync false unless named.
   playbook <project> <name>        Print each pstack base of .agents/playbooks/<name>.md with its changes applied.
-  smoke <project> <prompt>...      Run each prompt read-only in Claude Code and Codex from <project>; print the answers.
+  smoke <project> <prompt>...      Run each prompt read-only in Claude Code from <project>; print the answers.
   corpus [project...]              Run the project's installed ledger helpers and this skill's copies over its ledger
                                    and decision logs; print the difference. Every managed project when none are named,
                                    except one whose config sets autoSync false.
@@ -1701,6 +1709,7 @@ const HELP = `Usage: node sync-pstack.mjs <command> [options]
   --allow-dirty   sync: write files that have uncommitted edits
   --root <dir>    status, sync and corpus: also scan the repositories directly under <dir>
   --session <id>  corpus: pass this session's id to chips
+  --runtime <claude|codex|both>  smoke: the runtime to run each prompt in, Claude Code by default
   --installed <dir>  corpus: read the old helpers from <dir>, such as a copy saved before an apply, for one project
   --out <dir>     corpus: also write corpus-<project>-installed.txt and corpus-<project>-bundled.txt there
   --json          status: print JSON
@@ -1715,6 +1724,7 @@ function main(argv) {
     if (arg === '--tag') flags.tag = rest[++index];
     else if (arg === '--root') flags.roots.push(resolve(rest[++index]));
     else if (arg === '--session') flags.session = rest[++index];
+    else if (arg === '--runtime') flags.runtime = rest[++index];
     else if (arg === '--out') flags.out = resolve(rest[++index]);
     else if (arg === '--installed') flags.installed = resolve(rest[++index]);
     else if (arg === '--dispositions') flags.dispositions = resolve(rest[++index]);
@@ -1834,7 +1844,9 @@ function main(argv) {
     }
     case 'smoke': {
       if (positional.length < 2) throw new Error('smoke takes a project path and at least one prompt');
-      return smoke(resolve(positional[0]), positional.slice(1)).then((answers) => {
+      const runtimes = { claude: ['claude'], codex: ['codex'], both: ['claude', 'codex'] }[flags.runtime ?? 'claude'];
+      if (!runtimes) throw new Error('--runtime takes claude, codex or both');
+      return smoke(resolve(positional[0]), positional.slice(1), { runtimes }).then((answers) => {
         for (const answer of answers) console.info(`## ${answer.runtime}: ${answer.prompt.slice(0, 80)}\n${answer.text}\n`);
         return answers.every((answer) => answer.ok) ? 0 : 1;
       });

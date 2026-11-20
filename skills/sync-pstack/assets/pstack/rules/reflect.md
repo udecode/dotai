@@ -23,4 +23,4 @@ This file says how reflect applies lessons, how `/pstack:correct` encodes a rule
 <!-- if delivery!=trunk -->
   When the run keeps a decision trail, a new shared script or check gets its decision-trail review before it is proposed upstream. In the shared source it is pushed once that source's own checks pass, and its review runs right after the push. The review covers one built from `/pstack:reflect` lessons after the run's first review.
 <!-- end -->
-  Before sharing one, run a fresh read-only session in each runtime (`sync-pstack smoke` runs both) with a plain fake request that does not name the answer to confirm routing, and state which runtimes and committers gain or lose what, in the commit body or, when the user owns commits, on the page.
+  Before sharing one, run one fresh read-only session with `sync-pstack smoke`, in Claude Code, or in Codex when the change binds only Codex, with a plain fake request that does not name the answer to confirm routing, and state which runtimes and committers gain or lose what, in the commit body or, when the user owns commits, on the page.

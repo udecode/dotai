@@ -28,7 +28,7 @@ test('smoke runs each prompt in both runtimes from the project root, without CLA
   ].join('\n');
   writeFileSync(join(bin, 'codex'), `${codex}\n`, { mode: 0o755 });
   const root = realpathSync(project(dir, 'app', { agents: '# App\n' }));
-  const result = spawnSync(process.execPath, [SCRIPT, 'smoke', root, 'the toolbar closes'], {
+  const result = spawnSync(process.execPath, [SCRIPT, 'smoke', root, 'the toolbar closes', '--runtime', 'both'], {
     encoding: 'utf8',
     env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1' },
   });
@@ -38,18 +38,23 @@ test('smoke runs each prompt in both runtimes from the project root, without CLA
   assert.doesNotMatch(result.stdout, /noise/);
 });
 
-test('smoke fails when a runtime exits cleanly with no answer', () => {
+test('smoke runs only Claude Code by default, and fails when a runtime exits cleanly with no answer', () => {
   const { dir, home } = sandbox();
   const bin = join(dir, 'bin');
   mkdirSync(bin);
   writeFileSync(join(bin, 'claude'), '#!/bin/sh\necho "a plan"\n', { mode: 0o755 });
   writeFileSync(join(bin, 'codex'), '#!/bin/sh\necho "progress, not an answer"\nexit 0\n', { mode: 0o755 });
   const root = project(dir, 'app', { agents: '# App\n' });
-  const result = spawnSync(process.execPath, [SCRIPT, 'smoke', root, 'the toolbar closes'], {
-    encoding: 'utf8',
-    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}` },
-  });
-  assert.equal(result.status, 1, result.stdout);
+  const run = (...flags) =>
+    spawnSync(process.execPath, [SCRIPT, 'smoke', root, 'the toolbar closes', ...flags], {
+      encoding: 'utf8',
+      env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}` },
+    });
+  const both = run('--runtime', 'both');
+  assert.equal(both.status, 1, both.stdout);
+  const byDefault = run();
+  assert.equal(byDefault.status, 0, byDefault.stdout);
+  assert.doesNotMatch(byDefault.stdout, /## codex/);
 });
 
 test("corpus diffs the project's installed ledger helpers against this skill's copies over every managed project", () => {
