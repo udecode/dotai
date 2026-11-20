@@ -315,8 +315,9 @@ const mainCheckout = (root) => {
 
 /**
  * How this runtime's installed pstack falls behind the tag the project's .claude/settings.json pins, with the
- * command that updates it and the folder it runs from, or null. Claude Code loads the project-scope install of the
- * main checkout, which every worktree shares, else the user-scope one; Codex loads its cache folder for the tag.
+ * command that updates it and the folder it runs from, or null. Claude Code loads the main checkout's project-scope
+ * install in every worktree, whatever stale record a worktree's own path keeps, else the user-scope one; Codex loads
+ * its cache folder for the tag.
  */
 export function pluginLag(runtime, root = process.cwd(), env = process.env) {
   const ref = readJson(join(root, '.claude/settings.json'))?.extraKnownMarketplaces?.[MARKETPLACE]?.source?.ref;
@@ -331,12 +332,12 @@ export function pluginLag(runtime, root = process.cwd(), env = process.env) {
   }
   const entries = readJson(join(env.CLAUDE_CONFIG_DIR ?? join(home, '.claude'), 'plugins/installed_plugins.json'))?.plugins?.[PSTACK] ?? [];
   const main = mainCheckout(root);
-  const entry = [root, main].map((path) => entries.find((each) => each.scope !== 'user' && each.projectPath === path)).find(Boolean) ?? entries.find((each) => each.scope === 'user');
+  const entry = entries.find((each) => each.scope === 'project' && each.projectPath === main) ?? entries.find((each) => each.scope === 'user');
   if (entry && versionOrder(entry.version, pin) >= 0) return null;
   // Claude Code hides a marketplace whose settings entry and registry disagree, so only adding it at the pin
   // lets the update reach the pinned tag.
   const install = entry ? `update ${PSTACK} --scope ${entry.scope}` : `install ${PSTACK} --scope project`;
-  return { pin, installed: entry?.version ?? null, cwd: entry?.projectPath ?? main, command: `claude plugin marketplace add ${REPO}#v${pin} && claude plugin ${install}` };
+  return { pin, installed: entry?.version ?? null, cwd: main, command: `claude plugin marketplace add ${REPO}#v${pin} && claude plugin ${install}` };
 }
 
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];

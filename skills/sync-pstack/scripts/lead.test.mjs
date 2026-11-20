@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -193,13 +193,21 @@ test('a finished Claude run reads its last record whole, whatever its characters
 
 test('an install older than the pinned tag lags, in the checkout Claude Code loads it for, and a Codex cache lags without the tag', () => {
   const home = mkdtempSync(join(tmpdir(), 'lag-home-'));
-  const main = mkdtempSync(join(tmpdir(), 'lag-main-'));
+  const main = realpathSync(mkdtempSync(join(tmpdir(), 'lag-main-')));
   execFileSync('git', ['init', '-q', main]);
   mkdirSync(join(main, '.claude'));
   writeFileSync(join(main, '.claude/settings.json'), JSON.stringify({ extraKnownMarketplaces: { 'pstack-claude': { source: { source: 'github', repo: 'michael-denyer/pstack-claude', ref: 'v0.9.145' } } } }));
   mkdirSync(join(home, '.claude/plugins'), { recursive: true });
   const installs = (entries) => writeFileSync(join(home, '.claude/plugins/installed_plugins.json'), JSON.stringify({ version: 2, plugins: { 'pstack@pstack-claude': entries } }));
   const env = { HOME: home };
+  installs([{ scope: 'user', version: '0.9.145' }, { scope: 'project', projectPath: main, version: '0.9.99' }]);
+  execFileSync('git', ['-C', main, 'add', '.claude']);
+  execFileSync('git', ['-C', main, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'pin']);
+  const worktree = join(main, 'wt');
+  execFileSync('git', ['-C', main, 'worktree', 'add', '-q', worktree]);
+  assert.equal(pluginLag('claude', worktree, env)?.cwd, main, "a worktree reads the main checkout's install");
+  installs([{ scope: 'project', projectPath: worktree, version: '0.9.99' }, { scope: 'project', projectPath: main, version: '0.9.145' }]);
+  assert.equal(pluginLag('claude', worktree, env), null, "a worktree's own stale record is not what Claude Code loads");
   installs([{ scope: 'user', version: '0.9.145' }, { scope: 'project', projectPath: main, version: '0.9.99' }]);
   assert.deepEqual(pluginLag('claude', main, env), { pin: '0.9.145', installed: '0.9.99', cwd: main, command: 'claude plugin marketplace add michael-denyer/pstack-claude#v0.9.145 && claude plugin update pstack@pstack-claude --scope project' });
   installs([{ scope: 'user', version: '0.9.145' }, { scope: 'project', projectPath: main, version: '0.9.150' }]);
