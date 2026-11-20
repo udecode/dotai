@@ -1402,13 +1402,12 @@ export function verify(root) {
   }
 
   // A line's code spans count only where every Markdown reader pairs its
-  // backticks the same way: each backtick run closes on its own line with the
-  // next run of the same length, no table row, no span left open earlier in its
-  // paragraph, and nothing outside the spans that could claim a backtick first.
-  // That is an escaped backtick, a link destination, title or label, a footnote
-  // label or a GFM bare URL that could hold one, or any `<`, because the HTML
-  // and autolink grammar is too large to copy. Only spaces and tabs make a line
-  // blank.
+  // backticks the same way: every backtick run falls in a span that closes on
+  // that line at the next run of its opener's length, no table row, no span
+  // left open earlier in its paragraph, and nothing outside the spans that
+  // could claim a backtick first. That is an escaped backtick, a link
+  // destination, title or label, a footnote label or a GFM bare URL that could
+  // hold one, or any `<`. Only spaces and tabs make a line blank.
   const holds = (line, from, close) => {
     for (let index = from; index < line.length; index++) {
       if (line[index] === '`') return true;

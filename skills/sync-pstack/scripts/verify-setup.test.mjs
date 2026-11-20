@@ -107,6 +107,9 @@ test('verify reads no link inside inline code', () => {
   const deadLinks = {
     'double-backticks.md': ['Wrap code in `` ` `` and see [Gone](../gone/SKILL.md) per `rule`.\n', '../gone/SKILL.md'],
     'double-run.md': ['``a`b`` [Gone](../gone/SKILL.md) `tail`\n', '../gone/SKILL.md'],
+    'double-unmatched.md': ['``a [Gone](../gone/SKILL.md) `b`\n', '../gone/SKILL.md'],
+    'double-wraps.md': ['See ``foo\nbar`` and [Gone](../gone/SKILL.md) and `x`.\n', '../gone/SKILL.md'],
+    'mixed-runs.md': ['`a``b` [Gone](../gone/SKILL.md) ``c``\n', '../gone/SKILL.md'],
     'escaped.md': ['Type \\` then [Gone](../gone/SKILL.md) and `x`.\n', '../gone/SKILL.md'],
     'wrapped-span.md': ['See `foo\nbar` and [Gone](../gone/SKILL.md) and `x`.\n', '../gone/SKILL.md'],
     'tick-in-destination.md': ['[Gone](../task`old`/SKILL.md)\n', '../task`old`/SKILL.md'],
@@ -129,6 +132,9 @@ test('verify reads no link inside inline code', () => {
     'span-tokens.md': 'Tokens `[a](b)`, `<br/>`, `<`, `\\` and `|` stay code.\n',
     'quote-destination-code.md': '[x](https://example.com/a"b) `[Gone](../gone/SKILL.md)`\n',
     'apostrophe-destination-code.md': "[a](https://x.com/it's) `[Gone](../gone/SKILL.md)`\n",
+    'double-span.md': 'Show ``a `[Gone](../gone/SKILL.md)` b`` as code.\n',
+    'double-span-html.md': 'Use ``a <u>b</u> [Gone](../gone/SKILL.md) now`` here.\n',
+    'span-after-double.md': 'First ``a`b`` here,\nthen `[Gone](../gone/SKILL.md)` stays code.\n',
   };
   for (const [file, [text]] of Object.entries(deadLinks)) writeFileSync(join(root, '.agents/skills/feature', file), text);
   for (const [file, text] of Object.entries(quiet)) writeFileSync(join(root, '.agents/skills/feature', file), text);
