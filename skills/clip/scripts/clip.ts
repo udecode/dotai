@@ -66,7 +66,7 @@ export const RULES: { rule: string; check: string }[] = [
   { rule: 'A caption is white text on a black footer under the clip, so it never reads as page text. Keys show as white keycaps in it.', check: 'captionHtml, renderClip' },
   { rule: `A caption is a short sentence of at most ${CLIP.captionWords} words with no closing period. It starts with a capital, unless it starts with a [Key]. Render fixes the capital and the period on its own.`, check: 'checkCaption, fixCaption' },
   { rule: 'A caption switches on as its action starts and off as the next one starts, with no fade.', check: 'captionOverlay' },
-  { rule: `The drawn cursor fades out over ${CLIP.cursorFadeS} s once it has rested ${CLIP.cursorIdleS} s with no button down, and shows again as it moves, so a scene never moves it off the result.`, check: 'drawCursor' },
+  { rule: `The drawn cursor fades out over ${CLIP.cursorFadeS} s once it has rested ${CLIP.cursorIdleS} s with no button down, and shows again as it moves, so a scene never moves it off the result. A cursor \`place\` parks stays hidden until it first moves.`, check: 'drawCursor, Clip' },
   { rule: `While a button is down, the drawn cursor stays within ${CLIP.heldLagPx} px of the pointer and never turns back on its own.`, check: 'checkTrail' },
   { rule: `The drawn cursor jumps at most ${CLIP.pressJumpPx} px at a press, and turns back at most ${CLIP.freeFlips} times on free moves.`, check: 'checkTrail' },
   { rule: `While a button is down, the pointer moves every frame, at most ${CLIP.heldGapMs} ms apart at the 90th percentile, so a stroke grows smoothly.`, check: 'checkTrail' },
@@ -124,6 +124,14 @@ function drawCursor({ idleS, fadeS }: { idleS: number; fadeS: number }) {
       active = performance.now()
     }
     addEventListener('pointermove', follow, true)
+    // A parked cursor stays hidden until its first move, so a take never opens on a cursor sitting idle.
+    ;(window as any).__parkCursor = () => {
+      p.x = target.x
+      p.y = target.y
+      v.x = v.y = 0
+      active = -Infinity
+      shown = 0
+    }
     addEventListener('pointerdown', e => ((down = true), follow(e)), true)
     addEventListener('pointerup', e => ((down = false), follow(e)), true)
     const frame = (now: number) => {
@@ -265,6 +273,7 @@ export class Clip {
     this.pos = { x, y }
     await this.mouse('mouseMoved')
     await this.wait(300)
+    await this.page.evaluate(() => (window as any).__parkCursor?.())
   }
 
   /** A click where the pointer is, after the short rest a hand takes on its target. */

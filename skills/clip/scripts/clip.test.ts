@@ -312,10 +312,13 @@ describe('the title bar', () => {
     expect(luma(mid, '60:400:480:0')).toBeLessThan(60)
   }, 60_000)
 
-  test('fades the cursor once it rests and shows it again as it moves', async () => {
+  test('hides a parked cursor, fades it once it rests and shows it again as it moves', async () => {
     const clip = await openClip('data:text/html,<body></body>')
     const opacity = () => clip.page.evaluate(() => Number([...document.documentElement.children].find(el => el.querySelector('svg'))!.style.opacity))
     try {
+      await clip.place(60, 60)
+      await clip.page.waitForTimeout(150)
+      expect(await opacity()).toBe(0)
       await clip.page.mouse.move(100, 100)
       await clip.page.mouse.move(200, 200, { steps: 10 })
       await clip.page.waitForTimeout(150)
