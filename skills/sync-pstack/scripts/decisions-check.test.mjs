@@ -342,8 +342,121 @@ test('decisions-check takes a recorded critical finding only with its saved case
   assert.equal(reach().status, 0, 'every recorded finding settled');
   assert.equal(append('slice review', 'critical: The walk leaks a listener', 'proof: none', 'recorded: no export reaches the walk, step: 6').status, 1, "a slice review's recorded finding names its saved case too");
   assert.equal(append('slice review', 'critical: The walk leaks a listener', voidCase, 'recorded: no export reaches the walk, step: 6').status, 0);
-  assert.match(reach().stderr, /not settled: critical: The walk leaks a listener/, "a slice review's recorded finding holds the reach step");
+  assert.match(append('build', 'built: step 6 index.ts; reach: exports walk from the package root', 'scope: the export test', 'applied: step 6').stderr, /not settled: critical: The walk leaks a listener/, "a slice review's recorded finding holds the reach step");
   assert.equal(append('build', 'built: step 6 index.ts; reach: exports walk from the package root', `${voidCase}; scope: the listener case`, 'fixed: the walk drops its listener').status, 0, 'a reach step that fixes the recorded case itself');
+});
+
+function reachRow(recorded, decision, evidence = 'scope: the export test', seed = '') {
+  const { dir, run } = sandbox();
+  const cases = Object.fromEntries(recorded.flatMap(([name, , shared = []]) => [name, ...shared]).map((name) => [`docs/plans/artifacts/run/${name}.md`, 'case']));
+  const root = project(dir, 'app', { files: seed ? { ...cases, 'log.decisions.tsv': LOG_HEAD + seed } : cases });
+  const append = (...cells) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', ...cells], root);
+  assert.equal(append('panel', 'seats opus', 'why', 'evidence', 'recorded').status, 0);
+  for (const [name, step, shared = []] of recorded) {
+    const labels = step.includes('step:') ? step : `step: ${step}`;
+    assert.equal(append('panel', `critical [opus]: The ${name} case fails`, 'why', caseProofs(name, ...shared), `recorded: no export reaches it yet; ${labels}`).status, 0);
+  }
+  return append('build', `${decision}; reach: exports admit and fill from the package root`, 'why', evidence, 'applied: the step');
+}
+const caseProofs = (...names) => names.map((name) => `proof: docs/plans/artifacts/run/${name}.md`).join('; ');
+const LIVE_RECORDED = [['admit-result', '1a'], ['closed', '1a'], ['read-only', '1a'], ['once', '1a'], ['keys', '1a'], ['link-first', '1b'], ['gate', '1b'], ['no-forward', '1b'], ['landing-order', '1b']];
+
+test('decisions-check lets step 1a reach users once its own recorded findings settle, while step 1b findings still wait', () => {
+  const opened = reachRow(LIVE_RECORDED, 'built: step 1a BaseUploadPlugin.ts', `${caseProofs('admit-result', 'closed', 'read-only', 'once', 'keys')}; scope: the five saved cases`);
+  assert.equal(opened.status, 0, opened.stderr);
+});
+
+test("decisions-check reads the live board log's built: step 1a, upload's admit and fill row as step 1a", () => {
+  const opened = reachRow(LIVE_RECORDED, "built: step 1a, upload's admit and fill", `${caseProofs('admit-result', 'closed', 'read-only', 'once', 'keys')}; scope: the five saved cases`);
+  assert.equal(opened.status, 0, opened.stderr);
+});
+
+test('decisions-check holds step 1a while one of its own recorded findings is unsettled, and names only that one', () => {
+  const held = reachRow(LIVE_RECORDED, 'built: step 1a BaseUploadPlugin.ts', `${caseProofs('admit-result', 'closed', 'read-only', 'once')}; scope: four saved cases`);
+  assert.equal(held.status, 1);
+  assert.match(held.stderr, /a recorded critical finding is not settled: critical \[opus\]: The keys case fails\. /);
+});
+
+test('decisions-check holds step 1b while its recorded findings are unsettled', () => {
+  const held = reachRow(LIVE_RECORDED, 'built: step 1b board.ts', `${caseProofs('admit-result', 'closed', 'read-only', 'once', 'keys')}; scope: step 1a's cases`);
+  assert.equal(held.status, 1);
+  assert.match(held.stderr, /4 recorded critical findings are not settled: critical \[opus\]: The link-first case fails; critical \[opus\]: The gate case fails; critical \[opus\]: The no-forward case fails; critical \[opus\]: The landing-order case fails\. /);
+});
+
+test('decisions-check orders step ids by number, so a finding step 10 fixes does not hold step 2', () => {
+  const opened = reachRow([['late', '10']], 'built: step 2 index.ts');
+  assert.equal(opened.status, 0, opened.stderr);
+});
+
+test('decisions-check reads a step: label up to its next comma-free number, so step: 3, owner: zbeyens does not hold step 2', () => {
+  const opened = reachRow([['late', 'step: 3, owner: zbeyens']], 'built: step 2 snapping');
+  assert.equal(opened.status, 0, opened.stderr);
+});
+
+test('decisions-check reads a built row whose reach: follows a comma, and a [step: 1b] label', () => {
+  const opened = reachRow([['late', '[step: 1b]']], "built: step 1a, upload's admit and fill, reach: exports 2 functions");
+  assert.equal(opened.status, 0, opened.stderr);
+});
+
+test("decisions-check reads a built row's step only up to its first semicolon", () => {
+  const opened = reachRow([['late', '4']], 'built: step 3; also 5');
+  assert.equal(opened.status, 0, opened.stderr);
+});
+
+test('decisions-check reads a step: id past trailing punctuation, so step: 1b. does not hold step 1a', () => {
+  const opened = reachRow([['late', 'step: 1b.']], 'built: step 1a index.ts');
+  assert.equal(opened.status, 0, opened.stderr);
+});
+
+for (const [found, built] of [['2', '10'], ['1a', '1b'], ['1', '1a'], ['1A', '1a'], ['1b', '1'], ['step: 1b; step: 1a', '1a'], ['step: 1b; Step: 1a', '1a'], ['step: 1b; [step: 1a]', '1a'], ['9', '3 and 9'], ['9', '3, 9'], ['9', '2 and step 9 code'], ['4', '3 then 4'], ['step: 9, 2', '3'], ['step: 9 and 2', '3'], ['step: 5 then 2', '3'], ['step: 9 step: 2', '3'], ['step: 9, step: 2', '3'], ['step: 4 substep: 2', '3'], ['1b', '1 and 1a'], ['1z', '1t and 1z'], ['3', '1 and step 1000000000'], ['1b', "2, the snap lane's --snap 1 run"], ['step: 1b; "Step: 1a (upload)"', '1a'], ['step: 1b; **step:** 1a', '1a'], ['step: 1b; STEP: 1a', '1a']]) {
+  test(`decisions-check holds step ${built} while a finding names ${found}`, () => {
+    assert.equal(reachRow([['early', found]], `built: step ${built} index.ts`).status, 1);
+  });
+}
+
+for (const [found, built] of [['2.1', 'built: step 3 index.ts'], ['final', 'built: step 3 index.ts'], ['9', 'built: index.ts'], ['9', 'built: step 3.1 index.ts'], ['step: 9; step:', 'built: step 3 index.ts'], ['1ſ', 'built: step 1t index.ts'], ['9007199254740992b', 'built: step 9007199254740993a index.ts']]) {
+  test(`decisions-check holds "${built}" on a finding with ${found.includes('step:') ? found : `step: ${found}`}, because one id does not read as a step`, () => {
+    assert.equal(reachRow([['unread', found]], built).status, 1);
+  });
+}
+
+test('decisions-check names only the findings that hold the step when one step id does not read', () => {
+  const held = reachRow([['unread', '9.1'], ['later', '10']], 'built: step 2 index.ts');
+  assert.equal(held.status, 1);
+  assert.match(held.stderr, /a recorded critical finding is not settled: critical \[opus\]: The unread case fails\. /);
+});
+
+test('decisions-check says so when the reach row names no readable step, because every recorded finding then counts', () => {
+  const held = reachRow([['later', '9']], 'built: step three index.ts');
+  assert.equal(held.status, 1);
+  assert.match(held.stderr, /does not name one readable step/);
+});
+
+test('decisions-check keeps every step of findings that share one saved case', () => {
+  const held = reachRow([['first', '1a'], ['second', '1b', ['first']]], 'built: step 1a index.ts');
+  assert.equal(held.status, 1);
+  assert.match(held.stderr, /not settled: critical \[opus\]: The first case fails/);
+});
+
+test('decisions-check counts each recorded row once when two rows share a title and cite different saved cases', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app', { files: { 'docs/plans/artifacts/run/move.md': 'case', 'docs/plans/artifacts/run/rollback.md': 'case' } });
+  const append = (...cells) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', ...cells], root);
+  assert.equal(append('panel', 'seats opus', 'why', 'evidence', 'recorded').status, 0);
+  for (const name of ['move', 'rollback']) assert.equal(append('panel', 'critical [opus]: fill loses a draft', 'why', caseProofs(name), 'recorded: no export reaches it yet; step: 1a').status, 0);
+  const held = append('build', 'built: step 1a fill.ts; reach: exports fill', 'why', 'scope: the export test', 'applied: the step');
+  assert.equal(held.status, 1);
+  assert.match(held.stderr, /2 recorded critical findings are not settled/);
+});
+
+test('decisions-check holds a reach row whose step keyword is the long s', () => {
+  assert.equal(reachRow([['later', '1b']], 'built: ſtep 1a index.ts').status, 1);
+});
+
+test('decisions-check holds a reach step on a recorded row from before rows named their step', () => {
+  const held = reachRow([], 'built: step 3 index.ts', 'scope: the export test', '2026-11-01T00:00:01Z\tpanel\tcritical [opus]: The legacy case fails\twhy\tproof: docs/plans/artifacts/run/legacy.md\trecorded: no export reaches it yet\n');
+  assert.equal(held.status, 1);
+  assert.match(held.stderr, /not settled: critical \[opus\]: The legacy case fails/);
 });
 
 test('decisions-check takes the panel round cap from maxRounds and refuses a cap that is not a whole number', () => {
