@@ -2795,6 +2795,7 @@ test("guard and a build row refuse a dated plan's step past the step budget whil
   assert.equal(batch(cells('build', 'built: step 2 ids'), cells('delivery', 'step 2 landed as 1234567abc')).status, 0, 'a landing after a build row in one batch ends the lift only after it');
   assert.equal(edit('src/b.ts')?.permissionDecision, 'deny', 'until the log records a landing');
   row('owner', 'big step: "build steps 3 and 4 whole"');
+  row('delivery', 'step 3 has not landed as of this review');
   git(tree, 'rm', '--quiet', 'docs/plans/2025-12-31-old.decisions.tsv');
   assert.equal(edit('src/b.ts'), null, 'a deleted decision log leaves the lift in another log readable');
   row('delivery', 'Steps 3 and 4 landed as 1234567abc');
