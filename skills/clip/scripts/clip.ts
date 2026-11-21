@@ -11,8 +11,11 @@ export type Modifier = 'Alt' | 'Control' | 'Meta' | 'Shift'
 // CDP's Input.dispatchMouseEvent modifiers bit field.
 const MODIFIER_BITS: Record<Modifier, number> = { Alt: 1, Control: 2, Meta: 4, Shift: 8 }
 
-// The X shape is the owner's go (2026-11-19).
-const x: View = { width: 540, height: 675, scale: 2 }
+const BAR_PX = 80
+const FOOT_PX = 76
+// X documents 16:9, 1:1, 4:5, 2:3 and 9:16 video. A clip with its bars is 2:3, and a before-and-after clip is at most 9:16, X's tallest (the owner, 2026-11-21).
+const X_RATIO = { clip: 3 / 2, tallest: 16 / 9 }
+const x: View = { width: 540, height: 540 * X_RATIO.clip - BAR_PX - FOOT_PX, scale: 2 }
 // X's phone feed shows a clip about 312 pt wide (an iPhone's 393 pt less the avatar column and margins, estimated, not measured).
 const feedPt = 312
 const titleMinPt = 14
@@ -72,12 +75,12 @@ export const RULES: { rule: string; check: string }[] = [
   { rule: `A title bar holds a one-word lowercase tag and a lowercase title of at most ${CLIP.titleWords} words, on one line at ${CLIP.titlePx.max} px, shrunk as far as the line needs to fit. Under ${CLIP.titlePx.min} px, a phone shows it under ${titleMinPt} pt, so render suggests a shorter title.`, check: 'checkTitle, renderClip, renderTake' },
   { rule: 'A crop has even sides inside the viewport. Render rounds and clamps it on its own.', check: 'fitCrop' },
   {
-    rule: `A clip films X's shape, a page ${CLIP.x.width} px wide and 4:5 tall at ${CLIP.x.scale}× pixels, unless it opens with \`{ shape: 'wide' }\`. Its page text shows at ${CLIP.phoneTextPt} pt or more in a phone's feed, which shows a clip about ${CLIP.feedPt} pt wide.`,
+    rule: `A clip films X's shape, a page ${CLIP.x.width} by ${CLIP.x.height} px at ${CLIP.x.scale}× pixels, so with its ${BAR_PX} px title bar and ${FOOT_PX} px caption footer the clip is 2:3, unless it opens with \`{ shape: 'wide' }\`. Its page text shows at ${CLIP.phoneTextPt} pt or more in a phone's feed, which shows a clip about ${CLIP.feedPt} pt wide.`,
     check: 'openClip, reviewTake',
   },
   { rule: 'Render refuses an X-shape clip without a title bar, so the clip a team chat gets is the one X can post.', check: 'checkBar' },
   {
-    rule: `A change to how something a reader already saw behaves shows as one clip, the take before the change stacked above the take after it, each panel with a Before or After badge. Both takes play the same gesture at the same moment. Render stretches each span between two captions to the longer take's span by holding the shorter take's frame, so each caption lands in both panels together, and one caption footer serves both. Both panels show the area that changes anywhere in either take, with ${CLIP.comparePadPx} px of page around it, zoomed to the page's width but no further than the page has pixels for, and both together fit within twice the page's width, so an X clip stays inside X's tallest shape. Each badge sits left of its panel where the side has room, and inside its top left corner otherwise. Each take holds its result ${CLIP.compareEndS} s at most, unless the scene marks a longer \`read(ms)\`, and the clip ends holding both results for ${CLIP.compareHoldS} s. Both takes film the same shape and crop and caption the same beats, and the whole clip keeps the length and size limits.`,
+    rule: `A change to how something a reader already saw behaves shows as one clip, the take before the change stacked above the take after it, each panel with a Before or After badge. Both takes play the same gesture at the same moment. Render stretches each span between two captions to the longer take's span by holding the shorter take's frame, so each caption lands in both panels together, and one caption footer serves both. Both panels show the area that changes anywhere in either take, with ${CLIP.comparePadPx} px of page around it, zoomed to the page's width but no further than the page has pixels for, and both together, with the bars, fit within 9:16 of the page's width and twice the page's height, so an X clip stays inside X's tallest shape. Each badge sits left of its panel where the side has room, and inside its top left corner otherwise. Each take holds its result ${CLIP.compareEndS} s at most, unless the scene marks a longer \`read(ms)\`, and the clip ends holding both results for ${CLIP.compareHoldS} s. Both takes film the same shape and crop and caption the same beats, and the whole clip keeps the length and size limits.`,
     check: 'checkPair, renderCompare, alignBeats, changedArea, stackLayout, changedBox, squeezePlan',
   },
   {
@@ -626,8 +629,6 @@ async function squeeze(raw: string, cuts: [number, number][], out: string) {
   await run(['ffmpeg', '-v', 'error', '-y', '-i', raw, '-vf', `select='not(${drop})',setpts=N/(${CLIP.fps}*TB)`, '-an', '-c:v', 'libx264', '-crf', '16', '-pix_fmt', 'yuv420p', '-r', String(CLIP.fps), out])
 }
 
-const FOOT_PX = 76
-
 export function captionWindows(beats: Beat[], duration: number): { from: number; to: number; text: string }[] {
   return beats.map((s, i) => ({ from: s.t, to: i + 1 < beats.length ? beats[i + 1].t : Math.max(duration, s.t + CLIP.beatMinS), text: s.text }))
 }
@@ -669,7 +670,7 @@ const face = (family: string, weight: number, file: string) => `@font-face{font-
 const fontStyle = () => `<style>${face('Cal', 600, `${ASSETS}/CalSans-SemiBold.ttf`)}${face('Inter', 700, `${ASSETS}/Inter-Bold.ttf`)}body{margin:0;background:transparent}</style>`
 
 const barHtml = (bar: Bar, width: number) =>
-  `<div id="bar" style="width:${width}px;box-sizing:border-box;padding:22px 40px 18px;background:#fafafa;border-bottom:1px solid #e5e5e5;font:600 ${CLIP.titlePx.max}px/1.1 Cal;color:#0a0a0a;white-space:nowrap;overflow:hidden;display:flex;gap:0.3em"><span style="flex:none;color:#a3a3a3">${esc(bar.tag)} /</span><span style="flex:none">${esc(bar.title)}</span></div>`
+  `<div id="bar" style="width:${width}px;height:${BAR_PX}px;box-sizing:border-box;padding:2px 40px 0;background:#fafafa;border-bottom:1px solid #e5e5e5;font:600 ${CLIP.titlePx.max}px/1.1 Cal;color:#0a0a0a;white-space:nowrap;overflow:hidden;display:flex;align-items:center;gap:0.3em"><span style="flex:none;color:#a3a3a3">${esc(bar.tag)} /</span><span style="flex:none">${esc(bar.title)}</span></div>`
 
 /** Shrinks the page's title bar until its line fits, and returns the size it fits at. */
 const fitTitle = (page: Page) =>
@@ -809,8 +810,8 @@ const PAGE_BG = '#f5f5f5'
 /** Where a before-and-after clip crops its `width`×`height` page and how far it zooms, in CSS px. The crop holds the changed `box` with `CLIP.comparePadPx` px of page around it, at least a quarter of the page tall. The zoom fills the page's width, goes no further than `maxZoom`, and keeps both panels together within twice the page's width and height, and the crop widens to the width that zoom fills. The whole page when nothing changed. */
 export function stackLayout(box: Box | undefined, width: number, height: number, maxZoom = 1) {
   const want = box ? { w: Math.min(width, box.w + 2 * CLIP.comparePadPx), h: Math.min(height, Math.max(box.h + 2 * CLIP.comparePadPx, height / 4)) } : { w: width, h: height }
-  // Twice the width keeps an X clip, bars included, inside X's tallest shape, 1:2.39.
-  const k = Math.min(maxZoom, width / want.w, (Math.min(2 * width, 2 * height) - STACK_GAP) / 2 / want.h)
+  const tallest = Math.min(width * X_RATIO.tallest - BAR_PX - FOOT_PX, 2 * height)
+  const k = Math.min(maxZoom, width / want.w, (tallest - STACK_GAP) / 2 / want.h)
   const span = (center: number, len: number, size: number) => {
     const n = Math.min(size, len)
     return [Math.min(Math.max(center - n / 2, 0), size - n), n]

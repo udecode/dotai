@@ -193,17 +193,23 @@ describe('a before-and-after pair', () => {
     for (const spans of plan) expect(spans.reduce((n, [a, b, held]) => n + b - a + held, 0)).toBe(frames)
   })
 
-  test('crops to the changed area, fills the width as far as the pixels allow and fits both panels in the page', () => {
-    const line = stackLayout({ x: 100, y: 300, w: 300, h: 20 }, 540, 675, 2)
-    expect(line.k).toBeCloseTo(540 / 332)
-    expect(line.panel.w).toBeCloseTo(540)
-    expect(line.crop.h).toBeCloseTo(675 / 4)
-    const narrow = stackLayout({ x: 200, y: 300, w: 60, h: 20 }, 540, 675, 2)
-    expect([narrow.k, narrow.crop.w, narrow.panel.w]).toEqual([2, 270, 540])
-    const page = stackLayout(undefined, 540, 675, 2)
-    expect(page.panel.h * 2).toBeLessThanOrEqual(2 * 540)
-    expect(stackLayout({ x: 0, y: 0, w: 500, h: 600 }, 540, 675, 2).panel.h * 2).toBeLessThanOrEqual(2 * 540)
-    expect(page.crop).toEqual({ x: 0, y: 0, w: 540, h: 675 })
+  test('crops to the changed area, fills the width as far as the pixels allow and keeps the clip inside 9:16', () => {
+    const { width, height } = CLIP.x
+    const tallest = width * (16 / 9) - 80 - 76
+    const line = stackLayout({ x: 100, y: 300, w: 300, h: 20 }, width, height, 2)
+    expect(line.k).toBeCloseTo(width / 332)
+    expect(line.panel.w).toBeCloseTo(width)
+    expect(line.crop.h).toBeCloseTo(height / 4)
+    const narrow = stackLayout({ x: 200, y: 300, w: 60, h: 20 }, width, height, 2)
+    expect([narrow.k, narrow.crop.w, narrow.panel.w]).toEqual([2, 270, width])
+    const page = stackLayout(undefined, width, height, 2)
+    expect(page.panel.h * 2 + 8).toBeLessThanOrEqual(tallest + 1e-6)
+    expect(stackLayout({ x: 0, y: 0, w: 500, h: 600 }, width, height, 2).panel.h * 2 + 8).toBeLessThanOrEqual(tallest + 1e-6)
+    expect(page.crop).toEqual({ x: 0, y: 0, w: width, h: height })
+  })
+
+  test('an X clip with its bars is 2:3', () => {
+    expect((CLIP.x.height + 80 + 76) / CLIP.x.width).toBe(3 / 2)
   })
 
   test('finds what changes during either take, not just at the end, and ignores the moving cursor', async () => {
