@@ -15,9 +15,10 @@ import {
   checkTrail,
   CLIP,
   renderClip,
-  endLayout,
-  renderEndPage,
-  renderPush,
+  alignBeats,
+  changedArea,
+  renderPair,
+  stackLayout,
   fitCrop,
   openClip,
   fixCaption,
@@ -95,7 +96,7 @@ describe('a take', () => {
     expect(squeezePlan([[2, 2.3]], [0.2], 6)).toEqual([])
   })
 
-  test('ends each half of a before-and-after clip sooner, since the end frame holds both results', () => {
+  test('ends each take of a before-and-after clip sooner, since the clip then holds both results', () => {
     expect(squeezePlan([[7.5, 10]], [0.2, 4], 10, [], CLIP.compareEndS)).toEqual([[7.9, 10]])
   })
 
@@ -176,6 +177,74 @@ describe('a before-and-after pair', () => {
     ])
     expect(checkPair(at(undefined, CLIP.wide), at(undefined, CLIP.x))).toHaveLength(1)
   })
+
+  test('refuses takes with different beats, which leave nothing to line them up by', () => {
+    const one = take([{ t: 0, text: 'Bold it' }])
+    const two = take([{ t: 0, text: 'Bold it' }, { t: 2, text: 'Undo it' }])
+    expect(checkPair(one, two)).toEqual(['the before take has 1 captions and the after take 2; caption the same beats in both, so they play in step'])
+  })
+
+  test('lines both takes up caption by caption, holding the shorter one', () => {
+    const { plan, starts, frames } = alignBeats([[12, 100], [12, 160]], [200, 220], 30)
+    expect(starts).toEqual([12, 160])
+    expect(frames).toEqual(12 + 148 + 100 + 30)
+    expect(plan[0]).toEqual([[0, 12, 0], [12, 100, 60], [100, 200, 30]])
+    expect(plan[1]).toEqual([[0, 12, 0], [12, 160, 0], [160, 220, 70]])
+    for (const spans of plan) expect(spans.reduce((n, [a, b, held]) => n + b - a + held, 0)).toBe(frames)
+  })
+
+  test('crops to the changed area, fills the width as far as the pixels allow and fits both panels in the page', () => {
+    const line = stackLayout({ x: 100, y: 300, w: 300, h: 20 }, 540, 675, 2)
+    expect(line.k).toBeCloseTo(540 / 332)
+    expect(line.panel.w).toBeCloseTo(540)
+    expect(line.crop.h).toBeCloseTo(675 / 4)
+    const narrow = stackLayout({ x: 200, y: 300, w: 60, h: 20 }, 540, 675, 2)
+    expect([narrow.k, narrow.crop.w, narrow.panel.w]).toEqual([2, 270, 540])
+    const page = stackLayout(undefined, 540, 675, 2)
+    expect(page.panel.h * 2).toBeLessThanOrEqual(2 * 540)
+    expect(stackLayout({ x: 0, y: 0, w: 500, h: 600 }, 540, 675, 2).panel.h * 2).toBeLessThanOrEqual(2 * 540)
+    expect(page.crop).toEqual({ x: 0, y: 0, w: 540, h: 675 })
+  })
+
+  test('finds what changes during either take, not just at the end, and ignores the moving cursor', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'clip-area-'))
+    const clip = (name: string, boxes: string) => {
+      const file = join(dir, `${name}.mp4`)
+      Bun.spawnSync(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', `color=c=white:s=540x400:d=2${boxes}`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', file])
+      return file
+    }
+    // A menu that opens and closes in the before take, and a cursor-sized square that moves in both.
+    const cursor = ",drawbox=x='20+100*t':y=20:w=20:h=24:color=black:t=fill"
+    const before = clip('before', `${cursor},drawbox=x=60:y=200:w=300:h=80:color=black:t=fill:enable='between(t,0.5,1)'`)
+    const after = clip('after', cursor)
+    const box = (await changedArea([before, after], 1))!
+    expect(box.y).toBeGreaterThan(180)
+    expect(box.y + box.h).toBeLessThan(300)
+    expect(box.x).toBeLessThan(70)
+    expect(box.x + box.w).toBeGreaterThan(350)
+  }, 60_000)
+
+  test('stacks a before still above an after still, cropped to where they differ', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'clip-pair-'))
+    const still = (name: string, boxes: string) => {
+      const file = join(dir, `${name}.png`)
+      Bun.spawnSync(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', `color=c=white:s=800x600${boxes}`, '-frames:v', '1', file])
+      return file
+    }
+    const before = still('before', ',drawbox=x=100:y=400:w=200:h=30:color=gray:t=fill')
+    const after = still('after', ',drawbox=x=100:y=400:w=200:h=30:color=black:t=fill')
+    const out = join(dir, 'pair.png')
+    expect((await renderPair([before, after], out)).fails).toEqual([])
+    const [w, h] = Bun.spawnSync(['ffprobe', '-v', 'error', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', out]).stdout.toString().trim().split(',').map(Number)
+    expect(w).toBe(400)
+    // Each panel is 150 px of page under a strip that holds its badge.
+    expect(h).toBeGreaterThan(2 * 150 + 8 + 2 * 20)
+    expect(h).toBeLessThan(2 * 150 + 8 + 2 * 60)
+    expect((await renderPair([before, before], out)).fails[0]).toContain('show the same thing')
+    const other = join(dir, 'other.png')
+    Bun.spawnSync(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=white:s=640x480', '-frames:v', '1', other])
+    expect((await renderPair([before, other], out)).fails[0]).toContain('take both at one size')
+  }, 60_000)
 })
 
 describe('captions and bars', () => {
@@ -220,96 +289,12 @@ describe('captions and bars', () => {
 })
 
 describe('the title bar', () => {
-  test('shrinks a long title until it fits one line with its badge, at the same size on both halves', async () => {
+  test('shrinks a long title until it fits one line', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'clip-bar-'))
     const clip = join(dir, 'page.mp4')
     Bun.spawnSync(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', 'color=c=white:s=540x400:d=0.3', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', clip])
-    const bar = { tag: 'markdown', title: 'keep your yaml front matter intact' }
-    const before = await renderClip(clip, join(dir, 'before.mp4'), { bar, side: 'Before' })
-    const after = await renderClip(clip, join(dir, 'after.mp4'), { bar, side: 'After' })
-    expect(before.titlePx).toBeLessThan(CLIP.titlePx.max)
-    expect(after.titlePx).toBe(before.titlePx)
+    expect((await renderClip(clip, join(dir, 'long.mp4'), { bar: { tag: 'markdown', title: 'keep your yaml front matter intact' } })).titlePx).toBeLessThan(CLIP.titlePx.max)
     expect((await renderClip(clip, join(dir, 'short.mp4'), { bar: { tag: 'board', title: 'notes' } })).titlePx).toBe(CLIP.titlePx.max)
-    await expect(renderClip(clip, join(dir, 'none.mp4'), { side: 'After' })).rejects.toThrow('needs a title bar')
-    expect((await renderClip(clip, join(dir, 'end.mp4'), { bar, badgeRoom: true })).titlePx).toBe(before.titlePx)
-  }, 60_000)
-
-  test('ends a before-and-after clip on both last frames, moving there from the After frame without a cut', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'clip-end-'))
-    const pages = ['white', 'gray'].map(c => {
-      const page = join(dir, `${c}.mp4`)
-      Bun.spawnSync(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', `color=c=${c}:s=540x400:d=0.3`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', page])
-      return page
-    }) as [string, string]
-    const out = join(dir, 'end.mp4')
-    await renderEndPage(pages, out)
-    const probe = Bun.spawnSync(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height:format=duration', '-of', 'default=nw=1:nk=1', out]).stdout.toString().trim().split('\n').map(Number)
-    expect(probe.slice(0, 2)).toEqual([540, 400])
-    expect(probe[2]).toBeCloseTo(CLIP.compareHoldS, 1)
-    const gray = (seek: string[]) => Bun.spawnSync(['ffmpeg', '-v', 'error', ...seek, '-i', out, '-frames:v', '1', '-vf', 'scale=1:1', '-f', 'rawvideo', '-pix_fmt', 'gray', '-']).stdout[0]
-    const after = Bun.spawnSync(['ffmpeg', '-v', 'error', '-i', pages[1], '-frames:v', '1', '-vf', 'scale=1:1', '-f', 'rawvideo', '-pix_fmt', 'gray', '-']).stdout[0]
-    expect(Math.abs(gray([]) - after)).toBeLessThan(3)
-    expect(gray(['-sseof', '-0.1']) - after).toBeGreaterThan(40)
-  }, 60_000)
-
-  test('ends on the area that changed, at its own size, so a phone can read it', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'clip-end-'))
-    const pages = ['', ',drawbox=x=70:y=100:w=400:h=40:color=black:t=fill'].map((box, i) => {
-      const page = join(dir, `${i}.mp4`)
-      Bun.spawnSync(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', `color=c=white:s=540x400:d=0.3${box}`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', page])
-      return page
-    }) as [string, string]
-    const out = join(dir, 'end.mp4')
-    await renderEndPage(pages, out)
-    const last = Bun.spawnSync(['ffmpeg', '-v', 'error', '-sseof', '-0.1', '-i', out, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'gray', '-']).stdout
-    // The whole page side by side would show the 400 by 40 bar at under half its size, about 3,400 dark pixels.
-    expect(last.filter(v => v < 64).length).toBeGreaterThan(12_000)
-  }, 60_000)
-
-  test('slides the footer the After half ends on out of the end, so the panels take its height', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'clip-end-'))
-    const pages = ['white', 'gray'].map(c => {
-      const page = join(dir, `${c}.mp4`)
-      Bun.spawnSync(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', `color=c=${c}:s=540x400:d=0.3`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', page])
-      return page
-    }) as [string, string]
-    const out = join(dir, 'end.mp4')
-    await renderEndPage(pages, out, { caption: 'Draw a note' })
-    const size = Bun.spawnSync(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', out]).stdout.toString().trim()
-    expect(size).toBe('540,476')
-    const footLuma = (seek: string[]) =>
-      Bun.spawnSync(['ffmpeg', '-v', 'error', ...seek, '-i', out, '-frames:v', '1', '-vf', 'crop=540:60:0:410,scale=1:1', '-f', 'rawvideo', '-pix_fmt', 'gray', '-']).stdout[0]
-    expect(footLuma([])).toBeLessThan(40)
-    expect(footLuma(['-sseof', '-0.1'])).toBeGreaterThan(100)
-  }, 60_000)
-
-  test('puts the badges to the left of stacked panels when a badge row would shrink them', () => {
-    const badge: [number, number] = [93, 28]
-    const tall = endLayout({ x: 0, y: 0, w: 270, h: 152 }, 540, 400, badge)
-    expect([tall.row, tall.left, tall.k]).toEqual([false, true, 1])
-    const strip = endLayout({ x: 0, y: 0, w: 540, h: 150 }, 540, 675, badge)
-    expect([strip.row, strip.left]).toEqual([false, false])
-    expect(endLayout({ x: 0, y: 0, w: 270, h: 100 }, 540, 675, badge, 2).k).toBeGreaterThan(1.5)
-  })
-
-  test('pushes the After page in from the right without a cut', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'clip-push-'))
-    const pages = ['white', 'black'].map(c => {
-      const page = join(dir, `${c}.mp4`)
-      Bun.spawnSync(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', `color=c=${c}:s=540x400:d=0.3`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', page])
-      return page
-    }) as [string, string]
-    const out = join(dir, 'push.mp4')
-    await renderPush(pages, out)
-    const duration = Number(Bun.spawnSync(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', out]).stdout.toString())
-    expect(duration).toBeCloseTo(CLIP.pushS, 1)
-    const luma = (seek: string[], crop = 'iw:ih:0:0') =>
-      Bun.spawnSync(['ffmpeg', '-v', 'error', ...seek, '-i', out, '-frames:v', '1', '-vf', `crop=${crop},scale=1:1`, '-f', 'rawvideo', '-pix_fmt', 'gray', '-']).stdout[0]
-    expect(luma([])).toBeGreaterThan(240)
-    expect(luma(['-sseof', '-0.02'])).toBeLessThan(15)
-    const mid = ['-ss', '0.1']
-    expect(luma(mid, '60:400:0:0')).toBeGreaterThan(200)
-    expect(luma(mid, '60:400:480:0')).toBeLessThan(60)
   }, 60_000)
 
   test('hides a parked cursor, fades it once it rests and shows it again as it moves', async () => {

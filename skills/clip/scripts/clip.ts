@@ -33,15 +33,14 @@ export const CLIP = {
   // A stretch where nothing moves gets cut down to these. "Pauses are a bit too long, humans should not lose attention" (the owner, 2026-11-19), and the pause after a result still dragged at 0.7 s and 1 s (the owner, 2026-11-20).
   stillMaxS: 0.4,
   endHoldS: 0.6,
-  // Each half of a before-and-after clip ends sooner, because the end frame holds both results next; a second of stillness after each result read as a stall (the owner, 2026-11-20).
+  // Each take of a before-and-after clip keeps less stillness at its end, because the clip then holds both results together; a second of stillness after each result read as a stall (the owner, 2026-11-20).
   compareEndS: 0.4,
   // The cursor fades once the hand rests, the way Screen Studio hides it, so no scene moves it off the result and no cut makes it jump (the owner, 2026-11-20).
   cursorIdleS: 0.5,
   cursorFadeS: 0.15,
-  // A before-and-after clip ends on both results at once, so the reader compares them without remembering the first half (the owner, 2026-11-20).
-  compareHoldS: 2,
-  // The push from the Before take to the After take, which the clip's length limit pays for.
-  pushS: 0.5,
+  // A before-and-after clip ends holding both results, so the reader compares them (the owner, 2026-11-20). Each take's own end hold counts toward it.
+  compareHoldS: 1.2,
+  comparePadPx: 16,
   stillLeadS: 0.2,
   caretPx: 50,
   stillLevel: 16,
@@ -70,7 +69,7 @@ export const RULES: { rule: string; check: string }[] = [
   { rule: `While a button is down, the drawn cursor stays within ${CLIP.heldLagPx} px of the pointer and never turns back on its own.`, check: 'checkTrail' },
   { rule: `The drawn cursor jumps at most ${CLIP.pressJumpPx} px at a press, and turns back at most ${CLIP.freeFlips} times on free moves.`, check: 'checkTrail' },
   { rule: `While a button is down, the pointer moves every frame, at most ${CLIP.heldGapMs} ms apart at the 90th percentile, so a stroke grows smoothly.`, check: 'checkTrail' },
-  { rule: `A title bar holds a one-word lowercase tag and a lowercase title of at most ${CLIP.titleWords} words, on one line at ${CLIP.titlePx.max} px, shrunk as far as the line needs to fit with its badge. Under ${CLIP.titlePx.min} px, a phone shows it under ${titleMinPt} pt, so render suggests a shorter title.`, check: 'checkTitle, renderClip, renderTake' },
+  { rule: `A title bar holds a one-word lowercase tag and a lowercase title of at most ${CLIP.titleWords} words, on one line at ${CLIP.titlePx.max} px, shrunk as far as the line needs to fit. Under ${CLIP.titlePx.min} px, a phone shows it under ${titleMinPt} pt, so render suggests a shorter title.`, check: 'checkTitle, renderClip, renderTake' },
   { rule: 'A crop has even sides inside the viewport. Render rounds and clamps it on its own.', check: 'fitCrop' },
   {
     rule: `A clip films X's shape, a page ${CLIP.x.width} px wide and 4:5 tall at ${CLIP.x.scale}× pixels, unless it opens with \`{ shape: 'wide' }\`. Its page text shows at ${CLIP.phoneTextPt} pt or more in a phone's feed, which shows a clip about ${CLIP.feedPt} pt wide.`,
@@ -78,8 +77,12 @@ export const RULES: { rule: string; check: string }[] = [
   },
   { rule: 'Render refuses an X-shape clip without a title bar, so the clip a team chat gets is the one X can post.', check: 'checkBar' },
   {
-    rule: `A change to something a reader already saw shows as one clip, the take before the change and then the take after it, each half with a Before or After badge at the end of the title bar. The After take pushes in from the right in ${CLIP.pushS} s, like the next slide, and the end brings the Before panel back from the left. Each half holds its result ${CLIP.compareEndS} s at most before what comes next, unless the scene marks a longer \`read(ms)\`. The clip ends on the last frame of both takes for ${CLIP.compareHoldS} s, cropped to the area where they differ and zoomed in no further than the page has pixels for, side by side or stacked, each badge above its panel or to its left, whichever shows them larger. The After frame shrinks into its slot instead of cutting away, and the footer slides out of the frame. Both moves run on a spring with no overshoot and motion blur, and render adds a strip of each move to the stills. Both takes film the same shape and crop, and the whole clip keeps the length and size limits.`,
-    check: 'checkPair, renderCompare, renderPush, renderEndPage, endLayout, changedBox, squeezePlan',
+    rule: `A change to how something a reader already saw behaves shows as one clip, the take before the change stacked above the take after it, each panel with a Before or After badge. Both takes play the same gesture at the same moment. Render stretches each span between two captions to the longer take's span by holding the shorter take's frame, so each caption lands in both panels together, and one caption footer serves both. Both panels show the area that changes anywhere in either take, with ${CLIP.comparePadPx} px of page around it, zoomed to the page's width but no further than the page has pixels for, and both together fit within twice the page's width, so an X clip stays inside X's tallest shape. Each badge sits left of its panel where the side has room, and inside its top left corner otherwise. Each take holds its result ${CLIP.compareEndS} s at most, unless the scene marks a longer \`read(ms)\`, and the clip ends holding both results for ${CLIP.compareHoldS} s. Both takes film the same shape and crop and caption the same beats, and the whole clip keeps the length and size limits.`,
+    check: 'checkPair, renderCompare, alignBeats, changedArea, stackLayout, changedBox, squeezePlan',
+  },
+  {
+    rule: 'A change to how something looks at rest, such as copy or a style, shows as one image, the still before the change stacked above the still after it, both cropped to the area where they differ, each under its own badge. It refuses two stills of different sizes or two that show the same thing.',
+    check: 'renderPair, changedBox',
   },
 ]
 
@@ -642,13 +645,13 @@ const KEYCAP = 'display:inline-block;min-width:1.4em;text-align:center;padding:3
 // A caption in the page's own colors read as page text and got missed, and the owner picked a black footer over a black pill (2026-11-19).
 const FOOT_BG = '#0a0a0a'
 const CAPTION = 'display:inline-flex;align-items:center;gap:8px;font:700 26px/1 Inter;color:#fff;padding:2px'
-// A footer label was easy to miss, so the side shows as a badge at the end of the title line, light before and green after (the owner, 2026-11-20).
+// A footer label was easy to miss, so each side shows as a badge, light before and green after (the owner, 2026-11-20).
 const SIDES = ['Before', 'After'] as const
 const BADGE: Record<(typeof SIDES)[number], string> = { Before: 'background:#e5e5e5;color:#525252', After: 'background:#16a34a;color:#fff' }
 const badgeStyle = (side: Side) =>
-  `flex:none;align-self:center;font:700 0.42em/1 Inter;letter-spacing:0.06em;text-transform:uppercase;padding:0.45em 0.8em 0.4em;border-radius:999px;${BADGE[side]}`
+  `flex:none;align-self:center;font:700 0.42em/1 Inter;letter-spacing:0.06em;text-transform:uppercase;padding:0.45em 0.8em 0.4em;border-radius:999px;box-shadow:0 1px 3px rgba(0,0,0,0.25);${BADGE[side]}`
 
-/** Which half of a before-and-after clip a take is. */
+/** Which take of a before-and-after clip a panel shows. */
 export type Side = (typeof SIDES)[number]
 
 export const captionHtml = (text: string) =>
@@ -661,14 +664,29 @@ export const captionHtml = (text: string) =>
 /** A title bar: a gray one-word area tag, then what you do. It carries no post number, because the owner may delete a post (2026-11-19). */
 export type Bar = { tag: string; title: string }
 
-/** Stacks an optional title bar, with the `side` badge at the end of its line, above the clip and a caption bar below it, and encodes at 60 fps. Bars draw at the clip's `scale`, so they keep their size beside the page. `badgeRoom` keeps the badge's room empty, so a clip that follows both halves keeps their title size. Returns the title's size after it shrank to fit. */
+const face = (family: string, weight: number, file: string) => `@font-face{font-family:${family};font-weight:${weight};src:url(data:font/ttf;base64,${readFileSync(file).toString('base64')})}`
+// Cal Sans crowds its words below heading sizes, and X shows the clip at about phone width, so captions use Inter.
+const fontStyle = () => `<style>${face('Cal', 600, `${ASSETS}/CalSans-SemiBold.ttf`)}${face('Inter', 700, `${ASSETS}/Inter-Bold.ttf`)}body{margin:0;background:transparent}</style>`
+
+const barHtml = (bar: Bar, width: number) =>
+  `<div id="bar" style="width:${width}px;box-sizing:border-box;padding:22px 40px 18px;background:#fafafa;border-bottom:1px solid #e5e5e5;font:600 ${CLIP.titlePx.max}px/1.1 Cal;color:#0a0a0a;white-space:nowrap;overflow:hidden;display:flex;gap:0.3em"><span style="flex:none;color:#a3a3a3">${esc(bar.tag)} /</span><span style="flex:none">${esc(bar.title)}</span></div>`
+
+/** Shrinks the page's title bar until its line fits, and returns the size it fits at. */
+const fitTitle = (page: Page) =>
+  page.evaluate(async max => {
+    await document.fonts.ready
+    const el = document.getElementById('bar')!
+    let size = max
+    while (size > 1 && el.scrollWidth > el.clientWidth) el.style.fontSize = `${--size}px`
+    return size
+  }, CLIP.titlePx.max)
+
+/** Stacks an optional title bar above the clip and a caption bar below it, and encodes at 60 fps. Bars draw at the clip's `scale`, so they keep their size beside the page. Returns the title's size after it shrank to fit. */
 export async function renderClip(
   clip: string,
   out: string,
-  { bar, captions = [], scale = 1, side, badgeRoom }: { bar?: Bar; captions?: Beat[]; scale?: number; side?: Side; badgeRoom?: boolean } = {},
+  { bar, captions = [], scale = 1 }: { bar?: Bar; captions?: Beat[]; scale?: number } = {},
 ): Promise<{ titlePx?: number }> {
-  const label = side ?? (badgeRoom ? SIDES[0] : undefined)
-  if (label && !bar) throw new Error('a before-and-after clip needs a title bar, where its badges go; render it with --tag and --title')
   if (bar) checkTitle(bar.tag, bar.title)
   let titlePx: number | undefined
   captions.forEach(c => checkCaption(c.text))
@@ -686,10 +704,7 @@ export async function renderClip(
     const browser = await chromium.launch()
     try {
       const page = await browser.newPage({ deviceScaleFactor: scale })
-      // Cal Sans crowds its words below heading sizes, and X shows the clip at about phone width, so captions use Inter.
-      const face = (family: string, weight: number, file: string) =>
-        `@font-face{font-family:${family};font-weight:${weight};src:url(data:font/ttf;base64,${readFileSync(file).toString('base64')})}`
-      const style = `<style>${face('Cal', 600, `${ASSETS}/CalSans-SemiBold.ttf`)}${face('Inter', 700, `${ASSETS}/Inter-Bold.ttf`)}body{margin:0;background:transparent}</style>`
+      const style = fontStyle()
       if (foot) {
         await page.setContent(`${style}<div id="foot" style="width:${width}px;height:${FOOT_PX}px;background:${FOOT_BG}"></div>`)
         await page.locator('#foot').screenshot({ path: join(dir, 'foot.png') })
@@ -700,29 +715,8 @@ export async function renderClip(
         }
       }
       if (bar) {
-        await page.setContent(`${style}
-<div id="bar" style="width:${width}px;box-sizing:border-box;padding:22px 40px 18px;background:#fafafa;border-bottom:1px solid #e5e5e5;font:600 ${CLIP.titlePx.max}px/1.1 Cal;color:#0a0a0a;white-space:nowrap;overflow:hidden;display:flex;gap:0.3em"><span style="flex:none;color:#a3a3a3">${esc(bar.tag)} /</span><span style="flex:none">${esc(bar.title)}</span>${label ? `<span style="flex:1 0 0.6em"></span><span id="badge" style="${badgeStyle(label)}${side ? '' : ';visibility:hidden'}">${label}</span>` : ''}</div>`)
-        // Both halves of a before-and-after clip fit the wider badge, so the title keeps its size across the cut.
-        titlePx = await page.evaluate(
-          async ({ max, labels }) => {
-            await document.fonts.ready
-            const el = document.getElementById('bar')!
-            const badge = document.getElementById('badge')
-            const real = badge?.textContent
-            const fitsWith = (label?: string) => {
-              if (badge && label) badge.textContent = label
-              return el.scrollWidth <= el.clientWidth
-            }
-            let size = max
-            for (; size > 1; size--) {
-              el.style.fontSize = `${size}px`
-              if (badge ? labels.every(fitsWith) : fitsWith()) break
-            }
-            if (badge) badge.textContent = real!
-            return size
-          },
-          { max: CLIP.titlePx.max, labels: [...SIDES] },
-        )
+        await page.setContent(`${style}${barHtml(bar, width)}`)
+        titlePx = await fitTitle(page)
         await page.locator('#bar').screenshot({ path: join(dir, 'bar.png') })
       }
     } finally {
@@ -747,8 +741,8 @@ export async function renderClip(
 
 type Box = { x: number; y: number; w: number; h: number }
 
-/** Where two RGB frames of `w`×`h` pixels differ, as a box in those pixels, or undefined when they match. A blob under a quarter of the largest one, such as a cursor that moved, does not count. */
-export function changedBox(a: Uint8Array, b: Uint8Array, w: number, h: number): Box | undefined {
+/** Where two RGB frames of `w`×`h` pixels differ, as a box in those pixels, or undefined when they match. A blob under a quarter of the largest one, such as a cursor that moved, does not count, and neither does one of `minArea` pixels or fewer. */
+export function changedBox(a: Uint8Array, b: Uint8Array, w: number, h: number, minArea = 0): Box | undefined {
   const r = 4
   const on = new Uint8Array(w * h)
   for (let i = 0; i < w * h; i++) on[i] = Math.max(Math.abs(a[3 * i] - b[3 * i]), Math.abs(a[3 * i + 1] - b[3 * i + 1]), Math.abs(a[3 * i + 2] - b[3 * i + 2])) > 32 ? 1 : 0
@@ -782,13 +776,19 @@ export function changedBox(a: Uint8Array, b: Uint8Array, w: number, h: number): 
     blobs.push({ x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1, area })
   }
   const big = Math.max(0, ...blobs.map(b => b.area))
-  const kept = blobs.filter(b => b.area >= big / 4)
+  const kept = blobs.filter(b => b.area > minArea && b.area >= big / 4)
   if (!kept.length) return undefined
   const [x0, y0] = [Math.min(...kept.map(b => b.x)), Math.min(...kept.map(b => b.y))]
   return { x: x0, y: y0, w: Math.max(...kept.map(b => b.x + b.w)) - x0, h: Math.max(...kept.map(b => b.y + b.h)) - y0 }
 }
 
-/** The page area a before-and-after end shows: the changed box, scaled by `unit` to CSS pixels, with 16 px of page around it, at least half the page wide and a quarter tall. The whole page when nothing changed or the area would cover most of it. */
+const union = (boxes: Box[]): Box | undefined => {
+  if (!boxes.length) return undefined
+  const [x, y] = [Math.min(...boxes.map(b => b.x)), Math.min(...boxes.map(b => b.y))]
+  return { x, y, w: Math.max(...boxes.map(b => b.x + b.w)) - x, h: Math.max(...boxes.map(b => b.y + b.h)) - y }
+}
+
+/** The page area a before-and-after image shows: the changed box, scaled by `unit` to CSS pixels, with 16 px of page around it, at least half the page wide and a quarter tall. The whole page when nothing changed or the area would cover most of it. */
 function cropAround(box: Box | undefined, unit: [x: number, y: number], width: number, height: number): Box {
   const page = { x: 0, y: 0, w: width, h: height }
   if (!box) return page
@@ -801,153 +801,151 @@ function cropAround(box: Box | undefined, unit: [x: number, y: number], width: n
   return w * h > 0.8 * width * height ? page : { x, y, w, h }
 }
 
-/** Where the two panels of a before-and-after end sit on a `width`×`height` page: side by side or stacked, each badge above its panel or to its left, whichever shows the cropped area larger, zoomed at most `maxZoom` times. */
-export function endLayout(crop: Box, width: number, height: number, badge: [w: number, h: number], maxZoom = 1) {
-  const gap = 16
-  const [bw, bh] = [badge[0] + 8, badge[1] + 8]
-  // A badge to the left gives a stacked end the height a badge row would take (the owner, 2026-11-20).
-  const options = [
-    { row: true, left: false },
-    { row: false, left: true },
-    { row: false, left: false },
-  ].map(o => {
-    const [cols, rows] = o.row ? [2, 1] : [1, 2]
-    const k = Math.min(maxZoom, (width - gap * (cols + 1) - (o.left ? cols * bw : 0)) / cols / crop.w, (height - gap * (rows + 1) - (o.left ? 0 : rows * bh)) / rows / crop.h)
-    return { ...o, k }
-  })
-  const best = options.reduce((a, b) => (b.k > a.k + 1e-9 ? b : a))
-  const [pw, ph] = [crop.w * best.k, crop.h * best.k]
-  const [cw, ch] = [pw + (best.left ? bw : 0), ph + (best.left ? 0 : bh)]
-  const [cols, rows] = best.row ? [2, 1] : [1, 2]
-  const [x0, y0] = [(width - cols * cw - (cols - 1) * gap) / 2, (height - rows * ch - (rows - 1) * gap) / 2]
-  const slots = [0, 1].map(i => {
-    const [c, r] = best.row ? [i, 0] : [0, i]
-    return { x: x0 + c * (cw + gap) + (best.left ? bw : 0), y: y0 + r * (ch + gap) + (best.left ? 0 : bh), w: pw, h: ph }
-  })
-  return { ...best, gap, slots }
+const STACK_GAP = 8
+const BADGE_INSET = 10
+const GAP_BG = '#d4d4d4'
+const PAGE_BG = '#f5f5f5'
+
+/** Where a before-and-after clip crops its `width`×`height` page and how far it zooms, in CSS px. The crop holds the changed `box` with `CLIP.comparePadPx` px of page around it, at least a quarter of the page tall. The zoom fills the page's width, goes no further than `maxZoom`, and keeps both panels together within twice the page's width and height, and the crop widens to the width that zoom fills. The whole page when nothing changed. */
+export function stackLayout(box: Box | undefined, width: number, height: number, maxZoom = 1) {
+  const want = box ? { w: Math.min(width, box.w + 2 * CLIP.comparePadPx), h: Math.min(height, Math.max(box.h + 2 * CLIP.comparePadPx, height / 4)) } : { w: width, h: height }
+  // Twice the width keeps an X clip, bars included, inside X's tallest shape, 1:2.39.
+  const k = Math.min(maxZoom, width / want.w, (Math.min(2 * width, 2 * height) - STACK_GAP) / 2 / want.h)
+  const span = (center: number, len: number, size: number) => {
+    const n = Math.min(size, len)
+    return [Math.min(Math.max(center - n / 2, 0), size - n), n]
+  }
+  const [x, w] = span(box ? box.x + box.w / 2 : width / 2, width / k, width)
+  const [y, h] = span(box ? box.y + box.h / 2 : height / 2, want.h, height)
+  return { crop: { x, y, w, h }, k, panel: { w: w * k, h: h * k } }
 }
 
-const springJs = (w: number) => `t=>t<=0?0:1-Math.exp(-${w}*t)*(1+${w}*t)`
+// The drawn cursor is 22 by 26 px, so at half size and grown by changedBox's 4 px on each side its blob fits this box.
+const CURSOR_AREA = (22 / 2 + 8) * (26 / 2 + 8)
 
-/** Films a move in Chromium, one sub-frame at a time at exact times, and blends each frame's sub-frames, so the move has motion blur and renders the same every run. It films the page's `#stage`, which `window.seek(t)` draws at `t`. `prepare` runs once the page and its fonts load. Holds the last frame for `holdS` s. */
-async function renderMotion(
-  stage: { html: string; width: number; height: number; scale: number },
-  move: { moveS: number; holdS: number; prepare?: (page: Page) => Promise<void> },
-  out: string,
-) {
-  const sub = 8
-  const frames = Math.round(move.moveS * CLIP.fps)
-  const dir = mkdtempSync(join(tmpdir(), 'clip-motion-'))
+/** The area that changes anywhere in either page clip, in CSS px: each frame, ten a second, against its take's first frame, and the two takes' last frames against each other. A blob no bigger than the drawn cursor does not count, because the cursor moves in every take. */
+export async function changedArea(clips: [string, string], scale: number): Promise<Box | undefined> {
+  const [width, height] = await pageSize(clips[0], scale)
+  const [qw, qh] = [Math.round(width / 2), Math.round(height / 2)]
+  const size = qw * qh * 3
+  const takes = clips.map(clip => {
+    const raw = Bun.spawnSync(['ffmpeg', '-v', 'error', '-i', clip, '-vf', `fps=10,scale=${qw}:${qh}`, '-pix_fmt', 'rgb24', '-f', 'rawvideo', '-']).stdout
+    return Array.from({ length: Math.floor(raw.length / size) }, (_, i) => raw.subarray(i * size, (i + 1) * size))
+  })
+  const boxes = [
+    ...takes.flatMap(frames => frames.slice(1).map(f => changedBox(frames[0], f, qw, qh, CURSOR_AREA))),
+    changedBox(takes[0].at(-1)!, takes[1].at(-1)!, qw, qh, CURSOR_AREA),
+  ].filter((b): b is Box => !!b)
+  const box = union(boxes)
+  const [ux, uy] = [width / qw, height / qh]
+  return box && { x: box.x * ux, y: box.y * uy, w: box.w * ux, h: box.h * uy }
+}
+
+/** One stretch of a page clip as an aligned clip plays it: frames `from` to `to`, then its last frame held `held` more frames. */
+export type Span = [from: number, to: number, held: number]
+
+/** Lines two takes up caption by caption, in frames. Each stretch between two captions, and the lead before the first, plays for the longer take's length, and the shorter take holds its frame for the rest. Both then hold `holdFrames` more at the end. Returns each take's spans, where each caption starts, and the aligned length. */
+export function alignBeats(beats: [number[], number[]], frames: [number, number], holdFrames = 0) {
+  const edges = beats.map((b, i) => [0, ...b, frames[i]])
+  const lengths = edges[0].slice(1).map((_, j) => Math.max(...edges.map(e => e[j + 1] - e[j])))
+  lengths[lengths.length - 1] += holdFrames
+  const plan = edges.map(e => lengths.map((len, j) => [e[j], e[j + 1], len - (e[j + 1] - e[j])] as Span))
+  const starts = lengths.slice(0, -1).map((_, j) => lengths.slice(0, j + 1).reduce((n, l) => n + l, 0))
+  return { plan, starts, frames: lengths.reduce((n, l) => n + l, 0) }
+}
+
+/** The ffmpeg filters that play `input` span by span into `out`. A span with no frames of its own holds the frame before it. */
+function spanGraph(input: string, spans: Span[], out: string): string {
+  const parts = spans
+    .filter(([a, b, held]) => b - a + held > 0)
+    .map(([a, b, held]): Span => (b > a ? [a, b, held] : [Math.max(0, a - 1), Math.max(0, a - 1) + 1, held - 1]))
+  const ids = parts.map((_, j) => `${out}_${j}`)
+  const head = parts.length > 1 ? `[${input}]split=${parts.length}${ids.map(id => `[${id}i]`).join('')}` : `[${input}]null[${ids[0]}i]`
+  const body = parts.map(([a, b, held], j) => `[${ids[j]}i]trim=start_frame=${a}:end_frame=${b},setpts=PTS-STARTPTS${held > 0 ? `,tpad=stop_mode=clone:stop=${held}` : ''}[${ids[j]}]`)
+  return [head, ...body, `${ids.map(id => `[${id}]`).join('')}concat=n=${parts.length}:v=1:a=0[${out}]`].join(';')
+}
+
+/** Draws each side's badge at `scale` pixels per CSS px, with 3 px around it for its shadow, and returns each PNG and its width in CSS px. */
+async function renderBadges(scale: number, dir: string): Promise<{ file: string; w: number }[]> {
+  const browser = await chromium.launch()
   try {
-    const browser = await chromium.launch()
-    try {
-      const page = await browser.newPage({ deviceScaleFactor: stage.scale, viewport: { width: Math.ceil(stage.width), height: Math.ceil(stage.height) } })
-      await page.setContent(stage.html)
+    const page = await browser.newPage({ deviceScaleFactor: scale })
+    const badges: { file: string; w: number }[] = []
+    for (const side of SIDES) {
+      await page.setContent(`${fontStyle()}<span id="badge" style="display:inline-flex;padding:3px;font-size:${CLIP.titlePx.max}px"><span style="${badgeStyle(side)}">${side}</span></span>`)
       await page.evaluate(() => document.fonts.ready)
-      await move.prepare?.(page)
-      const shoot = async (t: number, png: string) => {
-        await page.evaluate(at => (window as unknown as { seek: (t: number) => void }).seek(at), t)
-        await page.locator('#stage').screenshot({ path: join(dir, png) })
-      }
-      for (let i = 0; i < frames * sub; i++) await shoot(i / (CLIP.fps * sub), `m${String(i).padStart(4, '0')}.png`)
-      if (move.holdS > 0) await shoot(frames / CLIP.fps, 'hold.png')
-    } finally {
-      await browser.close()
+      const file = join(dir, `${side}.png`)
+      await page.locator('#badge').screenshot({ path: file, omitBackground: true })
+      badges.push({ file, w: (await page.locator('#badge').boundingBox())!.width })
     }
-    const size = `scale=${Math.round(stage.width * stage.scale)}:${Math.round(stage.height * stage.scale)},setsar=1`
-    const blur = `[0:v]tmix=frames=${sub},select='eq(mod(n\\,${sub})\\,${sub - 1})',setpts=N/${CLIP.fps}/TB,${size}`
-    const hold = move.holdS > 0 ? ['-loop', '1', '-framerate', String(CLIP.fps), '-t', move.holdS.toFixed(3), '-i', join(dir, 'hold.png')] : []
-    const graph = hold.length ? `${blur}[m];[1:v]${size}[s];[m][s]concat=n=2:v=1,format=yuv420p[v]` : `${blur},format=yuv420p[v]`
-    await run(['ffmpeg', '-v', 'error', '-y', '-framerate', String(CLIP.fps * sub), '-i', join(dir, 'm%04d.png'), ...hold, '-filter_complex', graph, '-map', '[v]', '-c:v', 'libx264', '-crf', '16', '-r', String(CLIP.fps), out])
+    return badges
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    await browser.close()
   }
 }
 
-async function frameOf(clip: string, at: 'first' | 'last', png: string) {
-  await run(['ffmpeg', '-v', 'error', '-y', ...(at === 'last' ? ['-sseof', '-0.5'] : []), '-i', clip, ...(at === 'last' ? ['-update', '1'] : ['-frames:v', '1']), png])
-  return `data:image/png;base64,${readFileSync(png).toString('base64')}`
+/** Plays both page clips span by span as `plan` lines them up, crops each to the layout's area, zooms it and stacks them, Before above After, on a page `width` CSS px wide. Each badge sits left of its panel's top when the side has room for it, and inside the panel's top left corner otherwise. */
+async function renderStack(clips: [string, string], plan: Span[][], layout: ReturnType<typeof stackLayout>, { width, height, scale }: { width: number; height: number; scale: number }, out: string) {
+  const px = (v: number) => 2 * Math.round((v * scale) / 2)
+  const c = layout.crop
+  const [cw, ch] = [px(c.w), px(c.h)]
+  const [cx, cy] = [Math.min(px(c.x), px(width) - cw), Math.min(px(c.y), px(height) - ch)]
+  const [pw, ph] = [px(layout.panel.w), px(layout.panel.h)]
+  const dir = mkdtempSync(join(tmpdir(), 'clip-stack-'))
+  try {
+    const badges = await renderBadges(scale, dir)
+    const side = (px(width) - pw) / 2
+    // A badge inside the panel covers the page's own controls, so it moves out wherever the side has room.
+    const badgeX = (w: number) => (side >= px(w + BADGE_INSET) ? side - px(w) - px(BADGE_INSET - 6) : side + px(BADGE_INSET - 3))
+    const panels = clips.map(
+      (_, i) =>
+        `${spanGraph(`${i}:v`, plan[i], `s${i}`)};[s${i}]crop=${cw}:${ch}:${cx}:${cy},scale=${pw}:${ph}:flags=lanczos,setsar=1,pad=${px(width)}:ih:(ow-iw)/2:0:color=${PAGE_BG}[c${i}];[c${i}][${2 + i}:v]overlay=x=${badgeX(badges[i].w)}:y=${px(BADGE_INSET - 3)}[p${i}]`,
+    )
+    const graph = `${panels.join(';')};[p0]pad=iw:ih+${px(STACK_GAP)}:0:0:color=${GAP_BG}[t];[t][p1]vstack=inputs=2,format=yuv420p[v]`
+    await run(['ffmpeg', '-v', 'error', '-y', '-i', clips[0], '-i', clips[1], '-i', badges[0].file, '-i', badges[1].file, '-filter_complex', graph, '-map', '[v]', '-c:v', 'libx264', '-crf', '16', '-r', String(CLIP.fps), out])
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 }
 
 const pageSize = async (clip: string, scale: number) =>
   (await run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', clip])).trim().split(',').map(n => Number(n) / scale)
 
-/** Pushes the Before page's last frame out to the left as the After page's first frame comes in from the right, like the next slide, `CLIP.pushS` s. A vertical push read as a scroll (the owner, 2026-11-20). */
-export async function renderPush(pages: [before: string, after: string], out: string, scale = 1) {
-  const [width, height] = await pageSize(pages[1], scale)
-  const dir = mkdtempSync(join(tmpdir(), 'clip-push-'))
+const frameCount = async (clip: string) =>
+  Number((await run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-count_packets', '-show_entries', 'stream=nb_read_packets', '-of', 'csv=p=0', clip])).trim())
+
+/** Stacks the still before a change above the still after it, both cropped to the area where they differ, each with its badge, under an optional title bar, as one PNG. `scale` is how many image pixels each CSS px takes, so the badges and the bar keep their size beside the page. Returns its review. */
+export async function renderPair(images: [before: string, after: string], out: string, { bar, scale = 1 }: { bar?: Bar; scale?: number } = {}): Promise<Review> {
+  const review: Review = { fails: [], fixes: [], suggests: [] }
+  const sizes = await Promise.all(images.map(f => pageSize(f, scale)))
+  if (sizes[0].join() !== sizes[1].join()) return { ...review, fails: [`the before still is ${sizes[0].map(n => n * scale).join('x')} and the after still ${sizes[1].map(n => n * scale).join('x')}; take both at one size`] }
+  const [width, height] = sizes[1]
+  const [qw, qh] = [Math.round(width / 2), Math.round(height / 2)]
+  const rgb = images.map(f => Bun.spawnSync(['ffmpeg', '-v', 'error', '-i', f, '-vf', `scale=${qw}:${qh}`, '-pix_fmt', 'rgb24', '-f', 'rawvideo', '-']).stdout)
+  const box = changedBox(rgb[0], rgb[1], qw, qh)
+  if (!box) return { ...review, fails: ['the two stills show the same thing; take the before still on the code before the change'] }
+  const c = cropAround(box, [width / qw, height / qh], width, height)
+  const src = images.map(f => `data:image/png;base64,${readFileSync(f).toString('base64')}`)
+  // A still has no clock to save, so each badge gets its own strip above its panel instead of covering the page.
+  const panel = (side: Side, i: number) =>
+    `<div style="${i ? `margin-top:${STACK_GAP}px;` : ''}padding:${BADGE_INSET}px;background:${PAGE_BG};display:flex;font-size:${CLIP.titlePx.max}px"><span style="${badgeStyle(side)}">${side}</span></div><div style="position:relative;overflow:hidden;width:${c.w}px;height:${c.h}px"><img src="${src[i]}" style="position:absolute;left:${-c.x}px;top:${-c.y}px;width:${width}px;height:${height}px;max-width:none"></div>`
+  const browser = await chromium.launch()
   try {
-    const [a, b] = [await frameOf(pages[0], 'last', join(dir, 'a.png')), await frameOf(pages[1], 'first', join(dir, 'b.png'))]
-    const img = (id: string, src: string) => `<img id="${id}" src="${src}" style="position:absolute;left:0;top:0;width:${width}px;height:${height}px">`
-    // The spring is scaled to end at exactly 1, so the push lands on the After half's first frame.
-    const seek = `const spring=${springJs(16)},end=spring(${CLIP.pushS}),d=${width + 16};
-window.seek=t=>{const p=spring(t)/end;a.style.transform='translateX('+-p*d+'px)';b.style.transform='translateX('+(1-p)*d+'px)'};`
-    const html = `<style>body{margin:0}</style><div id="stage" style="position:relative;overflow:hidden;width:${width}px;height:${height}px;background:#f5f5f5">${img('a', a)}${img('b', b)}</div><script>${seek}</script>`
-    await renderMotion({ html, width, height, scale }, { moveS: CLIP.pushS, holdS: 0 }, out)
+    const page = await browser.newPage({ deviceScaleFactor: scale })
+    await page.setContent(`${fontStyle()}<div id="stage" style="width:${c.w}px;background:${GAP_BG}">${bar ? barHtml(bar, c.w) : ''}${SIDES.map(panel).join('')}</div>`)
+    await page.evaluate(() => document.fonts.ready)
+    if (bar) {
+      checkTitle(bar.tag, bar.title)
+      const titlePx = await fitTitle(page)
+      if (titlePx < CLIP.titlePx.min) review.suggests.push(`the title bar shrank to ${titlePx} px to fit one line; shorten the title`)
+    }
+    await page.locator('#stage').screenshot({ path: out })
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    await browser.close()
   }
+  return review
 }
 
-/** Ends a before-and-after clip on both results, cropped to where the two last frames differ. The After page's last frame shrinks into its slot as the Before one slides in, as `endLayout` places them. A `caption` draws the footer the After half ends on and slides it out of the frame, so the panels take its height. Both then hold, `CLIP.compareHoldS` s in all. */
-export async function renderEndPage(pages: [before: string, after: string], out: string, { scale = 1, caption }: { scale?: number; caption?: string } = {}) {
-  const [width, pageH] = await pageSize(pages[1], scale)
-  // The badges say which panel is which, so the end drops the footer instead of captioning it again (the owner, 2026-11-20).
-  const height = pageH + (caption === undefined ? 0 : FOOT_PX)
-  const dir = mkdtempSync(join(tmpdir(), 'clip-end-'))
-  try {
-    // The two frames compare at half the page's CSS size, enough to find a changed line of text.
-    const [qw, qh] = [Math.round(width / 2), Math.round(pageH / 2)]
-    const frames: string[] = []
-    const rgb: Uint8Array[] = []
-    for (const [i, page] of pages.entries()) {
-      const png = join(dir, `${i}.png`)
-      frames.push(await frameOf(page, 'last', png))
-      rgb.push(Bun.spawnSync(['ffmpeg', '-v', 'error', '-i', png, '-vf', `scale=${qw}:${qh}`, '-pix_fmt', 'rgb24', '-f', 'rawvideo', '-']).stdout)
-    }
-    // A phone shows a whole page too small to read beside another, so both panels show only the area that changed, with some page around it (the owner, 2026-11-20).
-    const crop = cropAround(changedBox(rgb[0], rgb[1], qw, qh), [width / qw, pageH / qh], width, pageH)
-    const prepare = async (page: Page) => {
-      const [bw, bh] = await page.evaluate(() =>
-        [...document.querySelectorAll('.label')].reduce(([w, h], el) => [Math.max(w, el.getBoundingClientRect().width), Math.max(h, el.getBoundingClientRect().height)], [0, 0]),
-      )
-      // An X page films at 2× pixels, so its changed area zooms up to 2× and stays sharp in a phone feed, which shows the frame at under 1,000 device pixels (the owner wants it read on a phone, 2026-11-20).
-      const layout = endLayout(crop, width, height, [bw, bh], scale)
-      // Each panel is a window on its whole page, which `s` scales and `tx`, `ty` place.
-      const to = layout.slots.map(s => ({ ...s, s: layout.k, tx: s.x - layout.k * crop.x, ty: s.y - layout.k * crop.y }))
-      // The Before panel comes back from the left, where the push sent it.
-      const away = { x: -(to[0].x + to[0].w) - layout.gap, y: 0 }
-      // The After frame never cuts away. It shrinks from the whole page into its slot, so the eye follows it there (the owner, 2026-11-20).
-      const from = [
-        { ...to[0], x: to[0].x + away.x, y: to[0].y + away.y, tx: to[0].tx + away.x, ty: to[0].ty + away.y },
-        { x: 0, y: 0, w: width, h: pageH, s: 1, tx: 0, ty: 0 },
-      ]
-      // A badge above its panel hangs from the panel's top middle, and one to its left from the panel's top left.
-      const labels = layout.slots.map(s => (layout.left ? { x: s.x - 8, y: s.y, ax: 1, ay: 0 } : { x: s.x + s.w / 2, y: s.y - 8, ax: 0.5, ay: 1 }))
-      await page.evaluate(m => Object.assign(window, { M: m }), { from, to, labels, width, height: pageH })
-    }
-    const panel = (side: Side, i: number) =>
-      `<div class="panel" style="position:absolute;overflow:hidden;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.12)"><img src="${frames[i]}" style="position:absolute;display:block;max-width:none"></div><span class="label" style="position:absolute;left:0;top:0;display:flex;font-size:${CLIP.titlePx.max}px;opacity:0"><span style="${badgeStyle(side)}">${side}</span></span>`
-    const foot =
-      caption === undefined
-        ? ''
-        : `<div id="foot" style="position:absolute;left:0;top:${pageH}px;width:${width}px;height:${FOOT_PX}px;background:${FOOT_BG};display:flex;align-items:center;justify-content:center"><div style="${CAPTION}">${captionHtml(caption)}</div></div>`
-    const inter = `@font-face{font-family:Inter;font-weight:700;src:url(data:font/ttf;base64,${readFileSync(`${ASSETS}/Inter-Bold.ttf`).toString('base64')})}`
-    const motion = { starts: [0.06, 0], labelAt: 0.15, foot: FOOT_PX }
-    const seek = `const T=${JSON.stringify(motion)},spring=${springJs(16)};
-const panels=[...document.querySelectorAll('.panel')],labels=[...document.querySelectorAll('.label')],foot=document.getElementById('foot');
-window.seek=t=>{const M=window.M;panels.forEach((el,i)=>{const p=spring(t-T.starts[i]),a=M.from[i],b=M.to[i],v=k=>a[k]+(b[k]-a[k])*p,img=el.firstChild;
-el.style.left=v('x')+'px';el.style.top=v('y')+'px';el.style.width=v('w')+'px';el.style.height=v('h')+'px';el.style.borderRadius=(i?8*p:8)+'px';
-img.style.left=v('tx')-v('x')+'px';img.style.top=v('ty')-v('y')+'px';img.style.width=M.width*v('s')+'px';img.style.height=M.height*v('s')+'px'});
-if(foot)foot.style.transform='translateY('+spring(t-T.starts[1])*T.foot+'px)';
-const q=spring(t-T.labelAt);labels.forEach((el,i)=>{const l=M.labels[i];el.style.left=l.x+'px';el.style.top=l.y+'px';el.style.opacity=q;el.style.transform='translate('+-l.ax*100+'%,calc('+-l.ay*100+'% + '+(1-q)*6+'px))'})};`
-    const html = `<style>${inter}body{margin:0}</style><div id="stage" style="position:relative;overflow:hidden;width:${width}px;height:${height}px;background:#f5f5f5">${SIDES.map(panel).join('')}${foot}</div><script>${seek}</script>`
-    const moveS = 0.65
-    await renderMotion({ html, width, height, scale }, { moveS, holdS: CLIP.compareHoldS - Math.round(moveS * CLIP.fps) / CLIP.fps, prepare }, out)
-  } finally {
-    rmSync(dir, { recursive: true, force: true })
-  }
-}
 
 /** A still just before each caption gives way to the next, and one on the last frame, so whoever sends the clip can read what it shows. */
 export async function stills(file: string, captions: Beat[], dir: string): Promise<string[]> {
@@ -1011,21 +1009,16 @@ export const printReview = ({ fails, fixes, suggests, stills = [], signals }: Re
   }
 }
 
-/** Reviews a take, refuses it on a FAIL, then cuts and renders it, reviews the file, and writes its stills and its signals.json. */
-/** Renders a take's clip and returns its review, its stills and, once it renders, the page clip without bars and its captions. */
-export async function renderTake(
-  dir: string,
-  out: string,
-  opts: { bar?: Bar; side?: Side; endHoldS?: number } = {},
-): Promise<Review & { stills: string[]; signals?: Signals; page?: { clip: string; captions: Beat[] } }> {
+/** Reviews a take, cuts it and squeezes its still stretches, and returns its review and, unless it fails, the page clip without bars and its captions on that clip's clock. */
+async function pageClip(dir: string, endHoldS?: number): Promise<Review & { take: Take; page?: { clip: string; captions: Beat[] } }> {
   const { take, trail } = readTake(dir)
   const raw = join(dir, 'cut.mp4')
   let captions = await cut(take, raw)
   const duration = await durationOf(raw)
   const holds = (take.holds ?? []).map(([a, b]) => [a + CLIP.stillLeadS, b + CLIP.stillLeadS] as [number, number])
-  const cuts = squeezePlan(await stillStretches(raw, take.view?.scale), captions.map(c => c.t), duration, holds, opts.endHoldS)
+  const cuts = squeezePlan(await stillStretches(raw, take.view?.scale), captions.map(c => c.t), duration, holds, endHoldS)
   const review = reviewTake(take, trail, { cutS: cuts.reduce((n, [a, b]) => n + b - a, 0) })
-  if (review.fails.length) return { ...review, stills: [] }
+  if (review.fails.length) return { ...review, take }
   let clip = raw
   if (cuts.length) {
     clip = join(dir, 'squeezed.mp4')
@@ -1033,15 +1026,25 @@ export async function renderTake(
     captions = shiftBeats(captions, cuts)
     review.fixes.push(`cut ${tenth(cuts.reduce((n, [a, b]) => n + b - a, 0))} s where nothing moved: ${cuts.map(([a, b]) => `${tenth(b - a)} s at ${tenth(a)} s`).join(', ')}`)
   }
-  const { titlePx } = await renderClip(clip, out, { bar: opts.bar, captions, scale: take.view?.scale, side: opts.side })
-  if (titlePx && titlePx < CLIP.titlePx.min) review.suggests.push(`the title bar shrank to ${titlePx} px to fit one line, under the ${CLIP.titlePx.min} px a phone reads at ${titleMinPt} pt; shorten the title`)
-  review.fails.push(...(await reviewFile(out)))
-  const signals = await clipSignals(clip, take)
-  await Bun.write(join(dir, 'signals.json'), JSON.stringify(signals, null, 2))
-  return { ...review, stills: await stills(out, captions, join(dir, 'stills')), signals, page: { clip, captions } }
+  return { ...review, take, page: { clip, captions } }
 }
 
-/** What stops two takes from playing as one before-and-after clip: a different page shape or crop would change the frame between the halves. */
+const shortTitle = (titlePx: number | undefined) =>
+  titlePx && titlePx < CLIP.titlePx.min ? [`the title bar shrank to ${titlePx} px to fit one line, under the ${CLIP.titlePx.min} px a phone reads at ${titleMinPt} pt; shorten the title`] : []
+
+/** Reviews a take, refuses it on a FAIL, then cuts and renders it, reviews the file, and returns its stills and its signals, which it also writes to signals.json. */
+export async function renderTake(dir: string, out: string, opts: { bar?: Bar } = {}): Promise<Review & { stills: string[]; signals?: Signals }> {
+  const { take, page, ...review } = await pageClip(dir)
+  if (!page) return { ...review, stills: [] }
+  const { titlePx } = await renderClip(page.clip, out, { bar: opts.bar, captions: page.captions, scale: take.view?.scale })
+  review.suggests.push(...shortTitle(titlePx))
+  review.fails.push(...(await reviewFile(out)))
+  const signals = await clipSignals(page.clip, take)
+  await Bun.write(join(dir, 'signals.json'), JSON.stringify(signals, null, 2))
+  return { ...review, stills: await stills(out, page.captions, join(dir, 'stills')), signals }
+}
+
+/** What stops two takes from playing as one before-and-after clip: a different page shape or crop would give the two panels different frames, and different beats leave nothing to line them up by. */
 export function checkPair(before: Take, after: Take): string[] {
   const shape = (t: Take) => {
     const view = t.view ?? CLIP.wide
@@ -1049,57 +1052,46 @@ export function checkPair(before: Take, after: Take): string[] {
     return `${view.width}x${view.height}@${view.scale}${c ? ` crop ${c.w}x${c.h}` : ''}`
   }
   const [a, b] = [shape(before), shape(after)]
-  return a === b ? [] : [`the before take films ${a} and the after take ${b}; film both with the same shape and crop size`]
+  const fails = a === b ? [] : [`the before take films ${a} and the after take ${b}; film both with the same shape and crop size`]
+  if (before.captions.length !== after.captions.length)
+    fails.push(`the before take has ${before.captions.length} captions and the after take ${after.captions.length}; caption the same beats in both, so they play in step`)
+  return fails
 }
 
-/** Renders the take before a change and the take after it as one clip, each half labeled in its footer, so a reader sees what changed without comparing two images. */
-export async function renderCompare(
-  before: string,
-  after: string,
-  out: string,
-  opts: { bar?: Bar } = {},
-): Promise<Review & { stills: string[]; signals?: Signals }> {
-  const fails = [...checkPair(readTake(before).take, readTake(after).take), ...(opts.bar ? [] : ['a before-and-after clip needs a title bar, where its Before and After badges go; render it with --tag and --title'])]
+/** Renders the take before a change above the take after it as one clip, both playing the same gesture at the same moment, so a reader compares them at every beat instead of remembering the first. */
+export async function renderCompare(before: string, after: string, out: string, opts: { bar?: Bar } = {}): Promise<Review & { stills: string[]; signals?: Signals }> {
+  const fails = checkPair(readTake(before).take, readTake(after).take)
   if (fails.length) return { fails, fixes: [], suggests: [], stills: [] }
-  const halves: [string, Side][] = [
-    [before, 'Before'],
-    [after, 'After'],
-  ]
-  const results: Awaited<ReturnType<typeof renderTake>>[] = []
-  for (const [dir, side] of halves) results.push(await renderTake(dir, join(dir, 'half.mp4'), { ...opts, side, endHoldS: CLIP.compareEndS }))
-  const label = (side: Side, lines: string[]) => lines.map(l => `${side}: ${l}`)
-  const review: Review = {
-    fails: results.flatMap((r, i) => label(halves[i][1], r.fails)),
-    fixes: results.flatMap((r, i) => label(halves[i][1], r.fixes)),
-    suggests: results.flatMap((r, i) => label(halves[i][1], r.suggests)),
-  }
+  const results = [await pageClip(before, CLIP.compareEndS), await pageClip(after, CLIP.compareEndS)]
+  const label = (lines: string[][]) => lines.flatMap((l, i) => l.map(line => `${SIDES[i]}: ${line}`))
+  const review: Review = { fails: label(results.map(r => r.fails)), fixes: label(results.map(r => r.fixes)), suggests: label(results.map(r => r.suggests)) }
   if (review.fails.length) return { ...review, stills: [] }
-  const [first, last] = results.map(r => r.page!)
-  const endPage = join(after, 'end-page.mp4')
-  const end = join(after, 'end.mp4')
-  const scale = readTake(after).take.view?.scale ?? 1
-  await renderEndPage([first.clip, last.clip], endPage, { scale, caption: last.captions.at(-1)?.text })
-  // A cut between two takes of one scene reads as the clip starting over, so the After take pushes in (the owner, 2026-11-20).
-  const [push, pushed] = [join(after, 'push.mp4'), join(after, 'pushed.mp4')]
-  await renderPush([first.clip, last.clip], push, scale)
-  await run(['ffmpeg', '-v', 'error', '-y', '-i', push, '-i', last.clip, '-filter_complex', '[0:v]setsar=1[a];[1:v]setsar=1[b];[a][b]concat=n=2:v=1:a=0,format=yuv420p[v]', '-map', '[v]', '-c:v', 'libx264', '-crf', '16', '-r', String(CLIP.fps), pushed])
-  await renderClip(pushed, join(after, 'half.mp4'), { bar: opts.bar, captions: last.captions.map(c => ({ ...c, t: c.t + CLIP.pushS })), scale, side: 'After' })
-  // The end page draws the footer the After half ends on and slides it away, so the end clip has none of its own.
-  await renderClip(endPage, end, { bar: opts.bar, scale, badgeRoom: true })
-  const parts = [...halves.map(([dir]) => join(dir, 'half.mp4')), end]
-  await run(['ffmpeg', '-v', 'error', '-y', ...parts.flatMap(p => ['-i', p]), '-filter_complex', '[0:v][1:v][2:v]concat=n=3:v=1:a=0,format=yuv420p[v]', '-map', '[v]', '-c:v', 'libx264', '-r', String(CLIP.fps), '-movflags', '+faststart', out])
+  const pages = results.map(r => r.page!)
+  const take = results[1].take
+  const scale = take.view?.scale ?? 1
+  const [width, height] = await pageSize(pages[1].clip, scale)
+  const texts = pages[1].captions.map(c => c.text)
+  pages[0].captions.forEach((c, i) => {
+    if (c.text !== texts[i]) review.suggests.push(`caption ${i + 1} reads "${c.text}" before and "${texts[i]}" after, and the clip shows the after one; caption both takes the same`)
+  })
+  const clips = [pages[0].clip, pages[1].clip] as [string, string]
+  // A phone shows a whole page too small to read twice over, so both panels show only the area that changes, with some page around it (the owner, 2026-11-20). An X page films at 2× pixels, so that area zooms up to 2× and stays sharp.
+  const layout = stackLayout(await changedArea(clips, scale), width, height, scale)
+  const frames = (await Promise.all(clips.map(frameCount))) as [number, number]
+  const beats = pages.map(p => p.captions.map(c => Math.round(c.t * CLIP.fps))) as [number[], number[]]
+  // Watching one take and then the other made the reader compare from memory, and an end frame showed only the results (the owner, 2026-11-20), so both play at once.
+  const aligned = alignBeats(beats, frames, Math.round((CLIP.compareHoldS - CLIP.compareEndS) * CLIP.fps))
+  const stacked = join(after, 'stacked.mp4')
+  await renderStack(clips, aligned.plan, layout, { width, height, scale }, stacked)
+  const captions = aligned.starts.map((f, i) => ({ t: f / CLIP.fps, text: texts[i] }))
+  const { titlePx } = await renderClip(stacked, out, { bar: opts.bar, captions, scale })
+  review.suggests.push(...shortTitle(titlePx))
   review.fails.push(...(await reviewFile(out)))
   const seconds = await durationOf(out)
   if (seconds > CLIP.maxSeconds + 0.05) review.fails.push(`${out} runs ${tenth(seconds)} s, over ${CLIP.maxSeconds} s; shorten either take`)
-  const endStills = await stills(end, [], join(after, 'stills-end'))
-  // A strip of each move, every third frame, shows a pop or an overlap that the held stills miss.
-  const strips = [join(after, 'stills-end', 'push.png'), join(after, 'stills-end', 'move.png')]
-  const pushAt = await durationOf(parts[0])
-  const moveAt = pushAt + (await durationOf(parts[1]))
-  await run(['ffmpeg', '-v', 'error', '-y', '-ss', pushAt.toFixed(3), '-i', out, '-t', CLIP.pushS.toFixed(3), '-vf', 'fps=20,scale=320:-1,tile=5x2', '-frames:v', '1', strips[0]])
-  await run(['ffmpeg', '-v', 'error', '-y', '-ss', moveAt.toFixed(3), '-i', out, '-t', '0.7', '-vf', 'fps=20,scale=320:-1,tile=7x2', '-frames:v', '1', strips[1]])
-  return { ...review, stills: [...results.flatMap(r => r.stills), ...strips, ...endStills], signals: results[1].signals }
+  return { ...review, stills: await stills(out, captions, join(after, 'stills-compare')), signals: await clipSignals(pages[1].clip, take) }
 }
+
 
 const durationOf = async (file: string) => Number((await run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', file])).trim())
 
@@ -1134,8 +1126,14 @@ if (import.meta.main) {
     const review = before ? await renderCompare(before, args[0], args[1], opts) : await renderTake(args[0], args[1], opts)
     printReview(review)
     process.exit(review.fails.length ? 1 : 0)
+  } else if (cmd === 'pair' && args[0] && args[1] && args[2] && !args[2].startsWith('--')) {
+    const tag = flag('tag')
+    const title = flag('title')
+    const review = await renderPair([args[0], args[1]], args[2], { bar: tag && title ? { tag, title } : undefined, scale: Number(flag('scale') ?? 1) })
+    printReview({ ...review, stills: review.fails.length ? [] : [args[2]] })
+    process.exit(review.fails.length ? 1 : 0)
   } else {
-    console.error('usage: bun scripts/clip.ts review <take dir> | render <take dir> <out.mp4> [--before <take dir>] [--tag <tag> --title <title>]')
+    console.error('usage: bun scripts/clip.ts review <take dir> | render <take dir> <out.mp4> [--before <take dir>] [--tag <tag> --title <title>] | pair <before.png> <after.png> <out.png> [--scale <n>] [--tag <tag> --title <title>]')
     process.exit(2)
   }
 }
