@@ -43,6 +43,7 @@ export const CLIP = {
   cursorFadeS: 0.15,
   // A before-and-after clip ends holding both results, so the reader compares them (the owner, 2026-11-20). Each take's own end hold counts toward it.
   compareHoldS: 1.2,
+  wipeS: 0.4,
   comparePadPx: 16,
   stillLeadS: 0.2,
   caretPx: 50,
@@ -80,8 +81,8 @@ export const RULES: { rule: string; check: string }[] = [
   },
   { rule: 'Render refuses an X-shape clip without a title bar, so the clip a team chat gets is the one X can post.', check: 'checkBar' },
   {
-    rule: `A change to how something a reader already saw behaves shows as one clip, the take before the change stacked above the take after it, each panel with a Before or After badge. Both takes play the same gesture at the same moment. Render stretches each span between two captions to the longer take's span by holding the shorter take's frame, so each caption lands in both panels together, and one caption footer serves both. Both panels show the area that changes anywhere in either take, with ${CLIP.comparePadPx} px of page around it, zoomed to the page's width but no further than the page has pixels for, and both together, with the bars, fit within 9:16 of the page's width and twice the page's height, so an X clip stays inside X's tallest shape. Each badge sits left of its panel where the side has room, and inside its top left corner otherwise. Each take holds its result ${CLIP.compareEndS} s at most, unless the scene marks a longer \`read(ms)\`, and the clip ends holding both results for ${CLIP.compareHoldS} s. Both takes film the same shape and crop and caption the same beats, and the whole clip keeps the length and size limits.`,
-    check: 'checkPair, renderCompare, alignBeats, changedArea, stackLayout, changedBox, squeezePlan',
+    rule: `A change to how something a reader already saw behaves shows as one clip made from a take before the change and a take after it, which film the same shape and crop and caption the same beats. A rail down the left edge says which take a frame shows, red before and green after. When the takes move the same way and differ only in what a step leaves on the page, the clip plays the before take once and, after each step whose result differs, wipes to the after take's result in place, holds it ${CLIP.compareHoldS} s and wipes back before the next step, over ${CLIP.wipeS} s each way, so the eye stays on the one spot that changes and the clip keeps the page's 2:3 shape. When a step moves differently in the two takes, the clip stacks them instead, before above after, both playing each step at the same moment, cropped to the area that changes anywhere in either with ${CLIP.comparePadPx} px of page around it, zoomed to the width the rail leaves but no further than the page has pixels for, padded with the page's own color, and fitting with the bars within 9:16. Each take holds its result ${CLIP.compareEndS} s at most, unless the scene marks a longer \`read(ms)\`, and the clip ends holding its last result for ${CLIP.compareHoldS} s. Render refuses two takes that end every step the same, and the whole clip keeps the length and size limits.`,
+    check: 'checkPair, renderCompare, sameMotion, wipePlan, alignBeats, changedArea, stackLayout, squeezePlan',
   },
   {
     rule: 'A change to how something looks at rest, such as copy or a style, shows as one image, the still before the change stacked above the still after it, both cropped to the area where they differ, each under its own badge. It refuses two stills of different sizes or two that show the same thing.',
@@ -802,44 +803,88 @@ function cropAround(box: Box | undefined, unit: [x: number, y: number], width: n
   return w * h > 0.8 * width * height ? page : { x, y, w, h }
 }
 
-const STACK_GAP = 8
+const STACK_GAP = 2
 const BADGE_INSET = 10
-const GAP_BG = '#d4d4d4'
+// A rail down the left edge says which take a frame shows, red before and green after, the way a diff marks removed and added lines, so no label covers the page or takes its room (the owner, 2026-11-21).
+const RAIL_PX = 8
+const RAIL_GAP = 4
+const RAIL: Record<Side, string> = { Before: '#ef4444', After: '#16a34a' }
+const GAP_BG = '#e5e5e5'
 const PAGE_BG = '#f5f5f5'
 
-/** Where a before-and-after clip crops its `width`×`height` page and how far it zooms, in CSS px. The crop holds the changed `box` with `CLIP.comparePadPx` px of page around it, at least a quarter of the page tall. The zoom fills the page's width, goes no further than `maxZoom`, and keeps both panels together within twice the page's width and height, and the crop widens to the width that zoom fills. The whole page when nothing changed. */
+/** Where a stacked before-and-after clip crops its `width`×`height` page and how far it zooms, in CSS px. The crop holds the changed `box` with `CLIP.comparePadPx` px of page around it, at least a quarter of the page tall. The zoom fills the width the rail leaves, goes no further than `maxZoom`, and keeps both panels and the bars within 9:16 of the page's width and twice its height, and the crop widens to the width that zoom fills. The whole page when nothing changed. */
 export function stackLayout(box: Box | undefined, width: number, height: number, maxZoom = 1) {
   const want = box ? { w: Math.min(width, box.w + 2 * CLIP.comparePadPx), h: Math.min(height, Math.max(box.h + 2 * CLIP.comparePadPx, height / 4)) } : { w: width, h: height }
   const tallest = Math.min(width * X_RATIO.tallest - BAR_PX - FOOT_PX, 2 * height)
-  const k = Math.min(maxZoom, width / want.w, (tallest - STACK_GAP) / 2 / want.h)
+  const room = width - RAIL_PX - RAIL_GAP
+  const k = Math.min(maxZoom, room / want.w, (tallest - STACK_GAP) / 2 / want.h)
   const span = (center: number, len: number, size: number) => {
     const n = Math.min(size, len)
     return [Math.min(Math.max(center - n / 2, 0), size - n), n]
   }
-  const [x, w] = span(box ? box.x + box.w / 2 : width / 2, width / k, width)
+  const [x, w] = span(box ? box.x + box.w / 2 : width / 2, room / k, width)
   const [y, h] = span(box ? box.y + box.h / 2 : height / 2, want.h, height)
   return { crop: { x, y, w, h }, k, panel: { w: w * k, h: h * k } }
 }
 
 // The drawn cursor is 22 by 26 px, so at half size and grown by changedBox's 4 px on each side its blob fits this box.
 const CURSOR_AREA = (22 / 2 + 8) * (26 / 2 + 8)
+const SAMPLE_FPS = 10
+
+/** A page clip's frames, ten a second at half size, as RGB. */
+function sampleFrames(clip: string, width: number, height: number): { frames: Uint8Array[]; w: number; h: number } {
+  const [w, h] = [Math.round(width / 2), Math.round(height / 2)]
+  const raw = Bun.spawnSync(['ffmpeg', '-v', 'error', '-i', clip, '-vf', `fps=${SAMPLE_FPS},scale=${w}:${h}`, '-pix_fmt', 'rgb24', '-f', 'rawvideo', '-']).stdout
+  const size = w * h * 3
+  return { frames: Array.from({ length: Math.floor(raw.length / size) }, (_, i) => raw.subarray(i * size, (i + 1) * size)), w, h }
+}
 
 /** The area that changes anywhere in either page clip, in CSS px: each frame, ten a second, against its take's first frame, and the two takes' last frames against each other. A blob no bigger than the drawn cursor does not count, because the cursor moves in every take. */
 export async function changedArea(clips: [string, string], scale: number): Promise<Box | undefined> {
   const [width, height] = await pageSize(clips[0], scale)
-  const [qw, qh] = [Math.round(width / 2), Math.round(height / 2)]
-  const size = qw * qh * 3
-  const takes = clips.map(clip => {
-    const raw = Bun.spawnSync(['ffmpeg', '-v', 'error', '-i', clip, '-vf', `fps=10,scale=${qw}:${qh}`, '-pix_fmt', 'rgb24', '-f', 'rawvideo', '-']).stdout
-    return Array.from({ length: Math.floor(raw.length / size) }, (_, i) => raw.subarray(i * size, (i + 1) * size))
-  })
+  const takes = clips.map(clip => sampleFrames(clip, width, height))
+  const { w, h } = takes[0]
   const boxes = [
-    ...takes.flatMap(frames => frames.slice(1).map(f => changedBox(frames[0], f, qw, qh, CURSOR_AREA))),
-    changedBox(takes[0].at(-1)!, takes[1].at(-1)!, qw, qh, CURSOR_AREA),
+    ...takes.flatMap(({ frames }) => frames.slice(1).map(f => changedBox(frames[0], f, w, h, CURSOR_AREA))),
+    changedBox(takes[0].frames.at(-1)!, takes[1].frames.at(-1)!, w, h, CURSOR_AREA),
   ].filter((b): b is Box => !!b)
   const box = union(boxes)
-  const [ux, uy] = [width / qw, height / qh]
+  const [ux, uy] = [width / w, height / h]
   return box && { x: box.x * ux, y: box.y * uy, w: box.w * ux, h: box.h * uy }
+}
+
+/** Where two RGB frames of `w`×`h` pixels differ, grown by `r` pixels. */
+function diffMask(a: Uint8Array, b: Uint8Array, w: number, h: number, r = 4): Uint8Array {
+  const on = new Uint8Array(w * h)
+  for (let i = 0; i < w * h; i++) on[i] = Math.max(Math.abs(a[3 * i] - b[3 * i]), Math.abs(a[3 * i + 1] - b[3 * i + 1]), Math.abs(a[3 * i + 2] - b[3 * i + 2])) > 32 ? 1 : 0
+  const row = new Uint8Array(w * h)
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (on[y * w + x]) for (let d = Math.max(0, x - r); d <= Math.min(w - 1, x + r); d++) row[y * w + d] = 1
+  const grown = new Uint8Array(w * h)
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (row[y * w + x]) for (let d = Math.max(0, y - r); d <= Math.min(h - 1, y + r); d++) grown[d * w + x] = 1
+  return grown
+}
+
+/** How many pixels of two RGB frames differ outside `mask`. */
+function strayPixels(a: Uint8Array, b: Uint8Array, w: number, h: number, mask: Uint8Array): number {
+  let n = 0
+  for (let i = 0; i < w * h; i++) if (!mask[i] && Math.max(Math.abs(a[3 * i] - b[3 * i]), Math.abs(a[3 * i + 1] - b[3 * i + 1]), Math.abs(a[3 * i + 2] - b[3 * i + 2])) > 32) n++
+  return n
+}
+
+/** Whether two takes move the same way within each step, so they differ only in what a step leaves on the page. `steps` gives each take's sample range for each step. A frame of the before take matches when a frame of the after take in the same step differs from it only where the step's first or last frames differ, and by no more than two drawn cursors elsewhere, so a menu that opens a little later in one take still matches. */
+export function sameMotion(takes: [Uint8Array[], Uint8Array[]], steps: [[number, number][], [number, number][]], w: number, h: number): boolean {
+  return steps[0].every(([b0, b1], j) => {
+    const [a0, a1] = steps[1][j]
+    if (b1 <= b0 || a1 <= a0) return true
+    const end = diffMask(takes[0][b1 - 1], takes[1][a1 - 1], w, h)
+    const allowed = diffMask(takes[0][b0], takes[1][a0], w, h).map((v, i) => v | end[i])
+    for (let s = b0; s < b1; s++) {
+      let seen = false
+      for (let t = a0; t < a1 && !seen; t++) seen = strayPixels(takes[0][s], takes[1][t], w, h, allowed) <= 2 * CURSOR_AREA
+      if (!seen) return false
+    }
+    return true
+  })
 }
 
 /** One stretch of a page clip as an aligned clip plays it: frames `from` to `to`, then its last frame held `held` more frames. */
@@ -866,47 +911,93 @@ function spanGraph(input: string, spans: Span[], out: string): string {
   return [head, ...body, `${ids.map(id => `[${id}]`).join('')}concat=n=${parts.length}:v=1:a=0[${out}]`].join(';')
 }
 
-/** Draws each side's badge at `scale` pixels per CSS px, with 3 px around it for its shadow, and returns each PNG and its width in CSS px. */
-async function renderBadges(scale: number, dir: string): Promise<{ file: string; w: number }[]> {
-  const browser = await chromium.launch()
-  try {
-    const page = await browser.newPage({ deviceScaleFactor: scale })
-    const badges: { file: string; w: number }[] = []
-    for (const side of SIDES) {
-      await page.setContent(`${fontStyle()}<span id="badge" style="display:inline-flex;padding:3px;font-size:${CLIP.titlePx.max}px"><span style="${badgeStyle(side)}">${side}</span></span>`)
-      await page.evaluate(() => document.fonts.ready)
-      const file = join(dir, `${side}.png`)
-      await page.locator('#badge').screenshot({ path: file, omitBackground: true })
-      badges.push({ file, w: (await page.locator('#badge').boundingBox())!.width })
-    }
-    return badges
-  } finally {
-    await browser.close()
+/** Which take a piece of a wipe clip shows: 0 before, 1 after. */
+type TakeIndex = 0 | 1
+
+/** One piece of a wipe clip: frames `from` to `to` of a take played, a take's frame held, or a wipe from one take's frame to the other's. */
+export type Piece =
+  | { play: TakeIndex; from: number; to: number }
+  | { hold: TakeIndex; at: number; frames: number }
+  | { wipe: [from: TakeIndex, at: number, to: TakeIndex, at: number]; frames: number }
+
+const pieceFrames = (p: Piece) => ('play' in p ? p.to - p.from : p.frames)
+
+/** Plays the before take step by step, and after each step whose result `differs`, wipes to the after take's result, holds it, and wipes back before the next step, so the reader sees each gesture once and each difference in place. The clip ends on the after take's last result, or on the before take's when the last step does not differ. Returns the pieces and the frame where each caption starts. */
+export function wipePlan(beats: [number[], number[]], frames: [number, number], differs: boolean[], wipeFrames: number, holdFrames: number): { pieces: Piece[]; starts: number[] } {
+  const edges = beats.map((b, i) => [0, ...b, frames[i]])
+  const last = edges[0].length - 2
+  const pieces: Piece[] = []
+  const starts: number[] = []
+  let at = 0
+  const push = (p: Piece) => {
+    pieces.push(p)
+    at += pieceFrames(p)
   }
+  for (let j = 0; j <= last; j++) {
+    if (j > 0) starts.push(at)
+    const [b, a] = [edges[0][j + 1] - 1, edges[1][j + 1] - 1]
+    if (edges[0][j + 1] > edges[0][j]) push({ play: 0, from: edges[0][j], to: edges[0][j + 1] })
+    if (differs[j]) {
+      push({ wipe: [0, b, 1, a], frames: wipeFrames })
+      push({ hold: 1, at: a, frames: holdFrames })
+      if (j < last) push({ wipe: [1, a, 0, b], frames: wipeFrames })
+    } else if (j === last) push({ hold: 0, at: b, frames: holdFrames })
+  }
+  return { pieces, starts }
 }
 
-/** Plays both page clips span by span as `plan` lines them up, crops each to the layout's area, zooms it and stacks them, Before above After, on a page `width` CSS px wide. Each badge sits left of its panel's top when the side has room for it, and inside the panel's top left corner otherwise. */
+/** Plays a wipe plan from the two page clips into one clip the page's size, with each frame's rail. */
+async function renderWipe(clips: [string, string], pieces: Piece[], scale: number, out: string) {
+  const rail = (take: TakeIndex) => `drawbox=x=0:y=0:w=${2 * Math.round((RAIL_PX * scale) / 2)}:h=ih:color=${RAIL[SIDES[take]]}:t=fill`
+  const still = (take: TakeIndex, at: number, frames: number) => `trim=start_frame=${at}:end_frame=${at + 1},setpts=PTS-STARTPTS,fps=${CLIP.fps},tpad=stop_mode=clone:stop=${frames - 1},${rail(take)}`
+  const uses: string[][] = [[], []]
+  const use = (take: TakeIndex) => {
+    const id = `i${take}_${uses[take].length}`
+    uses[take].push(id)
+    return id
+  }
+  const body = pieces.map((p, k) => {
+    if ('play' in p) return `[${use(p.play)}]trim=start_frame=${p.from}:end_frame=${p.to},setpts=PTS-STARTPTS,${rail(p.play)}[q${k}]`
+    if ('hold' in p) return `[${use(p.hold)}]${still(p.hold, p.at, p.frames)}[q${k}]`
+    const [from, a, to, b] = p.wipe
+    const [x, y] = [use(from), use(to)]
+    // The new take enters from the rail's side, so the rail turns color as the wipe starts.
+    return `[${x}]${still(from, a, p.frames)}[q${k}a];[${y}]${still(to, b, p.frames)}[q${k}b];[q${k}a][q${k}b]xfade=transition=${to ? 'wiperight' : 'wipeleft'}:duration=${(p.frames / CLIP.fps).toFixed(4)}:offset=0[q${k}]`
+  })
+  const splits = uses.map((ids, take) => (ids.length ? `[${take}:v]split=${ids.length}${ids.map(id => `[${id}]`).join('')}` : `[${take}:v]nullsink`))
+  const graph = [...splits, ...body, `${pieces.map((_, k) => `[q${k}]`).join('')}concat=n=${pieces.length}:v=1:a=0,format=yuv420p[v]`].join(';')
+  await run(['ffmpeg', '-v', 'error', '-y', '-i', clips[0], '-i', clips[1], '-filter_complex', graph, '-map', '[v]', '-c:v', 'libx264', '-crf', '16', '-r', String(CLIP.fps), out])
+}
+
+/** The color most pixels along the left and right edges of `clip`'s first frame inside the crop have, as ffmpeg's 0xRRGGBB, so a panel narrower than the page pads with the page's own background instead of a frame. */
+async function edgeColor(clip: string, crop: { w: number; h: number; x: number; y: number }): Promise<string> {
+  const counts = new Map<number, number>()
+  for (const x of [crop.x, crop.x + crop.w - 2]) {
+    const raw = Bun.spawnSync(['ffmpeg', '-v', 'error', '-i', clip, '-frames:v', '1', '-vf', `crop=2:${crop.h}:${x}:${crop.y}`, '-pix_fmt', 'rgb24', '-f', 'rawvideo', '-']).stdout
+    for (let i = 0; i + 2 < raw.length; i += 3) {
+      const c = (raw[i] << 16) | (raw[i + 1] << 8) | raw[i + 2]
+      counts.set(c, (counts.get(c) ?? 0) + 1)
+    }
+  }
+  const [color] = [...counts].reduce((a, b) => (b[1] > a[1] ? b : a), [0xf5f5f5, 0])
+  return `0x${color.toString(16).padStart(6, '0')}`
+}
+
+/** Plays both page clips span by span as `plan` lines them up, crops each to the layout's area, zooms it and stacks them, Before above After, on a page `width` CSS px wide, each panel with its rail at the left edge and the page's own color beside it. */
 async function renderStack(clips: [string, string], plan: Span[][], layout: ReturnType<typeof stackLayout>, { width, height, scale }: { width: number; height: number; scale: number }, out: string) {
   const px = (v: number) => 2 * Math.round((v * scale) / 2)
   const c = layout.crop
   const [cw, ch] = [px(c.w), px(c.h)]
   const [cx, cy] = [Math.min(px(c.x), px(width) - cw), Math.min(px(c.y), px(height) - ch)]
   const [pw, ph] = [px(layout.panel.w), px(layout.panel.h)]
-  const dir = mkdtempSync(join(tmpdir(), 'clip-stack-'))
-  try {
-    const badges = await renderBadges(scale, dir)
-    const side = (px(width) - pw) / 2
-    // A badge inside the panel covers the page's own controls, so it moves out wherever the side has room.
-    const badgeX = (w: number) => (side >= px(w + BADGE_INSET) ? side - px(w) - px(BADGE_INSET - 6) : side + px(BADGE_INSET - 3))
-    const panels = clips.map(
-      (_, i) =>
-        `${spanGraph(`${i}:v`, plan[i], `s${i}`)};[s${i}]crop=${cw}:${ch}:${cx}:${cy},scale=${pw}:${ph}:flags=lanczos,setsar=1,pad=${px(width)}:ih:(ow-iw)/2:0:color=${PAGE_BG}[c${i}];[c${i}][${2 + i}:v]overlay=x=${badgeX(badges[i].w)}:y=${px(BADGE_INSET - 3)}[p${i}]`,
-    )
-    const graph = `${panels.join(';')};[p0]pad=iw:ih+${px(STACK_GAP)}:0:0:color=${GAP_BG}[t];[t][p1]vstack=inputs=2,format=yuv420p[v]`
-    await run(['ffmpeg', '-v', 'error', '-y', '-i', clips[0], '-i', clips[1], '-i', badges[0].file, '-i', badges[1].file, '-filter_complex', graph, '-map', '[v]', '-c:v', 'libx264', '-crf', '16', '-r', String(CLIP.fps), out])
-  } finally {
-    rmSync(dir, { recursive: true, force: true })
-  }
+  const side = px(RAIL_PX + RAIL_GAP) + (px(width - RAIL_PX - RAIL_GAP) - pw) / 2
+  const fill = await Promise.all(clips.map(clip => edgeColor(clip, { w: cw, h: ch, x: cx, y: cy })))
+  const panels = clips.map(
+    (_, i) =>
+      `${spanGraph(`${i}:v`, plan[i], `s${i}`)};[s${i}]crop=${cw}:${ch}:${cx}:${cy},scale=${pw}:${ph}:flags=lanczos,setsar=1,pad=${px(width)}:ih:${side}:0:color=${fill[i]},drawbox=x=0:y=0:w=${px(RAIL_PX)}:h=ih:color=${RAIL[SIDES[i]]}:t=fill[p${i}]`,
+  )
+  const graph = `${panels.join(';')};[p0]pad=iw:ih+${px(STACK_GAP)}:0:0:color=${GAP_BG}[t];[t][p1]vstack=inputs=2,format=yuv420p[v]`
+  await run(['ffmpeg', '-v', 'error', '-y', '-i', clips[0], '-i', clips[1], '-filter_complex', graph, '-map', '[v]', '-c:v', 'libx264', '-crf', '16', '-r', String(CLIP.fps), out])
 }
 
 const pageSize = async (clip: string, scale: number) =>
@@ -1060,7 +1151,7 @@ export function checkPair(before: Take, after: Take): string[] {
 }
 
 /** Renders the take before a change above the take after it as one clip, both playing the same gesture at the same moment, so a reader compares them at every beat instead of remembering the first. */
-export async function renderCompare(before: string, after: string, out: string, opts: { bar?: Bar } = {}): Promise<Review & { stills: string[]; signals?: Signals }> {
+export async function renderCompare(before: string, after: string, out: string, opts: { bar?: Bar; form?: 'wipe' | 'stack' } = {}): Promise<Review & { stills: string[]; signals?: Signals }> {
   const fails = checkPair(readTake(before).take, readTake(after).take)
   if (fails.length) return { fails, fixes: [], suggests: [], stills: [] }
   const results = [await pageClip(before, CLIP.compareEndS), await pageClip(after, CLIP.compareEndS)]
@@ -1076,16 +1167,34 @@ export async function renderCompare(before: string, after: string, out: string, 
     if (c.text !== texts[i]) review.suggests.push(`caption ${i + 1} reads "${c.text}" before and "${texts[i]}" after, and the clip shows the after one; caption both takes the same`)
   })
   const clips = [pages[0].clip, pages[1].clip] as [string, string]
-  // A phone shows a whole page too small to read twice over, so both panels show only the area that changes, with some page around it (the owner, 2026-11-20). An X page films at 2× pixels, so that area zooms up to 2× and stays sharp.
-  const layout = stackLayout(await changedArea(clips, scale), width, height, scale)
   const frames = (await Promise.all(clips.map(frameCount))) as [number, number]
   const beats = pages.map(p => p.captions.map(c => Math.round(c.t * CLIP.fps))) as [number[], number[]]
-  // Watching one take and then the other made the reader compare from memory, and an end frame showed only the results (the owner, 2026-11-20), so both play at once.
-  const aligned = alignBeats(beats, frames, Math.round((CLIP.compareHoldS - CLIP.compareEndS) * CLIP.fps))
-  const stacked = join(after, 'stacked.mp4')
-  await renderStack(clips, aligned.plan, layout, { width, height, scale }, stacked)
-  const captions = aligned.starts.map((f, i) => ({ t: f / CLIP.fps, text: texts[i] }))
-  const { titlePx } = await renderClip(stacked, out, { bar: opts.bar, captions, scale })
+  const sampled = clips.map(clip => sampleFrames(clip, width, height))
+  const { w, h } = sampled[0]
+  const edges = beats.map((b, i) => [0, ...b, frames[i]])
+  const sample = (i: number, frame: number) => Math.min(sampled[i].frames.length - 1, Math.floor((frame * SAMPLE_FPS) / CLIP.fps))
+  const steps = edges.map((e, i) => e.slice(1).map((end, j): [number, number] => [sample(i, e[j]), sample(i, end - 1) + 1])) as [[number, number][], [number, number][]]
+  const differs = steps[0].map((_, j) => !!changedBox(sampled[0].frames[steps[0][j][1] - 1], sampled[1].frames[steps[1][j][1] - 1], w, h, CURSOR_AREA))
+  if (!differs.some(Boolean)) return { ...review, fails: ['the two takes end every step the same; film the before take on the code before the change'], stills: [] }
+  // Two panels moving at once split the eye, so a change the gesture does not show plays the gesture once and wipes between the results in place, where the difference is all that moves (the owner, 2026-11-21).
+  const form = opts.form ?? (sameMotion([sampled[0].frames, sampled[1].frames], steps, w, h) ? 'wipe' : 'stack')
+  const page = join(after, `${form}.mp4`)
+  let starts: number[]
+  if (form === 'wipe') {
+    const plan = wipePlan(beats, frames, differs, Math.round(CLIP.wipeS * CLIP.fps), Math.round(CLIP.compareHoldS * CLIP.fps))
+    await renderWipe(clips, plan.pieces, scale, page)
+    starts = plan.starts
+  } else {
+    // A phone shows a whole page too small to read twice over, so both panels show only the area that changes, with some page around it (the owner, 2026-11-20). An X page films at 2× pixels, so that area zooms up to 2× and stays sharp.
+    const layout = stackLayout(await changedArea(clips, scale), width, height, scale)
+    // Watching one take and then the other made the reader compare from memory, and an end frame showed only the results (the owner, 2026-11-20), so both play at once.
+    const aligned = alignBeats(beats, frames, Math.round((CLIP.compareHoldS - CLIP.compareEndS) * CLIP.fps))
+    await renderStack(clips, aligned.plan, layout, { width, height, scale }, page)
+    starts = aligned.starts
+  }
+  review.fixes.push(`played as a ${form === 'wipe' ? 'wipe, the gesture once and each differing result wiped in place' : 'stack, because the takes move differently during a step'}`)
+  const captions = starts.map((f, i) => ({ t: f / CLIP.fps, text: texts[i] }))
+  const { titlePx } = await renderClip(page, out, { bar: opts.bar, captions, scale })
   review.suggests.push(...shortTitle(titlePx))
   review.fails.push(...(await reviewFile(out)))
   const seconds = await durationOf(out)
@@ -1124,7 +1233,7 @@ if (import.meta.main) {
       printReview({ fails: barFails, fixes: [], suggests: [] })
       process.exit(1)
     }
-    const review = before ? await renderCompare(before, args[0], args[1], opts) : await renderTake(args[0], args[1], opts)
+    const review = before ? await renderCompare(before, args[0], args[1], { ...opts, form: args.includes('--stack') ? 'stack' : undefined }) : await renderTake(args[0], args[1], opts)
     printReview(review)
     process.exit(review.fails.length ? 1 : 0)
   } else if (cmd === 'pair' && args[0] && args[1] && args[2] && !args[2].startsWith('--')) {
@@ -1134,7 +1243,7 @@ if (import.meta.main) {
     printReview({ ...review, stills: review.fails.length ? [] : [args[2]] })
     process.exit(review.fails.length ? 1 : 0)
   } else {
-    console.error('usage: bun scripts/clip.ts review <take dir> | render <take dir> <out.mp4> [--before <take dir>] [--tag <tag> --title <title>] | pair <before.png> <after.png> <out.png> [--scale <n>] [--tag <tag> --title <title>]')
+    console.error('usage: bun scripts/clip.ts review <take dir> | render <take dir> <out.mp4> [--before <take dir> [--stack]] [--tag <tag> --title <title>] | pair <before.png> <after.png> <out.png> [--scale <n>] [--tag <tag> --title <title>]')
     process.exit(2)
   }
 }

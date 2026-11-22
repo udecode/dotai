@@ -19,6 +19,8 @@ import {
   changedArea,
   renderPair,
   stackLayout,
+  sameMotion,
+  wipePlan,
   fitCrop,
   openClip,
   fixCaption,
@@ -193,19 +195,51 @@ describe('a before-and-after pair', () => {
     for (const spans of plan) expect(spans.reduce((n, [a, b, held]) => n + b - a + held, 0)).toBe(frames)
   })
 
-  test('crops to the changed area, fills the width as far as the pixels allow and keeps the clip inside 9:16', () => {
+  test('crops to the changed area, fills the width the rail leaves as far as the pixels allow and keeps the clip inside 9:16', () => {
     const { width, height } = CLIP.x
+    const room = width - 8 - 4
     const tallest = width * (16 / 9) - 80 - 76
     const line = stackLayout({ x: 100, y: 300, w: 300, h: 20 }, width, height, 2)
-    expect(line.k).toBeCloseTo(width / 332)
-    expect(line.panel.w).toBeCloseTo(width)
+    expect(line.k).toBeCloseTo(room / 332)
+    expect(line.panel.w).toBeCloseTo(room)
     expect(line.crop.h).toBeCloseTo(height / 4)
     const narrow = stackLayout({ x: 200, y: 300, w: 60, h: 20 }, width, height, 2)
-    expect([narrow.k, narrow.crop.w, narrow.panel.w]).toEqual([2, 270, width])
+    expect([narrow.k, narrow.crop.w, narrow.panel.w]).toEqual([2, room / 2, room])
     const page = stackLayout(undefined, width, height, 2)
-    expect(page.panel.h * 2 + 8).toBeLessThanOrEqual(tallest + 1e-6)
-    expect(stackLayout({ x: 0, y: 0, w: 500, h: 600 }, width, height, 2).panel.h * 2 + 8).toBeLessThanOrEqual(tallest + 1e-6)
-    expect(page.crop).toEqual({ x: 0, y: 0, w: width, h: height })
+    expect(page.panel.h * 2 + 2).toBeLessThanOrEqual(tallest + 1e-6)
+    expect(stackLayout({ x: 0, y: 0, w: 500, h: 600 }, width, height, 2).panel.h * 2 + 2).toBeLessThanOrEqual(tallest + 1e-6)
+    expect(page.crop.h).toBe(height)
+  })
+
+  test('a wipe plays the before take once and wipes to each differing result, back before the next step, and ends on the after result', () => {
+    const { pieces, starts } = wipePlan([[0, 100], [0, 120]], [200, 220], [false, true, true], 24, 72)
+    expect(pieces).toEqual([
+      { play: 0, from: 0, to: 100 },
+      { wipe: [0, 99, 1, 119], frames: 24 },
+      { hold: 1, at: 119, frames: 72 },
+      { wipe: [1, 119, 0, 99], frames: 24 },
+      { play: 0, from: 100, to: 200 },
+      { wipe: [0, 199, 1, 219], frames: 24 },
+      { hold: 1, at: 219, frames: 72 },
+    ])
+    expect(starts).toEqual([0, 220])
+    expect(wipePlan([[0], [0]], [100, 100], [false, false], 24, 72).pieces.at(-1)).toEqual({ hold: 0, at: 99, frames: 72 })
+  })
+
+  test('takes move the same when they differ only in timing or in what a step leaves, and not when a gesture shows something the other never does', () => {
+    const size = 64
+    const frame = (...blocks: [number, number, number][]) => {
+      const f = new Uint8Array(size * size * 3).fill(255)
+      for (const [x0, y0, n] of blocks) for (let y = y0; y < y0 + n; y++) for (let x = x0; x < x0 + n; x++) f.fill(0, 3 * (y * size + x), 3 * (y * size + x) + 3)
+      return f
+    }
+    const menu: [number, number, number] = [4, 4, 30]
+    const before = [frame(), frame(menu), frame(menu), frame([34, 34, 28])]
+    const after = [frame(), frame(), frame(menu), frame([34, 34, 20])]
+    const steps: [[number, number][], [number, number][]] = [[[0, 4]], [[0, 4]]]
+    expect(sameMotion([before, after], steps, size, size)).toBe(true)
+    const wrong = [frame(), frame([4, 30, 30]), frame(menu), frame([34, 34, 28])]
+    expect(sameMotion([wrong, after], steps, size, size)).toBe(false)
   })
 
   test('an X clip with its bars is 2:3', () => {
