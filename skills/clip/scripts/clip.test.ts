@@ -213,19 +213,22 @@ describe('a before-and-after pair', () => {
     expect(padBox(undefined, [2, 2], 128, 128)).toEqual({ x: 0, y: 0, w: 128, h: 128 })
   })
 
-  test('replays two copies side by side, each half the width at most and never past its own size, centered under their labels', () => {
+  test('replays two copies stacked, before above after, one gap and one tab apart, each as large as the page allows but never past its own size', () => {
     const { width, height } = CLIP.x
-    const whole = replayLayout({ x: 0, y: 0, w: width, h: height }, width, height, 30)
-    expect(whole.panel.w * 2 + 8 + 2 * 12).toBeCloseTo(width)
-    expect(whole.k).toBeCloseTo((width - 32) / 2 / width)
-    expect(whole.x[1] - whole.x[0]).toBeCloseTo(whole.panel.w + 8)
-    expect(whole.y - whole.labelY).toBe(30 + 8)
-    expect(whole.labelY + 38 + whole.panel.h + whole.labelY).toBeCloseTo(height)
-    const narrow = replayLayout({ x: 100, y: 0, w: 200, h: 300 }, width, height, 30)
+    const tab = 17
+    const whole = replayLayout({ x: 0, y: 0, w: width, h: height }, width, height, tab)
+    expect(whole.k).toBeCloseTo((height - 12 - 8 - tab) / 2 / height)
+    expect(whole.y[0]).toBeCloseTo(0)
+    expect(whole.y[1] - whole.y[0]).toBeCloseTo(whole.panel.h + 8 + tab)
+    expect(whole.y[1] + whole.panel.h).toBeCloseTo(height - 12)
+    expect(whole.x).toBeCloseTo((width - whole.panel.w) / 2)
+    const narrow = replayLayout({ x: 100, y: 0, w: 200, h: 300 }, width, height, tab)
     expect(narrow.k).toBe(1)
     expect(narrow.panel).toEqual({ w: 200, h: 300 })
-    const tall = replayLayout({ x: 0, y: 0, w: 100, h: height }, width, height, 30)
-    expect(tall.panel.h).toBeCloseTo(height - 24 - 38)
+    expect(narrow.y[0]).toBeCloseTo((height - 12 - 600 - 8 - tab) / 2)
+    const wide = replayLayout({ x: 0, y: 0, w: width, h: 100 }, width, height, tab)
+    expect(wide.panel.w).toBeCloseTo(width - 24)
+    expect(wide.x).toBeCloseTo(12)
   })
 
   test('an X clip with its bars is 2:3', () => {
@@ -274,7 +277,7 @@ describe('captions and bars', () => {
 
   test('cuts from one caption to the next with no frame showing both', () => {
     const f = captionOverlay({ from: 2, to: 4 }, 'v0', '3:v', 'v1')
-    expect(f).toContain("enable='gte(t,2.000)*lt(t,4.000)'")
+    expect(f).toContain("enable='gte(t,1.9917)*lt(t,3.9917)'")
     expect(f).not.toContain('fade')
   })
 
@@ -303,6 +306,17 @@ describe('the title bar', () => {
     Bun.spawnSync(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', 'color=c=white:s=540x400:d=0.3', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', clip])
     expect((await renderClip(clip, join(dir, 'long.mp4'), { bar: { tag: 'markdown', title: 'keep your yaml front matter intact' } })).titlePx).toBeLessThan(CLIP.titlePx.max)
     expect((await renderClip(clip, join(dir, 'short.mp4'), { bar: { tag: 'board', title: 'notes' } })).titlePx).toBe(CLIP.titlePx.max)
+  }, 60_000)
+
+  test('keeps each page frame once and in order under the bars, a caption and a mark', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'clip-frames-'))
+    const [clip, mark, out] = [join(dir, 'page.mp4'), join(dir, 'mark.png'), join(dir, 'out.mp4')]
+    Bun.spawnSync(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', 'nullsrc=s=540x400:r=60:d=0.5,geq=lum=16+N*7:cb=128:cr=128', '-c:v', 'libx264', '-crf', '0', '-pix_fmt', 'yuv420p', clip])
+    Bun.spawnSync(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', 'color=c=red:s=20x10', '-frames:v', '1', mark])
+    const marks = [{ file: mark, x: '0', y: '0', from: 10, to: 20 }]
+    await renderClip(clip, out, { bar: { tag: 'board', title: 'notes' }, captions: [{ t: 0.1, text: 'Draw a note' }], marks })
+    const page = Bun.spawnSync(['ffmpeg', '-v', 'error', '-i', out, '-vf', 'crop=100:100:220:230,extractplanes=y,scale=1:1:flags=area', '-f', 'rawvideo', '-']).stdout
+    expect([...page].map(v => Math.round((v - 16) / 7))).toEqual(Array.from({ length: 30 }, (_, n) => n))
   }, 60_000)
 
   test('hides a parked cursor, fades it once it rests and shows it again as it moves', async () => {
