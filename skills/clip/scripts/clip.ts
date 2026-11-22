@@ -24,11 +24,17 @@ export const CLIP = {
   fps: 60,
   wide: { width: 1100, height: 720, scale: 1 } as View,
   x,
+  // A bug clip for an issue films the window the bug shows in, at 2× pixels, since a fixer watches it on a desktop (the owner, 2026-11-22).
+  repro: { width: 760, height: 560, scale: 2 } as View,
   feedPt,
   phoneTextPt: 9,
   // Chat bots read these into their media rules, so a change takes a bot restart.
   maxSeconds: 20,
   maxMB: 8,
+  // A bug clip goes to a GitHub issue, which plays a video up to 100 MB, and runs as long as the bug takes. It ends holding the wrong state long enough to read.
+  reproMaxSeconds: 60,
+  reproMaxMB: 100,
+  reproHoldS: 2,
   // Four beats took about 14 s in the debut, the pace the owner picked (2026-11-18).
   xSeconds: 16,
   firstBeatS: 0.8,
@@ -87,6 +93,10 @@ export const RULES: { rule: string; check: string }[] = [
     check: 'checkPair, renderCompare, alignBeats, pageColor, contentBox, replayLayout, renderMove, renderReplay, squeezePlan',
   },
   {
+    rule: `A bug clip for an issue films with \`{ shape: 'repro' }\`, a ${CLIP.repro.width} by ${CLIP.repro.height} px window at ${CLIP.repro.scale}× pixels unless \`size\` names the window the bug needs. Render keeps its real time and cuts nothing, because a pause can be the bug. Its bar names the browser, the route and the build instead of a title. It ends holding the wrong state at least ${CLIP.reproHoldS} s, and runs at most ${CLIP.reproMaxSeconds} s and ${CLIP.reproMaxMB} MB. A bug with a reference page shows as the before-and-after clip of a take on the reference page and a take on beta, each tab naming its site, the reference gray and beta red.`,
+    check: 'openClip, reviewTake, pageClip, renderClip, renderCompare',
+  },
+  {
     rule: 'A change to how something looks at rest, such as copy or a style, shows as one image, the still before the change stacked above the still after it, both cropped to the area where they differ, each under its own badge. It refuses two stills of different sizes or two that show the same thing.',
     check: 'renderPair, changedBox',
   },
@@ -106,6 +116,8 @@ export type Take = {
   holds?: [number, number][]
   view?: View
   textPx?: number
+  /** A bug clip for an issue: render keeps its real time and names its route instead of a title. */
+  repro?: boolean
 }
 /** One page frame: the page clock in ms, 1 while a button is down, the drawn cursor's x and y, then the real pointer's. */
 export type TrailRow = [number, number, number, number, number, number]
@@ -195,6 +207,7 @@ export class Clip {
   private t0 = 0
   private startMs = 0
   private trailFrom = 0
+  repro = false
 
   constructor(
     readonly browser: Browser,
@@ -368,6 +381,7 @@ export class Clip {
       holds: this.holds,
       view: this.view,
       textPx,
+      repro: this.repro || undefined,
     }
     await Bun.write(join(this.out, 'take.json'), JSON.stringify(take, null, 2))
     return take
@@ -399,17 +413,21 @@ export async function openClip(
     colorScheme = 'light',
     // One demo serves the team chat and X, so X's shape is the default (owner, 2026-11-20).
     shape = 'x',
+    size,
     storageState,
-  }: { cursor?: boolean; colorScheme?: 'light' | 'dark'; shape?: 'wide' | 'x'; storageState?: string } = {},
+  }: { cursor?: boolean; colorScheme?: 'light' | 'dark'; shape?: 'wide' | 'x' | 'repro'; size?: { width: number; height: number }; storageState?: string } = {},
 ) {
-  const view = CLIP[shape]
+  // A bug clip may film the narrow or tall window its bug needs.
+  const view = shape === 'repro' && size ? { ...CLIP.repro, ...size } : CLIP[shape]
   // With only the context's deviceScaleFactor, Chrome screencast an X page at 540 px into a 1080 px frame.
   const browser = await chromium.launch({ args: [`--force-device-scale-factor=${view.scale}`] })
   const ctx = await browser.newContext({ colorScheme, viewport: { width: view.width, height: view.height }, deviceScaleFactor: view.scale, storageState })
   if (cursor) await ctx.addInitScript(drawCursor, { idleS: CLIP.cursorIdleS, fadeS: CLIP.cursorFadeS })
   const page = await ctx.newPage()
   await page.goto(url, { waitUntil: 'networkidle' })
-  return new Clip(browser, ctx, page, await ctx.newCDPSession(page), view)
+  const clip = new Clip(browser, ctx, page, await ctx.newCDPSession(page), view)
+  clip.repro = shape === 'repro'
+  return clip
 }
 
 /** How tall a page's text shows in a phone's X feed, in points, for a clip `width` CSS px wide. */
@@ -509,7 +527,8 @@ export function reviewTake(take: Take, trail: TrailRow[], { x = isX(take), cutS 
   const suggests: string[] = []
   const filmed = (take.endMs - take.startMs) / 1000 + CLIP.stillLeadS
   const seconds = filmed - cutS
-  if (seconds > CLIP.maxSeconds) fails.push(`the clip runs ${tenth(seconds)} s, over ${CLIP.maxSeconds} s; cut a beat or tighten the waits`)
+  const max = take.repro ? CLIP.reproMaxSeconds : CLIP.maxSeconds
+  if (seconds > max) fails.push(`the clip runs ${tenth(seconds)} s, over ${max} s; cut a beat or tighten the waits`)
   else if (x && seconds > CLIP.xSeconds) suggests.push(`the clip runs ${tenth(seconds)} s; an X clip reads best at ${CLIP.xSeconds} s or less, so tighten the waits between beats`)
   for (const c of take.captions) {
     const fixed = fixCaption(c.text)
@@ -527,6 +546,10 @@ export function reviewTake(take: Take, trail: TrailRow[], { x = isX(take), cutS 
     const s = (i + 1 < take.captions.length ? take.captions[i + 1].t : filmed - CLIP.stillLeadS) - c.t
     if (s < CLIP.beatMinS) fails.push(`"${c.text}" shows for ${tenth(s)} s, under ${CLIP.beatMinS} s; hold that beat longer`)
   })
+  const last = take.captions.at(-1)
+  const held = last && filmed - CLIP.stillLeadS - last.t
+  if (take.repro && held !== undefined && held < CLIP.reproHoldS)
+    fails.push(`the clip ends ${tenth(held)} s after its last caption; end on the wrong state with read(${CLIP.reproHoldS * 1000}), so the reader sees it`)
   const view = take.view ?? CLIP.wide
   const crop = take.crop && fitCrop(take.crop, view)
   if (crop && JSON.stringify(crop) !== JSON.stringify(take.crop)) fixes.push(`the crop ${JSON.stringify(take.crop)} renders as ${JSON.stringify(crop)}`)
@@ -542,13 +565,13 @@ export function reviewTake(take: Take, trail: TrailRow[], { x = isX(take), cutS 
 }
 
 /** The rules a rendered file can break. */
-export async function reviewFile(file: string): Promise<string[]> {
+export async function reviewFile(file: string, maxMB = CLIP.maxMB): Promise<string[]> {
   const fails: string[] = []
   const [rate] = (await run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=r_frame_rate', '-of', 'default=nw=1:nk=1', file])).trim().split('\n')
   const [num, den] = rate.split('/').map(Number)
   if (Math.round(num / (den || 1)) !== CLIP.fps) fails.push(`${file} plays at ${rate} fps, not ${CLIP.fps}`)
   const mb = statSync(file).size / 2 ** 20
-  if (mb > CLIP.maxMB) fails.push(`${file} is ${tenth(mb)} MB, over ${CLIP.maxMB} MB`)
+  if (mb > maxMB) fails.push(`${file} is ${tenth(mb)} MB, over ${maxMB} MB`)
   return fails
 }
 
@@ -653,6 +676,8 @@ const CAPTION = 'display:inline-flex;align-items:center;gap:8px;font:700 26px/1 
 // A footer label was easy to miss, so each side shows as a badge (the owner, 2026-11-20), red before and green after, the way a diff marks removed and added lines (the owner, 2026-11-22).
 const SIDES = ['Before', 'After'] as const
 const BADGE: Record<(typeof SIDES)[number], string> = { Before: 'background:#ef4444;color:#fff', After: 'background:#16a34a;color:#fff' }
+// A bug clip plays the reference page, which works, then beta, which shows the bug, so the reference is neutral and beta is red.
+const REFERENCE_BADGE: Record<(typeof SIDES)[number], string> = { Before: 'background:#525252;color:#fff', After: 'background:#ef4444;color:#fff' }
 const badgeStyle = (side: Side, px: number) =>
   `flex:none;align-self:center;font:700 ${px}px/1 Inter;letter-spacing:0.06em;text-transform:uppercase;padding:0.45em 0.8em 0.4em;border-radius:999px;box-shadow:0 1px 3px rgba(0,0,0,0.25);${BADGE[side]}`
 
@@ -693,9 +718,10 @@ export type Mark = { file: string; x: string; y: string; from: number; to: numbe
 export async function renderClip(
   clip: string,
   out: string,
-  { bar, captions = [], scale = 1, marks = [] }: { bar?: Bar; captions?: Beat[]; scale?: number; marks?: Mark[] } = {},
+  { bar, captions = [], scale = 1, marks = [], route = false }: { bar?: Bar; captions?: Beat[]; scale?: number; marks?: Mark[]; route?: boolean } = {},
 ): Promise<{ titlePx?: number }> {
-  if (bar) checkTitle(bar.tag, bar.title)
+  // A bug clip's bar names its browser, route and build, which no title rule fits.
+  if (bar && !route) checkTitle(bar.tag, bar.title)
   let titlePx: number | undefined
   captions.forEach(c => checkCaption(c.text))
   const [pixels, duration] = (
@@ -902,14 +928,14 @@ export function replayLayout(trim: Box, width: number, height: number, tabH: num
 }
 
 /** Renders a BEFORE and an AFTER tab at `scale` pixels per CSS px into `dir`, and returns each file with its height in video px. */
-async function tabs(dir: string, scale: number): Promise<Record<Side, { file: string; h: number }>> {
+async function tabs(dir: string, scale: number, names?: [string, string]): Promise<Record<Side, { file: string; h: number }>> {
   const browser = await chromium.launch()
   try {
     const page = await browser.newPage({ deviceScaleFactor: scale })
     const out = {} as Record<Side, { file: string; h: number }>
     for (const side of SIDES) {
       await page.setContent(
-        `${fontStyle()}<span id="t" style="display:inline-block;font:700 ${TAB_PX}px/1 Inter;letter-spacing:0.08em;text-transform:uppercase;padding:4px 8px 3px;border-radius:5px 5px 0 0;${BADGE[side]}">${side}</span>`,
+        `${fontStyle()}<span id="t" style="display:inline-block;font:700 ${TAB_PX}px/1 Inter;letter-spacing:0.08em;text-transform:uppercase;padding:4px 8px 3px;border-radius:5px 5px 0 0;${names ? REFERENCE_BADGE[side] : BADGE[side]}">${esc(names ? names[SIDES.indexOf(side)] : side)}</span>`,
       )
       await page.evaluate(() => document.fonts.ready)
       const file = join(dir, `${side}.png`)
@@ -984,8 +1010,8 @@ async function renderReplay(
       ...clips.map((_, i) => `${spanGraph(`r${i}`, plan[i], `s${i}`)};[s${i}]crop=${c.w}:${c.h}:${c.x}:${c.y},scale=${at.w}:${at.h}:flags=lanczos,setsar=1,pad=${at.w + 2 * line}:${at.h + 2 * line}:${line}:${line}:color=${REPLAY.outline}[p${i}]`),
       // A rounded duration can give the background one frame more than the replay holds, so it stops at a frame count.
       `color=c=${background}:s=${px(width)}x${px(height)}:r=${CLIP.fps},trim=end_frame=${frames}[bg]`,
-      `[bg][p0]overlay=x=${at.x - line}:y=${at.y[0] - line}[b1]`,
-      `[b1][p1]overlay=x=${at.x - line}:y=${at.y[1] - line},setsar=1,format=yuv420p,${renumber}[rep]`,
+      `[bg][p0]overlay=x=${at.x - line}:y=${at.y[0] - line}:shortest=1[b1]`,
+      `[b1][p1]overlay=x=${at.x - line}:y=${at.y[1] - line}:shortest=1,setsar=1,format=yuv420p,${renumber}[rep]`,
       '[full0][full1][move][rep]concat=n=4:v=1:a=0[v]',
     ].join(';')
     const inputs = ['-i', clips[0], '-i', clips[1], '-framerate', String(CLIP.fps), '-i', move]
@@ -1104,7 +1130,8 @@ async function pageClip(dir: string, endHoldS?: number): Promise<Review & { take
   let captions = await cut(take, raw)
   const duration = await durationOf(raw)
   const holds = (take.holds ?? []).map(([a, b]) => [a + CLIP.stillLeadS, b + CLIP.stillLeadS] as [number, number])
-  const cuts = squeezePlan(await stillStretches(raw, take.view?.scale), captions.map(c => c.t), duration, holds, endHoldS)
+  // A bug clip keeps every frame, because a pause can be the bug and the issue's timestamps must match the clip.
+  const cuts = take.repro ? [] : squeezePlan(await stillStretches(raw, take.view?.scale), captions.map(c => c.t), duration, holds, endHoldS)
   const review = reviewTake(take, trail, { cutS: cuts.reduce((n, [a, b]) => n + b - a, 0) })
   if (review.fails.length) return { ...review, take }
   let clip = raw
@@ -1124,9 +1151,9 @@ const shortTitle = (titlePx: number | undefined) =>
 export async function renderTake(dir: string, out: string, opts: { bar?: Bar } = {}): Promise<Review & { stills: string[]; signals?: Signals }> {
   const { take, page, ...review } = await pageClip(dir)
   if (!page) return { ...review, stills: [] }
-  const { titlePx } = await renderClip(page.clip, out, { bar: opts.bar, captions: page.captions, scale: take.view?.scale })
-  review.suggests.push(...shortTitle(titlePx))
-  review.fails.push(...(await reviewFile(out)))
+  const { titlePx } = await renderClip(page.clip, out, { bar: opts.bar, captions: page.captions, scale: take.view?.scale, route: take.repro })
+  if (!take.repro) review.suggests.push(...shortTitle(titlePx))
+  review.fails.push(...(await reviewFile(out, take.repro ? CLIP.reproMaxMB : CLIP.maxMB)))
   const signals = await clipSignals(page.clip, take)
   await Bun.write(join(dir, 'signals.json'), JSON.stringify(signals, null, 2))
   return { ...review, stills: await stills(out, page.captions, join(dir, 'stills')), signals }
@@ -1147,7 +1174,7 @@ export function checkPair(before: Take, after: Take): string[] {
 }
 
 /** Renders the take before a change and the take after it as one clip: each whole under its tab, then both stacked, playing each step at the same moment. */
-export async function renderCompare(before: string, after: string, out: string, opts: { bar?: Bar } = {}): Promise<Review & { stills: string[]; signals?: Signals }> {
+export async function renderCompare(before: string, after: string, out: string, opts: { bar?: Bar; names?: [string, string] } = {}): Promise<Review & { stills: string[]; signals?: Signals }> {
   const fails = checkPair(readTake(before).take, readTake(after).take)
   if (fails.length) return { fails, fixes: [], suggests: [], stills: [] }
   const results = [await pageClip(before, CLIP.compareEndS), await pageClip(after, CLIP.compareEndS)]
@@ -1181,12 +1208,12 @@ export async function renderCompare(before: string, after: string, out: string, 
   let titlePx: number | undefined
   const dir = mkdtempSync(join(tmpdir(), 'clip-tabs-'))
   try {
-    const tab = await tabs(dir, scale)
+    const tab = await tabs(dir, scale, take.repro ? (opts.names ?? ['reference', 'beta']) : undefined)
     const at = await renderReplay(clips, aligned.plan, trim, { width, height, scale, background: `0x${color.toString(16).padStart(6, '0')}`, frames: aligned.frames, tabH: Math.max(tab.Before.h, tab.After.h) }, page)
     const [moved, end] = [frames[0] + frames[1] + REPLAY.moveFrames, frames[0] + frames[1] + REPLAY.moveFrames + aligned.frames]
     const rendered = await frameCount(page)
     if (rendered !== end) throw new Error(`the page clip has ${rendered} frames, not the ${end} its tabs and captions expect`)
-    const text = take.textPx ? `, page text at ${phonePt(take.textPx * at.k, width)} pt on a phone` : ''
+    const text = take.textPx && !take.repro ? `, page text at ${phonePt(take.textPx * at.k, width)} pt on a phone` : ''
     review.fixes.push(`played the before take, the after take, then both stacked at ${tenth(at.k)}× size${text}`)
     // The after take's tab rides its page's top edge as the page shrinks into its copy, on the same easing as the frames renderMove writes.
     const u = `clip((t-${((frames[0] + frames[1] - 1) / CLIP.fps).toFixed(4)})/${(REPLAY.moveFrames / CLIP.fps).toFixed(4)},0,1)`
@@ -1201,14 +1228,15 @@ export async function renderCompare(before: string, after: string, out: string, 
     const part = (b: number[], at: number, first: number) => b.map((f, i) => (i ? f + at : first))
     const starts = [...part(beats[0], 0, 0), ...part(beats[1], frames[0], frames[0]), ...part(aligned.starts, moved, frames[0] + frames[1])]
     captions = starts.map((f, i) => ({ t: f / CLIP.fps, text: texts[i % texts.length] }))
-    titlePx = (await renderClip(page, out, { bar: opts.bar, captions, scale, marks })).titlePx
+    titlePx = (await renderClip(page, out, { bar: opts.bar, captions, scale, marks, route: take.repro })).titlePx
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
-  review.suggests.push(...shortTitle(titlePx))
-  review.fails.push(...(await reviewFile(out)))
+  if (!take.repro) review.suggests.push(...shortTitle(titlePx))
+  review.fails.push(...(await reviewFile(out, take.repro ? CLIP.reproMaxMB : CLIP.maxMB)))
   const seconds = await durationOf(out)
-  if (seconds > CLIP.maxSeconds + 0.05) review.fails.push(`${out} runs ${tenth(seconds)} s, over ${CLIP.maxSeconds} s; shorten either take`)
+  const max = take.repro ? CLIP.reproMaxSeconds : CLIP.maxSeconds
+  if (seconds > max + 0.05) review.fails.push(`${out} runs ${tenth(seconds)} s, over ${max} s; shorten either take`)
   return { ...review, stills: await stills(out, captions, join(after, 'stills-compare')), signals: await clipSignals(pages[1].clip, take) }
 }
 
@@ -1237,7 +1265,15 @@ if (import.meta.main) {
     const tag = flag('tag')
     const title = flag('title')
     const before = flag('before')
-    const opts = { bar: tag && title ? { tag, title } : undefined }
+    const route = flag('route')
+    const build = flag('build')
+    const names = flag('names')?.split(',').map(n => n.trim())
+    if (readTake(args[0]).take.repro && !route) {
+      printReview({ fails: ['a bug clip names the page it films; pass --route <path>, and --build <commit> when you know the build'], fixes: [], suggests: [] })
+      process.exit(1)
+    }
+    const bar = route ? { tag: 'chromium', title: build ? `${route} · ${build}` : route } : tag && title ? { tag, title } : undefined
+    const opts = { bar, names: names?.length === 2 ? (names as [string, string]) : undefined }
     const barFails = checkBar(readTake(args[0]).take, opts.bar)
     if (barFails.length) {
       printReview({ fails: barFails, fixes: [], suggests: [] })
@@ -1253,7 +1289,7 @@ if (import.meta.main) {
     printReview({ ...review, stills: review.fails.length ? [] : [args[2]] })
     process.exit(review.fails.length ? 1 : 0)
   } else {
-    console.error('usage: bun scripts/clip.ts review <take dir> | render <take dir> <out.mp4> [--before <take dir>] [--tag <tag> --title <title>] | pair <before.png> <after.png> <out.png> [--scale <n>] [--tag <tag> --title <title>]')
+    console.error('usage: bun scripts/clip.ts review <take dir> | render <take dir> <out.mp4> [--before <take dir>] [--tag <tag> --title <title>] [--route <path> [--build <commit>] [--names <reference>,<beta>]] | pair <before.png> <after.png> <out.png> [--scale <n>] [--tag <tag> --title <title>]')
     process.exit(2)
   }
 }

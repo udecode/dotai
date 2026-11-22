@@ -1,6 +1,6 @@
 ---
 name: clip
-description: Record, check and render a demo clip of a web page, or one before-and-after clip or image of a change, for a chat message, a team post or a social post. Use before recording any clip of an app, before attaching before and after screenshots of a change (one stacked before-and-after clip or image replaces them), when a clip looks robotic, shaky, rushed or too polished, and when the owner changes how clips look, move or read.
+description: Record, check and render a demo clip of a web page, one before-and-after clip or image of a change, or a bug clip for an issue, for a chat message, a team post, a social post or an issue. Use before recording any clip of an app, including a bug's repro for an issue, before attaching before and after screenshots of a change (one stacked before-and-after clip or image replaces them), when a clip looks robotic, shaky, rushed or too polished, and when the owner changes how clips look, move or read.
 ---
 
 # Clip
@@ -47,6 +47,17 @@ For a clip:
 3. Read its stills in `<after take>/stills-compare/`.
 
 For an image, take both stills at one size and density, then run `bun <skill dir>/scripts/clip.ts pair <before.png> <after.png> <out.png> --scale <pixels per CSS px>`, with the bar flags when the image goes out as a demo. It crops both to the area where they differ and stacks them, each under its badge. Read the image before you send it.
+
+## Bug clip
+
+A bug clip shows a bug for an issue. It is evidence, so render keeps its real time, because a pause can be the bug and the issue's timestamps must match the clip.
+
+1. Write the scene as for any clip, opening with `openClip(url, { shape: 'repro' })`, or `{ shape: 'repro', size: { width, height } }` when the bug needs a narrow or tall window. Caption each step as the issue's Reproduction steps word it, with its keys as keycaps, such as `[Shift] [Enter] then type def`. End on the wrong state with `read(2000)` under a caption that says what went wrong, such as `Only "ch" keeps the yellow mark`. Crop to the editor and whatever the steps click, with room under the editor.
+2. When the page has a reference page, such as its twin on slatejs.org or platejs.org, film the same scene there with the same crop size and the same captions.
+3. Review each take, then run `bun <skill dir>/scripts/clip.ts render <beta take> <out.mp4> --route <path> --build <commit>`. For a reference, add `--before <reference take> --names <reference site>,beta`. The clip then plays the reference take under a gray tab named for its site, the beta take under a red `beta` tab, and both stacked.
+4. Read its stills in `<beta take>/stills/`, or `stills-compare/` for a reference.
+
+The recorder drives Chromium only. A bug that shows only in Safari, Firefox or on a phone gets a person's recording.
 
 ## Method
 
@@ -104,5 +115,6 @@ When the owner corrects the same thing a second time, make it a check that fails
 - A clip films X's shape, a page 540 by 654 px at 2× pixels, so with its 80 px title bar and 76 px caption footer the clip is 2:3, unless it opens with `{ shape: 'wide' }`. Its page text shows at 9 pt or more in a phone's feed, which shows a clip about 312 pt wide. (`openClip`, `reviewTake` in `scripts/clip.ts`)
 - Render refuses an X-shape clip without a title bar, so the clip a team chat gets is the one X can post. (`checkBar` in `scripts/clip.ts`)
 - A change to how something a reader already saw behaves shows as one clip made from a take before the change and a take after it, which film the same shape and crop and caption the same beats. The clip plays the before take whole under a red BEFORE tab, then the after take whole under a green AFTER tab, each tab small and centered on the line under the title bar. Then the after page cuts to its first frame and shrinks into the lower copy over 24 frames while the before copy slides down from above into the upper one, and both replay stacked, before above after, each tab on its copy's top edge, both playing each step at the same moment, so the reader sees each take at full size and then compares them line by line. Every clip edits this way, whatever the change. The replay trims the page margin that both takes leave blank in every frame, keeps 16 px of page around what is left, and zooms both copies as far as the page allows but never past their own size, on the page's own color with a 1 px outline, above the caption footer. Each take holds its result 0.4 s at most, unless the scene marks a longer `read(ms)`, and the replay ends holding both results for 1.2 s. Render refuses two takes that end every step the same, and the whole clip keeps the length and size limits. (`checkPair`, `renderCompare`, `alignBeats`, `pageColor`, `contentBox`, `replayLayout`, `renderMove`, `renderReplay`, `squeezePlan` in `scripts/clip.ts`)
+- A bug clip for an issue films with `{ shape: 'repro' }`, a 760 by 560 px window at 2× pixels unless `size` names the window the bug needs. Render keeps its real time and cuts nothing, because a pause can be the bug. Its bar names the browser, the route and the build instead of a title. It ends holding the wrong state at least 2 s, and runs at most 60 s and 100 MB. A bug with a reference page shows as the before-and-after clip of a take on the reference page and a take on beta, each tab naming its site, the reference gray and beta red. (`openClip`, `reviewTake`, `pageClip`, `renderClip`, `renderCompare` in `scripts/clip.ts`)
 - A change to how something looks at rest, such as copy or a style, shows as one image, the still before the change stacked above the still after it, both cropped to the area where they differ, each under its own badge. It refuses two stills of different sizes or two that show the same thing. (`renderPair`, `changedBox` in `scripts/clip.ts`)
 <!-- /rules -->

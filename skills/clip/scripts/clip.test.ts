@@ -84,6 +84,13 @@ describe('a take', () => {
     expect(r.fails).toEqual([expect.stringContaining('runs 21.2 s'), expect.stringContaining('"Draw a note" shows for 0.6 s')])
   })
 
+  test('lets a bug clip run past a chat clip, but fails one that does not hold the wrong state', () => {
+    const repro = (captions: Take['captions'], seconds: number): Take => ({ ...take(captions, seconds), view: CLIP.repro, repro: true })
+    expect(reviewTake(repro([{ t: 0.4, text: 'Type check' }, { t: 27, text: 'Only ch keeps the mark' }], 30), []).fails).toEqual([])
+    expect(reviewTake(repro([{ t: 0.4, text: 'Type check' }, { t: 28.5, text: 'Only ch keeps the mark' }], 30), []).fails).toEqual([expect.stringContaining('read(2000)')])
+    expect(reviewTake(repro([{ t: 0.4, text: 'Type check' }, { t: 60, text: 'Only ch keeps the mark' }], 63), []).fails).toEqual([expect.stringContaining('over 60 s')])
+  })
+
   test('cuts a long still stretch down, splitting it where a caption starts', () => {
     // The popover clip: the popover sat open for 2.2 s, across the start of the next caption at 3.1 s.
     expect(squeezePlan([[1.1, 3.3]], [0.2, 3.1, 5.9], 9)).toEqual([[1.5, 3.1]])
