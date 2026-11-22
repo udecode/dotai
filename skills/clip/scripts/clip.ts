@@ -973,16 +973,19 @@ async function renderReplay(
     }) as [string, string]
     const move = renderMove(firsts, at, [px(width), px(height)], background, dir)
     const { crop: c, line } = at
+    const renumber = `setpts=N/(${CLIP.fps}*TB)`
     const graph = [
       '[0:v]split=2[f0][r0]',
       '[1:v]split=2[f1][r1]',
-      '[f0]setsar=1,format=yuv420p[full0]',
-      '[f1]setsar=1,format=yuv420p[full1]',
-      '[2:v]setsar=1,format=yuv420p[move]',
+      // Each part counts its frames from 0, because a take's cut can start a frame late and concat would fill that gap with a repeated frame.
+      `[f0]${renumber},setsar=1,format=yuv420p[full0]`,
+      `[f1]${renumber},setsar=1,format=yuv420p[full1]`,
+      `[2:v]${renumber},setsar=1,format=yuv420p[move]`,
       ...clips.map((_, i) => `${spanGraph(`r${i}`, plan[i], `s${i}`)};[s${i}]crop=${c.w}:${c.h}:${c.x}:${c.y},scale=${at.w}:${at.h}:flags=lanczos,setsar=1,pad=${at.w + 2 * line}:${at.h + 2 * line}:${line}:${line}:color=${REPLAY.outline}[p${i}]`),
-      `color=c=${background}:s=${px(width)}x${px(height)}:r=${CLIP.fps}:d=${(frames / CLIP.fps).toFixed(4)}[bg]`,
+      // A rounded duration can give the background one frame more than the replay holds, so it stops at a frame count.
+      `color=c=${background}:s=${px(width)}x${px(height)}:r=${CLIP.fps},trim=end_frame=${frames}[bg]`,
       `[bg][p0]overlay=x=${at.x - line}:y=${at.y[0] - line}[b1]`,
-      `[b1][p1]overlay=x=${at.x - line}:y=${at.y[1] - line},setsar=1,format=yuv420p[rep]`,
+      `[b1][p1]overlay=x=${at.x - line}:y=${at.y[1] - line},setsar=1,format=yuv420p,${renumber}[rep]`,
       '[full0][full1][move][rep]concat=n=4:v=1:a=0[v]',
     ].join(';')
     const inputs = ['-i', clips[0], '-i', clips[1], '-framerate', String(CLIP.fps), '-i', move]
