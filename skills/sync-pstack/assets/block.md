@@ -72,7 +72,7 @@
 <!-- end -->
 <!-- if delivery=push -->
 <!-- # adds -->
-- **Shared checkout.** Other sessions may edit this checkout without notice, and every session commits as the same user. Stage nothing before the commit itself. Delete a tracked file with `rm`, not `git rm`, and commit with an explicit pathspec (`git commit -- <paths>`), because another session's plain `git commit` sweeps in whatever is staged. Commit a new, untracked file with `git add -- <paths> && git commit -- <paths>` as one command. Record each commit SHA this run creates in its todo list or decision log as it lands, and decide which commits are this run's from that list, never from memory or the author field. In a multi-batch pass, push each verified batch as it lands, staging only that batch's files; mid-batch states stay local. A new or changed shared script or check waits for its decision-trail review before it is pushed. Pull only after a rejected push, with `git pull --rebase --autostash`; that autostash is the one exception to the no-stash rule under Git. Compare `git stash list` before and after the pull. If it does not re-apply cleanly, or the pull left an autostash entry, restore that session's files from it, rerun the checks and push; an entry that was there before the pull belongs to another session. A rebase conflict or hook failure is handled as the Other sessions rule says. After a rebase that changes agent instructions, re-read them before the next step.
+- **Shared checkout.** Before you stage, commit, delete a tracked file, pull or push, read `.agents/pstack/rules/shared.md` in full.
 <!-- end -->
 <!-- # adds -->
 - **Git.** Before a nontrivial edit, check only `git branch --show-current`.

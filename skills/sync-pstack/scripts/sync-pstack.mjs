@@ -83,6 +83,7 @@ export const RULE_FILES = {
   'pages.md': { blockRule: 'Plan pages', gates: ['plans'] },
   'panel.md': { blockRule: 'Panel review', gates: [] },
   'reflect.md': { blockRule: 'Improve the workflow mid-task', gates: [] },
+  'shared.md': { blockRule: 'Shared checkout', gates: ['delivery=push'] },
   'tests.md': { blockRule: 'Tests', gates: ['tests'] },
   'time.md': { blockRule: 'Time budget', gates: [] },
   'title.md': { blockRule: 'Session title', gates: [] },

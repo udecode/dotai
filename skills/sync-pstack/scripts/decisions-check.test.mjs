@@ -530,6 +530,7 @@ test('decisions-check rounds --patch caps a reviewed step at the step budget, co
       'rebuilt.patch': [diff(500, 'build/out.js'), diff(500, 'docs/plans/2026-01-01-a.decisions.tsv'), diff(10, 'src/a.ts')].join('\n'),
       'renamed.patch': [diff(1, 'docs/a.md'), ['diff --git a/src/plain.ts "b/src/caf\\303\\251.ts"', 'rename from src/plain.ts', 'rename to "src/caf\\303\\251.ts"', '--- a/src/plain.ts', '+++ "b/src/caf\\303\\251.ts"', '@@ -0,0 +1,401 @@', ...Array.from({ length: 401 }, (_, n) => `+line ${n}`)].join('\n')].join('\n'),
       'quoted.patch': [diff(1, 'docs/a.md'), diff(401, 'src/caf\\303\\251.ts').replace(/a\/(\S+) b\/(\S+)/u, '"a/$1" "b/$2"')].join('\n'),
+      'docs/plans/.keep': '',
     },
   });
   const check = (...args) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), ...args], root);
@@ -551,6 +552,29 @@ test('decisions-check rounds --patch caps a reviewed step at the step budget, co
   assert.equal(append('panel', 'seats opus', 'recorded').status, 0);
   assert.equal(append('writing', 'deslop on the round fixes', 'applied: nothing to cut').status, 0);
   assert.equal(rounds('p401.patch').status, 1, 'the lift lasts one round');
+  writeFileSync(join(root, 'log.md'), '# Log\n\n## Defaults\n\n| Decision | Pick | Alternative | Word |\n| --- | --- | --- | --- |\n| Step 4 size | one big step | step 4a and 4b | split step 4 |\n| Step 2.2 size | one big step | step 2.2a and 2.2b | split step 2.2 |\n| Very long blocks | no cap | cap at 1 MB | no size cap |\n');
+  const lead = (step, evidence, log = 'log.decisions.tsv') => check('append', log, 'build', `big step: ${step}the parser is one walk; a lettered step would land a walk no parse calls`, 'why', evidence, 'decided: one round over the budget');
+  assert.equal(lead('step 4 ', 'proof: none').status, 1, "the lead's big step names the Defaults word that reverses it");
+  assert.equal(lead('', 'proof: none; word: split step 4').status, 1, "the lead's big step names the step it lifts");
+  assert.equal(lead('step 4 ', 'proof: none; word: no size cap').status, 1, 'a word of another Defaults row does not reverse a big step');
+  assert.equal(lead('step 5 ', 'proof: none; word: split step 4').status, 1, "step 5's big step does not borrow step 4's word");
+  assert.equal(lead('step 9 ', 'proof: none; word: split step 9').status, 1, "a split word the plan's Defaults does not offer");
+  assert.equal(lead('step 4 ', 'proof: none; word: "split step 4".').status, 0, 'a quoted word with a closing period still names the step');
+  assert.equal(rounds('p401.patch').status, 0, "the lead's big step lifts the budget for its round");
+  assert.equal(append('delivery', `step 4 landed as ${'a'.repeat(64)}`, 'decided: landed').status, 0);
+  assert.equal(rounds('p401.patch').status, 1, "a landing, a SHA-256 one included, ends the lift, so the next step's round needs its own");
+  assert.equal(lead('step 2.2 ', 'proof: none; word: split step 2.2').status, 0, 'a dotted step id names its step');
+  assert.equal(append('proof', 'step 2.2 dropped frames during playback', 'recorded').status, 0);
+  assert.equal(rounds('p401.patch').status, 0, 'a proof row that says a step dropped frames keeps the lift');
+  assert.equal(append('delivery', 'step 2.2 dropped: its parser moved to another plan', 'decided: dropped').status, 0);
+  assert.equal(rounds('p401.patch').status, 1, 'a dropped step ends its lift, so the next step does not borrow it');
+  assert.equal(lead('step 4 ', 'proof: none; word: split step 4', 'docs/plans/2026-01-01-gone.decisions.tsv').status, 1, 'a plans-directory log whose plan is missing offers no Defaults word');
+  const elsewhere = (cwd, log) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', log, 'build', 'big step: step 4 the parser is one walk', 'why', 'proof: none; word: split step 4', 'decided: one round over the budget'], cwd);
+  assert.match(elsewhere(join(root, 'docs'), 'plans/2026-01-01-gone.decisions.tsv').stderr, /needs its plan/, 'append finds the plans directory from the log, wherever it runs');
+  assert.match(elsewhere(dir, join(root, 'docs/plans/2026-01-01-gone.decisions.tsv')).stderr, /needs its plan/, 'outside the checkout too');
+  assert.equal(elsewhere(join(root, 'docs'), '../log.decisions.tsv').status, 0, 'a log whose plan offers the word takes the row from another folder');
+  assert.equal(check('append', 'run.tsv', 'design', 'a run log', 'why', 'proof: none', 'decided: x').status, 0);
+  assert.equal(lead('step 4 ', 'proof: none; word: split step 4', 'run.tsv').status, 0, 'a log that is no .decisions.tsv file has no plan beside it to read');
 });
 
 test('decisions-check refuses a new trunk step while an earlier one is built and not landed', () => {
@@ -679,8 +703,8 @@ test('decisions-check counts a landing only from its fixed row and counts new pl
 
   assert.equal(pivot('x', 'y').status, 0);
   assert.match(pivot('y', 'z').stderr, /after 1 new plan the lead chose/);
-  assert.equal(append('x', 'delivery', 'landed as 0a1b2c3d').status, 0);
-  assert.equal(pivot('y', 'z').status, 0, 'a landing in the earlier log after it named this one');
+  assert.equal(append('x', 'delivery', `landed as ${'0a'.repeat(32)}`).status, 0);
+  assert.equal(pivot('y', 'z').status, 0, 'a landing in the earlier log after it named this one, a SHA-256 one included');
 });
 
 test("decisions-check finds the run's last landing by time across its logs", () => {
