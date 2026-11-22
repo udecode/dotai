@@ -16,11 +16,11 @@ import {
   CLIP,
   renderClip,
   alignBeats,
-  changedArea,
   renderPair,
-  stackLayout,
-  sameMotion,
-  wipePlan,
+  contentBox,
+  padBox,
+  pageColor,
+  replayLayout,
   fitCrop,
   openClip,
   fixCaption,
@@ -195,74 +195,42 @@ describe('a before-and-after pair', () => {
     for (const spans of plan) expect(spans.reduce((n, [a, b, held]) => n + b - a + held, 0)).toBe(frames)
   })
 
-  test('crops to the changed area, fills the width the rail leaves as far as the pixels allow and keeps the clip inside 9:16', () => {
-    const { width, height } = CLIP.x
-    const room = width - 8 - 4
-    const tallest = width * (16 / 9) - 80 - 76
-    const line = stackLayout({ x: 100, y: 300, w: 300, h: 20 }, width, height, 2)
-    expect(line.k).toBeCloseTo(room / 332)
-    expect(line.panel.w).toBeCloseTo(room)
-    expect(line.crop.h).toBeCloseTo(height / 4)
-    const narrow = stackLayout({ x: 200, y: 300, w: 60, h: 20 }, width, height, 2)
-    expect([narrow.k, narrow.crop.w, narrow.panel.w]).toEqual([2, room / 2, room])
-    const page = stackLayout(undefined, width, height, 2)
-    expect(page.panel.h * 2 + 2).toBeLessThanOrEqual(tallest + 1e-6)
-    expect(stackLayout({ x: 0, y: 0, w: 500, h: 600 }, width, height, 2).panel.h * 2 + 2).toBeLessThanOrEqual(tallest + 1e-6)
-    expect(page.crop.h).toBe(height)
-  })
-
-  test('a wipe plays the before take once and wipes to each differing result, back before the next step, and ends on the after result', () => {
-    const { pieces, starts } = wipePlan([[0, 100], [0, 120]], [200, 220], [false, true, true], 24, 72)
-    expect(pieces).toEqual([
-      { play: 0, from: 0, to: 100 },
-      { wipe: [0, 99, 1, 119], frames: 24 },
-      { hold: 1, at: 119, frames: 72 },
-      { wipe: [1, 119, 0, 99], frames: 24 },
-      { play: 0, from: 100, to: 200 },
-      { wipe: [0, 199, 1, 219], frames: 24 },
-      { hold: 1, at: 219, frames: 72 },
-    ])
-    expect(starts).toEqual([0, 220])
-    expect(wipePlan([[0], [0]], [100, 100], [false, false], 24, 72).pieces.at(-1)).toEqual({ hold: 0, at: 99, frames: 72 })
-  })
-
-  test('takes move the same when they differ only in timing or in what a step leaves, and not when a gesture shows something the other never does', () => {
+  test('trims the margin both takes leave blank, on the page color, with some page around what is left', () => {
     const size = 64
-    const frame = (...blocks: [number, number, number][]) => {
-      const f = new Uint8Array(size * size * 3).fill(255)
-      for (const [x0, y0, n] of blocks) for (let y = y0; y < y0 + n; y++) for (let x = x0; x < x0 + n; x++) f.fill(0, 3 * (y * size + x), 3 * (y * size + x) + 3)
+    const frame = (x0: number, y0: number, n: number) => {
+      const f = new Uint8Array(size * size * 3).fill(250)
+      for (let y = y0; y < y0 + n; y++) for (let x = x0; x < x0 + n; x++) f.fill(20, 3 * (y * size + x), 3 * (y * size + x) + 3)
       return f
     }
-    const menu: [number, number, number] = [4, 4, 30]
-    const before = [frame(), frame(menu), frame(menu), frame([34, 34, 28])]
-    const after = [frame(), frame(), frame(menu), frame([34, 34, 20])]
-    const steps: [[number, number][], [number, number][]] = [[[0, 4]], [[0, 4]]]
-    expect(sameMotion([before, after], steps, size, size)).toBe(true)
-    const wrong = [frame(), frame([4, 30, 30]), frame(menu), frame([34, 34, 28])]
-    expect(sameMotion([wrong, after], steps, size, size)).toBe(false)
+    const frames = [frame(10, 20, 5), frame(30, 24, 8)]
+    expect(pageColor(frames[0], size, size)).toBe(0xfafafa)
+    const box = contentBox(frames, size, size, 0xfafafa)
+    expect(box).toEqual({ x: 10, y: 20, w: 28, h: 12 })
+    expect(contentBox([frame(0, 0, 0)], size, size, 0xfafafa)).toBeUndefined()
+    const pad = CLIP.comparePadPx
+    expect(padBox(box, [2, 2], 128, 128)).toEqual({ x: 20 - pad, y: 40 - pad, w: 56 + 2 * pad, h: 24 + 2 * pad })
+    expect(padBox({ x: 0, y: 0, w: 64, h: 64 }, [2, 2], 128, 128)).toEqual({ x: 0, y: 0, w: 128, h: 128 })
+    expect(padBox(undefined, [2, 2], 128, 128)).toEqual({ x: 0, y: 0, w: 128, h: 128 })
+  })
+
+  test('replays two copies side by side, each half the width at most and never past its own size, centered under their labels', () => {
+    const { width, height } = CLIP.x
+    const whole = replayLayout({ x: 0, y: 0, w: width, h: height }, width, height, 30)
+    expect(whole.panel.w * 2 + 8 + 2 * 12).toBeCloseTo(width)
+    expect(whole.k).toBeCloseTo((width - 32) / 2 / width)
+    expect(whole.x[1] - whole.x[0]).toBeCloseTo(whole.panel.w + 8)
+    expect(whole.y - whole.labelY).toBe(30 + 8)
+    expect(whole.labelY + 38 + whole.panel.h + whole.labelY).toBeCloseTo(height)
+    const narrow = replayLayout({ x: 100, y: 0, w: 200, h: 300 }, width, height, 30)
+    expect(narrow.k).toBe(1)
+    expect(narrow.panel).toEqual({ w: 200, h: 300 })
+    const tall = replayLayout({ x: 0, y: 0, w: 100, h: height }, width, height, 30)
+    expect(tall.panel.h).toBeCloseTo(height - 24 - 38)
   })
 
   test('an X clip with its bars is 2:3', () => {
     expect((CLIP.x.height + 80 + 76) / CLIP.x.width).toBe(3 / 2)
   })
-
-  test('finds what changes during either take, not just at the end, and ignores the moving cursor', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'clip-area-'))
-    const clip = (name: string, boxes: string) => {
-      const file = join(dir, `${name}.mp4`)
-      Bun.spawnSync(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', `color=c=white:s=540x400:d=2${boxes}`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', file])
-      return file
-    }
-    // A menu that opens and closes in the before take, and a cursor-sized square that moves in both.
-    const cursor = ",drawbox=x='20+100*t':y=20:w=20:h=24:color=black:t=fill"
-    const before = clip('before', `${cursor},drawbox=x=60:y=200:w=300:h=80:color=black:t=fill:enable='between(t,0.5,1)'`)
-    const after = clip('after', cursor)
-    const box = (await changedArea([before, after], 1))!
-    expect(box.y).toBeGreaterThan(180)
-    expect(box.y + box.h).toBeLessThan(300)
-    expect(box.x).toBeLessThan(70)
-    expect(box.x + box.w).toBeGreaterThan(350)
-  }, 60_000)
 
   test('stacks a before still above an after still, cropped to where they differ', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'clip-pair-'))
