@@ -456,7 +456,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/proof.mjs": {
-      "sha256": "6df99d9c8059a4d9e7b42c7457b3ad92a7d3427f2f819b4487655fd4f1627a8c",
+      "sha256": "ee73155b82c9b07a494463f50abc63a05af343a070f5502c580a0654f7079bac",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/replay.mjs": {
@@ -652,7 +652,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/proof.test.mjs": {
-      "sha256": "91cde2955769eb30d21eecca1d74e187f75a1a4b9bcf46e07d2e0b604b3879e8",
+      "sha256": "dc8a3eb5b47ece892f758c32746dbdd88c561a2a3dcd71f6f4fb277f52a0082b",
       "mode": 420
     },
     "skills/sync-pstack/scripts/replay.test.mjs": {

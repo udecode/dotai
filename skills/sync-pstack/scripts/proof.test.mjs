@@ -11,6 +11,9 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 
 const HELPERS = join(HERE, '../assets/pstack');
 
+process.env.TMPDIR = mkdtempSync(join(tmpdir(), 'sync-pstack-proof-pool-'));
+delete process.env.PSTACK_SLOT;
+
 // Drops the line that names when the machine last started.
 const unbooted = (log) => log.replace(/^boot=\d{4}-\d\d-\d\dT[\d:.]+Z\n/mu, '');
 
@@ -90,6 +93,46 @@ test('proof logs the exit of a command that outlives its parent proof.mjs', asyn
   proof.kill('SIGKILL');
   await until(() => read(dir, 'run/orphan-a1.log').includes('exit='));
   assert.match(read(dir, 'run/orphan-a1.log'), /\nready\n\nproof\.mjs ended before its command\nexit=0\n$/);
+});
+
+test('proof stops a timed-out command whose leader catches SIGTERM while its process scans are slow', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-proof-blocked-'));
+  mkdirSync(join(dir, 'bin'));
+  writeFileSync(join(dir, 'bin/ps'), '#!/bin/sh\nexec sleep 30\n', { mode: 0o755 });
+  writeFileSync(join(dir, 'leader.mjs'), "process.on('SIGTERM', () => {});\nconsole.log(process.pid, Date.now());\nsetInterval(() => {}, 1000);\n");
+  const timeout = 3;
+  const grace = 5;
+  const proof = spawnSync(process.execPath, [join(HELPERS, 'proof.mjs'), '--dir', join(dir, 'run'), '--name', 'blocked', '--timeout', String(timeout), '--', process.execPath, join(dir, 'leader.mjs')], { cwd: dir, encoding: 'utf8', env: { ...process.env, PATH: `${join(dir, 'bin')}:${process.env.PATH}` } });
+
+  assert.equal(proof.status, 1);
+  const [, leaderPid, begun] = read(dir, 'run/blocked-a1.log').match(/^(\d+) (\d+)$/mu) ?? [];
+  assert.ok(Date.now() - Number(begun) < (timeout + 2 * grace) * 1000, `proof stopped the command ${Date.now() - Number(begun)} ms after it started`);
+  const leader = Number(leaderPid);
+  assert.ok(leader > 0, 'the leader printed no pid');
+  try {
+    assert.throws(() => process.kill(leader, 0), { code: 'ESRCH' }, 'the timed-out command outlived proof.mjs');
+  } finally {
+    spawnSync('kill', ['-9', String(leader)]);
+  }
+  assert.match(read(dir, 'run/blocked-a1.log'), /\ntimed out after 3 seconds\nexit=ETIMEDOUT\n$/);
+});
+
+test('proof stops its command when its supervisor dies before reporting', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-proof-supervisor-'));
+  writeFileSync(join(dir, 'leader.mjs'), "console.log(process.pid);\nsetInterval(() => {}, 1000);\n");
+  const proof = spawn(process.execPath, [join(HELPERS, 'proof.mjs'), '--dir', join(dir, 'run'), '--name', 'supervisor', '--', process.execPath, join(dir, 'leader.mjs')], { cwd: dir, stdio: 'ignore' });
+  const exited = new Promise((done) => proof.on('exit', done));
+  const log = () => (existsSync(join(dir, 'run/supervisor-a1.log')) ? read(dir, 'run/supervisor-a1.log') : '');
+  await until(() => /^\d+$/mu.test(log()));
+  const leader = Number(log().match(/^(\d+)$/mu)[1]);
+  const supervisor = Number(spawnSync('pgrep', ['-P', String(proof.pid)], { encoding: 'utf8' }).stdout.trim());
+  process.kill(supervisor, 'SIGKILL');
+  await exited;
+  try {
+    assert.throws(() => process.kill(leader, 0), { code: 'ESRCH' }, 'the command outlived its supervisor');
+  } finally {
+    spawnSync('kill', ['-9', String(leader)]);
+  }
 });
 
 // A scratch TMPDIR gives each test its own core pool, so the machine's real proofs neither block it nor count in it.
