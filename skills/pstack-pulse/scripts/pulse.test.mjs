@@ -751,4 +751,7 @@ test('the menubar gets one Mac alert per finished turn, and none while backgroun
   reduce(sessions, hook('scrub', 'UserPromptSubmit', 70));
   reduce(sessions, hook('scrub', 'StopFailure', 80));
   assert.deepEqual(menu(81).alerts.map(({ kind }) => kind), ['failed']);
+  reduce(sessions, hook('codex', 'UserPromptSubmit', 90, { runtime: 'codex' }));
+  reduce(sessions, hook('codex', 'Stop', 91, { runtime: 'codex' }));
+  assert.deepEqual(menu(92).alerts.map(({ kind }) => kind), ['failed']);
 });

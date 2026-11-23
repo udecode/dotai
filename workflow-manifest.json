@@ -323,7 +323,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/SKILL.md": {
-      "sha256": "6c811e01d4f7cf208149678d04421b6f8d5ca693361b84ccf0e6291ab6bffaa6",
+      "sha256": "89c7b7a1cc719fec1fecbb68686828211ab76268d269f7b9997ca5ffd8b8605d",
       "mode": 420
     },
     "skills/pstack-pulse/desktop/index.html": {
@@ -367,7 +367,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/model.mjs": {
-      "sha256": "432fc8805633c7c33356f22eff938140951ddf48a12bcfb2187852bfa8fc7096",
+      "sha256": "1c0bce9d73d87ccdb816f6c165abf52ede2e6df91dee0f45274246e28eb529e7",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/phone.mjs": {
@@ -383,7 +383,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/scripts/pulse.test.mjs": {
-      "sha256": "1219e19a22cb0dd647bcefd1c7f0d8e9113088475ba40a895f72ae033857aa06",
+      "sha256": "898d3bd8960241c3e114c52b0d7de116e442f20b88886cf9845f953f969a689b",
       "mode": 420
     },
     "skills/rca/SKILL.md": {
