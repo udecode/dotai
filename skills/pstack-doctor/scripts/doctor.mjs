@@ -75,9 +75,12 @@ const transcriptOf = (cwd, lastActive, env) => {
   return near ? [near.path] : [];
 };
 
-/** The plan's state: Status and Topic lines, and its ticked and open step boxes. */
+const NUMBERS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
+
+/** The plan's state: Status and Topic lines, its ticked and open step boxes, and the step count its Defaults give the phase. */
 export function parsePlan(text) {
   const line = (key) => text.match(new RegExp(`^${key}:\\s*(.+)$`, 'mu'))?.[1]?.trim() ?? null;
+  const appetite = text.match(/^\|[^|\n]*(?:appetite|steps planned)[^|\n]*\|\s*(?:\D*?\b)?(\d+|[a-z]+) steps?\b/imu)?.[1]?.toLowerCase();
   const heading = text.match(/^## (?:Steps|Phases)$/mu);
   const rest = heading ? text.slice(heading.index + heading[0].length) : '';
   const end = rest.search(/^## /mu);
@@ -87,6 +90,7 @@ export function parsePlan(text) {
     topic: line('Topic'),
     ticked: (steps.match(/^\s*- \[x\]/gimu) ?? []).length,
     open: (steps.match(/^\s*- \[ \]/gmu) ?? []).length,
+    appetite: appetite === undefined ? null : /^\d+$/u.test(appetite) ? Number(appetite) : NUMBERS.indexOf(appetite) > 0 ? NUMBERS.indexOf(appetite) : null,
   };
 }
 
@@ -103,6 +107,24 @@ export function planChain(name, superseded) {
     target = before.name;
   }
   return chain;
+}
+
+/** The active plan beside `planPath` whose boxes match the session title's `(ticked/total)`, when the plan pulse recorded does not. pulse records the plan a session touched last, which can be a parent plan. */
+async function titledPlan(planPath, title) {
+  const [, ticked, total] = title.match(/\((\d+)\/(\d+)\)/u)?.map(Number) ?? [];
+  // A title is retitled at milestones, so its ticked count can lag the plan by a step or two.
+  const matches = (plan) => plan.ticked + plan.open === total && Math.abs(plan.ticked - ticked) <= 2;
+  const recorded = parsePlan(readFileSync(planPath, 'utf8'));
+  if (ticked === undefined || matches(recorded)) return { planPath, plan: recorded };
+  const active = await run('rg', ['--max-depth', '1', '--files-with-matches', '-i', '-g', '*.md', '^Status:\\s*(building|planning|reviewing)', dirname(planPath)]).then(
+    ({ stdout }) => stdout.split('\n').filter(Boolean),
+    () => [],
+  );
+  for (const path of active) {
+    const plan = parsePlan(readFileSync(path, 'utf8'));
+    if (matches(plan)) return { planPath: path, plan };
+  }
+  return { planPath, plan: recorded };
 }
 
 /** The plans in a folder whose Status says another plan superseded them. A plans folder can hold thousands of plans, so ripgrep reads it when it can. */
@@ -178,6 +200,8 @@ export function flagsOf(facts) {
   const landings = Math.max(facts.landings.length, facts.log?.landed ?? 0);
   if (facts.log && facts.log.rounds >= 3 && facts.log.rounds / Math.max(1, landings) > 2) flags.push(`${facts.log.rounds} review rounds for ${landings} landing(s)`);
   if (facts.log?.dropped >= 2 && facts.log.dropped * 4 > landings) flags.push(`${facts.log.dropped} steps dropped for ${landings} landing(s)`);
+  // pstack's Run check only rewrites its row each time the built count passes another multiple of the appetite.
+  if (facts.plan?.appetite && facts.log?.landed >= 2 * facts.plan.appetite) flags.push(`${facts.log.landed} steps landed against an appetite of ${facts.plan.appetite}`);
   return flags;
 }
 
@@ -220,7 +244,8 @@ function glanceOf(session, { pulse, now, env }) {
 
 /** The git, plan and log facts of a session old enough to judge. Landing logs are read once per repository. */
 async function examine(glance, { now, landingLogs }) {
-  const { cwd, planPath, start } = glance;
+  const { cwd, start } = glance;
+  const { planPath, plan } = glance.planPath ? await titledPlan(glance.planPath, glance.title) : { planPath: null, plan: null };
   const inTree = Boolean(cwd) && !glance.worktreeGone;
   const common = inTree ? await git(cwd, ['rev-parse', '--path-format=absolute', '--git-common-dir']) : null;
   const root = common ? common.replace(/\/\.git$/u, '') : null;
@@ -238,7 +263,6 @@ async function examine(glance, { now, landingLogs }) {
     inTree ? git(cwd, ['status', '--porcelain', '--untracked-files=no']) : null,
     planPath ? supersededIn(dirname(planPath)) : [],
   ]);
-  const plan = planPath ? parsePlan(readFileSync(planPath, 'utf8')) : null;
   const chain = planPath ? planChain(basename(planPath), superseded) : [];
   const logPaths = planPath ? [...chain.map((name) => join(dirname(planPath), name)), planPath].map((path) => path.replace(/\.md$/u, '.decisions.tsv')).filter((path) => existsSync(path)) : [];
   const log = logPaths.length ? logFacts(logPaths.map((path) => readFileSync(path, 'utf8')).join('\n'), since) : null;
@@ -246,6 +270,7 @@ async function examine(glance, { now, landingLogs }) {
   const facts = {
     ...glance,
     root,
+    planPath,
     ownerIdleHours: glance.transcript ? hoursSince(lastTypedAt(readSlice(glance.transcript, 1_000_000, true).split('\n')), now) : null,
     landings,
     hoursSinceLanding: hoursSince(lastLanding, now),

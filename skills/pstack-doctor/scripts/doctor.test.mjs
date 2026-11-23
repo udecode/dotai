@@ -13,9 +13,14 @@ const quiet = { failure: null, needs: '', worktreeGone: false, working: false, a
 
 test('parsePlan counts only the boxes under Steps or Phases', () => {
   const plan = parsePlan(['# Plan', 'Status: building: step 2', 'Topic: markdown', '', '## Open work', '- [ ] not a step', '', '## Steps', '- [x] one', '  - [X] nested', '- [ ] two', '', '## Close', '- [ ] after'].join('\n'));
-  assert.deepEqual(plan, { status: 'building: step 2', topic: 'markdown', ticked: 2, open: 1 });
-  assert.deepEqual(parsePlan('Status: done\n## Phases\n- [x] a\n- [ ] b'), { status: 'done', topic: null, ticked: 1, open: 1 });
-  assert.deepEqual(parsePlan('no status\n- [ ] loose'), { status: null, topic: null, ticked: 0, open: 0 });
+  assert.deepEqual(plan, { status: 'building: step 2', topic: 'markdown', ticked: 2, open: 1, appetite: null });
+  assert.deepEqual(parsePlan('Status: done\n## Phases\n- [x] a\n- [ ] b'), { status: 'done', topic: null, ticked: 1, open: 1, appetite: null });
+  assert.deepEqual(parsePlan('no status\n- [ ] loose'), { status: null, topic: null, ticked: 0, open: 0, appetite: null });
+  assert.equal(parsePlan("| Phase 1's appetite | 8 steps, kept from the old plan (look) | Your own number |").appetite, 8);
+  assert.equal(parsePlan('| Appetite | Five steps for phase 1, then copy in phase 2 (look) | Your own number |').appetite, 5);
+  assert.equal(parsePlan('| Appetite | Four steps for this phase, the first plan\'s own count (look) |').appetite, 4);
+  assert.equal(parsePlan('| Steps planned for phase 4, the room | 28 steps, its boxes from C.1 to C.19 (look) |').appetite, 28);
+  assert.equal(parsePlan('| Steps | 8 steps |').appetite, null);
 });
 
 test('planChain walks superseded plans back, oldest first, with or without .md', () => {
@@ -69,6 +74,8 @@ test('flagsOf names each mechanism and stays quiet on a young session', () => {
   assert.deepEqual(flagsOf({ ...quiet, log: { rounds: 7, landed: 3, dropped: 2 } }), ['7 review rounds for 3 landing(s)', '2 steps dropped for 3 landing(s)']);
   assert.deepEqual(flagsOf({ ...quiet, log: { rounds: 6, landed: 3, dropped: 0 } }), []);
   assert.deepEqual(flagsOf({ ...quiet, log: { rounds: 0, landed: 45, dropped: 3 } }), []);
+  assert.deepEqual(flagsOf({ ...quiet, plan: { status: 'building', appetite: 8 }, log: { rounds: 0, landed: 16, dropped: 0 } }), ['16 steps landed against an appetite of 8']);
+  assert.deepEqual(flagsOf({ ...quiet, plan: { status: 'building', appetite: 8 }, log: { rounds: 0, landed: 15, dropped: 0 } }), []);
   assert.deepEqual(flagsOf({ ...quiet, failure: 'api', needs: 'question', worktreeGone: true }), ['failed: api', 'needs you: question', 'worktree gone']);
 });
 
@@ -111,6 +118,7 @@ function world() {
   writeFileSync(join(plans, 'p.md'), 'Status: superseded: by docs/plans/p-2.md after round 4\n');
   writeFileSync(join(plans, 'p-2.md'), 'Status: superseded: by p-3, after round 5\n');
   writeFileSync(join(plans, 'p-3.md'), 'Status: building: step 1\nTopic: markdown\n\n## Steps\n- [x] one\n- [ ] two\n- [ ] three\n');
+  writeFileSync(join(plans, 'parent.md'), 'Status: building: phase 2\n\n## Phases\n- [ ] phase 2\n');
   const seats = (hours) => row(iso(hours), 'panel', 'seats opus, astra, neon');
   writeFileSync(join(plans, 'p.decisions.tsv'), [seats(20), seats(19), seats(18)].join('\n'));
   writeFileSync(join(plans, 'p-2.decisions.tsv'), [seats(10), seats(9)].join('\n'));
@@ -126,7 +134,7 @@ function world() {
     join(pulse, 'state.json'),
     JSON.stringify({
       sessions: {
-        'claude:cli-loop': entry('cli-loop', 'local_loop', { transcript: transcriptPath, plan: join(plans, 'p-3.md'), title: '🚧 Loop' }),
+        'claude:cli-loop': entry('cli-loop', 'local_loop', { transcript: transcriptPath, plan: join(plans, 'parent.md'), title: '🚧 Loop (0/3)' }),
         'claude:cli-young': entry('cli-young', 'local_young', { title: 'young' }),
         'claude:cli-self': entry('cli-self', 'local_self', { title: 'doctor' }),
       },
@@ -140,7 +148,8 @@ test('facts reports a looping session, skips its own, and remembers the run', as
   const { env, transcriptPath } = world();
   const first = await facts([], env);
   assert.match(first, /^2 sessions: 1 older than 24 h/u);
-  assert.match(first, /## 🚧 Loop\n- local_loop, working, 30 h old/u);
+  assert.match(first, /## 🚧 Loop \(0\/3\)\n- local_loop, working, 30 h old/u);
+  assert.match(first, /- plan \S+\/p-3\.md: building: step 1\n/u);
   assert.match(first, /flags: 3 plans in a chain on topic markdown; 6 review rounds for 1 landing\(s\)/u);
   assert.match(first, /supersedes p\.md then p-2\.md/u);
   assert.match(first, /1\/3 boxes, 1 landing\(s\)/u);

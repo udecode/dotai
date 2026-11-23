@@ -311,15 +311,15 @@
       "mode": 420
     },
     "skills/pstack-doctor/SKILL.md": {
-      "sha256": "ba3cc912ecb469e6187c8d34530b421038a240b1732d7993aa0f5f628519af41",
+      "sha256": "8c414fe61a3da44354fbff42a8e010cce39262f7675f2a5964ff56a8994a7d8b",
       "mode": 420
     },
     "skills/pstack-doctor/scripts/doctor.mjs": {
-      "sha256": "6f75cbaafbb1cdc426fd849fafabb7dc2db49a2188f714340eb294d77d3ea104",
+      "sha256": "22c14e0d8e73747955ef544aa92d5af20242c241391fcda71e254ff6e0c35324",
       "mode": 420
     },
     "skills/pstack-doctor/scripts/doctor.test.mjs": {
-      "sha256": "36e46cdb4ff62b344c629ae2039a63517916b38257124eda235271cdd3e9da38",
+      "sha256": "d32cf0c13feb30c7e4dad59e8c82c6f2ccf6041c2c6681593b48e0b84fa4bef3",
       "mode": 420
     },
     "skills/pstack-pulse/SKILL.md": {
