@@ -14,7 +14,7 @@
 | --- | --- |
 | [clip](skills/clip/SKILL.md) | Record, check and render a demo clip of a web page, one before-and-after clip or image of a change, or a bug clip for an issue, for a chat message, a team post, a social post or an issue. Use before recording any clip of an app, including a bug's repro for an issue, before attaching before and after screenshots of a change (one stacked before-and-after clip or image replaces them), when a clip looks robotic, shaky, rushed or too polished, and when the owner changes how clips look, move or read. |
 | [walkthrough](skills/walkthrough/SKILL.md) | Present final screenshots or rendered artifacts as an annotated walkthrough when visual evidence is requested. |
-| [video-transcripts](skills/video-transcripts/SKILL.md) | Transcribe a supplied local or linked video with Gemini, or from its frames with a Claude subagent when Gemini fails, and check the transcript against one frame per second, when a recording's contents are needed as evidence, such as a bug recording on an issue, PR or comment, or a question about what a video shows. |
+| [video-transcripts](skills/video-transcripts/SKILL.md) | Transcribe a supplied local or linked video from one frame per second with Gemini 4 Neon through agy, or with a Claude subagent when agy fails, and check the transcript against the frames, when a recording's contents are needed as evidence, such as a bug recording on an issue, PR or comment, or a question about what a video shows. |
 | [plan-page](skills/plan-page/SKILL.md) | Write, check, repair and publish a plan page: a project's plans and subject files under its plans directory, rendered by .agents/pstack/plan-page.mjs and rendered as one local HTML page per subject with a local index of every subject, and published to claude.ai at each hand-back of page work, such as an architecture or API adoption plan, for comments and feedback. Use before writing or changing a plan, a subject file in <plans>/topics or its page; at every stop that hands back page work, such as a plan written or a playbook's close; before writing or updating a PR body, which renders from the PR's plan, or a comment about your commits on someone else's PR; when a plan page or its claude.ai artifact looks wrong or refuses to render; to republish a page; or to change the page shape or a playbook's page sections. |
 
 ## Workflow (3)
@@ -63,7 +63,7 @@ These skills remain installed when a tool is absent; an unavailable live action 
 - **pstack-pulse:** macOS with launchd and the Keychain, Node.js 22+ and sqlite3; an ActivitySmith account and key; Tailscale Funnel for the session list.
 - **rca:** A Code session in the Claude desktop app, which alone has its session tools.
 - **sync-pstack:** Node.js 22+ and Git; the Claude Code and Codex CLIs for plugin pins and smoke tests.
-- **video-transcripts:** ffmpeg, curl, jq and authorized Gemini credentials.
+- **video-transcripts:** ffmpeg, curl, jq and a signed-in agy (Antigravity CLI).
 - **walkthrough:** Real final-state captures, Node.js and the configured annotation tool.
 - **worktree-workspace:** Node.js 22+, Git and the VS Code `code` command; session titles from a sessions file or the Claude desktop app on macOS.
 

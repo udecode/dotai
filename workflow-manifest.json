@@ -712,7 +712,7 @@
       "mode": 420
     },
     "skills/video-transcripts/scripts/generate_video_transcript.sh": {
-      "sha256": "05d6f13e8cec38d54490c14fbaa2a49530d98a4662d86e12f4ef97278fceb25a",
+      "sha256": "b70e2d5db9437c17e28de9f93af19bc57a30d2d9d5457258ed3573a9e296f467",
       "mode": 493
     },
     "skills/video-transcripts/scripts/video_frames.sh": {
