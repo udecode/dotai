@@ -876,3 +876,16 @@ test('setup refuses a flag where --install or --env needs its value, so a chaine
     assert.match(result.stderr, /^Usage: node \.agents\/pstack\/setup\.mjs/);
   }
 });
+
+test("setup prints a person's local sheet lines from the main checkout to a Claude Code session, and nothing to Codex", () => {
+  const { clone, env, run, setup } = ledgerRemote();
+  const main = clone('main');
+  mkdirSync(join(main, '.claude'), { recursive: true });
+  writeFileSync(join(main, '.claude/pstack-models.local.md'), 'A note.\nclip: opus @medium\n');
+  const tree = join(main, '../tree');
+  run('git', ['-C', main, 'worktree', 'add', '-q', '--detach', tree]);
+  assert.match(setup(tree).stdout, /pstack-models\.local\.md overrides these lines of \.claude\/pstack-models\.md for this person:\nclip: opus @medium\n/u);
+  const codex = spawnSync(process.execPath, [join(tree, '.agents/pstack/setup.mjs')], { cwd: tree, encoding: 'utf8', env: { ...env, CLAUDE_CODE_SESSION_ID: '', CODEX_THREAD_ID: 'thread' } });
+  assert.equal(codex.status, 0, codex.stderr);
+  assert.doesNotMatch(codex.stdout, /pstack-models\.local\.md/u);
+});

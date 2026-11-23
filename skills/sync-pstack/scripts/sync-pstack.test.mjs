@@ -252,3 +252,15 @@ test('a rule-file rule shares the notes only of the block rule that points to it
 test('a rule that repeats a noted rule name away from it needs notes of its own', () => {
   assert.deepEqual(unmarkedRules('<!-- # adds -->\n- **Fast.** Go.\n\nOther text.\n\n- **Fast.** Skip every gate.\n'), ['Fast']);
 });
+
+test("apply makes git ignore a person's local models sheet in a trunk project only", () => {
+  const { dir, cli } = sandbox();
+  const trunk = project(dir, 'trunk', { config: { ...CONFIG, delivery: 'trunk' }, agents: '# App\n', files: { '.gitignore': 'node_modules' } });
+  assert.equal(cli('apply', trunk).status, 0);
+  assert.equal(read(trunk, '.gitignore'), 'node_modules\n.claude/*.local.md\n');
+  assert.equal(spawnSync('git', ['-C', trunk, 'check-ignore', '-q', '.claude/pstack-models.local.md']).status, 0);
+  assert.match(cli('apply', trunk).stdout, /in sync/);
+  const other = project(dir, 'other', { config: CONFIG, agents: '# App\n' });
+  assert.equal(cli('apply', other).status, 0);
+  assert.equal(existsSync(join(other, '.gitignore')), false);
+});

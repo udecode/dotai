@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { asDarwinPsPrints, bashCommandOf, claudeInvocationRun, claudeSessionRun, invocationRun, modelsSheet, pluginLag, ranAs, runtimeFromEnv } from '../assets/pstack/lead.mjs';
+import { asDarwinPsPrints, bashCommandOf, claudeInvocationRun, claudeSessionRun, effectiveModelsSheet, invocationRun, modelsSheet, pluginLag, ranAs, runtimeFromEnv } from '../assets/pstack/lead.mjs';
 
 const LEAD = fileURLToPath(new URL('../assets/pstack/lead.mjs', import.meta.url));
 const identity = { runtime: 'codex', thread: 'child', session: 'parent', invocation: 'exec-12345678-1234-1234-1234-123456789abc' };
@@ -231,4 +231,42 @@ test("a committed project sheet replaces the person's Claude Code sheet, and Cod
   writeFileSync(join(root, '.claude/pstack-models.md'), 'default effort: high\n');
   assert.equal(modelsSheet('claude', env, root), join(root, '.claude/pstack-models.md'));
   assert.equal(modelsSheet('codex', env, root), '/home/someone/.codex/pstack-models.md');
+});
+
+test("a person's local sheet overrides the committed sheet's role lines in a trunk project's Claude Code sessions only", () => {
+  const root = mkdtempSync(join(tmpdir(), 'sheet-root-'));
+  const main = mkdtempSync(join(tmpdir(), 'sheet-main-'));
+  const env = { HOME: '/home/someone' };
+  const committed = '# sheet\n\nswarm workers: opus @high\nclip: opus @high\ndefault effort: high\n';
+  const delivery = (name) => writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ delivery: name }));
+  mkdirSync(join(root, '.claude'));
+  mkdirSync(join(root, '.agents'));
+  delivery('trunk');
+  writeFileSync(join(root, '.claude/pstack-models.md'), committed);
+  assert.deepEqual(effectiveModelsSheet('claude', env, root, main), { paths: [join(root, '.claude/pstack-models.md')], text: committed });
+  mkdirSync(join(main, '.claude'));
+  writeFileSync(join(main, '.claude/pstack-models.local.md'), 'Why I run these.\nclip: opus @medium\nvideo transcripts: opus @low\n');
+  assert.deepEqual(effectiveModelsSheet('claude', env, root, main), {
+    paths: [join(root, '.claude/pstack-models.md'), join(main, '.claude/pstack-models.local.md')],
+    text: '# sheet\n\nswarm workers: opus @high\nclip: opus @medium\ndefault effort: high\nvideo transcripts: opus @low\n',
+  });
+  assert.equal(effectiveModelsSheet('codex', env, root, main).text, null, 'Codex keeps its own sheet');
+  delivery('pr');
+  assert.equal(effectiveModelsSheet('claude', env, root, main).text, committed, 'no session-start hook tells the lead about the file outside trunk delivery');
+});
+
+test('a worktree reads the local sheet its main checkout holds', () => {
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'sheet-git-')));
+  const main = join(dir, 'main');
+  const git = (...args) => execFileSync('git', ['-C', main, ...args], { encoding: 'utf8' });
+  mkdirSync(join(main, '.claude'), { recursive: true });
+  mkdirSync(join(main, '.agents'));
+  git('init', '-q');
+  writeFileSync(join(main, '.agents/pstack.json'), JSON.stringify({ delivery: 'trunk' }));
+  writeFileSync(join(main, '.claude/pstack-models.md'), 'clip: opus @high\n');
+  git('add', '.');
+  git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'init');
+  writeFileSync(join(main, '.claude/pstack-models.local.md'), 'clip: opus @medium\n');
+  git('worktree', 'add', '-q', '--detach', join(dir, 'tree'));
+  assert.equal(effectiveModelsSheet('claude', { HOME: dir }, join(dir, 'tree')).text, 'clip: opus @medium\n');
 });

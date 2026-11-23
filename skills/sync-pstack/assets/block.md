@@ -14,7 +14,7 @@
   The exception in both is a panel seat or an arena runner, which runs on its named model for model diversity; in Claude Code, an evidence seat that needs computer use is another, as the Extraction rule says, and so is a Codex worker the Codex workers rule starts.
 <!-- end -->
 <!-- if delivery=trunk -->
-  The exception in both is a panel seat or an arena runner, which runs on its named model for model diversity; in Claude Code, an evidence seat that needs computer use is another, as the Extraction rule says.
+  The exception in both is a panel seat or an arena runner, which runs on its named model for model diversity; in Claude Code, an evidence seat that needs computer use is another, as the Extraction rule says. The role lines of a person's own `.claude/pstack-models.local.md` in the main checkout, which git ignores, replace that sheet's line for each role they name and add each role it lacks, for that person. The session-start hook prints them, and the helpers that read the sheet read them too.
 <!-- end -->
 <!-- if maxEffort -->
 <!-- # adds -->

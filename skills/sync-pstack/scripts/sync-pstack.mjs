@@ -24,7 +24,7 @@ import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ask } from '../assets/pstack/cross.mjs';
-import { EFFORTS } from '../assets/pstack/lead.mjs';
+import { EFFORTS, LOCAL_SHEET } from '../assets/pstack/lead.mjs';
 import { LEDGER, ledgerPath, TASK_ID } from '../assets/pstack/tasks.mjs';
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -799,6 +799,10 @@ export function apply(root, { tag, force = false, write = true, dispositions } =
   const settingsSource = existsSync(settingsPath) ? readFileSync(settingsPath, 'utf8') : '';
   const settings = settingsSource ? JSON.parse(settingsSource) : {};
   if (!pinned(settings, config.tag)) changes.push({ path: '.claude/settings.json', text: settingsText(settingsSource, settings, config.tag) });
+  if (config.delivery === 'trunk' && gitRun(root, 'check-ignore', '-q', LOCAL_SHEET).status === 1) {
+    const ignore = existsSync(join(root, '.gitignore')) ? readFileSync(join(root, '.gitignore'), 'utf8') : '';
+    changes.push({ path: '.gitignore', text: `${ignore}${ignore && !ignore.endsWith('\n') ? '\n' : ''}.claude/*.local.md\n` });
+  }
 
   // Keep the recorded source while the output is unchanged, so an unrelated
   // shared commit does not make every project's config stale. A null record
