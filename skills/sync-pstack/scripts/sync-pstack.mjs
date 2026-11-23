@@ -65,6 +65,7 @@ const HELPER_FILES = {
   'land.mjs': ['delivery=trunk'],
   'review.mjs': ['delivery=trunk'],
   'setup.mjs': ['delivery=trunk'],
+  'working-branch.mjs': [],
   'writing-check.mjs': [],
 };
 const RULES = join(HELPERS, 'rules');

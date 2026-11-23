@@ -97,6 +97,23 @@ test('land squashes the task, lints its changed files and pushes next as one com
   assert.equal(git(clone, 'status', '--porcelain'), '');
 });
 
+test('land refuses a checkout cut from a working branch that the config on origin\'s default branch has retired', () => {
+  const { dir, remote, clone, base, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const other = join(dir, 'retire');
+  git(dir, 'clone', '--quiet', '--branch', 'main', remote, other);
+  writeFileSync(join(other, '.agents/pstack.json'), JSON.stringify({ branch: 'main', plans: 'docs/plans' }));
+  git(other, 'commit', '--quiet', '-am', 'retire next');
+  git(other, 'push', '--quiet', 'origin', 'HEAD:main');
+  git(clone, 'fetch', '--quiet', 'origin', 'main');
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD)]);
+  assert.notEqual(run.status, 0);
+  assert.match(run.stderr, /lands on next, but origin now works on main, so this checkout was cut from a retired branch\. Run `git rebase --onto origin\/main origin\/next`/);
+  assert.equal(git(remote, 'rev-parse', 'next'), base, 'nothing lands on the retired branch');
+});
+
 // Splits the trunk: next gains .gitprivate, which the clone's git ignores
 // through core.excludesFile, and the companion repository .git-private, with
 // its own bare remote, tracks a.spec from its first commit.

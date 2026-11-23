@@ -187,7 +187,7 @@ test('reply copies the final assistant text of a finished subagent and never ove
   assert.equal(existsSync(join(dir, 'interim.md')) || existsSync(join(dir, 'limit.md')), false);
 });
 
-test('head points origin/HEAD at the working branch only when a protected branch differs', () => {
+test("head points origin/HEAD at the working branch named by the config on origin's default branch", () => {
   const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-head-'));
   const remote = join(dir, 'remote.git');
   const clone = join(dir, 'clone');
@@ -220,6 +220,17 @@ test('head points origin/HEAD at the working branch only when a protected branch
   assert.match(moved.stdout, /origin\/HEAD now points at origin\/next/);
   assert.equal(origin(), 'refs/remotes/origin/next');
   assert.equal(head().stdout, '', 'a second run finds origin/HEAD in place and prints nothing');
+
+  writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify({ branch: 'main' }));
+  git(clone, 'add', '.agents/pstack.json');
+  git(clone, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '--quiet', '-m', 'retire next');
+  git(clone, 'push', '--quiet', 'origin', 'HEAD:main');
+  writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify({ branch: 'next', protected: 'main' }));
+  const retired = head();
+  assert.equal(retired.status, 0, retired.stderr);
+  assert.match(retired.stdout, /cut from a retired branch\. Rebase onto origin\/main/, 'a checkout cut from the retired branch is told to rebase');
+  assert.match(retired.stdout, /origin\/HEAD now points at origin\/main/, 'the config on origin\'s default branch wins over the stale checkout');
+  assert.equal(origin(), 'refs/remotes/origin/main');
 });
 
 test('reread prints each changed sentence whole against its last snapshot', () => {
