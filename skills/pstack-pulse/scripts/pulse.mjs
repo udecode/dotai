@@ -25,6 +25,7 @@ const LOG = join(homedir(), 'Library/Logs/pstack-pulse.log');
 // macOS posts notifications only for an app bundle, so the menubar binary lives inside one.
 const MENU_APP = join(HOME, 'PstackPulse.app');
 const CLAUDE_ICON = '/Applications/Claude.app/Contents/Resources/electron.icns';
+const LSREGISTER = '/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister';
 const MENU = { label: 'dev.pstack.pulse.menu', bin: join(MENU_APP, 'Contents/MacOS/pstack-pulse-menu'), log: join(homedir(), 'Library/Logs/pstack-pulse-menu.log') };
 const MENU_PLIST = join(homedir(), 'Library/LaunchAgents', `${MENU.label}.plist`);
 const SETTINGS = { claude: join(homedir(), '.claude/settings.json'), codex: join(homedir(), '.codex/hooks.json') };
@@ -270,6 +271,8 @@ function buildMenu() {
   if (build.status !== 0) return build;
   const sign = spawnSync('codesign', ['--force', '--sign', '-', MENU_APP], { encoding: 'utf8' });
   if (sign.status !== 0) return sign;
+  // Notification Center keeps the icon it first saw for a bundle, so each build registers the bundle again.
+  spawnSync(LSREGISTER, ['-f', MENU_APP]);
   rmSync(join(HOME, 'bin'), { recursive: true, force: true });
   saveConfig({ ...loadConfig(), menuSource: source });
   return build;
