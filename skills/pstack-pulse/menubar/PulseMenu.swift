@@ -1,4 +1,5 @@
 import AppKit
+import UserNotifications
 
 struct Action: Decodable { let title: String; let url: String }
 struct Chip: Decodable { let title: String; let color: String }
@@ -17,7 +18,8 @@ struct Card: Decodable { let key: String; let state: String; let contentState: F
 struct Fleet: Decodable { let contentState: Face; let action: Action? }
 // A null item draws a separator.
 struct Node: Decodable { let title: String; let color: String?; let items: [Node?]? }
-struct Board: Decodable { let fleet: Fleet?; let pstack: Node?; let cards: [Card] }
+struct Alert: Decodable { let id: String; let key: String; let kind: String; let title: String; let message: String; let open: String? }
+struct Board: Decodable { let fleet: Fleet?; let pstack: Node?; let cards: [Card]; let alerts: [Alert]?; let atDesk: Bool? }
 
 let home = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".pstack-pulse")
 let openable: Set<String> = ["https", "claude", "chatgpt"]
@@ -94,11 +96,14 @@ func cardText(_ face: Face, level: Chip?) -> NSAttributedString {
 }
 
 @MainActor
-final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotificationCenterDelegate {
   let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
   let menu = NSMenu()
   let dump: Bool
   var board: Board?
+  // Nil until the first board arrives, so a restart posts nothing that was already standing.
+  var seen: Set<String>?
+  var posted: [String: String] = [:]
   let decoder: JSONDecoder = {
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
@@ -112,6 +117,14 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
     menu.delegate = self
     item.menu = menu
+    if !dump {
+      let center = UNUserNotificationCenter.current()
+      center.delegate = self
+      center.requestAuthorization(options: [.alert, .sound]) { granted, error in
+        print("notifications: \(granted ? "allowed" : "refused \(error?.localizedDescription ?? "in System Settings")")")
+        fflush(stdout)
+      }
+    }
     renderButton()
     poll()
     Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
@@ -135,7 +148,42 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate {
       }
       board = next
       renderButton()
+      if let next, !dump { announce(next) }
     }
+  }
+
+  // The daemon sends alerts only while the owner is at the desk, where the phone stays quiet, so each alert reaches one screen.
+  func announce(_ board: Board) {
+    let alerts = board.alerts ?? []
+    let ids = Set(alerts.map(\.id))
+    let center = UNUserNotificationCenter.current()
+    let stale = posted.filter { !ids.contains($0.value) }.map(\.key)
+    if !stale.isEmpty {
+      center.removeDeliveredNotifications(withIdentifiers: stale)
+      stale.forEach { posted[$0] = nil }
+    }
+    defer { seen = ids }
+    guard let known = seen, board.atDesk == true else { return }
+    for alert in alerts where !known.contains(alert.id) {
+      let content = UNMutableNotificationContent()
+      content.title = alert.title
+      content.subtitle = ["needs-you": "Needs you", "failed": "Failed"][alert.kind] ?? "Finished"
+      content.body = alert.message
+      content.sound = .default
+      content.threadIdentifier = alert.key
+      if let open = alert.open { content.userInfo = ["open": open] }
+      center.add(UNNotificationRequest(identifier: alert.key, content: content, trigger: nil))
+      posted[alert.key] = alert.id
+    }
+  }
+
+  nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+    completionHandler([.banner, .sound])
+  }
+
+  nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+    if let link = response.notification.request.content.userInfo["open"] as? String, let url = URL(string: link), openable.contains(url.scheme ?? "") { NSWorkspace.shared.open(url) }
+    completionHandler()
   }
 
   func count(_ state: String) -> Int { board?.cards.filter { $0.state == state }.count ?? 0 }

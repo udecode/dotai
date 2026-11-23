@@ -48,6 +48,7 @@ function newSession(observation) {
     entrypoint: null,
     plan: null,
     turn: 0,
+    doneAt: null,
     needs: {},
     failure: null,
     check: null,
@@ -125,6 +126,7 @@ function applyHook(session, event, key) {
       session.active = event.background > 0;
       closeNeeds(session, (need) => need.kind === 'permission');
       if (session.active) break;
+      session.doneAt = event.at;
       if (session.check) session.failure = { kind: 'check', id: `${key}:check:${session.check.episode}`, summary: 'A required check is still failing' };
       break;
     case 'StopFailure':
@@ -380,11 +382,27 @@ export function menuBoardOf(views, context) {
     key: keyOf(view.session),
     state: view.session.state,
     ...sessionCardOf(view).body,
-    open: view.session.host ? `claude://claude.ai/epitaxy/${view.session.host}` : view.webUrl,
+    open: deskLinkOf(view),
     page: openPlanPage(view),
     level: levelRowOf(view.session, context.pstack),
   });
-  return { fleet: fleetOf(live, context).body, pstack: pstackSectionOf(context.pstack), cards: ranked.map(rowOf) };
+  return { fleet: fleetOf(live, context).body, pstack: pstackSectionOf(context.pstack), cards: ranked.map(rowOf), alerts: ranked.flatMap(deskAlertOf), atDesk: Boolean(context.atDesk) };
+}
+
+const deskLinkOf = (view) => (view.session.host ? `claude://claude.ai/epitaxy/${view.session.host}` : (view.appUrl ?? view.webUrl));
+
+// One Mac banner per session at a time; its id changes with each question, failure or finished turn, so each posts once.
+function deskAlertOf(view) {
+  const { session } = view;
+  const key = keyOf(session);
+  const base = { key, title: labelOf(view.title), open: deskLinkOf(view) };
+  const need = firstNeed(session);
+  if (need) return [{ ...base, id: `need:${key}:${need.id}:${need.openedAt}`, kind: 'needs-you', message: String(need.question) }];
+  if (session.failure && session.failure.kind !== 'check') return [{ ...base, id: `fail:${session.failure.id}`, kind: 'failed', message: session.failure.summary }];
+  if (session.active || !session.doneAt) return [];
+  const stage = titleStageOf(view.title);
+  const message = [view.project.name, session.failure?.summary ?? (stage ? stageText(stage) : 'Done')].join(' · ');
+  return [{ ...base, id: `done:${key}:${session.doneAt}`, kind: 'done', message }];
 }
 
 // The phone shows only the summary card, titled by its project when one project is live; session rows stay on the menubar.

@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, realpathSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, unlinkSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { connect, createServer as createSocketServer } from 'node:net';
 import { homedir } from 'node:os';
@@ -22,7 +22,9 @@ const UPDATED = join(HOME, 'updated.json');
 const LABEL = 'dev.pstack.pulse';
 const PLIST = join(homedir(), 'Library/LaunchAgents', `${LABEL}.plist`);
 const LOG = join(homedir(), 'Library/Logs/pstack-pulse.log');
-const MENU = { label: 'dev.pstack.pulse.menu', bin: join(HOME, 'bin/pstack-pulse-menu'), log: join(homedir(), 'Library/Logs/pstack-pulse-menu.log') };
+// macOS posts notifications only for an app bundle, so the menubar binary lives inside one.
+const MENU_APP = join(HOME, 'PstackPulse.app');
+const MENU = { label: 'dev.pstack.pulse.menu', bin: join(MENU_APP, 'Contents/MacOS/pstack-pulse-menu'), log: join(homedir(), 'Library/Logs/pstack-pulse-menu.log') };
 const MENU_PLIST = join(homedir(), 'Library/LaunchAgents', `${MENU.label}.plist`);
 const SETTINGS = { claude: join(homedir(), '.claude/settings.json'), codex: join(homedir(), '.codex/hooks.json') };
 const EVENTS = {
@@ -33,7 +35,7 @@ const LOCK = `/tmp/pstack-pulse-${createHash('sha1').update(HOME).digest('hex').
 const log = (...parts) => console.error(new Date().toISOString(), ...parts);
 const launchctl = (...args) => spawnSync('launchctl', args, { encoding: 'utf8' });
 const DESK_IDLE_MS = 3 * 60_000;
-// While the owner uses the Mac, pushes wait, so one they answer at the desk never reaches the phone.
+// While the owner uses the Mac, pushes wait and the menubar posts Mac banners instead, so one alert reaches one screen.
 function atDesk() {
   const idleNs = /"HIDIdleTime" = (\d+)/u.exec(spawnSync('ioreg', ['-c', 'IOHIDSystem', '-d', '4'], { encoding: 'utf8' }).stdout ?? '')?.[1];
   return Boolean(idleNs) && Number(idleNs) / 1e6 < DESK_IDLE_MS;
@@ -75,10 +77,11 @@ async function tick(state, config, client) {
   latestViews = views;
   const context = { now, shippedToday: shippedToday(state.sessions, now), account: accountCache.value.desktop, listUrl: config.listUrl };
   const board = planBoard(views, context);
-  problems.push(...(await deliver(state.phone, { cards: board.cards, badge: board.badge, incidents: incidentsOf(views), listUrl: config.listUrl, atDesk: atDesk() }, { client, save: () => saveState(state) })));
+  const desk = atDesk();
+  problems.push(...(await deliver(state.phone, { cards: board.cards, badge: board.badge, incidents: incidentsOf(views), listUrl: config.listUrl, atDesk: desk }, { client, save: () => saveState(state) })));
   saveState(state);
   // Built after the phone's turn, so a config file pulse cannot read stalls only the menu.
-  latestMenu = menuBoardOf(views, { ...context, pstack: readPstack(views.map(({ session }) => session.cwd)) });
+  latestMenu = menuBoardOf(views, { ...context, atDesk: desk, pstack: readPstack(views.map(({ session }) => session.cwd)) });
   const summary = problems.join('; ');
   if (summary && summary !== lastProblems) log(summary);
   lastProblems = summary;
@@ -181,7 +184,7 @@ function heal() {
   log('skill changed; rewriting hooks and restarting');
   writeHooks(stableNode());
   if (existsSync(MENU_PLIST) && loadConfig().menuSource !== sourceHash()) {
-    if (buildMenu().status === 0) launchctl('kickstart', '-k', `gui/${process.getuid()}/${MENU.label}`);
+    if (buildMenu().status === 0) startMenu();
     else log('menubar: rebuild failed; the old one keeps running');
   }
   process.exit(0);
@@ -210,23 +213,43 @@ function load(label, plist) {
 
 const sourceHash = () => createHash('sha1').update(readFileSync(MENU_SOURCE)).digest('hex');
 
+const MENU_INFO = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>${MENU.label}</string>
+<key>CFBundleName</key><string>pstack pulse</string>
+<key>CFBundleExecutable</key><string>${basename(MENU.bin)}</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>LSUIElement</key><true/>
+</dict></plist>
+`;
+
 function buildMenu() {
   mkdirSync(dirname(MENU.bin), { recursive: true });
+  writeFileAtomic(join(MENU_APP, 'Contents/Info.plist'), MENU_INFO);
   const source = sourceHash();
   const build = spawnSync('xcrun', ['swiftc', '-O', '-o', MENU.bin, MENU_SOURCE], { encoding: 'utf8' });
-  if (build.status === 0) saveConfig({ ...loadConfig(), menuSource: source });
+  if (build.status !== 0) return build;
+  const sign = spawnSync('codesign', ['--force', '--sign', '-', MENU_APP], { encoding: 'utf8' });
+  if (sign.status !== 0) return sign;
+  rmSync(join(HOME, 'bin'), { recursive: true, force: true });
+  saveConfig({ ...loadConfig(), menuSource: source });
   return build;
+}
+
+function startMenu() {
+  writeFileAtomic(MENU_PLIST, plistOf({ label: MENU.label, args: [MENU.bin], log: MENU.log, path: process.env.PATH, untilQuit: true }));
+  return load(MENU.label, MENU_PLIST);
 }
 
 function menubar() {
   const build = buildMenu();
   if (build.status !== 0) {
     process.exitCode = 1;
-    console.log(`menubar: not built; it needs Xcode's swiftc (${(build.stderr || build.error?.message || '').trim().split('\n')[0]})`);
+    console.log(`menubar: not built; it needs Xcode's swiftc and codesign (${(build.stderr || build.error?.message || '').trim().split('\n')[0]})`);
     return;
   }
-  writeFileAtomic(MENU_PLIST, plistOf({ label: MENU.label, args: [MENU.bin], log: MENU.log, path: process.env.PATH, untilQuit: true }));
-  const boot = load(MENU.label, MENU_PLIST);
+  const boot = startMenu();
   if (boot.status !== 0) process.exitCode = 1;
   console.log(`menubar: ${boot.status === 0 ? 'started' : `launchctl failed: ${boot.stderr.trim()}`} (${MENU.log})`);
 }

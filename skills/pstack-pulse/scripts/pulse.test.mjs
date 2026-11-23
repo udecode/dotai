@@ -732,3 +732,24 @@ test('pulse reads a Claude transcript and caps effort the way sync-pstack lead.m
     assert.match(row.title, new RegExp(`\\(cap ${capEffort(effort, cap)}\\)$`, 'u'), `${effort} under cap ${cap}`);
   }
 });
+
+test('the menubar gets one Mac alert per finished turn, none while background work runs, and the desk flag', () => {
+  const sessions = {};
+  const menu = (seconds, atDesk = true) => menuBoardOf(viewsOf(sessions, {}, {}, { scrub: '🟠 scrub (2/5)' }), { now: T0 + seconds * 1000, shippedToday: 0, atDesk, pstack: NO_PSTACK });
+  reduce(sessions, hook('scrub', 'UserPromptSubmit', 0, { cwd: '/w/a' }));
+  reduce(sessions, hook('scrub', 'Stop', 10, { background: 1 }));
+  assert.deepEqual(menu(11).alerts, []);
+  reduce(sessions, hook('scrub', 'UserPromptSubmit', 20, { source: 'task-notification' }));
+  reduce(sessions, hook('scrub', 'Stop', 30, { background: 0 }));
+  const [done] = menu(31).alerts;
+  assert.deepEqual([done.kind, done.title, done.message], ['done', 'scrub', 'repo · Waiting 2/5']);
+  assert.equal(menu(40).alerts[0].id, done.id);
+  assert.equal(menu(40, false).atDesk, false);
+  reduce(sessions, hook('scrub', 'UserPromptSubmit', 50));
+  reduce(sessions, ask('scrub', 51));
+  assert.deepEqual(menu(52).alerts.map(({ kind, message }) => [kind, message]), [['needs-you', 'Ship scrub?']]);
+  reduce(sessions, hook('scrub', 'StopFailure', 60));
+  reduce(sessions, hook('scrub', 'UserPromptSubmit', 70));
+  reduce(sessions, hook('scrub', 'StopFailure', 80));
+  assert.deepEqual(menu(81).alerts.map(({ kind }) => kind), ['failed']);
+});
