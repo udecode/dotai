@@ -174,6 +174,8 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotifi
       if let open = alert.open { content.userInfo = ["open": open] }
       center.add(UNNotificationRequest(identifier: alert.key, content: content, trigger: nil))
       posted[alert.key] = alert.id
+      print("banner posted: \(alert.kind) \(alert.title)")
+      fflush(stdout)
     }
   }
 

@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
@@ -319,8 +319,39 @@ export function probe(sessions, now, problems) {
 }
 
 const railCache = {};
+const railQueue = [];
+let railsRunning = 0;
 const RAIL_TTL_MS = 60_000;
+const RAILS_AT_ONCE = 2;
 const STAGE_STATES = new Set(['left', 'now', 'waiting', 'blocked', 'stopped', 'done', 'skipped']);
+
+const parseRail = (stdout) => {
+  const raw = JSON.parse(stdout || 'null');
+  if (!raw || !Array.isArray(raw.stages)) return null;
+  return {
+    page: typeof raw.page === 'string' && /^https:\/\/[^\s@]+$/u.test(raw.page) ? raw.page : null,
+    stages: raw.stages.filter(({ state }) => STAGE_STATES.has(state)).map(({ label, state }) => ({ label: String(label).slice(0, 40), state })),
+    steps: { checked: Number(raw.steps?.checked) || 0, total: Number(raw.steps?.total) || 0 },
+  };
+};
+
+function nextRail() {
+  if (railsRunning >= RAILS_AT_ONCE || !railQueue.length) return;
+  const { planPath, stamp, helper, root } = railQueue.shift();
+  railsRunning += 1;
+  execFile(process.execPath, [helper, planPath, '--rail'], { cwd: root, encoding: 'utf8', timeout: 10_000, env: QUIET_ENV }, (error, stdout) => {
+    let rail = railCache[planPath]?.rail ?? null;
+    try {
+      if (!error) rail = parseRail(stdout);
+    } catch {}
+    railCache[planPath] = { stamp, rail, at: Date.now() };
+    railsRunning -= 1;
+    nextRail();
+  });
+  nextRail();
+}
+
+// Each rail runs a node child for about two seconds, so it refreshes in the background and the tick reads the last answer.
 export function railOf(planPath) {
   if (!planPath || !existsSync(planPath)) return null;
   const stamp = [planPath, planPath.replace(/\.md$/u, '.decisions.tsv')].filter(existsSync).map((path) => statSync(path).mtimeMs).join(':');
@@ -328,19 +359,16 @@ export function railOf(planPath) {
   if (cached?.stamp === stamp && Date.now() - cached.at < RAIL_TTL_MS) return cached.rail;
   const root = repoOf(dirname(planPath));
   const helper = root && join(root, '.agents/pstack/plan-page.mjs');
-  let rail = null;
-  try {
-    const raw = helper && existsSync(helper) ? JSON.parse(quiet(process.execPath, [helper, planPath, '--rail'], { cwd: root }) ?? 'null') : null;
-    if (raw && Array.isArray(raw.stages)) {
-      rail = {
-        page: typeof raw.page === 'string' && /^https:\/\/[^\s@]+$/u.test(raw.page) ? raw.page : null,
-        stages: raw.stages.filter(({ state }) => STAGE_STATES.has(state)).map(({ label, state }) => ({ label: String(label).slice(0, 40), state })),
-        steps: { checked: Number(raw.steps?.checked) || 0, total: Number(raw.steps?.total) || 0 },
-      };
-    }
-  } catch {}
-  railCache[planPath] = { stamp, rail, at: Date.now() };
-  return rail;
+  if (!helper || !existsSync(helper)) {
+    railCache[planPath] = { stamp, rail: null, at: Date.now() };
+    return null;
+  }
+  if (!cached?.pending) {
+    railCache[planPath] = { ...(cached ?? { rail: null }), stamp: cached?.stamp, at: cached?.at ?? 0, pending: true };
+    railQueue.push({ planPath, stamp, helper, root });
+    nextRail();
+  }
+  return cached?.rail ?? null;
 }
 
 export function apiKey() {
