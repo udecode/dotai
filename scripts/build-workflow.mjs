@@ -15,7 +15,7 @@ const groups = {
   'Communication': ['clip', 'walkthrough', 'video-transcripts', 'plan-page'],
   'Workflow': ['chips', 'passwords', 'redo'],
   'Maintenance': ['cleanup', 'fseventsd-watchdog', 'sync-pstack', 'worktree-workspace'],
-  'Monitoring': ['pstack-pulse', 'rca'],
+  'Monitoring': ['pstack-doctor', 'pstack-pulse', 'rca'],
 };
 const explicitDependencies = {};
 const requirements = {
@@ -25,6 +25,7 @@ const requirements = {
   'fseventsd-watchdog': ['macOS with launchd, and the user running the installer with sudo once'],
   chips: ['Node.js 22+ and Git; the ledger helpers and chips.md rule that sync-pstack installs in .agents/pstack; a suggest tool for cards, with the fallback chips.md gives without one'],
   'plan-page': ['Node.js 22+ and Git; the renderer that sync-pstack installs in .agents/pstack; the Artifact tool to publish'],
+  'pstack-doctor': ['Node.js 22+, Git and ripgrep; pstack-pulse for live session state, and a session tool that lists sessions for the rest'],
   'pstack-pulse': ['macOS with launchd and the Keychain, Node.js 22+ and sqlite3; an ActivitySmith account and key; Tailscale Funnel for the session list'],
   rca: ['A Code session in the Claude desktop app, which alone has its session tools'],
   'sync-pstack': ['Node.js 22+ and Git; the Claude Code and Codex CLIs for plugin pins and smoke tests'],

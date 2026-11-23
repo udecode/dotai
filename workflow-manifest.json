@@ -70,6 +70,17 @@
       "provenance": null
     },
     {
+      "name": "pstack-doctor",
+      "distribution": "bundled",
+      "description": "Check every running agent session for a stuck or endless loop, find the pstack rule, override or project playbook that drives it, and propose a steer message and a rule fix. Use for /pstack-doctor, \"is any session stuck or endless?\", \"are my sessions making progress?\", a session that has run more than a day, and the owner's regular sanity check.",
+      "category": "Monitoring",
+      "dependencies": [],
+      "capabilities": [
+        "Node.js 22+, Git and ripgrep; pstack-pulse for live session state, and a session tool that lists sessions for the rest"
+      ],
+      "provenance": null
+    },
+    {
       "name": "pstack-pulse",
       "distribution": "bundled",
       "description": "Show every Claude Code and Codex session on the iPhone lock screen through ActivitySmith and in the Mac menubar, with each plan page's pipeline, and buzz when a session needs you, ships or fails.",
@@ -160,7 +171,7 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "46d5d5205024534f757e462fa928c03ff3aae8fe238fa5062f66077c7ea7b422",
+      "sha256": "c733648674396a0e7f453ec1e8730fa4e8e58ed2c65ae9b348def17c06a345a0",
       "mode": 420
     },
     "scripts/affected-tests.mjs": {
@@ -168,7 +179,7 @@
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
-      "sha256": "3fada50600b08a7aadf17a90b8f33d7573b11f82f3aef538a6b7b00192341b61",
+      "sha256": "5071798ea473662d43cee8815ddc308169ecc05464d109345eba49a67424e526",
       "mode": 420
     },
     "scripts/validate-skills": {
@@ -224,7 +235,7 @@
       "mode": 420
     },
     "skills/clip/SKILL.md": {
-      "sha256": "f1e47e638c4ef6b7a420bab628be85d18182762983f791232ff04d7d0c82ac2f",
+      "sha256": "fb3489709f18d7be8eb3824cd64a8e0d74b433f690613006311c64e75bb05e12",
       "mode": 420
     },
     "skills/clip/assets/CalSans-SemiBold.ttf": {
@@ -240,11 +251,11 @@
       "mode": 420
     },
     "skills/clip/scripts/clip.test.ts": {
-      "sha256": "e3889a4b72096dc6e10727feb04b7689cab10cb11540b07f1ccd6b395b2f2679",
+      "sha256": "83c747fabf8d9b7c3d60d7f2dd5ae42f84e8a62d018a6cedb216c5e565a52cd0",
       "mode": 420
     },
     "skills/clip/scripts/clip.ts": {
-      "sha256": "70e3d14350f031d612b266f03ed2f9e82a4cf23314f1c40e478166bef401c843",
+      "sha256": "61eb060f1f5c29807daef29498714592edb853a52ea2caa1a3e1291b56b72521",
       "mode": 420
     },
     "skills/clip/scripts/package.json": {
@@ -297,6 +308,18 @@
     },
     "skills/plan-page/references/shape.md": {
       "sha256": "f6e1c616a209ae04e07f81d4346c1dfa76c6a0d6fd9fbd2944a868dfeeea28b5",
+      "mode": 420
+    },
+    "skills/pstack-doctor/SKILL.md": {
+      "sha256": "ba3cc912ecb469e6187c8d34530b421038a240b1732d7993aa0f5f628519af41",
+      "mode": 420
+    },
+    "skills/pstack-doctor/scripts/doctor.mjs": {
+      "sha256": "6f75cbaafbb1cdc426fd849fafabb7dc2db49a2188f714340eb294d77d3ea104",
+      "mode": 420
+    },
+    "skills/pstack-doctor/scripts/doctor.test.mjs": {
+      "sha256": "36e46cdb4ff62b344c629ae2039a63517916b38257124eda235271cdd3e9da38",
       "mode": 420
     },
     "skills/pstack-pulse/SKILL.md": {
