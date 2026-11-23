@@ -105,7 +105,6 @@ test('land refuses a checkout cut from a working branch that the config on origi
   writeFileSync(join(other, '.agents/pstack.json'), JSON.stringify({ branch: 'main', plans: 'docs/plans' }));
   git(other, 'commit', '--quiet', '-am', 'retire next');
   git(other, 'push', '--quiet', 'origin', 'HEAD:main');
-  git(clone, 'fetch', '--quiet', 'origin', 'main');
   writeFileSync(join(clone, 'a.txt'), 'two\n');
 
   const run = helper('land.mjs', clone, ['--message', message(GOOD)]);

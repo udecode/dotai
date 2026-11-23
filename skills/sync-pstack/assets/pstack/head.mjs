@@ -1,18 +1,9 @@
 #!/usr/bin/env node
 // Installed by the sync-pstack skill.
 // Usage: node .agents/pstack/head.mjs
-// Points this clone's origin/HEAD at origin/<branch>, the working branch.
 // The desktop app cuts every new worktree from origin/HEAD, and
 // `git remote set-head origin --auto` copies whatever branch the remote calls
 // its default, which can be the protected one and can change on the remote.
-// The working branch is the one the config on origin's default branch names,
-// as working-branch.mjs reads it, so a session in a worktree cut from a retired working
-// branch cannot point every new worktree back at that branch; such a session
-// is told to rebase. When origin's default branch holds no config, it falls
-// back to this checkout's config and moves origin/HEAD only when that config
-// also names a protected branch. It writes nothing when origin lacks the
-// branch or origin/HEAD already points there, and prints one line when it
-// moves origin/HEAD.
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -27,7 +18,8 @@ if (trunk && config.branch && config.branch !== trunk) {
     `head.mjs: this checkout's .agents/pstack.json works on ${config.branch}, but origin now works on ${trunk}, so this checkout was cut from a retired branch. Rebase onto origin/${trunk} before you edit or land: git rebase --onto origin/${trunk} origin/${config.branch}`
   );
 }
-const branch = trunk ?? (config.protected ? config.branch : null);
+const protectedWorkingBranch = config.protected ? config.branch : null;
+const branch = trunk ?? protectedWorkingBranch;
 if (!branch) process.exit(0);
 
 const target = `refs/remotes/origin/${branch}`;
