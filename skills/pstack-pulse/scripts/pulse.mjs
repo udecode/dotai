@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, unlinkSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, realpathSync, rmSync, unlinkSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { connect, createServer as createSocketServer } from 'node:net';
 import { homedir } from 'node:os';
@@ -8,7 +8,7 @@ import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { codeHash, editSettings, hookCommand, nextHeal, plistOf, stableNode, withHook, withoutHook } from './lib/install.mjs';
 import { HOME } from './lib/event.mjs';
-import { accounts, apiKey, claudeRegistry, loadConfig, loadState, probe, projectOf, railOf, readInbox, saveConfig, saveState, writeFileAtomic } from './lib/io.mjs';
+import { accounts, apiKey, claudeRegistry, focusedAt, loadConfig, loadState, probe, projectOf, railOf, readInbox, saveConfig, saveState, writeFileAtomic } from './lib/io.mjs';
 import { firstNeed, incidentsOf, menuBoardOf, petOf, planBoard, reduce, shippedToday, titleStageOf } from './lib/model.mjs';
 import { createClient, deliver, teardown } from './lib/phone.mjs';
 import { readPstack } from './lib/pstack.mjs';
@@ -24,6 +24,7 @@ const PLIST = join(homedir(), 'Library/LaunchAgents', `${LABEL}.plist`);
 const LOG = join(homedir(), 'Library/Logs/pstack-pulse.log');
 // macOS posts notifications only for an app bundle, so the menubar binary lives inside one.
 const MENU_APP = join(HOME, 'PstackPulse.app');
+const CLAUDE_ICON = '/Applications/Claude.app/Contents/Resources/electron.icns';
 const MENU = { label: 'dev.pstack.pulse.menu', bin: join(MENU_APP, 'Contents/MacOS/pstack-pulse-menu'), log: join(homedir(), 'Library/Logs/pstack-pulse-menu.log') };
 const MENU_PLIST = join(homedir(), 'Library/LaunchAgents', `${MENU.label}.plist`);
 const SETTINGS = { claude: join(homedir(), '.claude/settings.json'), codex: join(homedir(), '.codex/hooks.json') };
@@ -44,10 +45,19 @@ function atDesk() {
 let latestViews = [];
 let latestMenu = { fleet: null, cards: [] };
 let accountCache = { at: 0, value: { desktop: null, cli: null } };
+let accountsPending = false;
 let lastProblems = '';
 
 function viewsOf(sessions) {
-  if (Date.now() - accountCache.at > 60_000) accountCache = { at: Date.now(), value: accounts() };
+  const live = Object.values(sessions).filter((session) => session.life === 'live' && session.host);
+  const focus = focusedAt(live.map(({ host }) => host));
+  if (Date.now() - accountCache.at > 60_000 && !accountsPending) {
+    accountsPending = true;
+    accounts().then((value) => {
+      accountCache = { at: Date.now(), value };
+      accountsPending = false;
+    });
+  }
   return Object.values(sessions)
     .filter((session) => session.audience === 'owner')
     .map((session) => {
@@ -59,29 +69,49 @@ function viewsOf(sessions) {
         webUrl: session.runtime === 'claude' && session.bridge ? `https://claude.ai/code/${session.bridge}` : null,
         appUrl: session.runtime === 'codex' ? 'chatgpt://' : null,
         rail: session.life === 'live' ? railOf(session.plan) : null,
+        focusedAt: focus[session.host] ?? null,
       };
       return view;
     });
 }
 
+// The board answers only between blocking steps, so a step that blocks past the menubar's two-second poll is logged.
+const SLOW_STEP_MS = 1000;
+
 async function tick(state, config, client) {
   const now = Date.now();
   const problems = [];
+  const steps = [];
+  let mark = performance.now();
+  const step = (name) => {
+    const at = performance.now();
+    if (at - mark > SLOW_STEP_MS) steps.push(`${name} ${Math.round(at - mark)}ms`);
+    mark = at;
+  };
   const batch = readInbox(state.applied);
   for (const { event } of batch) reduce(state.sessions, { kind: 'hook', ...event });
+  step('inbox');
   for (const observation of probe(state.sessions, now, problems)) reduce(state.sessions, observation);
+  step('probe');
   reduce(state.sessions, { kind: 'clock', at: new Date(now).toISOString() });
   state.applied = batch.map(({ name }) => name);
   saveState(state);
+  step('save');
   const views = viewsOf(state.sessions);
+  step('views');
   latestViews = views;
   const context = { now, shippedToday: shippedToday(state.sessions, now), account: accountCache.value.desktop, listUrl: config.listUrl };
   const board = planBoard(views, context);
   const desk = atDesk();
+  step('board and desk');
   problems.push(...(await deliver(state.phone, { cards: board.cards, badge: board.badge, incidents: incidentsOf(views), listUrl: config.listUrl, atDesk: desk }, { client, save: () => saveState(state) })));
+  mark = performance.now();
   saveState(state);
+  step('save after phone');
   // Built after the phone's turn, so a config file pulse cannot read stalls only the menu.
   latestMenu = menuBoardOf(views, { ...context, pstack: readPstack(views.map(({ session }) => session.cwd)) });
+  step('menu');
+  if (steps.length) log(`slow tick: ${steps.join(', ')}`);
   const summary = problems.join('; ');
   if (summary && summary !== lastProblems) log(summary);
   lastProblems = summary;
@@ -221,6 +251,7 @@ const MENU_INFO = `<?xml version="1.0" encoding="UTF-8"?>
 <key>CFBundleDisplayName</key><string>pstack</string>
 <key>CFBundleExecutable</key><string>${basename(MENU.bin)}</string>
 <key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
 <key>LSUIElement</key><true/>
 <key>NSUserNotificationAlertStyle</key><string>alert</string>
 </dict></plist>
@@ -229,6 +260,11 @@ const MENU_INFO = `<?xml version="1.0" encoding="UTF-8"?>
 function buildMenu() {
   mkdirSync(dirname(MENU.bin), { recursive: true });
   writeFileAtomic(join(MENU_APP, 'Contents/Info.plist'), MENU_INFO);
+  // Banners carry the Claude app's icon, so they read like the app's own.
+  if (existsSync(CLAUDE_ICON)) {
+    mkdirSync(join(MENU_APP, 'Contents/Resources'), { recursive: true });
+    copyFileSync(CLAUDE_ICON, join(MENU_APP, 'Contents/Resources/AppIcon.icns'));
+  }
   const source = sourceHash();
   const build = spawnSync('xcrun', ['swiftc', '-O', '-o', MENU.bin, MENU_SOURCE], { encoding: 'utf8' });
   if (build.status !== 0) return build;

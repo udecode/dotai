@@ -277,6 +277,10 @@ test('clones of one repository with ssh and https origins are one project, and a
   };
   const [first, second, solo] = [repo('r', 'git@github.com:o/r.git'), repo('r-2', 'https://github.com/o/r'), repo('solo')];
   mkdirSync(join(root, 'plain'));
+  spawnSync('git', ['-C', first, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'x']);
+  spawnSync('git', ['-C', first, 'worktree', 'add', '-q', join(root, 'tree')]);
+  mkdirSync(join(root, 'tree', 'deep'));
+  assert.deepEqual(projectOf(join(root, 'tree', 'deep')), projectOf(first));
   assert.deepEqual(projectOf(first), projectOf(second));
   assert.equal(projectOf(second).name, 'r');
   assert.notEqual(projectOf(solo).id, projectOf(first).id);
@@ -740,10 +744,12 @@ test('the menubar gets one Mac alert per finished turn, and none while backgroun
   reduce(sessions, hook('scrub', 'Stop', 10, { background: 1 }));
   assert.deepEqual(menu(11).alerts, []);
   reduce(sessions, hook('scrub', 'UserPromptSubmit', 20, { source: 'task-notification' }));
-  reduce(sessions, hook('scrub', 'Stop', 30, { background: 0 }));
+  reduce(sessions, hook('scrub', 'Stop', 30, { background: 0, message: 'Scrub landed in f4e53a4' }));
   const [done] = menu(31).alerts;
-  assert.deepEqual([done.kind, done.title, done.message], ['done', 'scrub', 'repo · Waiting 2/5']);
+  assert.deepEqual([done.kind, done.title, done.message], ['done', '🟠 scrub', 'Scrub landed in f4e53a4']);
   assert.equal(menu(40).alerts[0].id, done.id);
+  const opened = menuBoardOf(viewsOf(sessions).map((view) => ({ ...view, focusedAt: T0 + 35_000 })), { now: T0 + 40_000, shippedToday: 0, pstack: NO_PSTACK });
+  assert.deepEqual([opened.alerts, opened.onScreen], [[], done.key]);
   reduce(sessions, hook('scrub', 'UserPromptSubmit', 50));
   reduce(sessions, ask('scrub', 51));
   assert.deepEqual(menu(52).alerts.map(({ kind, message }) => [kind, message]), [['needs-you', 'Ship scrub?']]);

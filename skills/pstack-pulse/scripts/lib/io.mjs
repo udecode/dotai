@@ -1,12 +1,13 @@
 import { execFile, spawnSync } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { HOME, planMatches } from './event.mjs';
 import { emptyPhone } from './phone.mjs';
 
 const CLAUDE_SESSIONS = join(homedir(), '.claude/sessions');
 const CODEX_STATE = join(homedir(), '.codex/state_5.sqlite');
+const DESKTOP_SESSIONS = join(homedir(), 'Library/Application Support/Claude/claude-code-sessions');
 const INBOX = join(HOME, 'inbox');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 
@@ -128,16 +129,19 @@ function alive(pid) {
   }
 }
 
-export function accounts() {
-  const json = (cmd, args) => {
-    try {
-      return JSON.parse(quiet(cmd, args) ?? 'null');
-    } catch {
-      return null;
-    }
-  };
-  const desktop = json('cc-same', ['accounts', '--json']);
-  const cli = json('cswap', ['list', '--json']);
+// cc-same takes about five seconds, so the account lookup runs as children and never blocks a tick.
+export async function accounts() {
+  const json = (cmd, args) =>
+    new Promise((resolve) => {
+      execFile(cmd, args, { encoding: 'utf8', timeout: 10_000, env: QUIET_ENV }, (error, stdout) => {
+        try {
+          resolve(error ? null : JSON.parse(stdout || 'null'));
+        } catch {
+          resolve(null);
+        }
+      });
+    });
+  const [desktop, cli] = await Promise.all([json('cc-same', ['accounts', '--json']), json('cswap', ['list', '--json'])]);
   return {
     desktop: desktop?.accounts?.find((account) => account.signedIn)?.email ?? null,
     cli: cli?.accounts?.find((account) => account.number === cli.activeAccountNumber)?.email ?? null,
@@ -255,20 +259,63 @@ function commonDirProject(common) {
   return { id: real, name: real.endsWith('/.git') ? basename(dirname(real)) : basename(real).replace(/\.git$/u, '') };
 }
 
+// Reads the repository from its .git files instead of running git, which cost seconds a tick across many sessions.
+function gitDirsOf(cwd) {
+  for (let dir = cwd; ; dir = dirname(dir)) {
+    const dotGit = join(dir, '.git');
+    let stat = null;
+    try {
+      stat = statSync(dotGit);
+    } catch {}
+    if (stat?.isDirectory()) return { top: dir, common: dotGit };
+    if (stat?.isFile()) {
+      const target = /^gitdir:\s*(.+)$/mu.exec(readFileSync(dotGit, 'utf8'))?.[1]?.trim();
+      if (!target) return null;
+      const own = resolve(dir, target);
+      const commondir = join(own, 'commondir');
+      return { top: dir, common: existsSync(commondir) ? resolve(own, readFileSync(commondir, 'utf8').trim()) : own };
+    }
+    if (dirname(dir) === dir) return null;
+  }
+}
+
+function originOf(common) {
+  let inOrigin = false;
+  for (const line of readFileSync(join(common, 'config'), 'utf8').split('\n')) {
+    if (/^\s*\[/u.test(line)) inOrigin = /^\s*\[remote\s+"origin"\]/u.test(line);
+    else if (inOrigin) {
+      const url = /^\s*url\s*=\s*(.+?)\s*$/u.exec(line)?.[1];
+      if (url) return url;
+    }
+  }
+  return null;
+}
+
 export function projectOf(cwd) {
   if (!cwd) return OTHER;
   const cached = projectCache[cwd];
   if (cached && (cached.final || Date.now() - cached.at < RECHECK_MS)) return cached.project;
-  const origin = quiet('git', ['-C', cwd, 'config', '--get', 'remote.origin.url'])?.trim();
-  const common = origin ? null : quiet('git', ['-C', cwd, 'rev-parse', '--path-format=absolute', '--git-common-dir'])?.trim();
-  const project = origin ? originProject(origin) : common ? commonDirProject(common) : OTHER;
-  projectCache[cwd] = { project, at: Date.now(), final: Boolean(origin) };
+  let project = OTHER;
+  let origin = null;
+  try {
+    const dirs = gitDirsOf(cwd);
+    origin = dirs && originOf(dirs.common);
+    project = origin ? originProject(origin) : dirs ? commonDirProject(dirs.common) : OTHER;
+  } catch {}
+  // A removed worktree never gains an origin, so it is not read again every minute.
+  projectCache[cwd] = { project, at: Date.now(), final: Boolean(origin) || !existsSync(cwd) };
   return project;
 }
 
 export function repoOf(cwd) {
   if (!cwd) return null;
-  if (!(cwd in repoCache)) repoCache[cwd] = quiet('git', ['-C', cwd, 'rev-parse', '--show-toplevel'])?.trim() ?? null;
+  if (!(cwd in repoCache)) {
+    try {
+      repoCache[cwd] = gitDirsOf(cwd)?.top ?? null;
+    } catch {
+      repoCache[cwd] = null;
+    }
+  }
   return repoCache[cwd];
 }
 
@@ -321,7 +368,8 @@ export function probe(sessions, now, problems) {
 const railCache = {};
 const railQueue = [];
 let railsRunning = 0;
-const RAIL_TTL_MS = 60_000;
+// The stamp catches every plan or log edit, so the timer only catches what the rail reads elsewhere, such as the subject file.
+const RAIL_TTL_MS = 10 * 60_000;
 const RAILS_AT_ONCE = 2;
 const STAGE_STATES = new Set(['left', 'now', 'waiting', 'blocked', 'stopped', 'done', 'skipped']);
 
@@ -369,6 +417,43 @@ export function railOf(planPath) {
     nextRail();
   }
   return cached?.rail ?? null;
+}
+
+const recordPaths = {};
+const focusCache = {};
+let recordsScannedAt = 0;
+const RESCAN_MS = 60_000;
+
+function scanRecords() {
+  recordsScannedAt = Date.now();
+  const list = (dir) => {
+    try {
+      return readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return [];
+    }
+  };
+  for (const account of list(DESKTOP_SESSIONS).filter((entry) => entry.isDirectory()))
+    for (const org of list(join(DESKTOP_SESSIONS, account.name)).filter((entry) => entry.isDirectory()))
+      for (const file of list(join(DESKTOP_SESSIONS, account.name, org.name))) if (/^local_.+\.json$/u.test(file.name)) recordPaths[file.name.slice(0, -5)] = join(DESKTOP_SESSIONS, account.name, org.name, file.name);
+}
+
+// When the owner last opened each desktop session, from the app's own record; a record is read again only after it changes.
+export function focusedAt(hosts) {
+  if (hosts.some((host) => !recordPaths[host]) && Date.now() - recordsScannedAt > RESCAN_MS) scanRecords();
+  const out = {};
+  for (const host of hosts) {
+    const path = recordPaths[host];
+    if (!path) continue;
+    try {
+      const stamp = statSync(path).mtimeMs;
+      if (focusCache[host]?.stamp !== stamp) focusCache[host] = { stamp, at: Number(JSON.parse(readFileSync(path, 'utf8')).lastFocusedAt) || null };
+      out[host] = focusCache[host].at;
+    } catch {
+      delete recordPaths[host];
+    }
+  }
+  return out;
 }
 
 export function apiKey() {

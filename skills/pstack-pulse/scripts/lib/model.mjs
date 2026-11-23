@@ -49,6 +49,7 @@ function newSession(observation) {
     plan: null,
     turn: 0,
     doneAt: null,
+    lastReply: null,
     needs: {},
     failure: null,
     check: null,
@@ -127,6 +128,7 @@ function applyHook(session, event, key) {
       closeNeeds(session, (need) => need.kind === 'permission');
       if (session.active) break;
       session.doneAt = event.at;
+      session.lastReply = event.message ?? null;
       if (session.check) session.failure = { kind: 'check', id: `${key}:check:${session.check.episode}`, summary: 'A required check is still failing' };
       break;
     case 'StopFailure':
@@ -386,24 +388,26 @@ export function menuBoardOf(views, context) {
     page: openPlanPage(view),
     level: levelRowOf(view.session, context.pstack),
   });
-  return { fleet: fleetOf(live, context).body, pstack: pstackSectionOf(context.pstack), cards: ranked.map(rowOf), alerts: ranked.flatMap(deskAlertOf) };
+  const onScreen = live.filter((view) => view.focusedAt).toSorted((a, b) => b.focusedAt - a.focusedAt)[0];
+  return { fleet: fleetOf(live, context).body, pstack: pstackSectionOf(context.pstack), cards: ranked.map(rowOf), alerts: ranked.flatMap(deskAlertOf), onScreen: onScreen ? keyOf(onScreen.session) : null };
 }
 
 const deskLinkOf = (view) => (view.session.host ? `claude://claude.ai/epitaxy/${view.session.host}` : (view.appUrl ?? view.webUrl));
 
 // One Mac banner per session at a time; its id changes with each question, failure or finished turn, so each posts once.
-// Codex posts its own notifications, so only Claude sessions get one.
+// Codex posts its own notifications, so only Claude sessions get one. Opening the session after the alert clears it.
 function deskAlertOf(view) {
   const { session } = view;
   if (session.runtime !== 'claude') return [];
+  const read = (at) => Boolean(view.focusedAt) && view.focusedAt >= ms(at);
   const key = keyOf(session);
-  const base = { key, title: labelOf(view.title), open: deskLinkOf(view) };
+  const base = { key, title: nameOf(view.title), open: deskLinkOf(view) };
   const need = firstNeed(session);
-  if (need) return [{ ...base, id: `need:${key}:${need.id}:${need.openedAt}`, kind: 'needs-you', message: String(need.question) }];
-  if (session.failure && session.failure.kind !== 'check') return [{ ...base, id: `fail:${session.failure.id}`, kind: 'failed', message: session.failure.summary }];
-  if (session.active || !session.doneAt) return [];
+  if (need) return read(need.openedAt) ? [] : [{ ...base, id: `need:${key}:${need.id}:${need.openedAt}`, kind: 'needs-you', message: String(need.question) }];
+  if (session.failure && session.failure.kind !== 'check') return read(session.since) ? [] : [{ ...base, id: `fail:${session.failure.id}`, kind: 'failed', message: session.failure.summary }];
+  if (session.active || !session.doneAt || read(session.doneAt)) return [];
   const stage = titleStageOf(view.title);
-  const message = [view.project.name, session.failure?.summary ?? (stage ? stageText(stage) : 'Done')].join(' · ');
+  const message = session.failure?.summary ?? session.lastReply ?? [view.project.name, stage ? stageText(stage) : 'Done'].join(' · ');
   return [{ ...base, id: `done:${key}:${session.doneAt}`, kind: 'done', message }];
 }
 

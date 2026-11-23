@@ -323,7 +323,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/SKILL.md": {
-      "sha256": "89c7b7a1cc719fec1fecbb68686828211ab76268d269f7b9997ca5ffd8b8605d",
+      "sha256": "12881296533a33c79b3a0c0bf51fbb4fe834647b44d05125e96ac8b1a396f801",
       "mode": 420
     },
     "skills/pstack-pulse/desktop/index.html": {
@@ -347,7 +347,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/menubar/PulseMenu.swift": {
-      "sha256": "dc7aeb2d4e8c3ba2403fb0749a66a52fe9ba14f2dd2c59c703b62c13db156ff8",
+      "sha256": "2fdac4a80f921f04c6eeb922e9fd7fcf5dcfe7401465bdb52098a23b93ca1912",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/hook.mjs": {
@@ -355,7 +355,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/event.mjs": {
-      "sha256": "fa28eafca84280a5c4aef1b08b3d48c99c752678f9380b67a76f2d0627802357",
+      "sha256": "b3b92f5f9038e27bd652717c98c0f8610f8f9d4b56bd51e6f7275c17188df2d1",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/install.mjs": {
@@ -363,11 +363,11 @@
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/io.mjs": {
-      "sha256": "dc25847c267fe09b0f9d4af26f1d32787c259850144ae1eee16ce3585495234d",
+      "sha256": "a2dabbe739180adfc50eeefbebe1435f4b453c1d74d640d21e5ac54710b73c08",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/model.mjs": {
-      "sha256": "1c0bce9d73d87ccdb816f6c165abf52ede2e6df91dee0f45274246e28eb529e7",
+      "sha256": "c1354dafa452acb7376e296e0364126a228ae69275343982df214aae346851f1",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/phone.mjs": {
@@ -379,11 +379,11 @@
       "mode": 420
     },
     "skills/pstack-pulse/scripts/pulse.mjs": {
-      "sha256": "8072f3bda1405429349cf8b04423f646ca6ae2cd3d24481e67b7ff42f9550f0a",
+      "sha256": "251ca3941f72fd11c1cddc8284cbbde35454e9cf2f621f530e080bbd098f5698",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/pulse.test.mjs": {
-      "sha256": "898d3bd8960241c3e114c52b0d7de116e442f20b88886cf9845f953f969a689b",
+      "sha256": "ba5d15ecf29dfe6c85d6f3fa6936680c40feeee994d61724e8e6d36c2ebaf079",
       "mode": 420
     },
     "skills/rca/SKILL.md": {

@@ -19,7 +19,7 @@ struct Fleet: Decodable { let contentState: Face; let action: Action? }
 // A null item draws a separator.
 struct Node: Decodable { let title: String; let color: String?; let items: [Node?]? }
 struct Alert: Decodable { let id: String; let key: String; let kind: String; let title: String; let message: String; let open: String? }
-struct Board: Decodable { let fleet: Fleet?; let pstack: Node?; let cards: [Card]; let alerts: [Alert]? }
+struct Board: Decodable { let fleet: Fleet?; let pstack: Node?; let cards: [Card]; let alerts: [Alert]?; let onScreen: String? }
 
 let home = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".pstack-pulse")
 let openable: Set<String> = ["https", "claude", "chatgpt"]
@@ -101,6 +101,8 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotifi
   let menu = NSMenu()
   let dump: Bool
   var board: Board?
+  var lastBoardAt = Date.distantPast
+  var polling = false
   // Nil until the first board arrives, so a restart posts nothing that was already standing.
   var seen: Set<String>?
   var posted: [String: String] = [:]
@@ -141,12 +143,17 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotifi
   }
 
   func poll() {
+    guard !polling else { return }
+    polling = true
     Task {
+      defer { polling = false }
       var next: Board?
-      if let url = boardURL(), let response = try? await URLSession.shared.data(for: URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 2)) {
+      if let url = boardURL(), let response = try? await URLSession.shared.data(for: URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 5)) {
         next = try? decoder.decode(Board.self, from: response.0)
       }
-      board = next
+      // A tick can hold the daemon for a few seconds on a loaded Mac, so the menu keeps its last board until the daemon is quiet for 20 seconds.
+      if next != nil { lastBoardAt = Date() }
+      if next != nil || Date().timeIntervalSince(lastBoardAt) > 20 { board = next }
       renderButton()
       if let next, !dump { announce(next) }
     }
@@ -164,10 +171,11 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotifi
     }
     defer { seen = ids }
     guard let known = seen else { return }
-    for alert in alerts where !known.contains(alert.id) {
+    // The session already on screen in the Claude app needs no banner.
+    let claudeInFront = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.anthropic.claudefordesktop"
+    for alert in alerts where !known.contains(alert.id) && !(claudeInFront && alert.key == board.onScreen) {
       let content = UNMutableNotificationContent()
       content.title = alert.title
-      content.subtitle = ["needs-you": "Needs you", "failed": "Failed"][alert.kind] ?? "Finished"
       content.body = alert.message
       content.sound = .default
       content.threadIdentifier = alert.key
