@@ -217,7 +217,8 @@ const MENU_INFO = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>CFBundleIdentifier</key><string>${MENU.label}</string>
-<key>CFBundleName</key><string>pstack pulse</string>
+<key>CFBundleName</key><string>pstack</string>
+<key>CFBundleDisplayName</key><string>pstack</string>
 <key>CFBundleExecutable</key><string>${basename(MENU.bin)}</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>LSUIElement</key><true/>
