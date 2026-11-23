@@ -48,6 +48,17 @@
       "provenance": null
     },
     {
+      "name": "mem-log",
+      "distribution": "bundled",
+      "description": "Record a Mac's memory every 10 seconds, per process and per Claude Code session, from a user launchd job, so the next freeze leaves a record of what used the memory. Use to install, check or remove the recorder, after a Mac freezes or swaps hard, or to find which session or process used the memory.",
+      "category": "Monitoring",
+      "dependencies": [],
+      "capabilities": [
+        "macOS with launchd, Node.js and the Xcode command line tools for cc; the Claude desktop app to name sessions"
+      ],
+      "provenance": null
+    },
+    {
       "name": "passwords",
       "distribution": "bundled",
       "description": "Set up unattended 1Password access on a Mac or sign in to websites and apps without repeated human approvals. Use for new-device setup, passwords, authenticator codes, email or SMS verification, passkey alternatives, and blocked logins.",
@@ -171,7 +182,7 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "c733648674396a0e7f453ec1e8730fa4e8e58ed2c65ae9b348def17c06a345a0",
+      "sha256": "a68da54c4b3b6f21c10a983304e7b318eeabcb4a931b5f0c2911b93a08165890",
       "mode": 420
     },
     "scripts/affected-tests.mjs": {
@@ -179,7 +190,7 @@
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
-      "sha256": "5071798ea473662d43cee8815ddc308169ecc05464d109345eba49a67424e526",
+      "sha256": "6be24f05978c560e4ae5796787d1ded49de365ba5a51764cc6d6d4fce95cc63a",
       "mode": 420
     },
     "scripts/validate-skills": {
@@ -280,6 +291,26 @@
     },
     "skills/fseventsd-watchdog/scripts/watchdog.sh": {
       "sha256": "6045f6581b0e352455be4fcbcab8d650056ac02b0a379aebe90752b20b575e6e",
+      "mode": 420
+    },
+    "skills/mem-log/SKILL.md": {
+      "sha256": "6c8d67439a95c86cdc4e2892fd1f3d6354c5c191a87b5ba550248488e1068ee4",
+      "mode": 420
+    },
+    "skills/mem-log/scripts/footprint.c": {
+      "sha256": "6aa95ab20d8a3ecef5d2554438d6a690c4dab9e722a3fb2bcd62dce849a56e4e",
+      "mode": 420
+    },
+    "skills/mem-log/scripts/install.sh": {
+      "sha256": "64240d268525f8263ed1f56ee9bd078b4594ee8de9abaeb3c553c89f37e113e7",
+      "mode": 420
+    },
+    "skills/mem-log/scripts/mem-log.mjs": {
+      "sha256": "469f3f277ee1cec69a39616393da9e0576d986786d13233f1940fb38e96d1d59",
+      "mode": 420
+    },
+    "skills/mem-log/scripts/mem-report.mjs": {
+      "sha256": "3b3caaa541549b72040a6e17f225cc6205e8db9e0e0f537c2c6f3df0e252d338",
       "mode": 420
     },
     "skills/passwords/SKILL.md": {
