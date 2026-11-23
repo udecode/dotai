@@ -18,7 +18,7 @@ struct Card: Decodable { let key: String; let state: String; let contentState: F
 struct Fleet: Decodable { let contentState: Face; let action: Action? }
 // A null item draws a separator.
 struct Node: Decodable { let title: String; let color: String?; let items: [Node?]? }
-struct Alert: Decodable { let id: String; let key: String; let kind: String; let title: String; let message: String; let open: String? }
+struct Alert: Decodable { let id: String; let key: String; let kind: String; let title: String; let message: String; let open: String?; let record: String?; let at: Double? }
 struct Board: Decodable { let fleet: Fleet?; let pstack: Node?; let cards: [Card]; let alerts: [Alert]?; let onScreen: String? }
 
 let home = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".pstack-pulse")
@@ -103,6 +103,8 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotifi
   var board: Board?
   var lastBoardAt = Date.distantPast
   var polling = false
+  // One file watch per banner on screen, on the session record the Claude app rewrites when the owner opens the session.
+  var watches: [String: DispatchSourceFileSystemObject] = [:]
   // Nil until the first board arrives, so a restart posts nothing that was already standing.
   var seen: Set<String>?
   let decoder: JSONDecoder = {
@@ -168,7 +170,13 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotifi
     let center = UNUserNotificationCenter.current()
     // Asking macOS which banners are up, rather than remembering them, clears banners posted before a restart too.
     let keys = Set(alerts.map(\.key))
+    for (id, source) in watches where !ids.contains(id) {
+      source.cancel()
+      watches[id] = nil
+    }
     center.getDeliveredNotifications { delivered in
+      let up = Set(delivered.compactMap { $0.request.content.userInfo["alert"] as? String })
+      Task { @MainActor in alerts.filter { up.contains($0.id) }.forEach(self.watch) }
       let stale = delivered.filter { note in
         let request = note.request
         if let id = request.content.userInfo["alert"] as? String { return !ids.contains(id) }
@@ -190,7 +198,47 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotifi
       center.add(UNNotificationRequest(identifier: alert.key, content: content, trigger: nil))
       print("banner posted: \(alert.kind) \(alert.title)")
       fflush(stdout)
+      watch(alert)
     }
+  }
+
+  func focusedAt(_ path: String) -> Double {
+    guard let data = FileManager.default.contents(atPath: path),
+      let record = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else { return 0 }
+    return (record["lastFocusedAt"] as? NSNumber)?.doubleValue ?? 0
+  }
+
+  // Clears the banner the moment the record shows the session opened after the alert; costs nothing until the file changes.
+  func watch(_ alert: Alert) {
+    guard watches[alert.id] == nil, let path = alert.record, let at = alert.at else { return }
+    if focusedAt(path) >= at { return clear(alert) }
+    let fd = Darwin.open(path, O_EVTONLY)
+    guard fd >= 0 else { return }
+    let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: [.write, .extend, .attrib, .rename, .delete], queue: .main)
+    source.setEventHandler { [weak self] in
+      MainActor.assumeIsolated {
+        guard let self, let source = self.watches[alert.id] else { return }
+        let replaced = !source.data.isDisjoint(with: [.rename, .delete])
+        if self.focusedAt(path) >= at { return self.clear(alert) }
+        guard replaced else { return }
+        // The app replaces the file on save, so the watch follows the new file at the same path.
+        source.cancel()
+        self.watches[alert.id] = nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { MainActor.assumeIsolated { self.watch(alert) } }
+      }
+    }
+    source.setCancelHandler { close(fd) }
+    source.resume()
+    watches[alert.id] = source
+  }
+
+  func clear(_ alert: Alert) {
+    watches[alert.id]?.cancel()
+    watches[alert.id] = nil
+    UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [alert.key])
+    print("banner cleared: \(alert.title) opened")
+    fflush(stdout)
   }
 
   nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {

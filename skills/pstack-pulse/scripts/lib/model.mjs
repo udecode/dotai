@@ -401,14 +401,14 @@ function deskAlertOf(view) {
   if (session.runtime !== 'claude') return [];
   const read = (at) => Boolean(view.focusedAt) && view.focusedAt >= ms(at);
   const key = keyOf(session);
-  const base = { key, title: nameOf(view.title), open: deskLinkOf(view) };
+  const base = { key, title: nameOf(view.title), open: deskLinkOf(view), record: view.record ?? null };
   const need = firstNeed(session);
-  if (need) return read(need.openedAt) ? [] : [{ ...base, id: `need:${key}:${need.id}:${need.openedAt}`, kind: 'needs-you', message: String(need.question) }];
-  if (session.failure && session.failure.kind !== 'check') return read(session.since) ? [] : [{ ...base, id: `fail:${session.failure.id}`, kind: 'failed', message: session.failure.summary }];
+  if (need) return read(need.openedAt) ? [] : [{ ...base, at: ms(need.openedAt), id: `need:${key}:${need.id}:${need.openedAt}`, kind: 'needs-you', message: String(need.question) }];
+  if (session.failure && session.failure.kind !== 'check') return read(session.since) ? [] : [{ ...base, at: ms(session.since), id: `fail:${session.failure.id}`, kind: 'failed', message: session.failure.summary }];
   if (session.active || !session.doneAt || read(session.doneAt)) return [];
   const stage = titleStageOf(view.title);
   const message = session.failure?.summary ?? session.lastReply ?? [view.project.name, stage ? stageText(stage) : 'Done'].join(' · ');
-  return [{ ...base, id: `done:${key}:${session.doneAt}`, kind: 'done', message }];
+  return [{ ...base, at: ms(session.doneAt), id: `done:${key}:${session.doneAt}`, kind: 'done', message }];
 }
 
 // The phone shows only the summary card, titled by its project when one project is live; session rows stay on the menubar.

@@ -441,8 +441,8 @@ function scanRecords() {
       for (const file of list(join(DESKTOP_SESSIONS, account.name, org.name))) if (/^local_.+\.json$/u.test(file.name)) (recordPaths[file.name.slice(0, -5)] ??= []).push(join(DESKTOP_SESSIONS, account.name, org.name, file.name));
 }
 
-// When the owner last opened each desktop session, from the app's own records. Each account keeps a copy and only the
-// signed-in one is current, so the latest copy wins; a copy is read again only after it changes.
+// When the owner last opened each desktop session, from the app's own records, and the copy the app writes now. Each
+// account keeps a copy and only the signed-in one is current, so the latest wins; a copy is read again only after it changes.
 export function focusedAt(hosts) {
   const since = Date.now() - recordsScannedAt;
   if (since > RESCAN_ALL_MS || (since > RESCAN_MS && hosts.some((host) => !recordPaths[host]))) scanRecords();
@@ -452,7 +452,8 @@ export function focusedAt(hosts) {
       try {
         const stamp = statSync(path).mtimeMs;
         if (focusCache[path]?.stamp !== stamp) focusCache[path] = { stamp, at: Number(JSON.parse(readFileSync(path, 'utf8')).lastFocusedAt) || null };
-        out[host] = Math.max(out[host] ?? 0, focusCache[path].at ?? 0) || null;
+        const best = out[host];
+        out[host] = { at: Math.max(best?.at ?? 0, focusCache[path].at ?? 0) || null, record: !best || stamp > best.stamp ? path : best.record, stamp: Math.max(best?.stamp ?? 0, stamp) };
       } catch {}
     }
   }

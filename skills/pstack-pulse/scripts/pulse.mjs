@@ -70,7 +70,8 @@ function viewsOf(sessions) {
         webUrl: session.runtime === 'claude' && session.bridge ? `https://claude.ai/code/${session.bridge}` : null,
         appUrl: session.runtime === 'codex' ? 'chatgpt://' : null,
         rail: session.life === 'live' ? railOf(session.plan) : null,
-        focusedAt: focus[session.host] ?? null,
+        focusedAt: focus[session.host]?.at ?? null,
+        record: focus[session.host]?.record ?? null,
       };
       return view;
     });
