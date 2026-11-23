@@ -123,11 +123,11 @@
     {
       "name": "video-transcripts",
       "distribution": "bundled",
-      "description": "Transcribe a supplied local or linked video with Gemini, or from its frames with a Claude subagent when Gemini fails, and check the transcript against one frame per second, when a recording's contents are needed as evidence, such as a bug recording on an issue, PR or comment, or a question about what a video shows.",
+      "description": "Transcribe a supplied local or linked video from one frame per second with Gemini 4 Neon through agy, or with a Claude subagent when agy fails, and check the transcript against the frames, when a recording's contents are needed as evidence, such as a bug recording on an issue, PR or comment, or a question about what a video shows.",
       "category": "Communication",
       "dependencies": [],
       "capabilities": [
-        "ffmpeg, curl, jq and authorized Gemini credentials"
+        "ffmpeg, curl, jq and a signed-in agy (Antigravity CLI)"
       ],
       "provenance": null
     },
@@ -160,7 +160,7 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "49bca17b6b1f9980b488358bd772d3c29ace89891f7137856c308eaa7bc93066",
+      "sha256": "46d5d5205024534f757e462fa928c03ff3aae8fe238fa5062f66077c7ea7b422",
       "mode": 420
     },
     "scripts/affected-tests.mjs": {
@@ -168,7 +168,7 @@
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
-      "sha256": "5afed07fb6c50e1fa8ec25dbc8a8d32c71433a557315f6a853e5ac64bd3569ff",
+      "sha256": "3fada50600b08a7aadf17a90b8f33d7573b11f82f3aef538a6b7b00192341b61",
       "mode": 420
     },
     "scripts/validate-skills": {
@@ -412,7 +412,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
-      "sha256": "2e59d9647396dfcd53c0c25eec23561ff1cbf4a14b982184bda61cb910891877",
+      "sha256": "86f5669419f3bb4c146da2833ed6017113c54758eec0fb41ac9545886e4a3f2c",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/freeze.mjs": {
@@ -708,11 +708,11 @@
       "mode": 420
     },
     "skills/video-transcripts/SKILL.md": {
-      "sha256": "2eb1cbaf00d3587e0d027f702b198745bdc47117afb6e4d5c0bc953643d57050",
+      "sha256": "2f799018aef083be832030a393089868a8b6e3b811cb5900561fad7af3f78151",
       "mode": 420
     },
     "skills/video-transcripts/scripts/generate_video_transcript.sh": {
-      "sha256": "791be0ee141999738d1fe24a559ea7d79527c0ce6cb480be6e3c703da71088f8",
+      "sha256": "05d6f13e8cec38d54490c14fbaa2a49530d98a4662d86e12f4ef97278fceb25a",
       "mode": 493
     },
     "skills/video-transcripts/scripts/video_frames.sh": {

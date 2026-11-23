@@ -222,6 +222,8 @@ function buildBudgetProblems(path, existing, rows, where) {
   const dir = dirname(resolve(path));
   const top = builds.length > 0 && existsSync(dir) ? gitIn(dir, 'rev-parse', '--show-toplevel') : null;
   if (!top) return [];
+  // A run-directory log is ignored by git, and its build runs in a worktree, not in the checkout that holds it.
+  if (gitIn(top, 'check-ignore', '-q', '--', resolve(path)) !== null) return [];
   const config = projectConfig(top);
   const { lines: budget } = stepBudget(config);
   const step = stepLines(top, config, gitIn);
