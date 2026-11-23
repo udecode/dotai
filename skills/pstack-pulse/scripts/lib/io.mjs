@@ -423,9 +423,12 @@ const recordPaths = {};
 const focusCache = {};
 let recordsScannedAt = 0;
 const RESCAN_MS = 60_000;
+// An account switch adds a copy of every record under the new account's folder, so the folders are scanned again every few minutes.
+const RESCAN_ALL_MS = 5 * 60_000;
 
 function scanRecords() {
   recordsScannedAt = Date.now();
+  for (const host of Object.keys(recordPaths)) delete recordPaths[host];
   const list = (dir) => {
     try {
       return readdirSync(dir, { withFileTypes: true });
@@ -435,22 +438,22 @@ function scanRecords() {
   };
   for (const account of list(DESKTOP_SESSIONS).filter((entry) => entry.isDirectory()))
     for (const org of list(join(DESKTOP_SESSIONS, account.name)).filter((entry) => entry.isDirectory()))
-      for (const file of list(join(DESKTOP_SESSIONS, account.name, org.name))) if (/^local_.+\.json$/u.test(file.name)) recordPaths[file.name.slice(0, -5)] = join(DESKTOP_SESSIONS, account.name, org.name, file.name);
+      for (const file of list(join(DESKTOP_SESSIONS, account.name, org.name))) if (/^local_.+\.json$/u.test(file.name)) (recordPaths[file.name.slice(0, -5)] ??= []).push(join(DESKTOP_SESSIONS, account.name, org.name, file.name));
 }
 
-// When the owner last opened each desktop session, from the app's own record; a record is read again only after it changes.
+// When the owner last opened each desktop session, from the app's own records. Each account keeps a copy and only the
+// signed-in one is current, so the latest copy wins; a copy is read again only after it changes.
 export function focusedAt(hosts) {
-  if (hosts.some((host) => !recordPaths[host]) && Date.now() - recordsScannedAt > RESCAN_MS) scanRecords();
+  const since = Date.now() - recordsScannedAt;
+  if (since > RESCAN_ALL_MS || (since > RESCAN_MS && hosts.some((host) => !recordPaths[host]))) scanRecords();
   const out = {};
   for (const host of hosts) {
-    const path = recordPaths[host];
-    if (!path) continue;
-    try {
-      const stamp = statSync(path).mtimeMs;
-      if (focusCache[host]?.stamp !== stamp) focusCache[host] = { stamp, at: Number(JSON.parse(readFileSync(path, 'utf8')).lastFocusedAt) || null };
-      out[host] = focusCache[host].at;
-    } catch {
-      delete recordPaths[host];
+    for (const path of recordPaths[host] ?? []) {
+      try {
+        const stamp = statSync(path).mtimeMs;
+        if (focusCache[path]?.stamp !== stamp) focusCache[path] = { stamp, at: Number(JSON.parse(readFileSync(path, 'utf8')).lastFocusedAt) || null };
+        out[host] = Math.max(out[host] ?? 0, focusCache[path].at ?? 0) || null;
+      } catch {}
     }
   }
   return out;

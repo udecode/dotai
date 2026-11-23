@@ -105,7 +105,6 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotifi
   var polling = false
   // Nil until the first board arrives, so a restart posts nothing that was already standing.
   var seen: Set<String>?
-  var posted: [String: String] = [:]
   let decoder: JSONDecoder = {
     let decoder = JSONDecoder()
     decoder.keyDecodingStrategy = .convertFromSnakeCase
@@ -167,10 +166,15 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotifi
     let alerts = board.alerts ?? []
     let ids = Set(alerts.map(\.id))
     let center = UNUserNotificationCenter.current()
-    let stale = posted.filter { !ids.contains($0.value) }.map(\.key)
-    if !stale.isEmpty {
-      center.removeDeliveredNotifications(withIdentifiers: stale)
-      stale.forEach { posted[$0] = nil }
+    // Asking macOS which banners are up, rather than remembering them, clears banners posted before a restart too.
+    let keys = Set(alerts.map(\.key))
+    center.getDeliveredNotifications { delivered in
+      let stale = delivered.filter { note in
+        let request = note.request
+        if let id = request.content.userInfo["alert"] as? String { return !ids.contains(id) }
+        return request.identifier.hasPrefix("pulse-") && !keys.contains(request.identifier)
+      }.map(\.request.identifier)
+      if !stale.isEmpty { center.removeDeliveredNotifications(withIdentifiers: stale) }
     }
     defer { seen = ids }
     guard let known = seen else { return }
@@ -182,9 +186,8 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotifi
       content.body = alert.message
       content.sound = .default
       content.threadIdentifier = alert.key
-      if let open = alert.open { content.userInfo = ["open": open] }
+      content.userInfo = ["alert": alert.id, "open": alert.open ?? ""]
       center.add(UNNotificationRequest(identifier: alert.key, content: content, trigger: nil))
-      posted[alert.key] = alert.id
       print("banner posted: \(alert.kind) \(alert.title)")
       fflush(stdout)
     }

@@ -347,7 +347,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/menubar/PulseMenu.swift": {
-      "sha256": "3ccc170018e8b7bdc95fd23a30baa58db8015103e3209de917a561af2fda8153",
+      "sha256": "ec035471312ca9186466218932828f4d414182b4b805312b07dfdbba4e8db202",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/hook.mjs": {
@@ -363,7 +363,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/io.mjs": {
-      "sha256": "a2dabbe739180adfc50eeefbebe1435f4b453c1d74d640d21e5ac54710b73c08",
+      "sha256": "3ae01fdde99d3e69b14299e9ade52896514ad731352a20f19189155cbc10dea6",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/model.mjs": {
