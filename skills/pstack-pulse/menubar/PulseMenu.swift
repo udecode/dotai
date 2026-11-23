@@ -19,7 +19,7 @@ struct Fleet: Decodable { let contentState: Face; let action: Action? }
 // A null item draws a separator.
 struct Node: Decodable { let title: String; let color: String?; let items: [Node?]? }
 struct Alert: Decodable { let id: String; let key: String; let kind: String; let title: String; let message: String; let open: String? }
-struct Board: Decodable { let fleet: Fleet?; let pstack: Node?; let cards: [Card]; let alerts: [Alert]?; let atDesk: Bool? }
+struct Board: Decodable { let fleet: Fleet?; let pstack: Node?; let cards: [Card]; let alerts: [Alert]? }
 
 let home = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".pstack-pulse")
 let openable: Set<String> = ["https", "claude", "chatgpt"]
@@ -152,7 +152,7 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotifi
     }
   }
 
-  // The daemon sends alerts only while the owner is at the desk, where the phone stays quiet, so each alert reaches one screen.
+  // A banner stays until the session moves on, so one posted while the owner is away still waits on their return.
   func announce(_ board: Board) {
     let alerts = board.alerts ?? []
     let ids = Set(alerts.map(\.id))
@@ -163,7 +163,7 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotifi
       stale.forEach { posted[$0] = nil }
     }
     defer { seen = ids }
-    guard let known = seen, board.atDesk == true else { return }
+    guard let known = seen else { return }
     for alert in alerts where !known.contains(alert.id) {
       let content = UNMutableNotificationContent()
       content.title = alert.title
@@ -182,7 +182,10 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotifi
   }
 
   nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-    if let link = response.notification.request.content.userInfo["open"] as? String, let url = URL(string: link), openable.contains(url.scheme ?? "") { NSWorkspace.shared.open(url) }
+    let link = response.notification.request.content.userInfo["open"] as? String
+    print("banner clicked: \(link ?? "no link")")
+    fflush(stdout)
+    if let link, let url = URL(string: link), openable.contains(url.scheme ?? "") { NSWorkspace.shared.open(url) }
     completionHandler()
   }
 

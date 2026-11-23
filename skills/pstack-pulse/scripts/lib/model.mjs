@@ -386,7 +386,7 @@ export function menuBoardOf(views, context) {
     page: openPlanPage(view),
     level: levelRowOf(view.session, context.pstack),
   });
-  return { fleet: fleetOf(live, context).body, pstack: pstackSectionOf(context.pstack), cards: ranked.map(rowOf), alerts: ranked.flatMap(deskAlertOf), atDesk: Boolean(context.atDesk) };
+  return { fleet: fleetOf(live, context).body, pstack: pstackSectionOf(context.pstack), cards: ranked.map(rowOf), alerts: ranked.flatMap(deskAlertOf) };
 }
 
 const deskLinkOf = (view) => (view.session.host ? `claude://claude.ai/epitaxy/${view.session.host}` : (view.appUrl ?? view.webUrl));

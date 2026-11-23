@@ -35,7 +35,7 @@ const LOCK = `/tmp/pstack-pulse-${createHash('sha1').update(HOME).digest('hex').
 const log = (...parts) => console.error(new Date().toISOString(), ...parts);
 const launchctl = (...args) => spawnSync('launchctl', args, { encoding: 'utf8' });
 const DESK_IDLE_MS = 3 * 60_000;
-// While the owner uses the Mac, pushes wait and the menubar posts Mac banners instead, so one alert reaches one screen.
+// While the owner uses the Mac, pushes wait, so one they answer at the desk never reaches the phone.
 function atDesk() {
   const idleNs = /"HIDIdleTime" = (\d+)/u.exec(spawnSync('ioreg', ['-c', 'IOHIDSystem', '-d', '4'], { encoding: 'utf8' }).stdout ?? '')?.[1];
   return Boolean(idleNs) && Number(idleNs) / 1e6 < DESK_IDLE_MS;
@@ -81,7 +81,7 @@ async function tick(state, config, client) {
   problems.push(...(await deliver(state.phone, { cards: board.cards, badge: board.badge, incidents: incidentsOf(views), listUrl: config.listUrl, atDesk: desk }, { client, save: () => saveState(state) })));
   saveState(state);
   // Built after the phone's turn, so a config file pulse cannot read stalls only the menu.
-  latestMenu = menuBoardOf(views, { ...context, atDesk: desk, pstack: readPstack(views.map(({ session }) => session.cwd)) });
+  latestMenu = menuBoardOf(views, { ...context, pstack: readPstack(views.map(({ session }) => session.cwd)) });
   const summary = problems.join('; ');
   if (summary && summary !== lastProblems) log(summary);
   lastProblems = summary;
@@ -221,6 +221,7 @@ const MENU_INFO = `<?xml version="1.0" encoding="UTF-8"?>
 <key>CFBundleExecutable</key><string>${basename(MENU.bin)}</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>LSUIElement</key><true/>
+<key>NSUserNotificationAlertStyle</key><string>alert</string>
 </dict></plist>
 `;
 
