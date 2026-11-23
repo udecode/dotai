@@ -123,8 +123,11 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotifi
       let center = UNUserNotificationCenter.current()
       center.delegate = self
       center.requestAuthorization(options: [.alert, .sound]) { granted, error in
-        print("notifications: \(granted ? "allowed" : "refused \(error?.localizedDescription ?? "in System Settings")")")
-        fflush(stdout)
+        center.getNotificationSettings { settings in
+          let style = [UNAlertStyle.alert: "persistent", .banner: "temporary"][settings.alertStyle] ?? "none"
+          print("notifications: \(granted ? "allowed" : "refused \(error?.localizedDescription ?? "in System Settings")"), style \(style)")
+          fflush(stdout)
+        }
       }
     }
     renderButton()
@@ -279,6 +282,21 @@ final class Pulse: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotifi
     dump(menu.items)
     NSApp.terminate(nil)
   }
+}
+
+// --test-banner posts one banner and quits, which checks the style and Focus settings without waiting for a session.
+if CommandLine.arguments.contains("--test-banner") {
+  let content = UNMutableNotificationContent()
+  content.title = "👀 pstack"
+  content.body = "Test banner. A persistent one stays until you close it."
+  content.sound = .default
+  let posted = DispatchSemaphore(value: 0)
+  UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "pstack-test", content: content, trigger: nil)) { error in
+    print(error.map { "test banner refused: \($0.localizedDescription)" } ?? "test banner posted")
+    posted.signal()
+  }
+  posted.wait()
+  exit(0)
 }
 
 MainActor.assumeIsolated {
