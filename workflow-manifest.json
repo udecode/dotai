@@ -235,7 +235,7 @@
       "mode": 420
     },
     "skills/clip/SKILL.md": {
-      "sha256": "fb3489709f18d7be8eb3824cd64a8e0d74b433f690613006311c64e75bb05e12",
+      "sha256": "c8162d537cc3ac7328fbb1b354c4dc43d63ceed8f9311313ffaf72d51cac1778",
       "mode": 420
     },
     "skills/clip/assets/CalSans-SemiBold.ttf": {
@@ -251,11 +251,11 @@
       "mode": 420
     },
     "skills/clip/scripts/clip.test.ts": {
-      "sha256": "83c747fabf8d9b7c3d60d7f2dd5ae42f84e8a62d018a6cedb216c5e565a52cd0",
+      "sha256": "0fb288e50e6d4f98fa388c268e361c001f70187afc5dde32df615c61612b5f7c",
       "mode": 420
     },
     "skills/clip/scripts/clip.ts": {
-      "sha256": "61eb060f1f5c29807daef29498714592edb853a52ea2caa1a3e1291b56b72521",
+      "sha256": "df99883e984a469f6205befbffd4d5a2a9c34eca7c965bc911186549db66e7bf",
       "mode": 420
     },
     "skills/clip/scripts/package.json": {
@@ -323,7 +323,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/SKILL.md": {
-      "sha256": "0f6c26667a6e268775cc333a1ac7ebf91bc1dc091f8d00fe42236b18179de38b",
+      "sha256": "9b965ca1cd3f4651a659baef092751f514111e4ba32108c5461405891b104181",
       "mode": 420
     },
     "skills/pstack-pulse/desktop/index.html": {
@@ -347,7 +347,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/menubar/PulseMenu.swift": {
-      "sha256": "fe17a54fde95daea5b675bf429cfd375475d6c7a9f0bba6af35bb52b680313cb",
+      "sha256": "056cf09f3bc0061e72533572f27aaa0d459b875750e898ec43a2a5271da007ca",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/hook.mjs": {
@@ -367,7 +367,7 @@
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/model.mjs": {
-      "sha256": "affacb181fdffa9b4cff1298a8c099339904a28237634816073c9109f2771108",
+      "sha256": "432fc8805633c7c33356f22eff938140951ddf48a12bcfb2187852bfa8fc7096",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/lib/phone.mjs": {
@@ -379,11 +379,11 @@
       "mode": 420
     },
     "skills/pstack-pulse/scripts/pulse.mjs": {
-      "sha256": "cf5dad36f94c72b7d137f6f5f2e0580074425f8af2d206f57e1a42787bb27942",
+      "sha256": "5604070bf6eb486a6669b98d15ff1c62551cb90d218eb8ad0d23727111018ed4",
       "mode": 420
     },
     "skills/pstack-pulse/scripts/pulse.test.mjs": {
-      "sha256": "baf520349d33f7123573063d0d9c81c85a8ef3332c07e6f5341291575cd73750",
+      "sha256": "1219e19a22cb0dd647bcefd1c7f0d8e9113088475ba40a895f72ae033857aa06",
       "mode": 420
     },
     "skills/rca/SKILL.md": {
