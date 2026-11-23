@@ -2112,6 +2112,30 @@ test('a landed row names each commit that delivered the task, and append refuses
   assert.equal(chip(parser, 'landed', `commit: ${sha}`).status, 0);
 });
 
+test('a task whose plan lands step by step logs landed after each push, and cleanup links every step', () => {
+  const { chip, chips, offer, root } = chipLedger();
+  spawnSync('git', ['-C', root, 'remote', 'set-url', 'origin', 'https://github.com/acme/app.git']);
+  const commit = (subject) => {
+    spawnSync('git', ['-C', root, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', subject]);
+    return spawnSync('git', ['-C', root, 'rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
+  };
+  const card = join(realpathSync(root), '.claude', 'worktrees', 'a');
+  mkdirSync(card, { recursive: true });
+  writeFileSync(join(root, 'sessions.json'), JSON.stringify([{ sessionId: 's1', title: 'idle card', cwd: card, isArchived: false, isRunning: false }]));
+  const plan = 'task_a1 Build the fill view';
+  assert.equal(offer(plan, 'src/f.ts', 'topic: fill').status, 0);
+  assert.match(chip(plan, 'landed').stderr, /task_a1 is offered, so it cannot be landed/, 'a task nobody started');
+  assert.equal(chip(plan, 'started', 'session: s1').status, 0);
+  const first = commit('feat(app): add the reader');
+  assert.equal(chip(plan, 'landed', `commit: ${first}`).status, 0);
+  const second = commit('feat(app): add the guard');
+  assert.equal(chip(plan, 'landed', `commit: ${second}`).status, 0, 'the next step of the same plan');
+  const report = chips('cleanup', '--sessions', 'sessions.json').stdout;
+  for (const [sha, subject] of [[first, 'add the reader'], [second, 'add the guard']]) {
+    assert.ok(report.includes(`[feat(app): ${subject}](https://diffshub.com/acme/app/commit/${sha})`), `the report links ${subject}`);
+  }
+});
+
 test('a landed row accepts a commit that only the companion repository holds, and cleanup links it there', () => {
   const { chip, chips, offer, root } = chipLedger();
   writeFileSync(join(root, '.agents/pstack.json'), JSON.stringify({ branch: 'next', companion: { dir: '.git-private', list: '.gitprivate' } }));

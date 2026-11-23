@@ -564,7 +564,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/tasks.mjs": {
-      "sha256": "5cd9355ced194a4548fc32a262be568d883a2e07c01ece2bd1d79896dd2074ae",
+      "sha256": "a07f7563c4739f5bfc8a2e88ecf4834cbccd46b7a588c116564f6d1fe28485f0",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/title.mjs": {
@@ -604,7 +604,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/chips.test.mjs": {
-      "sha256": "c33f3d08cba10855e749914a4aaa81a98ba45118d6e9b7128ba6d5700f1430d5",
+      "sha256": "573364e3f6a9564ae964450540a2c20b77fc061a663dedf89964381e50957c7e",
       "mode": 420
     },
     "skills/sync-pstack/scripts/cross.test.mjs": {
