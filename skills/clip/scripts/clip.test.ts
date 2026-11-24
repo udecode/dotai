@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdtempSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -14,6 +14,8 @@ import {
   checkTitle,
   checkTrail,
   CLIP,
+  CLIP_CONFIG,
+  projectShape,
   renderClip,
   alignBeats,
   renderPair,
@@ -369,5 +371,34 @@ describe('the title bar', () => {
     paint(10, 20, 60, 6)
     paint(90, 90, 2, 2)
     expect(changedBox(before, after, w, h)).toEqual({ x: 6, y: 16, w: 68, h: 14 })
+  })
+})
+
+describe('the project shape', () => {
+  const project = (config?: string) => {
+    const root = mkdtempSync(join(tmpdir(), 'clip-project-'))
+    if (config !== undefined) {
+      mkdirSync(join(root, '.agents'))
+      writeFileSync(join(root, CLIP_CONFIG), config)
+    }
+    const scene = join(root, 'docs/plans/artifacts/run')
+    mkdirSync(scene, { recursive: true })
+    return scene
+  }
+
+  test('a project whose config names wide films every clip wide, from a scene deep inside it', () => {
+    expect(projectShape([project('{"shape":"wide"}')])).toBe('wide')
+  })
+
+  test('a project with no config films X\'s shape', () => {
+    expect(projectShape([project()])).toBe('x')
+  })
+
+  test('the scene\'s project decides before the working folder\'s', () => {
+    expect(projectShape([project('{"shape":"x"}'), project('{"shape":"wide"}')])).toBe('x')
+  })
+
+  test('a config naming an unknown shape fails with the file and the shapes it takes', () => {
+    expect(() => projectShape([project('{"shape":"mobile"}')])).toThrow('use "wide" or "x"')
   })
 })

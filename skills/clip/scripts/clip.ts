@@ -1,6 +1,6 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { chromium, type Browser, type BrowserContext, type CDPSession, type Locator, type Page } from 'playwright-core'
 
 const ASSETS = `${import.meta.dir}/../assets`
@@ -19,6 +19,9 @@ const x: View = { width: 540, height: 540 * X_RATIO.clip - BAR_PX - FOOT_PX, sca
 // X's phone feed shows a clip about 312 pt wide (an iPhone's 393 pt less the avatar column and margins, estimated, not measured).
 const feedPt = 312
 const titleMinPt = 14
+
+/** A project's clip settings, read from its root. */
+export const CLIP_CONFIG = '.agents/clip.json'
 
 export const CLIP = {
   fps: 60,
@@ -84,8 +87,8 @@ export const RULES: { rule: string; check: string }[] = [
   { rule: `A title bar holds a one-word lowercase tag and a lowercase title of at most ${CLIP.titleWords} words, on one line at ${CLIP.titlePx.max} px, shrunk as far as the line needs to fit. Under ${CLIP.titlePx.min} px, a phone shows it under ${titleMinPt} pt, so render suggests a shorter title.`, check: 'checkTitle, renderClip, renderTake' },
   { rule: 'A crop has even sides inside the viewport. Render rounds and clamps it on its own.', check: 'fitCrop' },
   {
-    rule: `A clip films X's shape, a page ${CLIP.x.width} by ${CLIP.x.height} px at ${CLIP.x.scale}× pixels, so with its ${BAR_PX} px title bar and ${FOOT_PX} px caption footer the clip is 2:3, unless it opens with \`{ shape: 'wide' }\`. Its page text shows at ${CLIP.phoneTextPt} pt or more in a phone's feed, which shows a clip about ${CLIP.feedPt} pt wide.`,
-    check: 'openClip, reviewTake',
+    rule: `A clip films X's shape, a page ${CLIP.x.width} by ${CLIP.x.height} px at ${CLIP.x.scale}× pixels, so with its ${BAR_PX} px title bar and ${FOOT_PX} px caption footer the clip is 2:3, unless it opens with \`{ shape: 'wide' }\` or the nearest \`${CLIP_CONFIG}\` above the scene or the working folder names \`"shape": "wide"\`, which films ${CLIP.wide.width} by ${CLIP.wide.height} px. Its page text shows at ${CLIP.phoneTextPt} pt or more in a phone's feed, which shows a clip about ${CLIP.feedPt} pt wide.`,
+    check: 'openClip, projectShape, reviewTake',
   },
   { rule: 'Render refuses an X-shape clip without a title bar, so the clip a team chat gets is the one X can post.', check: 'checkBar' },
   {
@@ -406,13 +409,33 @@ function medianTextPx(crop: Crop): number {
   return sizes[Math.floor(sizes.length / 2)] ?? 0
 }
 
+/**
+ * The shape a project films its clips in: the `shape` of the nearest `.agents/clip.json` above any of `from`, or X's.
+ * One demo serves the team chat and X, so X's shape is the default (owner, 2026-11-20). A project whose clips never
+ * go to X, such as Ellie, films its demos wide instead (owner, 2026-11-24: "improve it so it supports a config per project... so ellie is always desktop").
+ */
+export function projectShape(from: string[]): 'wide' | 'x' {
+  for (const start of from) {
+    for (let dir = resolve(start); ; dir = dirname(dir)) {
+      const file = join(dir, CLIP_CONFIG)
+      if (existsSync(file)) {
+        const shape = (JSON.parse(readFileSync(file, 'utf8')) as { shape?: unknown }).shape ?? 'x'
+        if (shape !== 'wide' && shape !== 'x') throw new Error(`${file} names shape ${JSON.stringify(shape)}; use "wide" or "x"`)
+        return shape
+      }
+      if (dirname(dir) === dir) break
+    }
+  }
+  return 'x'
+}
+
 export async function openClip(
   url: string,
   {
     cursor = true,
     colorScheme = 'light',
-    // One demo serves the team chat and X, so X's shape is the default (owner, 2026-11-20).
-    shape = 'x',
+    // The scene's own folder decides first, because a scene lives with the work it films.
+    shape = projectShape([dirname(Bun.main), process.cwd()]),
     size,
     storageState,
   }: { cursor?: boolean; colorScheme?: 'light' | 'dark'; shape?: 'wide' | 'x' | 'repro'; size?: { width: number; height: number }; storageState?: string } = {},

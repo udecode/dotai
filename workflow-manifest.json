@@ -246,7 +246,7 @@
       "mode": 420
     },
     "skills/clip/SKILL.md": {
-      "sha256": "c8162d537cc3ac7328fbb1b354c4dc43d63ceed8f9311313ffaf72d51cac1778",
+      "sha256": "58f905408974ffe0c104ffe7dd32869d3d304956c11e5100627538a05ade0a89",
       "mode": 420
     },
     "skills/clip/assets/CalSans-SemiBold.ttf": {
@@ -262,11 +262,11 @@
       "mode": 420
     },
     "skills/clip/scripts/clip.test.ts": {
-      "sha256": "0fb288e50e6d4f98fa388c268e361c001f70187afc5dde32df615c61612b5f7c",
+      "sha256": "1caee62fd7532c2fc604c0a48897eea6979a27150311a27e445dc03d364f9ea1",
       "mode": 420
     },
     "skills/clip/scripts/clip.ts": {
-      "sha256": "df99883e984a469f6205befbffd4d5a2a9c34eca7c965bc911186549db66e7bf",
+      "sha256": "d9aaaeb50e01bc4cff4537e83985adcd9edb65bcfe716f1326d4c7239f5eb4b5",
       "mode": 420
     },
     "skills/clip/scripts/package.json": {
