@@ -517,6 +517,141 @@ test('decisions-check runs one panel round per plan or step, and one more only a
   assert.equal(append('three.decisions.tsv', 'panel', 'seats opus').status, 1, 'the extra round earns no third');
 });
 
+test('decisions-check counts the rounds of a seats row whose evidence names its reviewed step against that step alone, when steps built side by side share a log', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app');
+  const log = 'lane.decisions.tsv';
+  const check = (...args) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), args[0], log, ...args.slice(1)], root);
+  const append = (phase, decision, result = 'recorded', evidence = 'evidence') => check('append', phase, decision, 'why', evidence, result);
+  const seats = (step) => append('panel', 'seats opus, gpt-6.2-astra', 'recorded', step ? `reviewed tree: abc1234; reviewed step: ${step}` : 'reviewed tree: abc1234');
+  const round = (step, fixes) => {
+    const opened = seats(step);
+    assert.equal(opened.status, 0, `step ${step}'s round appends: ${opened.stderr}`);
+    for (let n = 1; n <= fixes; n += 1) assert.equal(append('panel', `critical [opus]: ${step} finding ${n}`, 'applied: fixed in the step').status, 0);
+    assert.equal(append('writing', `deslop on step ${step}'s fixes`).status, 0);
+  };
+  assert.equal(append('build', 'built: step C.10 sync-world.ts', 'applied: step C.10').status, 0);
+  assert.equal(append('build', 'built: step C.16 server.ts', 'applied: step C.16').status, 0);
+  round('C.16', 3);
+  round('C.10', 2);
+  assert.equal(check('rounds', '--step', 'C.10').status, 1, 'two applied critical findings earn step C.10 no second round');
+  const stuck = seats('C.10');
+  assert.equal(stuck.status, 1, "step C.10's second round");
+  assert.match(stuck.stderr, /panel round 2 of step c\.10 since its first built: row, past the cap of 1/);
+  assert.match(stuck.stderr, /Only an owner row whose decision starts with "another round:" and quotes the owner starts step c\.10's count again/);
+  assert.doesNotMatch(stuck.stderr, /A built: row for a step this log has not built yet/, 'a new build restarts no named step, so the refusal does not offer one');
+  assert.equal(append('build', 'built: step C.10 round 1 fixes in sync-world.ts', 'applied: fixes').status, 0);
+  assert.equal(seats('C.10').status, 1, "step C.10's own fixes start no new count");
+  assert.equal(check('rounds', '--step', 'C.16').status, 0, 'three applied critical findings earn step C.16 one more round');
+  round('C.16', 0);
+  assert.equal(seats('C.16').status, 1, "step C.16's extra round earns no third");
+  assert.equal(append('owner', 'another round: "review C.10 again", the owner said', 'decided: one more round').status, 0);
+  assert.equal(seats('C.10').status, 0, 'an another round: row starts every count again');
+  for (const id of ['C 10', '1ſ']) assert.equal(check('rounds', '--step', id).status, 2, `--step refuses ${id}`);
+});
+
+test('decisions-check refuses a named round for a step the log never built, an unnamed round once a round named its step, and a reviewed step id outside ASCII', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app');
+  const check = (log, ...args) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), args[0], log, ...args.slice(1)], root);
+  const append = (log, phase, decision, evidence = 'evidence', result = 'recorded') => check(log, 'append', phase, decision, 'why', evidence, result);
+
+  assert.equal(append('plan.decisions.tsv', 'panel', 'seats opus').status, 0, "the plan's round");
+  assert.equal(append('plan.decisions.tsv', 'writing', 'deslop on the plan fixes').status, 0);
+  const fresh = append('plan.decisions.tsv', 'panel', 'seats opus', 'reviewed step: C.10');
+  assert.equal(fresh.status, 1, 'a step id with no built: row buys no round');
+  assert.match(fresh.stderr, /names reviewed step: c\.10, but no earlier build row's decision starts "built: step c\.10"/);
+  assert.equal(check('plan.decisions.tsv', 'rounds', '--step', 'C.10').status, 1, 'rounds --step names the missing build too');
+
+  assert.equal(append('spend.decisions.tsv', 'build', 'built: step C.10 x.ts', 'evidence', 'applied: step C.10').status, 0);
+  assert.equal(append('spend.decisions.tsv', 'panel', 'seats opus', 'reviewed step: C.10').status, 0);
+  for (let n = 1; n <= 3; n += 1) assert.equal(append('spend.decisions.tsv', 'panel', `critical [opus]: finding ${n}`, 'evidence', 'applied: fixed').status, 0);
+  assert.equal(append('spend.decisions.tsv', 'writing', 'deslop on the fixes').status, 0);
+  const unnamed = append('spend.decisions.tsv', 'panel', 'seats opus');
+  assert.equal(unnamed.status, 1, 'an unnamed round cannot spend the extra round a named step earned');
+  assert.match(unnamed.stderr, /add "reviewed step: <id>" as one ;-separated item of its evidence/);
+  assert.equal(check('spend.decisions.tsv', 'rounds').status, 1, 'rounds without --step refuses the same unnamed round');
+  assert.equal(append('spend.decisions.tsv', 'panel', 'seats opus', 'reviewed step: c.10').status, 0, "step C.10's one extra round, named in any letter case");
+
+  assert.equal(append('roster.decisions.tsv', 'build', 'built: step fable x.ts', 'evidence', 'applied: step fable').status, 0);
+  assert.equal(append('roster.decisions.tsv', 'panel', 'seats opus', 'reviewed step: fable').status, 0);
+  assert.equal(append('roster.decisions.tsv', 'panel', 'critical [fable]: finding', 'evidence', 'applied: fixed').status, 1, 'a reviewed step named like a model adds no seat');
+
+  assert.equal(append('marker.decisions.tsv', 'build', 'built: step 1ſ x.ts', 'evidence', 'applied: step').status, 0);
+  assert.equal(append('marker.decisions.tsv', 'build', 'built: step C.10-β x.ts', 'evidence', 'applied: step').status, 0);
+  assert.equal(append('marker.decisions.tsv', 'build', 'built: step C.16 server.ts', 'evidence', 'applied: step').status, 0);
+  for (const evidence of ['reviewed step: 1ſ', 'reviewed step: C.16 (server half)', 'reviewed step C.16', 'Reviewed step: C.16', 'reviewed step: C.16; reviewed step: C.16']) {
+    const refused = append('marker.decisions.tsv', 'panel', 'seats opus', `reviewed tree: abc1234; ${evidence}`);
+    assert.equal(refused.status, 1, `a malformed marker is refused, not read as an unnamed round: ${evidence}`);
+    assert.match(refused.stderr, /name the reviewed step once, as one ;-separated item "reviewed step: <id>"/);
+  }
+  const prefix = append('marker.decisions.tsv', 'panel', 'seats opus', 'reviewed step: C.10');
+  assert.equal(prefix.status, 1, 'built: step C.10-β builds no step C.10');
+  assert.match(prefix.stderr, /no earlier build row's decision starts "built: step c\.10"/);
+  assert.equal(check('marker.decisions.tsv', 'rounds', '--step', 'C.10').status, 1);
+
+  assert.equal(append('later.decisions.tsv', 'build', 'built: step C.10 x.ts', 'evidence', 'applied: step C.10').status, 0);
+  assert.equal(append('later.decisions.tsv', 'panel', 'seats opus', 'reviewed step: C.10').status, 0);
+  assert.equal(append('later.decisions.tsv', 'writing', 'deslop on the fixes').status, 0);
+  assert.equal(append('later.decisions.tsv', 'build', 'built: step C.20 y.ts', 'evidence', 'applied: step C.20').status, 0);
+  assert.equal(append('later.decisions.tsv', 'panel', 'seats opus').status, 1, "a later step's build does not let an unnamed round review step C.10 again");
+  assert.equal(append('later.decisions.tsv', 'panel', 'seats opus', 'reviewed step: C.20').status, 0, 'the new step takes its round once named');
+  assert.equal(append('later.decisions.tsv', 'writing', 'deslop on the fixes').status, 0);
+  assert.equal(append('later.decisions.tsv', 'build', 'built: the whole plan, z.ts', 'evidence', 'applied: plan').status, 0);
+  assert.equal(append('later.decisions.tsv', 'panel', 'seats opus').status, 0, 'a built: row with no step id lets an unnamed round run again');
+});
+
+test('decisions-check keeps the log-wide verdict of a rebuilt step whose id runs into a curly quote or a no-break space', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app');
+  for (const rebuilt of ['built: step 4’s round 1 fixes in a.ts', 'built: step 4 a.ts round 1 fixes']) {
+    const log = `${rebuilt.length}.decisions.tsv`;
+    const append = (phase, decision, result = 'recorded') => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', log, phase, decision, 'why', 'evidence', result], root);
+    assert.equal(append('build', 'built: step 4 a.ts', 'applied: step 4').status, 0);
+    assert.equal(append('panel', 'seats opus').status, 0);
+    assert.equal(append('writing', 'deslop on the fixes').status, 0);
+    assert.equal(append('build', rebuilt, 'applied: fixes').status, 0);
+    assert.equal(append('panel', 'seats opus').status, 1, `step 4's fixes restart nothing: ${rebuilt}`);
+  }
+});
+
+test('decisions-check lets a step named in its seats row evidence take its first round after an unnamed round on a step built beside it', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app');
+  const append = (phase, decision, evidence = 'evidence', result = 'recorded') =>
+    run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'lane.decisions.tsv', phase, decision, 'why', evidence, result], root);
+  assert.equal(append('build', 'built: step C.16 server.ts', 'evidence', 'applied: step C.16').status, 0);
+  assert.equal(append('delivery', 'step C.16 landed as 2bdbe61b77', 'evidence', 'decided: on next').status, 0);
+  assert.equal(append('build', 'built: step C.10 sync-world.ts', 'evidence', 'applied: step C.10').status, 0);
+  assert.equal(append('panel', 'seats opus, gpt-6.2-astra').status, 0, "C.16's unnamed round after C.10's build");
+  assert.equal(append('writing', "deslop on C.16's fixes").status, 0);
+  assert.equal(append('panel', 'seats opus, gpt-6.2-astra').status, 1, 'an unnamed round after it is refused');
+  const named = append('panel', 'seats opus, gpt-6.2-astra', 'reviewed tree: 8d229a6c7a; reviewed step: C.10');
+  assert.equal(named.status, 0, `step C.10's first round: ${named.stderr}`);
+  assert.equal(append('panel', 'critical [astra]: a lost letter', 'evidence', 'applied: fixed').status, 0);
+});
+
+test('decisions-check rounds --step --patch judges the budget lift of the named step, not of the last built one', () => {
+  const { dir, run } = sandbox();
+  const lines = Array.from({ length: 401 }, (_, n) => `+line ${n}`);
+  const root = project(dir, 'app', { files: { 'big.patch': ['diff --git a/src/a.ts b/src/a.ts', '--- a/src/a.ts', '+++ b/src/a.ts', '@@ -0,0 +1,401 @@', ...lines].join('\n') } });
+  const check = (...args) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), args[0], 'budget.decisions.tsv', ...args.slice(1)], root);
+  const append = (phase, decision, evidence = 'evidence', result = 'recorded') => check('append', phase, decision, 'why', evidence, result);
+  assert.equal(append('build', 'built: step 1 a.ts', 'evidence', 'applied: step 1').status, 0);
+  assert.equal(append('build', 'built: step 2 b.ts', 'evidence', 'applied: step 2').status, 0);
+  assert.equal(append('owner', 'big step: step 2 no split keeps the callers apart', 'word: split step 2', 'decided: one round').status, 0);
+  assert.equal(check('rounds', '--patch', 'big.patch').status, 0, 'step 2, built last, has its lift');
+  assert.equal(check('rounds', '--step', '2', '--patch', 'big.patch').status, 0, 'the named step 2 has its lift');
+  const borrowed = check('rounds', '--step', '1', '--patch', 'big.patch');
+  assert.equal(borrowed.status, 1, "step 1 does not borrow step 2's lift");
+  assert.match(borrowed.stderr, /past the step budget of 400/);
+  assert.equal(append('build', 'built: step C.10 c.ts', 'evidence', 'applied: step C.10').status, 0);
+  assert.equal(append('build', 'built: step C.16 d.ts', 'evidence', 'applied: step C.16').status, 0);
+  assert.equal(append('owner', 'big step: step C.16 no split keeps the server apart', 'word: split step C.16', 'decided: one round').status, 0);
+  assert.equal(check('rounds', '--step', 'C.16', '--patch', 'big.patch').status, 0, 'a lift for step C.16 lifts step C.16');
+  assert.equal(check('rounds', '--step', 'C.10', '--patch', 'big.patch').status, 1, "step C.10 does not borrow step C.16's lift");
+});
+
 test('decisions-check rounds --patch caps a reviewed step at the step budget, counting no tests, fixtures, Markdown or excluded globs', () => {
   const { dir, run } = sandbox();
   const diff = (count, file) => [`diff --git a/${file} b/${file}`, `--- a/${file}`, `+++ b/${file}`, `@@ -0,0 +1,${count} @@`, ...Array.from({ length: count }, (_, n) => `+line ${n}`)].join('\n');
