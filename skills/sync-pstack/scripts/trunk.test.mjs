@@ -3039,6 +3039,19 @@ test('setup installs once in a worktree that arrives with node_modules, because 
   assert.equal(started.status, 0, 'a hook exits 0 after a failed install, so the session sees the failure line');
 });
 
+test('setup --installs installs again in a reused worktree whose installed path is gone', () => {
+  const { dir, clone } = trunk();
+  const tree = join(dir, 'tree');
+  git(clone, 'worktree', 'add', '--quiet', '--detach', tree);
+  const install = ['--install', 'mkdir node_modules && touch ran', '--installs', 'node_modules'];
+  assert.equal(helper('setup.mjs', tree, install).status, 0);
+  rmSync(join(tree, 'ran'));
+  assert.equal(helper('setup.mjs', tree, install).stdout, '', 'the installed path is there, so nothing installs');
+  rmSync(join(tree, 'node_modules'), { recursive: true });
+  assert.match(helper('setup.mjs', tree, install).stdout, /ran mkdir node_modules/, 'the next session start installs again');
+  assert.ok(existsSync(join(tree, 'ran')));
+});
+
 test('setup fast-forwards the main checkout only when no local edit touches an incoming path', () => {
   const { clone, elsewhere } = trunk();
   git(clone, 'switch', '--quiet', 'next');
