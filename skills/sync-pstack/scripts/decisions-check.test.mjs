@@ -242,7 +242,7 @@ test("decisions-check counts a pivot's open critical findings like any other", (
   mkdirSync(join(root, 'docs/plans/artifacts/wrap'), { recursive: true });
   writeFileSync(join(root, 'docs/plans/artifacts/wrap/prior-art.md'), '# What other editors do with the unwrap\n');
   const row = (n, result) => ['panel', n ? `critical [opus]: finding ${n}` : 'seats opus', 'why', 'proof: none', result].join('\t');
-  const pivot = (n) => row(n, 'open: the design cannot meet it, patch: docs/plans/2026-01-02-wrap-2.md, owner: user, stop: its build, prior-art: docs/plans/artifacts/wrap/prior-art.md');
+  const pivot = (n) => row(n, 'open: the design cannot meet it, patch: docs/plans/2026-01-02-wrap-2.md, owner: user, stop: its build, prior-art: docs/plans/artifacts/wrap/prior-art.md, sign-ins: none');
   const batch = (...rows) => {
     writeFileSync(join(root, 'rows.tsv'), [row(0, 'recorded'), ...rows].join('\n') + '\n');
     return helper('append', log, '--from', 'rows.tsv');
@@ -767,7 +767,7 @@ const pivotRun = (names) => {
   const tick = restampInOrder();
   const logOf = (name) => (name === 'run' ? 'docs/plans/artifacts/run/run.decisions.tsv' : `docs/plans/2026-01-01-${name}.decisions.tsv`);
   const append = (log, phase, decision, result = 'recorded') => tick(join(root, logOf(log)), run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', logOf(log), phase, decision, 'why', 'proof: none', result], root));
-  const pivot = (from, to, severity = 'critical') => append(from, 'panel', `${severity} [opus]: The join drops a block`, `open: the run pivots; patch: docs/plans/2026-01-01-${to}.md; owner: the owner; stop: its build; prior-art: docs/plans/artifacts/run/prior-art.md`);
+  const pivot = (from, to, severity = 'critical', signIns = '; sign-ins: none') => append(from, 'panel', `${severity} [opus]: The join drops a block`, `open: the run pivots; patch: docs/plans/2026-01-01-${to}.md; owner: the owner; stop: its build; prior-art: docs/plans/artifacts/run/prior-art.md${signIns}`);
   return { append, pivot, root, run, tick };
 };
 
@@ -797,7 +797,7 @@ test('decisions-check refuses a third plan on one topic, whatever landed, until 
 });
 
 test('decisions-check reads a batch of plan rows as it reads the same rows appended one at a time', () => {
-  const open = (to, severity) => ['panel', `${severity} [opus]: The join drops a block`, 'why', 'proof: none', `open: the run pivots; patch: docs/plans/2026-01-01-${to}.md; owner: the owner; stop: its build; prior-art: docs/plans/artifacts/run/prior-art.md`];
+  const open = (to, severity) => ['panel', `${severity} [opus]: The join drops a block`, 'why', 'proof: none', `open: the run pivots; patch: docs/plans/2026-01-01-${to}.md; owner: the owner; stop: its build; prior-art: docs/plans/artifacts/run/prior-art.md; sign-ins: none`];
   const seats = ['panel', 'seats opus', 'why', 'proof: none', 'recorded'];
   const batch = ({ root, run }, log, cells) => {
     writeFileSync(join(root, 'queue.tsv'), `${cells.map((row) => row.join('\t')).join('\n')}\n`);
@@ -825,7 +825,7 @@ test('decisions-check reads a batch of plan rows as it reads the same rows appen
 test('decisions-check lets in only the plan an owner answer names, whatever the order of rows in one second', () => {
   const { pivot, root } = pivotRun(['z', 'a', 'b', 'c', 'd']);
   const header = 'ts\tphase\tdecision\twhy\tevidence\tresult';
-  const open = (at, to) => `2026-01-01T00:00:0${at}Z\tpanel\tcritical [opus]: The join drops a block\twhy\tproof: none\topen: the run pivots; patch: docs/plans/2026-01-01-${to}.md; owner: the owner; stop: its build; prior-art: docs/plans/artifacts/run/prior-art.md`;
+  const open = (at, to) => `2026-01-01T00:00:0${at}Z\tpanel\tcritical [opus]: The join drops a block\twhy\tproof: none\topen: the run pivots; patch: docs/plans/2026-01-01-${to}.md; owner: the owner; stop: its build; prior-art: docs/plans/artifacts/run/prior-art.md; sign-ins: none`;
   const owner = (at, to) => `2026-01-01T00:00:0${at}Z\towner\tsecond plan: the owner said "start ${to}" for 2026-01-01-${to}.md\twhy\tproof: none\trecorded`;
   writeFileSync(join(root, 'docs/plans/2026-01-01-z.decisions.tsv'), `${[header, '2026-01-01T00:00:00Z\tpanel\tseats opus\twhy\tproof: none\trecorded', open(1, 'a'), owner(2, 'c')].join('\n')}\n`);
   writeFileSync(join(root, 'docs/plans/2026-01-01-a.decisions.tsv'), `${[header, '2026-01-01T00:00:01Z\tpanel\tseats opus\twhy\tproof: none\trecorded', open(2, 'c')].join('\n')}\n`);
@@ -840,7 +840,7 @@ test('decisions-check lets in only the plan an owner answer names, whatever the 
 test("decisions-check refuses a pivot's first row until it names the prior-art report on the finding's case", () => {
   const { append: to, root, run, tick } = pivotRun(['a', 'b']);
   const append = (phase, decision, result) => to('a', phase, decision, result);
-  const pivot = (prior, severity = 'critical') => append('panel', `${severity} [opus]: The join drops a block`, `open: the run pivots; patch: docs/plans/2026-01-01-b.md; owner: the owner; stop: its build${prior}`);
+  const pivot = (prior, severity = 'critical') => append('panel', `${severity} [opus]: The join drops a block`, `open: the run pivots; patch: docs/plans/2026-01-01-b.md; owner: the owner; stop: its build${prior}; sign-ins: none`);
   assert.equal(append('panel', 'seats opus', 'recorded').status, 0);
   assert.match(pivot('').stderr, /starts the new plan 2026-01-01-b\.md, and it names no prior-art: report/, 'the first new plan needs one too');
   assert.match(pivot('; prior-art: docs/plans/artifacts/run/missing.md').stderr, /its prior-art: docs\/plans\/artifacts\/run\/missing\.md is no file under docs\/plans\/artifacts\//);
@@ -851,10 +851,10 @@ test("decisions-check refuses a pivot's first row until it names the prior-art r
   assert.equal(append('delivery', 'step 1 landed as abc1234', 'recorded').status, 0);
   assert.equal(pivot('', 'warning').status, 0, 'a plan the log named before its last landing');
   assert.equal(append('owner', 'second plan: the owner said "take it" for 2026-01-01-c.md', 'recorded').status, 0);
-  const next = (prior) => append('panel', 'warning [opus]: The split drops a cell', `open: the run pivots; patch: docs/plans/2026-01-01-c.md; owner: the owner; stop: its build${prior}`);
+  const next = (prior) => append('panel', 'warning [opus]: The split drops a cell', `open: the run pivots; patch: docs/plans/2026-01-01-c.md; owner: the owner; stop: its build${prior}; sign-ins: none`);
   assert.equal(next('; prior-art: `docs/plans/artifacts/run/prior-art.md:3`, read at 2026-01-01').status, 0, 'a cited line and trailing punctuation');
   const log = 'docs/plans/2026-01-01-a.decisions.tsv';
-  const onto = (plan, prior, evidence = 'proof: none') => tick(join(root, log), run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', log, 'panel', 'warning [opus]: The split drops a cell', 'why', evidence, `open: the run pivots; patch: docs/plans/2026-01-01-${plan}.md; owner: the owner; stop: its build${prior}`], root));
+  const onto = (plan, prior, evidence = 'proof: none') => tick(join(root, log), run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', log, 'panel', 'warning [opus]: The split drops a cell', 'why', evidence, `open: the run pivots; patch: docs/plans/2026-01-01-${plan}.md; owner: the owner; stop: its build${prior}; sign-ins: none`], root));
   const shapes = [
     ['d', '; prior-art: **docs/plans/artifacts/run/prior-art.md**', 'proof: none', 'a path in bold'],
     ['e', '; prior-art: "docs/plans/artifacts/run/prior-art.md"', 'proof: none', 'a quoted path'],
@@ -892,7 +892,7 @@ test("decisions-check counts new plans through the run's logs, and no landing re
   assert.equal(pivot('m', 'n').status, 0);
   assert.match(pivot('n', 'o').stderr, /after 1 new plan on this topic/, 'a plan the owner asked for counts toward the next stop');
 
-  const worded = 'open: the run pivots; patch: the design docs/plans/2026-01-01-v.md adopts after its architect run; owner: the owner; stop: its build; prior-art: docs/plans/artifacts/run/prior-art.md';
+  const worded = 'open: the run pivots; patch: the design docs/plans/2026-01-01-v.md adopts after its architect run; owner: the owner; stop: its build; prior-art: docs/plans/artifacts/run/prior-art.md; sign-ins: none';
   assert.equal(append('u', 'panel', 'critical [opus]: The join drops a block', worded).status, 0);
   assert.match(pivot('v', 'w').stderr, /after 1 new plan on this topic/, 'a patch: that names its plan after words');
 });
@@ -905,7 +905,7 @@ test("in a trunk project a worktree's second new plan counts the main checkout's
   writeFileSync(join(root, 'docs/plans/2026-01-01-a.md'), '# a\n');
   writeFileSync(join(worktree, 'docs/plans/2026-01-01-b.md'), '# b\n');
   const log = (name) => `docs/plans/2026-01-01-${name}.decisions.tsv`;
-  const pivot = (to, plans = 'docs/plans', severity = 'critical') => ['panel', `${severity} [opus]: The join drops a block`, 'why', 'proof: none', `open: the run pivots; patch: ${plans}/2026-01-01-${to}.md; owner: the owner; stop: its build; prior-art: docs/plans/artifacts/prior-art.md`];
+  const pivot = (to, plans = 'docs/plans', severity = 'critical') => ['panel', `${severity} [opus]: The join drops a block`, 'why', 'proof: none', `open: the run pivots; patch: ${plans}/2026-01-01-${to}.md; owner: the owner; stop: its build; prior-art: docs/plans/artifacts/prior-art.md; sign-ins: none`];
   const seats = ['panel', 'seats opus', 'why', 'proof: none', 'recorded'];
   const inMain = (name, ...cells) => tick(join(root, log(name)), run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', log(name), ...cells], root));
   const inWorktree = (name, ...cells) => tick(join(worktree, log(name)), helper('append', log(name), ...cells));
@@ -1170,5 +1170,31 @@ test('decisions-check append prints no stage, page publish or page warning', () 
     const result = spawnSync(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'docs/plans/b.decisions.tsv', phase, 'a decision', 'why', 'evidence', 'recorded'], { cwd: root, encoding: 'utf8', env: claude });
     assert.equal(result.status, 0, result.stderr);
     assert.doesNotMatch(`${result.stdout}${result.stderr}`, /Stage:|Rename the session|Page: line|page publish|Nothing to send|Artifact/u);
+  }
+});
+
+test('decisions-check refuses a pivot that names no sign-ins outcome for each product its lanes needed', () => {
+  const refused = [
+    ['', 'no sign-ins'],
+    ['; sign-ins:', 'an empty list'],
+    ['; sign-ins: Google Docs waiting', 'a product still waiting'],
+    ['; sign-ins: Google Docs signed in, Word for the web', 'a product with no outcome'],
+    ['; sign-ins: Google Docs answer " "', 'a blank answer'],
+    ['; sign-ins: Google Docs answer "<their words>"', 'the placeholder answer'],
+  ];
+  const passed = [
+    ['; sign-ins: none', 'no product needed one'],
+    ['; sign-ins: Google Docs signed in', 'the owner signed the browser in'],
+    ['; **Sign-ins:** none', 'a bold, capitalized label'],
+    ['; sign-ins: Google Docs signed in, Word for the web answer "skip word, go on"', "a sign-in and the owner's answer"],
+  ];
+  for (const [signIns, label] of [...refused, ...passed]) {
+    const { append, pivot } = pivotRun(['a', 'b']);
+    assert.equal(append('a', 'panel', 'seats opus').status, 0);
+    const result = pivot('a', 'b', 'critical', signIns);
+    if (refused.some(([value]) => value === signIns)) {
+      assert.equal(result.status, 1, label);
+      assert.match(result.stderr, /starts the new plan 2026-01-01-b\.md, and its? .*sign-ins/u, label);
+    } else assert.equal(result.status, 0, `${label}: ${result.stderr}`);
   }
 });

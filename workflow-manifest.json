@@ -314,7 +314,7 @@
       "mode": 420
     },
     "skills/passwords/SKILL.md": {
-      "sha256": "8d1f916ac69b86aa274fd31d214d2f6891c4b83afa706c4b6fcbfaa69aa1a333",
+      "sha256": "41e505caa4a2ccb82206f32fe3058e6ed36720c75c17fb73d40c6f1fcdbc98be",
       "mode": 420
     },
     "skills/passwords/references/credential-recovery.md": {
@@ -338,7 +338,7 @@
       "mode": 420
     },
     "skills/plan-page/references/shape.md": {
-      "sha256": "f6e1c616a209ae04e07f81d4346c1dfa76c6a0d6fd9fbd2944a868dfeeea28b5",
+      "sha256": "0bb02576ae3ef363797d8f268b99335552d635430e142de3806412fe94e4c6f6",
       "mode": 420
     },
     "skills/pstack-doctor/SKILL.md": {
@@ -434,7 +434,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "cf5486143f92302adcb4bcc80269b59de10d5b08081c6cf7e0762f21c95f514a",
+      "sha256": "9285a0c3eba1a5a5c28f4c31be9915e935f7b236adaa2c32447144f2a1890ee7",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack-models.md": {
@@ -466,7 +466,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/decisions-check.mjs": {
-      "sha256": "b187c74ad76f0822bdd8270f7fdd60427e8d7500036132d2f88df69c4365a1d8",
+      "sha256": "e2a29f42ec7a06d882fb2f26f822a3e8bdf06a12a2f15fa4df7ba34a9e357ca8",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/freeze.mjs": {
@@ -558,7 +558,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/long-runs.md": {
-      "sha256": "b30bc226c5c7c72e2dfac3359680c097480b20e44c0ba30c34be3c4ad65934d3",
+      "sha256": "584fde8590c343585d43358e6ce3a76502eed14302ac735af2ced2b24d40ac06",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/messages.md": {
@@ -570,7 +570,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/panel.md": {
-      "sha256": "ad1d33ab0d0e4db1ca2dc606ae3bfcb1e08657adb411225c0aec40daad173f03",
+      "sha256": "7fdde67e164ca5498cf11b5738d49e0b1a9151d83119b138d0eb9932335af105",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/reflect.md": {
@@ -670,7 +670,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/decisions-check.test.mjs": {
-      "sha256": "8d660d2e708afe4da105a35422e09091eb03720904e6e17eb1bb4e9d127c91e1",
+      "sha256": "7c9060a3e90c14e21fe9837c4e65e5cebf20259c5ac1d0e35db421f84e0f8527",
       "mode": 420
     },
     "skills/sync-pstack/scripts/fixtures/page-files/refusal-prefix.html": {
