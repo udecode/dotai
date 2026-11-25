@@ -28,8 +28,9 @@ export const CLIP = {
   wide: { width: 1100, height: 720, scale: 1 } as View,
   x,
   // A before-and-after clip goes to a team chat, rarely to X, so its two takes play side by side from the first frame on a canvas that comes out 1920 by 1080 with its bars, each take filming half of it (the owner, 2026-11-25).
-  pair: { width: 624, height: 532, scale: 1.5 } as View,
-  pairCanvas: { width: 1280, height: 564 },
+  // Each take films at 3× pixels and the canvas renders at 1.5×, so a copy can zoom to 2× to fill its half without stretching a pixel; at 1× a small page area sat in the middle of an empty frame (the owner, 2026-11-25).
+  pair: { width: 624, height: 532, scale: 3 } as View,
+  pairCanvas: { width: 1280, height: 564, scale: 1.5 },
   // A bug clip for an issue films the window the bug shows in, at 2× pixels, since a fixer watches it on a desktop (the owner, 2026-11-22).
   repro: { width: 760, height: 560, scale: 2 } as View,
   feedPt,
@@ -95,7 +96,7 @@ export const RULES: { rule: string; check: string }[] = [
   },
   { rule: 'Render refuses an X-shape or a before-and-after clip without a title bar, so the clip a team chat gets is the one X can post and a before-and-after clip comes out 16:9.', check: 'checkBar' },
   {
-    rule: `A change to how something a reader already saw behaves shows as one clip made from a take before the change and a take after it, which caption the same beats. Both film \`{ shape: 'pair' }\`, a page ${CLIP.pair.width} by ${CLIP.pair.height} px at ${CLIP.pair.scale}× pixels with no crop, and play side by side from the first frame, before left of after, each tab on its copy's top edge, both playing each step at the same moment, on a ${CLIP.pairCanvas.width} by ${CLIP.pairCanvas.height} px page, so with its bars the clip is ${CLIP.pairCanvas.width * CLIP.pair.scale} by ${(CLIP.pairCanvas.height + BAR_PX + FOOT_PX) * CLIP.pair.scale} px, 16:9, because such a clip goes to a team chat and rarely to X. A bug clip's two takes film the same repro window instead, and play the reference take whole under its tab, then the beta take whole under its own, each tab small and centered on the line under the bar. Then the beta page cuts to its first frame and shrinks into its copy over ${REPLAY.moveFrames} frames while the reference copy slides in beside it, and both replay in rows, one above the other, or in columns, whichever shows them larger, rows on a tie. The replay trims the page margin that both takes leave blank in every frame, keeps ${CLIP.comparePadPx} px of page around what is left, and zooms both copies as far as the page allows but never past their own size, on the page's own color with a 1 px outline, above the caption footer. Each take holds its result ${CLIP.compareEndS} s at most, unless the scene marks a longer \`read(ms)\`, and the replay ends holding both results for ${CLIP.compareHoldS} s. Render refuses two takes that end every step the same, and the whole clip keeps the length and size limits.`,
+    rule: `A change to how something a reader already saw behaves shows as one clip made from a take before the change and a take after it, which caption the same beats. Both film \`{ shape: 'pair' }\`, a page ${CLIP.pair.width} by ${CLIP.pair.height} px at ${CLIP.pair.scale}× pixels with no crop, and play side by side from the first frame, before left of after, each tab on its copy's top edge, both playing each step at the same moment, on a ${CLIP.pairCanvas.width} by ${CLIP.pairCanvas.height} px page, rendered at ${CLIP.pairCanvas.scale}× so with its bars the clip is ${CLIP.pairCanvas.width * CLIP.pairCanvas.scale} by ${(CLIP.pairCanvas.height + BAR_PX + FOOT_PX) * CLIP.pairCanvas.scale} px, 16:9, because such a clip goes to a team chat and rarely to X. A bug clip's two takes film the same repro window instead, and play the reference take whole under its tab, then the beta take whole under its own, each tab small and centered on the line under the bar. Then the beta page cuts to its first frame and shrinks into its copy over ${REPLAY.moveFrames} frames while the reference copy slides in beside it, and both replay in rows, one above the other, or in columns, whichever shows them larger, rows on a tie. The replay trims the page margin that both takes leave blank in every frame, keeps ${CLIP.comparePadPx} px of page around what is left, and zooms both copies as far as the page allows, never past their own pixels, so a pair copy zooms up to ${CLIP.pair.scale / CLIP.pairCanvas.scale}× and a bug clip's never past 1×, on the page's own color with a 1 px outline, above the caption footer. Each take holds its result ${CLIP.compareEndS} s at most, unless the scene marks a longer \`read(ms)\`, and the replay ends holding both results for ${CLIP.compareHoldS} s. Render refuses two takes that end every step the same, and the whole clip keeps the length and size limits.`,
     check: 'checkPair, renderCompare, alignBeats, pageColor, contentBox, replayLayout, renderMove, renderReplay, squeezePlan',
   },
   {
@@ -951,11 +952,11 @@ function spanGraph(input: string, spans: Span[], out: string): string {
 const TAB_PX = 10
 
 /** Where the replay puts two copies of a page's `trim` area on a `width`×`height` page, in CSS px, each zoomed as far as the page allows but never past its own size, with room above each copy that has none above it for its tab, `tabH` tall. Rows put before above after, columns put before left of after. Returns the arrangement that shows the copies larger, rows on a tie, with its zoom, each copy's size, and each copy's left edge and top. */
-export function replayLayout(trim: Box, width: number, height: number, tabH: number, columnsOnly = false) {
+export function replayLayout(trim: Box, width: number, height: number, tabH: number, columnsOnly = false, maxK = 1) {
   const { marginPx: m, gapPx: g } = REPLAY
   // A tall crop in rows left each copy under half the frame, so a menu or a list showed as a thumbnail (the owner, 2026-11-23).
-  const rows = Math.min(1, (width - 2 * m) / trim.w, (height - m - g - tabH) / 2 / trim.h)
-  const columns = Math.min(1, (width - 2 * m - g) / 2 / trim.w, (height - m - tabH) / trim.h)
+  const rows = Math.min(maxK, (width - 2 * m) / trim.w, (height - m - g - tabH) / 2 / trim.h)
+  const columns = Math.min(maxK, (width - 2 * m - g) / 2 / trim.w, (height - m - tabH) / trim.h)
   const across = columnsOnly || columns > rows
   const k = across ? columns : rows
   const panel = { w: trim.w * k, h: trim.h * k }
@@ -1023,15 +1024,18 @@ async function renderReplay(
   clips: [string, string],
   plan: Span[][],
   trim: Box,
-  { width, height, scale, background, frames, tabH, canvas }: { width: number; height: number; scale: number; background: string; frames: number; tabH: number; canvas?: { width: number; height: number } },
+  { width, height, scale, background, frames, tabH, canvas }: { width: number; height: number; scale: number; background: string; frames: number; tabH: number; canvas?: { width: number; height: number; scale: number } },
   out: string,
 ): Promise<ReplayPx & { k: number; across: boolean }> {
-  const px = (v: number) => 2 * Math.round((v * scale) / 2)
+  // The take's pixels and the stage's pixels differ on a pair canvas, so a copy can zoom past its CSS size without upscaling.
+  const outScale = canvas?.scale ?? scale
+  const src = (v: number) => 2 * Math.round((v * scale) / 2)
+  const px = (v: number) => 2 * Math.round((v * outScale) / 2)
   const stage = canvas ?? { width, height }
-  const layout = replayLayout(trim, stage.width, stage.height, tabH / scale, !!canvas)
-  const crop = { w: px(trim.w), h: px(trim.h), x: 0, y: 0 }
-  ;[crop.x, crop.y] = [Math.min(px(trim.x), px(width) - crop.w), Math.min(px(trim.y), px(height) - crop.h)]
-  const at: ReplayPx = { crop, w: px(layout.panel.w), h: px(layout.panel.h), x: [px(layout.x[0]), px(layout.x[1])], y: [px(layout.y[0]), px(layout.y[1])], line: Math.max(1, Math.round(scale)) }
+  const layout = replayLayout(trim, stage.width, stage.height, tabH / outScale, !!canvas, scale / outScale)
+  const crop = { w: src(trim.w), h: src(trim.h), x: 0, y: 0 }
+  ;[crop.x, crop.y] = [Math.min(src(trim.x), src(width) - crop.w), Math.min(src(trim.y), src(height) - crop.h)]
+  const at: ReplayPx = { crop, w: px(layout.panel.w), h: px(layout.panel.h), x: [px(layout.x[0]), px(layout.x[1])], y: [px(layout.y[0]), px(layout.y[1])], line: Math.max(1, Math.round(outScale)) }
   const renumber = `setpts=N/(${CLIP.fps}*TB)`
   const { line } = at
   const replay = [
@@ -1262,9 +1266,10 @@ export async function renderCompare(before: string, after: string, out: string, 
   let titlePx: number | undefined
   const dir = mkdtempSync(join(tmpdir(), 'clip-tabs-'))
   try {
-    const tab = await tabs(dir, scale, take.repro ? (opts.names ?? ['reference', 'beta']) : undefined)
     // A bug clip's small window shrinks when stacked, so only it plays each take whole first; a pair clip plays side by side from its first frame.
     const canvas = take.repro ? undefined : CLIP.pairCanvas
+    const outScale = canvas?.scale ?? scale
+    const tab = await tabs(dir, outScale, take.repro ? (opts.names ?? ['reference', 'beta']) : undefined)
     const at = await renderReplay(clips, aligned.plan, trim, { width, height, scale, background: `0x${color.toString(16).padStart(6, '0')}`, frames: aligned.frames, tabH: Math.max(tab.Before.h, tab.After.h), canvas }, page)
     const solo = canvas ? 0 : frames[0] + frames[1] + REPLAY.moveFrames
     const [moved, end] = [solo, solo + aligned.frames]
@@ -1278,7 +1283,7 @@ export async function renderCompare(before: string, after: string, out: string, 
     ]
     if (canvas) {
       captions = aligned.starts.map((f, i) => ({ t: (i ? f : 0) / CLIP.fps, text: texts[i] }))
-      titlePx = (await renderClip(page, out, { bar: opts.bar, captions, scale, marks: copyTabs })).titlePx
+      titlePx = (await renderClip(page, out, { bar: opts.bar, captions, scale: outScale, marks: copyTabs })).titlePx
       return await finishCompare(review, out, take, titlePx, captions, after, pages[1].clip)
     }
     // The after take's tab rides its page's top edge as the page shrinks into its copy, on the same easing as the frames renderMove writes.

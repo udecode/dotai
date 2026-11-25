@@ -193,7 +193,7 @@ describe('a before-and-after pair', () => {
   })
 
   test('refuses takes whose frames differ, naming both sizes', () => {
-    expect(checkPair(at(), at(CLIP.x))[0]).toBe('the before take films 624x532@1.5 and the after take 540x654@2; film both with the same shape and crop size')
+    expect(checkPair(at(), at(CLIP.x))[0]).toBe('the before take films 624x532@3 and the after take 540x654@2; film both with the same shape and crop size')
   })
 
   test("lets a bug clip's reference and beta takes keep their repro window", () => {
@@ -234,12 +234,15 @@ describe('a before-and-after pair', () => {
     expect(padBox(undefined, [2, 2], 128, 128)).toEqual({ x: 0, y: 0, w: 128, h: 128 })
   })
 
-  test("puts a whole pair take beside its pair at full size, so the clip is 16:9 and plays both from its first frame", () => {
+  test("puts a whole pair take beside its pair at full size and zooms a small one up to its own pixels, so the clip is 16:9 and fills it", () => {
     const { width, height } = CLIP.pairCanvas
     const at = replayLayout({ x: 0, y: 0, w: CLIP.pair.width, h: CLIP.pair.height }, width, height, 17, true)
     expect(at.across).toBe(true)
     expect(at.k).toBe(1)
-    expect((width * CLIP.pair.scale) / ((height + 80 + 76) * CLIP.pair.scale)).toBeCloseTo(16 / 9)
+    expect((width * CLIP.pairCanvas.scale) / ((height + 80 + 76) * CLIP.pairCanvas.scale)).toBeCloseTo(16 / 9)
+    const zoom = CLIP.pair.scale / CLIP.pairCanvas.scale
+    expect(replayLayout({ x: 0, y: 0, w: 380, h: 190 }, width, height, 17, true, zoom).k).toBeGreaterThan(1.5)
+    expect(replayLayout({ x: 0, y: 0, w: 100, h: 50 }, width, height, 17, true, zoom).k).toBe(zoom)
     expect(replayLayout({ x: 0, y: 0, w: 600, h: 100 }, width, height, 17, true).across).toBe(true)
   })
 
