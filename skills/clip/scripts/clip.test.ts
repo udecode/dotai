@@ -22,6 +22,7 @@ import {
   contentBox,
   padBox,
   pageColor,
+  pairLayout,
   replayLayout,
   fitCrop,
   openClip,
@@ -193,7 +194,7 @@ describe('a before-and-after pair', () => {
   })
 
   test('refuses takes whose frames differ, naming both sizes', () => {
-    expect(checkPair(at(), at(CLIP.x))[0]).toBe('the before take films 624x532@3 and the after take 540x654@2; film both with the same shape and crop size')
+    expect(checkPair(at(), at(CLIP.x))[0]).toBe('the before take films 612x530@3 and the after take 540x654@2; film both with the same shape and crop size')
   })
 
   test("lets a bug clip's reference and beta takes keep their repro window", () => {
@@ -236,14 +237,17 @@ describe('a before-and-after pair', () => {
 
   test("puts a whole pair take beside its pair at full size and zooms a small one up to its own pixels, so the clip is 16:9 and fills it", () => {
     const { width, height } = CLIP.pairCanvas
-    const at = replayLayout({ x: 0, y: 0, w: CLIP.pair.width, h: CLIP.pair.height }, width, height, 17, true)
-    expect(at.across).toBe(true)
-    expect(at.k).toBe(1)
-    expect((width * CLIP.pairCanvas.scale) / ((height + 80 + 76) * CLIP.pairCanvas.scale)).toBeCloseTo(16 / 9)
     const zoom = CLIP.pair.scale / CLIP.pairCanvas.scale
-    expect(replayLayout({ x: 0, y: 0, w: 380, h: 190 }, width, height, 17, true, zoom).k).toBeGreaterThan(1.5)
-    expect(replayLayout({ x: 0, y: 0, w: 100, h: 50 }, width, height, 17, true, zoom).k).toBe(zoom)
-    expect(replayLayout({ x: 0, y: 0, w: 600, h: 100 }, width, height, 17, true).across).toBe(true)
+    const at = pairLayout({ x: 0, y: 0, w: CLIP.pair.width, h: CLIP.pair.height }, zoom)
+    expect(at.k).toBe(1)
+    // Each card's border sits 2 px outside its copy, its band 28 px above, and the cards keep 16 px from the canvas edges and between them.
+    expect(at.x[0] - 2).toBe(16)
+    expect(at.x[1] - at.x[0] - at.panel.w - 4).toBe(16)
+    expect(at.y[0] - 28).toBe(16)
+    expect(at.y[0] + at.panel.h + 2).toBe(height - 16)
+    expect((width * CLIP.pairCanvas.scale) / ((height + CLIP.pairBar.height + 76) * CLIP.pairCanvas.scale)).toBeCloseTo(16 / 9)
+    expect(pairLayout({ x: 0, y: 0, w: 380, h: 190 }, zoom).k).toBeGreaterThan(1.5)
+    expect(pairLayout({ x: 0, y: 0, w: 100, h: 50 }, zoom).k).toBe(zoom)
   })
 
   test('replays two copies in rows, or in columns when that shows a tall crop larger, each as large as the page allows but never past its own size', () => {

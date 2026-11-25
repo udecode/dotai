@@ -29,8 +29,10 @@ export const CLIP = {
   x,
   // A before-and-after clip goes to a team chat, rarely to X, so its two takes play side by side from the first frame on a canvas that comes out 1920 by 1080 with its bars, each take filming half of it (the owner, 2026-11-25).
   // Each take films at 3× pixels and the canvas renders at 1.5×, so a copy can zoom to 2× to fill its half without stretching a pixel; at 1× a small page area sat in the middle of an empty frame (the owner, 2026-11-25).
-  pair: { width: 624, height: 532, scale: 3 } as View,
-  pairCanvas: { width: 1280, height: 564, scale: 1.5 },
+  pair: { width: 612, height: 530, scale: 3 } as View,
+  pairCanvas: { width: 1280, height: 592, scale: 1.5 },
+  // X's 36 px Cal title read as a slide heading over a pair clip's two pages (the owner, 2026-11-25), so its bar takes the caption's 26 px Inter.
+  pairBar: { height: 52, titlePx: 26 },
   // A bug clip for an issue films the window the bug shows in, at 2× pixels, since a fixer watches it on a desktop (the owner, 2026-11-22).
   repro: { width: 760, height: 560, scale: 2 } as View,
   feedPt,
@@ -73,6 +75,8 @@ export const CLIP = {
 
 // The replay's room at the page's edges and between its two copies, in CSS px, and how many frames the after take takes to shrink into its copy.
 const REPLAY = { marginPx: 12, gapPx: 8, outline: '0xd4d4d4', moveFrames: 24 }
+// A pair copy sits in a card under a full-width band in its side's color, with a border of that color, because a small tab over a gray outline was easy to miss (the owner, 2026-11-25). Sizes in CSS px.
+const CARD = { marginPx: 16, gapPx: 16, bandPx: 28, borderPx: 2, radiusPx: 4, labelPx: 13 }
 
 /** Each rule the checks below enforce, as the clips skill lists it. */
 export const RULES: { rule: string; check: string }[] = [
@@ -96,7 +100,7 @@ export const RULES: { rule: string; check: string }[] = [
   },
   { rule: 'Render refuses an X-shape or a before-and-after clip without a title bar, so the clip a team chat gets is the one X can post and a before-and-after clip comes out 16:9.', check: 'checkBar' },
   {
-    rule: `A change to how something a reader already saw behaves shows as one clip made from a take before the change and a take after it, which caption the same beats. Both film \`{ shape: 'pair' }\`, a page ${CLIP.pair.width} by ${CLIP.pair.height} px at ${CLIP.pair.scale}× pixels with no crop, and play side by side from the first frame, before left of after, each tab on its copy's top edge, both playing each step at the same moment, on a ${CLIP.pairCanvas.width} by ${CLIP.pairCanvas.height} px page, rendered at ${CLIP.pairCanvas.scale}× so with its bars the clip is ${CLIP.pairCanvas.width * CLIP.pairCanvas.scale} by ${(CLIP.pairCanvas.height + BAR_PX + FOOT_PX) * CLIP.pairCanvas.scale} px, 16:9, because such a clip goes to a team chat and rarely to X. A bug clip's two takes film the same repro window instead, and play the reference take whole under its tab, then the beta take whole under its own, each tab small and centered on the line under the bar. Then the beta page cuts to its first frame and shrinks into its copy over ${REPLAY.moveFrames} frames while the reference copy slides in beside it, and both replay in rows, one above the other, or in columns, whichever shows them larger, rows on a tie. The replay trims the page margin that both takes leave blank in every frame, keeps ${CLIP.comparePadPx} px of page around what is left, and zooms both copies as far as the page allows, never past their own pixels, so a pair copy zooms up to ${CLIP.pair.scale / CLIP.pairCanvas.scale}× and a bug clip's never past 1×, on the page's own color with a 1 px outline, above the caption footer. Each take holds its result ${CLIP.compareEndS} s at most, unless the scene marks a longer \`read(ms)\`, and the replay ends holding both results for ${CLIP.compareHoldS} s. Render refuses two takes that end every step the same, and the whole clip keeps the length and size limits.`,
+    rule: `A change to how something a reader already saw behaves shows as one clip made from a take before the change and a take after it, which caption the same beats. Both film \`{ shape: 'pair' }\`, a page ${CLIP.pair.width} by ${CLIP.pair.height} px at ${CLIP.pair.scale}× pixels with no crop, and play side by side from the first frame, before left of after, both playing each step at the same moment, on a ${CLIP.pairCanvas.width} by ${CLIP.pairCanvas.height} px page, rendered at ${CLIP.pairCanvas.scale}× so with its ${CLIP.pairBar.height} px title bar, whose title is ${CLIP.pairBar.titlePx} px, and its caption footer the clip is ${CLIP.pairCanvas.width * CLIP.pairCanvas.scale} by ${(CLIP.pairCanvas.height + CLIP.pairBar.height + FOOT_PX) * CLIP.pairCanvas.scale} px, 16:9, because such a clip goes to a team chat and rarely to X. Each copy is a card under a ${CARD.bandPx} px band that names its side, red before and green after, with a ${CARD.borderPx} px border of the same color and ${CARD.radiusPx} px corners. A bug clip's two takes film the same repro window instead, and play the reference take whole under its tab, then the beta take whole under its own, each tab small and centered on the line under the bar. Then the beta page cuts to its first frame and shrinks into its copy over ${REPLAY.moveFrames} frames while the reference copy slides in beside it, and both replay in rows, one above the other, or in columns, whichever shows them larger, rows on a tie. The replay trims the page margin that both takes leave blank in every frame, keeps ${CLIP.comparePadPx} px of page around what is left, and zooms both copies as far as the page allows, never past their own pixels, so a pair copy zooms up to ${CLIP.pair.scale / CLIP.pairCanvas.scale}× and a bug clip's never past 1×, on the page's own color, a bug clip's with a 1 px outline, above the caption footer. Each take holds its result ${CLIP.compareEndS} s at most, unless the scene marks a longer \`read(ms)\`, and the replay ends holding both results for ${CLIP.compareHoldS} s. Render refuses two takes that end every step the same, and the whole clip keeps the length and size limits.`,
     check: 'checkPair, renderCompare, alignBeats, pageColor, contentBox, replayLayout, renderMove, renderReplay, squeezePlan',
   },
   {
@@ -708,7 +712,8 @@ const FOOT_BG = '#0a0a0a'
 const CAPTION = 'display:inline-flex;align-items:center;gap:8px;font:700 26px/1 Inter;color:#fff;padding:2px'
 // A footer label was easy to miss, so each side shows as a badge (the owner, 2026-11-20), red before and green after, the way a diff marks removed and added lines (the owner, 2026-11-22).
 const SIDES = ['Before', 'After'] as const
-const BADGE: Record<(typeof SIDES)[number], string> = { Before: 'background:#ef4444;color:#fff', After: 'background:#16a34a;color:#fff' }
+const SIDE_COLOR: Record<(typeof SIDES)[number], string> = { Before: '#ef4444', After: '#16a34a' }
+const BADGE: Record<(typeof SIDES)[number], string> = { Before: `background:${SIDE_COLOR.Before};color:#fff`, After: `background:${SIDE_COLOR.After};color:#fff` }
 // A bug clip plays the reference page, which works, then beta, which shows the bug, so the reference is neutral and beta is red.
 const REFERENCE_BADGE: Record<(typeof SIDES)[number], string> = { Before: 'background:#525252;color:#fff', After: 'background:#ef4444;color:#fff' }
 const badgeStyle = (side: Side, px: number) =>
@@ -731,18 +736,18 @@ const face = (family: string, weight: number, file: string) => `@font-face{font-
 // Cal Sans crowds its words below heading sizes, and X shows the clip at about phone width, so captions use Inter.
 const fontStyle = () => `<style>${face('Cal', 600, `${ASSETS}/CalSans-SemiBold.ttf`)}${face('Inter', 700, `${ASSETS}/Inter-Bold.ttf`)}body{margin:0;background:transparent}</style>`
 
-const barHtml = (bar: Bar, width: number) =>
-  `<div id="bar" style="width:${width}px;height:${BAR_PX}px;box-sizing:border-box;padding:2px 40px 0;background:#fafafa;border-bottom:1px solid #e5e5e5;font:600 ${CLIP.titlePx.max}px/1.1 Cal;color:#0a0a0a;white-space:nowrap;overflow:hidden;display:flex;align-items:center;gap:0.3em"><span style="flex:none;color:#a3a3a3">${esc(bar.tag)} /</span><span style="flex:none">${esc(bar.title)}</span></div>`
+const barHtml = (bar: Bar, width: number, pair = false) =>
+  `<div id="bar" style="width:${width}px;height:${pair ? CLIP.pairBar.height : BAR_PX}px;box-sizing:border-box;padding:${pair ? '1px 24px 0' : '2px 40px 0'};background:#fafafa;border-bottom:1px solid #e5e5e5;font:${pair ? `700 ${CLIP.pairBar.titlePx}px/1.1 Inter` : `600 ${CLIP.titlePx.max}px/1.1 Cal`};color:#0a0a0a;white-space:nowrap;overflow:hidden;display:flex;align-items:center;gap:0.3em"><span style="flex:none;color:#a3a3a3">${esc(bar.tag)} /</span><span style="flex:none">${esc(bar.title)}</span></div>`
 
 /** Shrinks the page's title bar until its line fits, and returns the size it fits at. */
-const fitTitle = (page: Page) =>
+const fitTitle = (page: Page, max = CLIP.titlePx.max) =>
   page.evaluate(async max => {
     await document.fonts.ready
     const el = document.getElementById('bar')!
     let size = max
     while (size > 1 && el.scrollWidth > el.clientWidth) el.style.fontSize = `${--size}px`
     return size
-  }, CLIP.titlePx.max)
+  }, max)
 
 /** An image laid over a rendered clip from frame `from` until frame `to`, at `x` and `y` video px from the page's top left corner, written as ffmpeg overlay expressions, so they may use the image's `w` and `h` and the clip's time `t`. It fades in over its first `fadeFrames`. */
 export type Mark = { file: string; x: string; y: string; from: number; to: number; fadeFrames?: number }
@@ -751,7 +756,7 @@ export type Mark = { file: string; x: string; y: string; from: number; to: numbe
 export async function renderClip(
   clip: string,
   out: string,
-  { bar, captions = [], scale = 1, marks = [], route = false }: { bar?: Bar; captions?: Beat[]; scale?: number; marks?: Mark[]; route?: boolean } = {},
+  { bar, captions = [], scale = 1, marks = [], route = false, pair = false }: { bar?: Bar; captions?: Beat[]; scale?: number; marks?: Mark[]; route?: boolean; pair?: boolean } = {},
 ): Promise<{ titlePx?: number }> {
   // A bug clip's bar names its browser, route and build, which no title rule fits.
   if (bar && !route) checkTitle(bar.tag, bar.title)
@@ -782,8 +787,8 @@ export async function renderClip(
         }
       }
       if (bar) {
-        await page.setContent(`${style}${barHtml(bar, width)}`)
-        titlePx = await fitTitle(page)
+        await page.setContent(`${style}${barHtml(bar, width, pair)}`)
+        titlePx = await fitTitle(page, pair ? CLIP.pairBar.titlePx : undefined)
         await page.locator('#bar').screenshot({ path: join(dir, 'bar.png') })
       }
     } finally {
@@ -798,7 +803,7 @@ export async function renderClip(
       inputs.push(...loop(join(dir, `keys-${i}.png`)))
       graph += `;${captionOverlay(w, `v${i}`, `${layers.length + i}:v`, `v${i + 1}`, FOOT_PX * scale)}`
     })
-    const top = bar ? BAR_PX * scale : 0
+    const top = bar ? (pair ? CLIP.pairBar.height : BAR_PX) * scale : 0
     // A window edge sits half a frame before its frame, so a mark never shows a frame early or late.
     const at = (frame: number) => ((frame - 0.5) / CLIP.fps).toFixed(4)
     marks.forEach((m, j) => {
@@ -952,12 +957,12 @@ function spanGraph(input: string, spans: Span[], out: string): string {
 const TAB_PX = 10
 
 /** Where the replay puts two copies of a page's `trim` area on a `width`×`height` page, in CSS px, each zoomed as far as the page allows but never past its own size, with room above each copy that has none above it for its tab, `tabH` tall. Rows put before above after, columns put before left of after. Returns the arrangement that shows the copies larger, rows on a tie, with its zoom, each copy's size, and each copy's left edge and top. */
-export function replayLayout(trim: Box, width: number, height: number, tabH: number, columnsOnly = false, maxK = 1) {
+export function replayLayout(trim: Box, width: number, height: number, tabH: number) {
   const { marginPx: m, gapPx: g } = REPLAY
   // A tall crop in rows left each copy under half the frame, so a menu or a list showed as a thumbnail (the owner, 2026-11-23).
-  const rows = Math.min(maxK, (width - 2 * m) / trim.w, (height - m - g - tabH) / 2 / trim.h)
-  const columns = Math.min(maxK, (width - 2 * m - g) / 2 / trim.w, (height - m - tabH) / trim.h)
-  const across = columnsOnly || columns > rows
+  const rows = Math.min(1, (width - 2 * m) / trim.w, (height - m - g - tabH) / 2 / trim.h)
+  const columns = Math.min(1, (width - 2 * m - g) / 2 / trim.w, (height - m - tabH) / trim.h)
+  const across = columns > rows
   const k = across ? columns : rows
   const panel = { w: trim.w * k, h: trim.h * k }
   if (across) {
@@ -969,15 +974,48 @@ export function replayLayout(trim: Box, width: number, height: number, tabH: num
   return { k, panel, across, x: [x, x] as [number, number], y: [top, top + panel.h + g + tabH] as [number, number] }
 }
 
-/** Renders a BEFORE and an AFTER tab at `scale` pixels per CSS px into `dir`, and returns each file with its height in video px. */
-async function tabs(dir: string, scale: number, names?: [string, string]): Promise<Record<Side, { file: string; h: number }>> {
+/** Where a pair clip puts its two cards on the pair canvas, in CSS px: each copy of the `trim` area zoomed as far as the canvas allows, up to `maxK`, under its band and inside its border, before left of after, centered. Returns the same shape as `replayLayout`, the copies' places without their cards. */
+export function pairLayout(trim: Box, maxK: number) {
+  const { width, height } = CLIP.pairCanvas
+  const { marginPx: m, gapPx: g, bandPx: b, borderPx: e } = CARD
+  const k = Math.min(maxK, (width - 2 * m - g - 4 * e) / 2 / trim.w, (height - 2 * m - b - e) / trim.h)
+  const panel = { w: trim.w * k, h: trim.h * k }
+  const left = (width - 2 * panel.w - g - 4 * e) / 2 + e
+  const top = (height - panel.h - b - e) / 2 + b
+  return { k, panel, across: true, x: [left, left + panel.w + 2 * e + g] as [number, number], y: [top, top] as [number, number] }
+}
+
+/** Renders each side's card for a pair copy `w`×`h` video px at `scale` video px per CSS px into `dir`: the band, the border and the corners, clear where the copy shows. Returns each file with how far its corner sits up and left of the copy's. */
+async function cards(dir: string, scale: number, w: number, h: number): Promise<Record<Side, { file: string; dx: number; dy: number }>> {
+  const [e, b, r, label] = [CARD.borderPx, CARD.bandPx, CARD.radiusPx, CARD.labelPx].map(v => Math.round(v * scale))
+  const browser = await chromium.launch()
+  try {
+    const page = await browser.newPage()
+    const out = {} as Record<Side, { file: string; dx: number; dy: number }>
+    for (const side of SIDES) {
+      await page.setContent(
+        `${fontStyle()}<div id="c" style="width:${w + 2 * e}px;height:${b + h + e}px;box-sizing:border-box;border:${e}px solid ${SIDE_COLOR[side]};border-top:0;border-radius:${r}px;overflow:hidden"><div style="height:${b}px;display:flex;align-items:center;padding:0 ${Math.round(10 * scale)}px;font:700 ${label}px/1 Inter;letter-spacing:0.08em;text-transform:uppercase;${BADGE[side]}">${side}</div></div>`,
+      )
+      await page.evaluate(() => document.fonts.ready)
+      const file = join(dir, `${side}-card.png`)
+      await page.locator('#c').screenshot({ path: file, omitBackground: true })
+      out[side] = { file, dx: e, dy: b }
+    }
+    return out
+  } finally {
+    await browser.close()
+  }
+}
+
+/** Renders a bug clip's two tabs, named `names`, at `scale` pixels per CSS px into `dir`, and returns each file with its height in video px. */
+async function tabs(dir: string, scale: number, names: [string, string]): Promise<Record<Side, { file: string; h: number }>> {
   const browser = await chromium.launch()
   try {
     const page = await browser.newPage({ deviceScaleFactor: scale })
     const out = {} as Record<Side, { file: string; h: number }>
     for (const side of SIDES) {
       await page.setContent(
-        `${fontStyle()}<span id="t" style="display:inline-block;font:700 ${TAB_PX}px/1 Inter;letter-spacing:0.08em;text-transform:uppercase;padding:4px 8px 3px;border-radius:5px 5px 0 0;${names ? REFERENCE_BADGE[side] : BADGE[side]}">${esc(names ? names[SIDES.indexOf(side)] : side)}</span>`,
+        `${fontStyle()}<span id="t" style="display:inline-block;font:700 ${TAB_PX}px/1 Inter;letter-spacing:0.08em;text-transform:uppercase;padding:4px 8px 3px;border-radius:5px 5px 0 0;${REFERENCE_BADGE[side]}">${esc(names[SIDES.indexOf(side)])}</span>`,
       )
       await page.evaluate(() => document.fonts.ready)
       const file = join(dir, `${side}.png`)
@@ -1032,10 +1070,11 @@ async function renderReplay(
   const src = (v: number) => 2 * Math.round((v * scale) / 2)
   const px = (v: number) => 2 * Math.round((v * outScale) / 2)
   const stage = canvas ?? { width, height }
-  const layout = replayLayout(trim, stage.width, stage.height, tabH / outScale, !!canvas, scale / outScale)
+  const layout = canvas ? pairLayout(trim, scale / outScale) : replayLayout(trim, width, height, tabH / outScale)
   const crop = { w: src(trim.w), h: src(trim.h), x: 0, y: 0 }
   ;[crop.x, crop.y] = [Math.min(src(trim.x), src(width) - crop.w), Math.min(src(trim.y), src(height) - crop.h)]
-  const at: ReplayPx = { crop, w: px(layout.panel.w), h: px(layout.panel.h), x: [px(layout.x[0]), px(layout.x[1])], y: [px(layout.y[0]), px(layout.y[1])], line: Math.max(1, Math.round(outScale)) }
+  // A pair copy's card draws its border, so the copy gets no outline of its own.
+  const at: ReplayPx = { crop, w: px(layout.panel.w), h: px(layout.panel.h), x: [px(layout.x[0]), px(layout.x[1])], y: [px(layout.y[0]), px(layout.y[1])], line: canvas ? 0 : Math.max(1, Math.round(outScale)) }
   const renumber = `setpts=N/(${CLIP.fps}*TB)`
   const { line } = at
   const replay = [
@@ -1269,21 +1308,20 @@ export async function renderCompare(before: string, after: string, out: string, 
     // A bug clip's small window shrinks when stacked, so only it plays each take whole first; a pair clip plays side by side from its first frame.
     const canvas = take.repro ? undefined : CLIP.pairCanvas
     const outScale = canvas?.scale ?? scale
-    const tab = await tabs(dir, outScale, take.repro ? (opts.names ?? ['reference', 'beta']) : undefined)
-    const at = await renderReplay(clips, aligned.plan, trim, { width, height, scale, background: `0x${color.toString(16).padStart(6, '0')}`, frames: aligned.frames, tabH: Math.max(tab.Before.h, tab.After.h), canvas }, page)
+    const tab = canvas ? undefined : await tabs(dir, outScale, opts.names ?? ['reference', 'beta'])
+    const tabH = tab ? Math.max(tab.Before.h, tab.After.h) : 0
+    const at = await renderReplay(clips, aligned.plan, trim, { width, height, scale, background: `0x${color.toString(16).padStart(6, '0')}`, frames: aligned.frames, tabH, canvas }, page)
     const solo = canvas ? 0 : frames[0] + frames[1] + REPLAY.moveFrames
     const [moved, end] = [solo, solo + aligned.frames]
     const rendered = await frameCount(page)
     if (rendered !== end) throw new Error(`the page clip has ${rendered} frames, not the ${end} its tabs and captions expect`)
     const text = take.textPx && !take.repro ? `, page text at ${phonePt(take.textPx * at.k, (canvas ?? { width }).width)} pt on a phone` : ''
     review.fixes.push(`${canvas ? 'played both' : 'played the before take, the after take, then both'} in ${at.across ? 'columns' : 'rows'} at ${tenth(at.k)}× size${text}`)
-    const copyTabs: Mark[] = [
-      { file: tab.Before.file, x: `${at.x[0] + at.w / 2}-w/2`, y: `${Math.max(0, at.y[0] - at.line)}-h`, from: 0, to: end },
-      { file: tab.After.file, x: `${at.x[1] + at.w / 2}-w/2`, y: `${Math.max(0, at.y[1] - at.line)}-h`, from: 0, to: end },
-    ]
-    if (canvas) {
+    if (!tab) {
+      const card = await cards(dir, outScale, at.w, at.h)
+      const marks = SIDES.map((side, i): Mark => ({ file: card[side].file, x: String(at.x[i] - card[side].dx), y: String(at.y[i] - card[side].dy), from: 0, to: end }))
       captions = aligned.starts.map((f, i) => ({ t: (i ? f : 0) / CLIP.fps, text: texts[i] }))
-      titlePx = (await renderClip(page, out, { bar: opts.bar, captions, scale: outScale, marks: copyTabs })).titlePx
+      titlePx = (await renderClip(page, out, { bar: opts.bar, captions, scale: outScale, marks, pair: true })).titlePx
       return await finishCompare(review, out, take, titlePx, captions, after, pages[1].clip)
     }
     // The after take's tab rides its page's top edge as the page shrinks into its copy, on the same easing as the frames renderMove writes.
