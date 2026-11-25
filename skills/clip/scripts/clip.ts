@@ -27,6 +27,8 @@ export const CLIP = {
   fps: 60,
   wide: { width: 1100, height: 720, scale: 1 } as View,
   x,
+  // A before-and-after clip goes to a team chat, rarely to X, so it films a desktop page that comes out 1920 by 1080 with its bars (the owner, 2026-11-25).
+  pair: { width: 1280, height: 564, scale: 1.5 } as View,
   // A bug clip for an issue films the window the bug shows in, at 2× pixels, since a fixer watches it on a desktop (the owner, 2026-11-22).
   repro: { width: 760, height: 560, scale: 2 } as View,
   feedPt,
@@ -90,9 +92,9 @@ export const RULES: { rule: string; check: string }[] = [
     rule: `A clip films X's shape, a page ${CLIP.x.width} by ${CLIP.x.height} px at ${CLIP.x.scale}× pixels, so with its ${BAR_PX} px title bar and ${FOOT_PX} px caption footer the clip is 2:3, unless it opens with \`{ shape: 'wide' }\` or the nearest \`${CLIP_CONFIG}\` above the scene or the working folder names \`"shape": "wide"\`, which films ${CLIP.wide.width} by ${CLIP.wide.height} px. Its page text shows at ${CLIP.phoneTextPt} pt or more in a phone's feed, which shows a clip about ${CLIP.feedPt} pt wide.`,
     check: 'openClip, projectShape, reviewTake',
   },
-  { rule: 'Render refuses an X-shape clip without a title bar, so the clip a team chat gets is the one X can post.', check: 'checkBar' },
+  { rule: 'Render refuses an X-shape or a before-and-after clip without a title bar, so the clip a team chat gets is the one X can post and a before-and-after clip comes out 16:9.', check: 'checkBar' },
   {
-    rule: `A change to how something a reader already saw behaves shows as one clip made from a take before the change and a take after it, which film the same shape and crop and caption the same beats. The clip plays the before take whole under a red BEFORE tab, then the after take whole under a green AFTER tab, each tab small and centered on the line under the title bar. Then the after page cuts to its first frame and shrinks into its copy over ${REPLAY.moveFrames} frames while the before copy slides in beside it, and both replay in rows, before above after, or in columns, before left of after, whichever shows them larger, rows on a tie, each tab on its copy's top edge, both playing each step at the same moment, so the reader sees each take at full size and then compares them line by line. Every clip edits this way, whatever the change. The replay trims the page margin that both takes leave blank in every frame, keeps ${CLIP.comparePadPx} px of page around what is left, and zooms both copies as far as the page allows but never past their own size, on the page's own color with a 1 px outline, above the caption footer. Each take holds its result ${CLIP.compareEndS} s at most, unless the scene marks a longer \`read(ms)\`, and the replay ends holding both results for ${CLIP.compareHoldS} s. Render refuses two takes that end every step the same, and the whole clip keeps the length and size limits.`,
+    rule: `A change to how something a reader already saw behaves shows as one clip made from a take before the change and a take after it, which caption the same beats. Both film \`{ shape: 'pair' }\`, a desktop page ${CLIP.pair.width} by ${CLIP.pair.height} px at ${CLIP.pair.scale}× pixels with no crop, so with its bars the clip is ${CLIP.pair.width * CLIP.pair.scale} by ${(CLIP.pair.height + BAR_PX + FOOT_PX) * CLIP.pair.scale} px, 16:9, because such a clip goes to a team chat and rarely to X. A bug clip's two takes film the same repro window instead. The clip plays the before take whole under a red BEFORE tab, then the after take whole under a green AFTER tab, each tab small and centered on the line under the title bar. Then the after page cuts to its first frame and shrinks into its copy over ${REPLAY.moveFrames} frames while the before copy slides in beside it, and both replay in rows, before above after, or in columns, before left of after, whichever shows them larger, rows on a tie, each tab on its copy's top edge, both playing each step at the same moment, so the reader sees each take at full size and then compares them line by line. Every clip edits this way, whatever the change. The replay trims the page margin that both takes leave blank in every frame, keeps ${CLIP.comparePadPx} px of page around what is left, and zooms both copies as far as the page allows but never past their own size, on the page's own color with a 1 px outline, above the caption footer. Each take holds its result ${CLIP.compareEndS} s at most, unless the scene marks a longer \`read(ms)\`, and the replay ends holding both results for ${CLIP.compareHoldS} s. Render refuses two takes that end every step the same, and the whole clip keeps the length and size limits.`,
     check: 'checkPair, renderCompare, alignBeats, pageColor, contentBox, replayLayout, renderMove, renderReplay, squeezePlan',
   },
   {
@@ -438,7 +440,7 @@ export async function openClip(
     shape = projectShape([dirname(Bun.main), process.cwd()]),
     size,
     storageState,
-  }: { cursor?: boolean; colorScheme?: 'light' | 'dark'; shape?: 'wide' | 'x' | 'repro'; size?: { width: number; height: number }; storageState?: string } = {},
+  }: { cursor?: boolean; colorScheme?: 'light' | 'dark'; shape?: 'wide' | 'x' | 'pair' | 'repro'; size?: { width: number; height: number }; storageState?: string } = {},
 ) {
   // A bug clip may film the narrow or tall window its bug needs.
   const view = shape === 'repro' && size ? { ...CLIP.repro, ...size } : CLIP[shape]
@@ -541,10 +543,13 @@ export function fitCrop(c: Crop, view: { width: number; height: number } = CLIP.
 /** The rules a take can break before it is rendered, with what render fixes on its own and what would make it better. */
 /** `cutS` is the still time render cuts, so the length rules judge the clip a viewer gets. */
 export const isX = (take: Take) => take.view?.width === CLIP.x.width
+const isPair = (take: Take) => take.view?.width === CLIP.pair.width && take.view.height === CLIP.pair.height
 
-/** An X-shape clip may go out on X alone, where the title bar is its headline. */
+/** An X-shape clip may go out on X alone, where the title bar is its headline, and a pair clip is 16:9 only with its bar. */
 export function checkBar(take: Take, bar?: Bar): string[] {
-  return isX(take) && !bar ? ['an X-shape clip needs a title bar; render it with --tag <tag> --title "<title>"'] : []
+  if (bar) return []
+  if (isX(take)) return ['an X-shape clip needs a title bar; render it with --tag <tag> --title "<title>"']
+  return isPair(take) ? ['a before-and-after clip needs a title bar; render it with --tag <tag> --title "<title>"'] : []
 }
 
 export function reviewTake(take: Take, trail: TrailRow[], { x = isX(take), cutS = 0 }: { x?: boolean; cutS?: number } = {}): Review {
@@ -1203,6 +1208,10 @@ export function checkPair(before: Take, after: Take): string[] {
   }
   const [a, b] = [shape(before), shape(after)]
   const fails = a === b ? [] : [`the before take films ${a} and the after take ${b}; film both with the same shape and crop size`]
+  for (const [side, t] of [['before', before], ['after', after]] as const) {
+    if (!t.repro && (!isPair(t) || t.crop))
+      fails.push(`the ${side} take films ${shape(t)}; film a before-and-after take with openClip's { shape: 'pair' } and no crop, so the clip comes out 16:9`)
+  }
   if (before.captions.length !== after.captions.length)
     fails.push(`the before take has ${before.captions.length} captions and the after take ${after.captions.length}; caption the same beats in both, so they play in step`)
   return fails

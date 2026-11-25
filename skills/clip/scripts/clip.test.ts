@@ -148,6 +148,7 @@ describe('a take', () => {
     expect(checkBar(one)).toEqual([expect.stringContaining('needs a title bar')])
     expect(checkBar(one, { tag: 'board', title: 'notes in your doc' })).toEqual([])
     expect(checkBar({ ...one, view: CLIP.wide })).toEqual([])
+    expect(checkBar({ ...one, view: CLIP.pair })).toEqual([expect.stringContaining('a before-and-after clip needs a title bar')])
   })
 
   test('counts typing as motion and a blinking caret as still', () => {
@@ -176,22 +177,33 @@ describe('a take', () => {
 })
 
 describe('a before-and-after pair', () => {
-  const at = (crop?: Take['crop'], view = CLIP.wide): Take => ({ ...take([{ t: 0, text: 'Open the menu' }]), view, crop })
+  const at = (view = CLIP.pair, crop?: Take['crop']): Take => ({ ...take([{ t: 0, text: 'Open the menu' }]), view, crop })
 
-  test('plays as one clip when both takes film the same shape and crop size', () => {
-    expect(checkPair(at({ x: 0, y: 0, w: 600, h: 400 }), at({ x: 40, y: 20, w: 600, h: 400 }))).toEqual([])
+  test('plays as one clip when both takes film the 16:9 pair shape', () => {
+    expect(checkPair(at(), at())).toEqual([])
+  })
+
+  test('refuses a take in any other shape or with a crop, so the clip comes out 16:9', () => {
+    expect(checkPair(at(CLIP.x), at(CLIP.x))).toEqual([
+      "the before take films 540x654@2; film a before-and-after take with openClip's { shape: 'pair' } and no crop, so the clip comes out 16:9",
+      "the after take films 540x654@2; film a before-and-after take with openClip's { shape: 'pair' } and no crop, so the clip comes out 16:9",
+    ])
+    expect(checkPair(at(CLIP.wide), at(CLIP.wide))).toHaveLength(2)
+    expect(checkPair(at(CLIP.pair, { x: 0, y: 0, w: 600, h: 400 }), at(CLIP.pair, { x: 0, y: 0, w: 600, h: 400 }))).toHaveLength(2)
   })
 
   test('refuses takes whose frames differ, naming both sizes', () => {
-    expect(checkPair(at({ x: 0, y: 0, w: 600, h: 400 }), at({ x: 0, y: 0, w: 640, h: 400 }))).toEqual([
-      'the before take films 1100x720@1 crop 600x400 and the after take 1100x720@1 crop 640x400; film both with the same shape and crop size',
-    ])
-    expect(checkPair(at(undefined, CLIP.wide), at(undefined, CLIP.x))).toHaveLength(1)
+    expect(checkPair(at(), at(CLIP.x))[0]).toBe('the before take films 1280x564@1.5 and the after take 540x654@2; film both with the same shape and crop size')
+  })
+
+  test("lets a bug clip's reference and beta takes keep their repro window", () => {
+    const repro = { ...at(CLIP.repro), repro: true }
+    expect(checkPair(repro, repro)).toEqual([])
   })
 
   test('refuses takes with different beats, which leave nothing to line them up by', () => {
-    const one = take([{ t: 0, text: 'Bold it' }])
-    const two = take([{ t: 0, text: 'Bold it' }, { t: 2, text: 'Undo it' }])
+    const one = at()
+    const two = { ...at(), captions: [...at().captions, { t: 2, text: 'Undo it' }] }
     expect(checkPair(one, two)).toEqual(['the before take has 1 captions and the after take 2; caption the same beats in both, so they play in step'])
   })
 
