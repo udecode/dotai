@@ -1158,6 +1158,9 @@ test('decisions-check takes a P0 or P1 claim only with its evidence', () => {
   assert.match(lower.stderr, /a run offers a task only for a new P0 or P1 finding[^\n]*list this P2 finding in the plan's Open work/);
   assert.match(bare('task_c1 Fix c', 'writes: c.md; topic: three; priority: P3; via: review').stderr, /via: is verdict, babysit, time, hook, panel or stale/);
   assert.equal(bare('task_h1 Run the due intake', 'writes: h.md; topic: intake; kind: decide; priority: P3; via: hook').status, 0, 'a project hook offers the recurring work it finds due');
+  assert.match(bare('task_n1 Judge n', 'writes: n.md; topic: four; owns: none').stderr, /a new offer names its priority/, 'owns: none owns no check');
+  assert.equal(bare('task_n1 Judge n', 'writes: n.md; topic: four; kind: decide; priority: P3; via: time; owns: none').status, 0);
+  assert.match(helper('chips', 'brief', 'task_n1').stdout, /Priority: P3\./, 'owns: none never makes the task P0');
   assert.equal(bare('task_c1 Fix c', 'writes: c.md; topic: three; priority: P2; via: verdict').status, 0, 'P2 needs no evidence, only its route');
   assert.match(chip('task_c1 Fix c', 'updated', 'priority: P0').stderr, /a P0 task is broken now/, 'a raise to P0 without evidence');
   assert.equal(chip('task_c1 Fix c', 'updated', 'priority: P0; repro: type then reload loses the text').status, 0, 'a raise to P0 with its repro');
