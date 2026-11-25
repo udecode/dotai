@@ -737,6 +737,53 @@ const until = async (done) => {
   }
 };
 
+const UNREACHABLE = 'http://127.0.0.1:9/unreachable.git';
+
+test('land tries a push that cannot reach the remote on the GH006 schedule, exits 75 with the commit local and counts no friction, and a rerun pushes that commit without checking again', () => {
+  const { dir, remote, clone, base, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const ran = join(dir, 'ran');
+  const check = ['--check', `echo run >> ${ran}`];
+  git(clone, 'config', 'remote.origin.pushurl', UNREACHABLE);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+
+  const run = helper('land.mjs', clone, ['--message', message(GOOD), ...check], NO_WAIT);
+  assert.equal(run.status, 75, run.stderr);
+  assert.match(run.stdout, /git push origin HEAD:next failed on the connection or with a server error; trying again in 1 min \(retry 1 of 5\)[\s\S]*trying again in 16 min \(retry 5 of 5\)/);
+  assert.match(run.stderr, /still failed on the connection or with a server error\. The squashed commit stays local[\s\S]*run land\.mjs again with the same --check options and no --message[\s\S]*fatal: unable to access/);
+  assert.equal(git(remote, 'rev-parse', 'next'), base);
+  const logged = readFileSync(join(clone, '.git/pstack-land-runs.jsonl'), 'utf8').trim().split('\n').map((line) => JSON.parse(line)).filter((row) => 'exit' in row);
+  assert.equal(logged.at(-1).cause, 'transient');
+  assert.match(helper('land.mjs', clone, ['--friction']).stdout, /^1 land\.mjs runs in the last day lost 0 minutes/m, 'an outage loses only its wait for cores');
+
+  git(clone, 'config', '--unset', 'remote.origin.pushurl');
+  const rerun = helper('land.mjs', clone, check);
+  assert.equal(rerun.status, 0, rerun.stderr);
+  assert.match(rerun.stdout, /pushes without running the checks again/);
+  assert.equal(readFileSync(ran, 'utf8').trim().split('\n').length, 1, 'the rerun skipped the check the first run passed');
+  assert.equal(git(remote, 'log', '-1', '--format=%s', 'next'), 'feat(a): change a');
+});
+
+test('land tries a fetch that cannot reach the remote on the GH006 schedule, then exits 75 having committed nothing, and a rerun with the same options lands', () => {
+  const { remote, clone, base, message } = trunk();
+  git(clone, 'config', 'pstack.delivery', 'push');
+  const url = git(clone, 'remote', 'get-url', 'origin');
+  git(clone, 'remote', 'set-url', 'origin', UNREACHABLE);
+  writeFileSync(join(clone, 'a.txt'), 'two\n');
+  const options = ['--message', message(GOOD)];
+
+  const run = helper('land.mjs', clone, options, NO_WAIT);
+  assert.equal(run.status, 75, run.stderr);
+  assert.match(run.stdout, /git fetch failed on the connection or with a server error; trying again in 1 min \(retry 1 of 5\)[\s\S]*\(retry 5 of 5\)/);
+  assert.match(run.stderr, /still failed on the connection or with a server error\. This run committed nothing, so run land\.mjs again with the same options\.[\s\S]*fatal: unable to access/);
+  assert.equal(git(clone, 'rev-parse', 'HEAD'), base);
+
+  git(clone, 'remote', 'set-url', 'origin', url);
+  const rerun = helper('land.mjs', clone, options, NO_WAIT);
+  assert.equal(rerun.status, 0, rerun.stderr);
+  assert.equal(git(remote, 'log', '-1', '--format=%s', 'next'), 'feat(a): change a');
+});
+
 test('land pushes again when GitHub declines with an empty GH006, and fails at once on a GH006 that gives a reason', () => {
   const { remote, clone, base, message } = trunk();
   git(clone, 'config', 'pstack.delivery', 'push');
