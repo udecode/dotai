@@ -185,7 +185,7 @@ const agyConversation = (stdout) => {
 
 const COLEAD_TIMEOUT_SECONDS = 3300;
 const coleadBrief = (worktree, prompt) =>
-  `You are the co-lead of this run. Your working directory ${worktree} is the lead's worktree: write only there, in the run directory the brief names and in a detached worktree you add for a base control the brief asks for. Never commit, push, open a PR, post anywhere or change another checkout's tracked files, because the lead reviews and lands your work.\n\n${prompt}\n\nPut your whole answer in your final message, and name each file you changed.`;
+  `You are the co-lead of this run. Your working directory ${worktree} is the lead's worktree: write only there, in the run directory the brief names and in a detached worktree you add for a base control the brief asks for. Never commit, push, open a PR, post anywhere or change another checkout's tracked files, because the lead reviews and lands your work. The project's rules on code, tests and proof bind you. Its rules on plans, reviews, writing passes, landing, messages and missing pstack skills are the lead's duties, not yours.\n\n${prompt}\n\nPut your whole answer in your final message, and name each file you changed.`;
 const gitLines = (dir, args) => {
   const run = spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
   return run.status === 0 ? run.stdout.trim().split('\n') : null;

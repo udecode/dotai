@@ -447,7 +447,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/cross.mjs": {
-      "sha256": "1fbfb7637a8c71a8af0086f4625a40ad5d344682a2ff3666fde21a18c912c4c4",
+      "sha256": "57f951f0c90f74fb95aba0f975c3476b317c068ce832c6bf920ad1f3e1a5f3da",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/cua-steps.mjs": {
@@ -535,7 +535,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/colead.md": {
-      "sha256": "91ddb15d6b6e96247d07a371d383068c44162e81388280acb24dbc8ba05326e4",
+      "sha256": "8974cd7f5e23e24a8e35ce452362ef439e53a1f1aea115584e1b825fc91f4bd5",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/fast.md": {
@@ -659,7 +659,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/cross.test.mjs": {
-      "sha256": "fedb5477809cfd2b50a745f94620c74dd3e8b7284fcf64a36105d3cde5be32f2",
+      "sha256": "c122f9ab399f67148842627ce68c3ec03e2c5ea54f29a5778d324e64e3c40959",
       "mode": 420
     },
     "skills/sync-pstack/scripts/decisions-check.test.mjs": {
