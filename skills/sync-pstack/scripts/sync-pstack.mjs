@@ -77,6 +77,7 @@ export const RULE_FILES = {
   'close.md': { blockRule: 'Todo list and close', gates: ['delivery!=trunk'] },
   'fast.md': { blockRule: 'Fast', gates: ['fast'] },
   'codex.md': { blockRule: 'Codex workers', gates: ['delivery!=trunk'] },
+  'colead.md': { blockRule: 'Neon co-lead', gates: ['delivery=trunk'] },
   'land.md': { blockRule: 'Delivery', gates: ['delivery=trunk'] },
   'linked.md': { blockRule: 'Calls', gates: [] },
   'long-runs.md': { blockRule: 'Long runs', gates: ['long-runs'] },

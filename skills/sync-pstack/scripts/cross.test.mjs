@@ -205,6 +205,77 @@ test('seats runs an offline agy seat with no web, denies writes to every folder 
   assert.match(limited.stdout, /^neon: skipped, exit 3: error: Individual quota reached\. Resets in 4m25s\., seat: gemini-4-neon @high$/mu);
 });
 
+const FAKE_COLEAD = `#!/usr/bin/env node
+const { spawnSync } = require('node:child_process');
+const { writeFileSync } = require('node:fs');
+const args = process.argv.slice(2);
+const prompt = args[1];
+const touch = prompt.match(/TOUCH (\\S+)/u)?.[1];
+if (touch) writeFileSync(touch, 'stray');
+const push = spawnSync('git', ['push', 'origin', 'HEAD:refs/heads/colead'], { encoding: 'utf8' });
+console.log(JSON.stringify({ event: 'init', conversation_id: '11111111-2222-4333-8444-555555555555' }));
+const answer = { args, cwd: process.cwd(), pushed: push.status === 0, token: process.env.GH_TOKEN ?? null, readOnly: process.env.PSTACK_READ_ONLY ?? null };
+console.log(JSON.stringify({ event: 'result', result: { status: 'success', response: JSON.stringify(answer) } }));
+`;
+
+function coleadMachine() {
+  const { dir, home } = sandbox();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'agy'), FAKE_COLEAD, { mode: 0o755 });
+  const git = (cwd, ...args) => spawnSync('git', ['-C', cwd, ...args], { encoding: 'utf8' });
+  const remote = join(dir, 'remote.git');
+  const main = join(dir, 'main');
+  git(dir, 'init', '-q', '--bare', remote);
+  git(dir, 'init', '-q', main);
+  writeFileSync(join(main, 'a.txt'), 'a');
+  git(main, 'add', 'a.txt');
+  git(main, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'a');
+  git(main, 'remote', 'add', 'origin', remote);
+  git(main, 'config', 'remote.origin.pushurl', remote);
+  git(main, 'worktree', 'add', '-q', '-b', 'task', join(dir, 'task'));
+  const worktree = realpathSync(join(dir, 'task'));
+  const cross = (...args) =>
+    spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'agy', ...args], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1', GH_TOKEN: 'secret' },
+    });
+  return { cross, git, main, remote, worktree };
+}
+
+test('a co-lead runs agy unsandboxed in the lead worktree, resumes its conversation, and can neither push nor use the GitHub token', () => {
+  const { cross, git, remote, worktree } = coleadMachine();
+  const first = cross('--colead', worktree, '--effort', 'xhigh', 'build step one');
+  assert.equal(first.status, 0, first.stderr);
+  const answer = JSON.parse(first.stdout);
+  assert.equal(answer.cwd, worktree);
+  assert.deepEqual(answer.args.slice(2), ['--model', 'gemini-4-neon-xhigh', '--dangerously-skip-permissions', '--output-format', 'stream-json']);
+  assert.match(answer.args[1], /lead's worktree[^\n]*\n\nbuild step one\n\n/u);
+  assert.equal(answer.pushed, false, 'a push from the co-lead fails');
+  assert.equal(git(remote, 'branch', '--list', 'colead').stdout, '');
+  assert.equal(answer.token, null, 'the co-lead never sees the GitHub token');
+  assert.equal(answer.readOnly, null, 'setup.mjs may write in the co-lead worktree');
+  assert.match(first.stderr, /^conversation: 11111111-2222-4333-8444-555555555555$/mu);
+  const next = cross('--colead', worktree, '--conversation', '11111111-2222-4333-8444-555555555555', 'build step two');
+  assert.equal(next.status, 0, next.stderr);
+  assert.deepEqual(JSON.parse(next.stdout).args.slice(4, 6), ['--conversation', '11111111-2222-4333-8444-555555555555']);
+});
+
+test('a co-lead refuses a main checkout and fails a run that changed it, keeping the answer', () => {
+  const { cross, main, worktree } = coleadMachine();
+  const refused = cross('--colead', main, 'build it');
+  assert.equal(refused.status, 2);
+  assert.match(refused.stderr, /is a main checkout, and a co-lead writes only a linked worktree/u);
+  const stray = cross('--colead', worktree, `build it, TOUCH ${join(main, 'stray.txt')}`);
+  assert.equal(stray.status, 1);
+  assert.match(stray.stderr, /changed the main checkout[^\n]*\n\n\{"args"/u);
+  writeFileSync(join(main, 'a.txt'), 'dirty');
+  const dirty = cross('--colead', worktree, `build it, TOUCH ${join(main, 'a.txt')}`);
+  assert.equal(dirty.status, 1, 'another edit to a file that was already dirty still counts');
+  assert.match(dirty.stderr, /changed the main checkout/u);
+});
+
 function browserMachine({ profiles = ['Ellie QA'], appVersion = '26.1', stubborn = false } = {}) {
   const { dir, home } = sandbox();
   const chrome = join(home, 'Library/Application Support/Google/Chrome');
