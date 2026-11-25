@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -194,7 +194,31 @@ test('transcript prints the tail of the session it names', () => {
   assert.throws(() => transcript(['--last', '1'], env), /needs a session id/u);
 });
 
+test('facts lists as earlier plans only those that lead to its own, from superseded Status lines in either checkout and patch: links, even when their rows share a second', async () => {
+  const { env } = world();
+  writeFileSync(join(env.HOME, 'repo', 'docs', 'plans', 'p0.md'), 'Status: superseded: by p.md\n');
+  for (const root of ['repo', 'worktree']) {
+    const plansDir = join(env.HOME, root, 'docs', 'plans');
+    const opening = readFileSync(join(plansDir, 'p-2.decisions.tsv'), 'utf8').trim().split('\n').at(-1);
+    writeFileSync(join(plansDir, 'p-2.decisions.tsv'), `${opening}\n`);
+    writeFileSync(join(plansDir, 'q.md'), 'Status: superseded: by q-2.md\n');
+    writeFileSync(join(plansDir, 'q-2.md'), 'Status: planning\n');
+    writeFileSync(join(plansDir, 'q.decisions.tsv'), `${row(iso(1), 'plan', 'q moves on', 'open: patch: docs/plans/q-2.md')}\n`);
+  }
+  assert.match(await facts(['--no-record'], env), /earlier plans on its topic: p0\.md then p\.md then p-2\.md\n/u);
+});
+
+test('facts --self reports only the session running it, in full detail, whatever its age', async () => {
+  const { env } = world();
+  const report = await facts(['--self', '--no-record'], env);
+  assert.match(report, /^1 sessions: /u);
+  assert.match(report, /## doctor\n- local_self, working, .*\n- flags: none\n/u);
+  assert.doesNotMatch(report, /local_loop|local_young/u);
+  await assert.rejects(facts(['--self', '--no-record'], { ...env, CLAUDE_CODE_HOST_SESSION_ID: undefined }), /--self needs/u);
+});
+
 const stampOf = (iso) => iso.replace(/\.\d{3}Z$/u, 'Z');
+const appended = (count, printed) => `${count > 1 ? `Appended ${count} rows to ${printed}.` : `Appended a row to ${printed}.`}\nLead: claude-opus-5-5 @high.`;
 
 function topic() {
   const home = mkdtempSync(join(tmpdir(), 'doctor due '));
@@ -208,8 +232,25 @@ function topic() {
   const events = [];
   const logs = new Map();
   let calls = 0;
+  let start = { type: 'system', cwd: repo };
   const fileOf = (name) => (name.includes('/') ? name : join(plans, name));
   const add = (name, at, [phase, decision, result = 'decided', evidence = 'evidence']) => logs.set(fileOf(name), [...(logs.get(fileOf(name)) ?? []), [stampOf(at), phase, decision, 'why', evidence, result].join('\t')]);
+  const batch = (name, rows) => {
+    const at = next(1);
+    for (const each of rows) {
+      if (each.alongside) add(each.alongside, at, each.row);
+      else add(name, at, each);
+    }
+    return rows.filter((each) => !each.alongside).length;
+  };
+  const bash = (command, run) => {
+    const id = `toolu_${(calls += 1)}`;
+    events.push({ type: 'assistant', timestamp: next(30), message: { content: [{ type: 'tool_use', id, name: 'Bash', input: { command } }] } });
+    const output = run();
+    events.push({ type: 'user', timestamp: next(1), message: { content: [{ type: 'tool_result', tool_use_id: id, content: output }] } });
+  };
+  const appendCommand = (name) => `tail -3 docs/plans/b.decisions.tsv; L=${fileOf(name)}; node .agents/pstack/decisions-check.mjs append "$L" --from queue.tsv`;
+  const codexEvent = (seconds, payload) => events.push({ timestamp: next(seconds), type: 'response_item', payload });
   const world = {
     home,
     repo,
@@ -217,37 +258,42 @@ function topic() {
     transcriptPath,
     env: { HOME: home, PSTACK_DOCTOR_HOME: join(home, 'doctor') },
     stop: (extra) => JSON.stringify({ transcript_path: transcriptPath, cwd: repo, stop_hook_active: false, ...extra }),
+    startIn(dir) {
+      start = { type: 'system', cwd: dir };
+      return world;
+    },
     theirs(name, ...rows) {
       for (const each of rows) add(name, next(30), each);
       return world;
     },
     ours(name, ...rows) {
-      const id = `toolu_${(calls += 1)}`;
-      const command = `tail -3 docs/plans/b.decisions.tsv; L=${fileOf(name)}; node .agents/pstack/decisions-check.mjs append "$L" --from queue.tsv`;
-      events.push({ type: 'assistant', timestamp: next(30), message: { content: [{ type: 'tool_use', id, name: 'Bash', input: { command } }] } });
-      for (const each of rows) add(name, next(1), each);
-      events.push({ type: 'user', timestamp: next(1), message: { content: [{ type: 'tool_result', tool_use_id: id, content: 'appended' }] } });
+      bash(appendCommand(name), () => appended(batch(name, rows), fileOf(name)));
+      return world;
+    },
+    oursPrinting(printed, name, ...rows) {
+      bash(appendCommand(name), () => appended(batch(name, rows), printed));
+      return world;
+    },
+    reads(...rows) {
+      bash("rg -n 'decisions-check.mjs append' notes.md", () => {
+        batch(null, rows);
+        return 'notes.md:3: node .agents/pstack/decisions-check.mjs append log --from queue.tsv';
+      });
       return world;
     },
     said(content) {
       events.push({ type: 'user', timestamp: next(30), message: { content } });
       return world;
     },
-    codex(name, ...rows) {
-      const call_id = `call_${(calls += 1)}`;
-      const argv = ['node', '.agents/pstack/decisions-check.mjs', 'append', fileOf(name), '--from', 'queue.tsv'];
-      const item = calls % 2 ? { type: 'custom_tool_call', name: 'exec', call_id, input: `await tools.exec(${JSON.stringify(argv)});` } : { type: 'function_call', name: 'shell', call_id, arguments: JSON.stringify({ command: ['bash', '-lc', argv.join(' ')] }) };
-      events.push({ timestamp: next(30), type: 'response_item', payload: item });
-      for (const each of rows) add(name, next(1), each);
-      events.push({ timestamp: next(1), type: 'response_item', payload: { type: `${item.type}_output`, call_id, output: 'appended' } });
+    queued(prompt, kind = 'human') {
+      events.push({ type: 'attachment', timestamp: next(30), attachment: { type: 'queued_command', prompt, origin: { kind } } });
       return world;
     },
-    codexSaid(...texts) {
-      events.push({ timestamp: next(30), type: 'response_item', payload: { type: 'message', role: 'user', content: texts.map((each) => ({ type: 'input_text', text: each })) } });
-      return world;
-    },
-    codexUserMessage(message) {
-      events.push({ timestamp: next(30), type: 'event_msg', payload: { type: 'user_message', message } });
+    refused(words) {
+      const id = `toolu_${(calls += 1)}`;
+      events.push({ type: 'assistant', timestamp: next(30), message: { content: [{ type: 'tool_use', id, name: 'Edit', input: {} }] } });
+      const content = `The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). To tell you how to proceed, the user said:\n${words}`;
+      events.push({ type: 'user', timestamp: next(30), message: { content: [{ type: 'tool_result', tool_use_id: id, is_error: true, content }] } });
       return world;
     },
     ask(question, answer, notes) {
@@ -257,9 +303,51 @@ function topic() {
       events.push({ type: 'user', timestamp: next(30), toolUseResult, message: { content: [{ type: 'tool_result', tool_use_id: id, content: `Your questions have been answered: "${question}"="${answer}"` }] } });
       return world;
     },
+    codexStartIn(dir = repo) {
+      start = { type: 'session_meta', payload: { cwd: dir } };
+      return world;
+    },
+    codex(name, ...rows) {
+      const call_id = `call_${(calls += 1)}`;
+      const argv = ['node', '.agents/pstack/decisions-check.mjs', 'append', fileOf(name), '--from', 'queue.tsv'];
+      const item = calls % 2 ? { type: 'function_call', name: 'shell', call_id, arguments: JSON.stringify({ command: ['bash', '-lc', argv.join(' ')] }) } : { type: 'custom_tool_call', name: 'exec', call_id, input: `await tools.exec(${JSON.stringify(argv)});` };
+      codexEvent(30, item);
+      const output = appended(batch(name, rows), fileOf(name));
+      codexEvent(1, { type: `${item.type}_output`, call_id, output });
+      return world;
+    },
+    codexYielded(name, ...rows) {
+      const call_id = `call_${(calls += 1)}`;
+      codexEvent(30, { type: 'function_call', name: 'exec_command', call_id, arguments: JSON.stringify({ cmd: `node .agents/pstack/decisions-check.mjs append ${fileOf(name)} --from queue.tsv` }) });
+      codexEvent(1, { type: 'function_call_output', call_id, output: 'Process running with session ID 42' });
+      const count = batch(name, rows);
+      const poll = `call_${(calls += 1)}`;
+      codexEvent(5, { type: 'function_call', name: 'write_stdin', call_id: poll, arguments: JSON.stringify({ session_id: 42, chars: '' }) });
+      codexEvent(1, { type: 'function_call_output', call_id: poll, output: { content: appended(count, fileOf(name)) } });
+      return world;
+    },
+    codexSaid(...texts) {
+      codexEvent(30, { type: 'message', role: 'user', content: texts.map((each) => ({ type: 'input_text', text: each })) });
+      return world;
+    },
+    codexUserMessage(message) {
+      events.push({ timestamp: next(30), type: 'event_msg', payload: { type: 'user_message', message } });
+      return world;
+    },
+    codexCard(question, label) {
+      const call_id = `call_${(calls += 1)}`;
+      codexEvent(30, { type: 'function_call', name: 'request_user_input', call_id, arguments: JSON.stringify({ questions: [{ id: 'q1', header: 'Plan', question, options: [{ label, description: 'the narrowed plan' }] }] }) });
+      codexEvent(30, { type: 'function_call_output', call_id, output: JSON.stringify({ answers: { q1: { answers: [label] } } }) });
+      return world;
+    },
+    codexReply(question, answer) {
+      const text = `<send_user_message_question_reply>\n${JSON.stringify([{ questionItemId: 'q1', question, answer }])}\n</send_user_message_question_reply>\n`;
+      return world.codexSaid(text);
+    },
     save() {
       for (const [file, rows] of logs) writeFileSync(file, `${rows.join('\n')}\n`);
-      writeFileSync(transcriptPath, events.map((event) => JSON.stringify(event)).join('\n'));
+      const first = { ...start, timestamp: new Date(Date.now() - 7 * HOUR).toISOString() };
+      writeFileSync(transcriptPath, [first, ...events].map((event) => JSON.stringify(event)).join('\n'));
       return world;
     },
   };
@@ -269,8 +357,11 @@ function topic() {
 const plan = (result) => ['panel', 'seats opus, astra, neon on the plan round', result];
 const diff = (result) => ['panel', 'seats opus, astra, neon on the diff round', result];
 const onStep = (step, result) => ['panel', 'seats opus, astra, neon', result, `scope: the step's diff; reviewed step: ${step}`];
+const seats = (why, result, evidence = 'evidence') => ['panel', `seats: seat: claude-opus-5-5 @high; ${why}`, result, evidence];
 const owner = (decision) => ['owner', decision];
+const alongside = (name, row) => ({ alongside: name, row });
 const findings = (out) => out.split('\n').filter((line) => line.startsWith('- '));
+const timeless = (lines) => lines.map((line) => line.replace(/ at \S+ /u, ' at <time> '));
 const dueOf = (world, cwd = world.repo) => due(['--transcript', world.transcriptPath, '--cwd', cwd], world.env, '').then(findings);
 const stalled = () => topic().ours('a.decisions.tsv', plan('5 critical'), plan('5 critical')).save();
 const worktreeOf = (world) => {
@@ -281,34 +372,46 @@ const worktreeOf = (world) => {
   return worktree;
 };
 
-test('due blocks a stop once for a round this session logged that found no fewer criticals than the round of its kind before, across linked plans', async () => {
+test('due blocks a stop once for a round this session logged that found no fewer criticals than the round of its kind before, and names the plans that patch: links and superseded Status lines join to its topic', async () => {
   const world = topic();
+  writeFileSync(join(world.plans, 'a0.md'), 'Status: superseded by docs/plans/a.md\n');
   writeFileSync(join(world.plans, 'a.md'), 'Status: blocked\n');
   writeFileSync(join(world.plans, 'b.md'), 'Status: planning\n');
+  world.theirs('a0.decisions.tsv', ['plan', 'a0 starts']);
   world.theirs('a.decisions.tsv', plan('5 critical'));
   world.ours('a.decisions.tsv', plan('6 critical'), ['plan', 'the rest goes to a new plan', 'open: patch: docs/plans/b.md']);
   world.ours('b.decisions.tsv', plan('4 critical')).save();
   const block = JSON.parse(await due(['--hook'], world.env, world.stop()));
   assert.equal(block.decision, 'block');
   assert.deepEqual(findings(block.reason).slice(0, -1), ['- plan round 2 of a found 6 critical findings, no fewer than the 5 of the round before.']);
-  assert.match(block.reason, /- Plans on that topic, oldest first: a, b\.\n/u);
-  assert.match(block.reason, /test it by running code before another round or step/u);
+  assert.match(block.reason, /- Plans on that topic, oldest first: a0, a, b\.\n/u);
+  assert.match(block.reason, /test it with a probe or search before another round or step/u);
   assert.doesNotMatch(block.reason, /Second plan rule's stop still waits/u);
   assert.equal(await due(['--hook'], world.env, world.stop()), '');
 });
 
-test("due judges only the rows written while this session's append calls ran, whatever logs its commands name", async () => {
+test('due blocks each stalled round once, rounds that one batch logged in the same second included, and blocks again for a later round', async () => {
+  const world = topic().ours('a.decisions.tsv', plan('5 critical'), plan('5 critical'), plan('6 critical')).save();
+  const first = JSON.parse(await due(['--hook'], world.env, world.stop()));
+  assert.deepEqual(findings(first.reason), ['- plan round 2 of a found 5 critical findings, no fewer than the 5 of the round before.', '- plan round 3 of a found 6 critical findings, no fewer than the 5 of the round before.']);
+  assert.equal(await due(['--hook'], world.env, world.stop()), '');
+  world.ours('a.decisions.tsv', plan('6 critical')).save();
+  assert.deepEqual(findings(JSON.parse(await due(['--hook'], world.env, world.stop())).reason), ['- plan round 4 of a found 6 critical findings, no fewer than the 6 of the round before.']);
+});
+
+test("due judges only the rows that this session's append calls report writing, to the logs their output names, wherever the command ran", async () => {
   const world = topic();
-  world.theirs('b.decisions.tsv', diff('9 critical'), diff('10 critical'));
-  world.ours('b.decisions.tsv', ['plan', 'b waits on a']);
-  world.ours('a.decisions.tsv', plan('5 critical'));
-  world.theirs('a.decisions.tsv', owner('go'));
+  world.theirs('b.decisions.tsv', diff('9 critical'));
+  world.oursPrinting('docs/plans/a.decisions.tsv', 'a.decisions.tsv', plan('5 critical'), alongside('b.decisions.tsv', diff('10 critical')));
+  world.reads(alongside('b.decisions.tsv', diff('11 critical')), alongside('c.decisions.tsv', owner('second plan: "never typed" picks c')));
+  world.theirs('a.decisions.tsv', owner('second plan: "never typed" picks d'));
+  world.ours('a.decisions.tsv', alongside('a.decisions.tsv', owner('second plan: "never typed" picks e')), ['plan', 'a waits on its fixes']);
   world.ours('a.decisions.tsv', plan('5 critical')).save();
   assert.deepEqual(await dueOf(world), ['- plan round 2 of a found 5 critical findings, no fewer than the 5 of the round before']);
   assert.equal(await due(['--hook'], world.env, JSON.stringify({ transcript_path: join(world.home, 'other.jsonl'), cwd: world.repo })), '');
 });
 
-test('due compares a diff round only with the last round on its step, and never with a round that found none', async () => {
+test('due compares a diff round only with the last round on its step, from its reviewed step: evidence or else the last built step, and never with a round that found none', async () => {
   const world = topic();
   world
     .ours(
@@ -326,12 +429,46 @@ test('due compares a diff round only with the last round on its step, and never 
       onStep('2', '4 critical'),
     )
     .save();
-  assert.deepEqual(await dueOf(world), ['- diff round 2 of step 2 of a found 4 critical findings, no fewer than the 4 of the round before']);
+  assert.deepEqual(await dueOf(world), ['- diff round 3 of step 2 of a found 4 critical findings, no fewer than the 2 of the round before']);
+});
+
+test('due tells steps apart by the step a round row names, so the first reviews of two steps are never compared', async () => {
+  const world = topic()
+    .ours(
+      'a.decisions.tsv',
+      ['delivery', 'built: step 9b'],
+      ['delivery', 'built: step 9c'],
+      seats("round 1 on step 9b's diff", '5 critical'),
+      seats("round 1 on step 9c's diff", '8 critical'),
+      seats('round 2', '7 critical', "scope: the step's diff; reviewed step: 9b"),
+      ['delivery', 'built: phase 3'],
+      seats('round 1', '2 critical'),
+      seats('round 2', '2 critical'),
+    )
+    .save();
+  assert.deepEqual(await dueOf(world), ['- diff round 2 of step 9b of a found 7 critical findings, no fewer than the 5 of the round before', '- diff round 2 of a found 2 critical findings, no fewer than the 2 of the round before']);
 });
 
 test('due counts the critical rows a round logged over the count its result states, and reads plural criticals', async () => {
   const critical = ['panel', 'critical [opus]: the caret jumps', 'applied'];
   const world = topic().ours('a.decisions.tsv', plan('2 criticals, 1 warning'), plan('1 critical, 3 warnings'), critical, critical, critical).save();
+  assert.deepEqual(await dueOf(world), ['- plan round 2 of a found 3 critical findings, no fewer than the 2 of the round before']);
+});
+
+test("due takes a round's kind from its plan round or diff round label, else from whether the log built anything before it, and leaves a round whose result states several counts uncompared", async () => {
+  const world = topic()
+    .ours(
+      'a.decisions.tsv',
+      seats('round 1 on the finished plan', '2 critical'),
+      seats('round 2, which earns one more round on the diff of its fixes', '3 critical'),
+      ['delivery', 'built: phase 1'],
+      plan('3 critical'),
+      seats('the plan round fixes get a diff round', '3 critical'),
+      seats('round 1 on the diff', 'recorded: opus 1 critical, astra 2 criticals'),
+      seats('round 2 on the diff', '3 critical; the seats reran the 2 critical cases of round 1 and found them fixed'),
+      seats('round 3 on the diff', '4 critical'),
+    )
+    .save();
   assert.deepEqual(await dueOf(world), ['- plan round 2 of a found 3 critical findings, no fewer than the 2 of the round before']);
 });
 
@@ -342,12 +479,25 @@ test('due stays quiet for a stop the hook already blocked and for a read-only se
   assert.equal(JSON.parse(await due(['--hook'], world.env, world.stop({ background_tasks: [{ id: 'b1' }], session_crons: [{ id: 'c1' }] }))).decision, 'block');
 });
 
-test('due finds the plans from the project folder the session started in, even a subfolder of a worktree, after the session moved elsewhere', async () => {
+test('due finds the plans from the folder the transcript starts in, even a subfolder of a worktree, whatever the project dir and the stop say', async () => {
   const world = topic();
   const worktree = worktreeOf(world);
-  world.ours(join(worktree, 'docs', 'plans', 'a.decisions.tsv'), plan('5 critical'), plan('5 critical')).save();
+  world
+    .startIn(join(worktree, 'docs'))
+    .ours(join(worktree, 'docs', 'plans', 'a.decisions.tsv'), plan('5 critical'), plan('5 critical'))
+    .save();
   const elsewhere = mkdtempSync(join(tmpdir(), 'elsewhere-'));
-  assert.equal(JSON.parse(await due(['--hook'], { ...world.env, CLAUDE_PROJECT_DIR: join(worktree, 'docs') }, world.stop({ cwd: elsewhere }))).decision, 'block');
+  assert.equal(JSON.parse(await due(['--hook'], { ...world.env, CLAUDE_PROJECT_DIR: world.repo }, world.stop({ cwd: elsewhere }))).decision, 'block');
+});
+
+test('due claims no finding when the topic lookup fails, so the next stop still blocks', async () => {
+  const world = stalled();
+  const unreadable = join(world.plans, 'z.decisions.tsv');
+  writeFileSync(unreadable, '');
+  chmodSync(unreadable, 0o000);
+  await assert.rejects(due(['--hook'], world.env, world.stop()), /EACCES/u);
+  chmodSync(unreadable, 0o644);
+  assert.equal(JSON.parse(await due(['--hook'], world.env, world.stop())).decision, 'block');
 });
 
 test('the due hook runs through a symlink in a folder whose name has a space, and lets the stop go when it fails', () => {
@@ -365,15 +515,25 @@ test('the due hook runs through a symlink in a folder whose name has a space, an
   assert.match(failed.stderr, /^doctor\.mjs: /u);
 });
 
-test('due flags a second-plan row this session logged when the owner had typed or picked none of its quotes before it', async () => {
+test('due flags a second-plan row this session logged when the owner had not typed, picked or noted its first quote before it, or had neither said nor seen on a question card another of its quotes', async () => {
   const world = topic();
   world.said('go b');
   world.said([
     { type: 'text', text: '<system-reminder>a reminder</system-reminder>' },
     { type: 'text', text: 'Take the narrowed plan' },
   ]);
+  world.said('<pasted_content>pasted words</pasted_content> my own words');
+  world.said('<system-reminder>a reminder</system-reminder>Build all three');
+  world.said("don't stop");
+  world.said('ok, go.');
+  world.said('好的开新计划修吧');
+  world.queued('Start the plan');
+  world.queued('<task-notification>notice words</task-notification>', 'human');
+  world.queued('agent words', 'task-notification');
+  world.refused('only the late writes');
   world.ask('Narrow it or keep going?', 'Keep going');
   world.ask('Which plan?', 'Write the new plan', 'but only for late focus writes');
+  world.ask('Pick one?', '[User did not answer this question — they sent a message instead. Treat that message as their response; do not re-ask.]');
   world.ours(
     'b.decisions.tsv',
     owner('second plan: "the stop does not ask" picks b'),
@@ -383,21 +543,29 @@ test('due flags a second-plan row this session logged when the owner had typed o
     owner('second plan: "Write the new plan" picks b'),
     owner('second plan: "only for late focus writes" picks b'),
     owner('second plan: "go bold" or "go b" picks b'),
+    owner('second plan: "go b" and "skip the review" picks b'),
+    owner('second plan: "go b" to "Which plan?" picks b'),
     owner('second plan: "keep go" picks b'),
+    owner('second plan: " " picks b'),
+    owner('second plan: "pasted words" picks b'),
+    owner('second plan: "my own words" picks b'),
+    owner('second plan: "Build all three." picks b'),
+    owner('second plan: "don’t stop" picks b'),
+    owner('second plan: "开新计划修" picks b'),
+    owner('second plan: "start the plan" picks b'),
+    owner('second plan: "notice words" picks b'),
+    owner('second plan: "agent words" picks b'),
+    owner('second plan: "only the late writes" picks b'),
+    owner('second plan: "they sent a message instead" picks b'),
   );
   world.theirs('b.decisions.tsv', owner('second plan: "never typed" picks c'));
   world.ours('b.decisions.tsv', owner('second plan: "later words" picks b'));
   world.said('later words').save();
-  const flagged = (await dueOf(world)).map((line) => line.replace(/ at \S+ /u, ' at <time> '));
-  assert.deepEqual(flagged, [
-    '- the second-plan stop logged in b at <time> quotes "the stop does not ask", which the owner never typed or picked before it',
-    '- the second-plan stop logged in b at <time> quotes "narrow it", which the owner never typed or picked before it',
-    '- the second-plan stop logged in b at <time> quotes "keep go", which the owner never typed or picked before it',
-    '- the second-plan stop logged in b at <time> quotes "later words", which the owner never typed or picked before it',
-  ]);
+  const flagged = (quote) => `- the second-plan stop logged in b at <time> quotes "${quote}", which the owner never typed or picked before it`;
+  assert.deepEqual(timeless(await dueOf(world)), ['the stop does not ask', 'narrow it', 'go bold', 'skip the review', 'keep go', ' ', 'pasted words', 'notice words', 'agent words', 'they sent a message instead', 'later words'].map(flagged));
   const block = JSON.parse(await due(['--hook'], world.env, world.stop()));
   assert.match(block.reason, /the Second plan rule's stop still waits: ask the owner its question/u);
-  assert.doesNotMatch(block.reason, /test it by running code/u);
+  assert.doesNotMatch(block.reason, /test it with a probe or search/u);
 });
 
 test('due reads a log from both the worktree and the main checkout, which can each hold rows the other lacks', async () => {
@@ -408,18 +576,34 @@ test('due reads a log from both the worktree and the main checkout, which can ea
   assert.deepEqual(await dueOf(world, worktree), ['- plan round 2 of a found 6 critical findings, no fewer than the 5 of the round before']);
 });
 
-test("due reads a Codex rollout: the rows its exec and shell calls appended, and what the owner typed apart from Codex's own AGENTS.md and context", async () => {
+test("due keeps the order of a log's fuller copy when the other copy holds one of its rows stamped in the same second", async () => {
+  const world = topic();
+  const worktree = worktreeOf(world);
+  world.ours('a.decisions.tsv', plan('2 critical'), plan('3 critical')).save();
+  const [, second] = readFileSync(join(world.plans, 'a.decisions.tsv'), 'utf8').trim().split('\n');
+  writeFileSync(join(worktree, 'docs', 'plans', 'a.decisions.tsv'), `${second}\n`);
+  assert.deepEqual(await dueOf(world, worktree), ['- plan round 2 of a found 3 critical findings, no fewer than the 2 of the round before']);
+});
+
+test("due reads a Codex rollout: the rows its exec, shell and yielded calls appended, the owner's words apart from Codex's own AGENTS.md and context, and the answers to its question cards", async () => {
   const world = topic()
+    .codexStartIn()
     .codexSaid('# AGENTS.md instructions for repo\n\n<INSTRUCTIONS>keep go</INSTRUCTIONS>', '<environment_context>keep go</environment_context>')
     .codexSaid('go b')
     .codexUserMessage('older words')
-    .codex('a.decisions.tsv', plan('5 critical'))
-    .codex('a.decisions.tsv', plan('5 critical'), owner('second plan: "go b" picks b'), owner('second plan: "older words" picks b'), owner('second plan: "keep go" picks b'))
+    .codexCard('Narrow it or keep going?', 'Narrow it')
+    .codexReply('Which plan?', 'Write the new plan')
+    .codex('a.decisions.tsv', plan('5 critical'), owner('second plan: "keep go" picks b'), owner('second plan: "instructions for repo" picks b'))
+    .codex('a.decisions.tsv', plan('5 critical'), owner('second plan: "go b" picks b'), owner('second plan: "older words" picks b'))
+    .codexYielded('c.decisions.tsv', owner('second plan: "narrow it" picks c'), owner('second plan: "write the new plan" for "Which plan?" picks c'), owner('second plan: "which plan" picks c'))
     .save();
-  assert.deepEqual((await dueOf(world)).map((line) => line.replace(/ at \S+ /u, ' at <time> ')), [
+  assert.deepEqual(timeless(await dueOf(world)).sort(), [
     '- plan round 2 of a found 5 critical findings, no fewer than the 5 of the round before',
+    '- the second-plan stop logged in a at <time> quotes "instructions for repo", which the owner never typed or picked before it',
     '- the second-plan stop logged in a at <time> quotes "keep go", which the owner never typed or picked before it',
+    '- the second-plan stop logged in c at <time> quotes "which plan", which the owner never typed or picked before it',
   ]);
-  const stop = JSON.stringify({ session_id: 'codex', transcript_path: world.transcriptPath, cwd: world.repo, hook_event_name: 'Stop', stop_hook_active: false });
+  const elsewhere = mkdtempSync(join(tmpdir(), 'elsewhere-'));
+  const stop = JSON.stringify({ session_id: 'codex', transcript_path: world.transcriptPath, cwd: elsewhere, hook_event_name: 'Stop', stop_hook_active: false });
   assert.equal(JSON.parse(await due(['--hook'], world.env, stop)).decision, 'block');
 });
