@@ -277,21 +277,19 @@ describe('a before-and-after pair', () => {
     expect(cardLayout({ x: 0, y: 0, w: 200, h: 540 }, width, height, 1, false).across).toBe(true)
   })
 
-  test("fits a bug clip's page to its whole take and its two cards, never past its bound", () => {
+  test("fits a bug clip's page to its two cards, never past its bound", () => {
     const card = { b: 28, e: 2, m: 16, g: 16 }
     const bound = CLIP.reproStage
-    // A small crop plays whole at 1× and pairs in columns at 1×, so the page is two cards wide and one card tall.
+    // A small crop plays in columns at 1×, so the page is two cards wide and one card tall.
     const small = reproLayout({ x: 0, y: 0, w: 300, h: 200 })
     expect(small.k).toBe(1)
     expect(small.across).toBe(true)
-    expect(small.solo).toMatchObject({ w: 300, h: 200 })
+    expect(small.panel).toEqual({ w: 300, h: 200 })
     expect(small.width).toBe(2 * (300 + 2 * card.e) + card.g + 2 * card.m)
     expect(small.height).toBe(card.b + 200 + card.e + 2 * card.m)
-    expect(small.solo.x + small.solo.w / 2).toBeCloseTo(small.width / 2)
     expect(small.x[0] + small.x[1] + small.panel.w).toBeCloseTo(small.width)
-    // The whole repro window plays whole at 1× and ends stacked, shrunk to fit the bound but larger than side by side.
+    // The whole repro window plays stacked, shrunk to fit the bound but larger than side by side.
     const window = reproLayout({ x: 0, y: 0, w: CLIP.repro.width, h: CLIP.repro.height })
-    expect(window.solo).toMatchObject({ w: CLIP.repro.width, h: CLIP.repro.height })
     expect(window.across).toBe(false)
     expect(window.k).toBeLessThan(1)
     expect(window.k).toBeGreaterThan(0.8)
