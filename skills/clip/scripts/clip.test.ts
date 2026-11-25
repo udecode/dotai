@@ -184,10 +184,10 @@ describe('a before-and-after pair', () => {
     expect(checkPair(at(), at())).toEqual([])
   })
 
-  test('refuses a take in any other shape or with a crop, so the clip comes out 16:9', () => {
+  test('refuses a take in any other shape or with a crop, so both copies fit the clip side by side', () => {
     expect(checkPair(at(CLIP.x), at(CLIP.x))).toEqual([
-      "the before take films 540x654@2; film a before-and-after take with openClip's { shape: 'pair' } and no crop, so the clip comes out 16:9",
-      "the after take films 540x654@2; film a before-and-after take with openClip's { shape: 'pair' } and no crop, so the clip comes out 16:9",
+      "the before take films 540x654@2; film a before-and-after take with openClip's { shape: 'pair' } and no crop, so both copies fit the clip side by side",
+      "the after take films 540x654@2; film a before-and-after take with openClip's { shape: 'pair' } and no crop, so both copies fit the clip side by side",
     ])
     expect(checkPair(at(CLIP.wide), at(CLIP.wide))).toHaveLength(2)
     expect(checkPair(at(CLIP.pair, { x: 0, y: 0, w: 600, h: 400 }), at(CLIP.pair, { x: 0, y: 0, w: 600, h: 400 }))).toHaveLength(2)
@@ -235,8 +235,8 @@ describe('a before-and-after pair', () => {
     expect(padBox(undefined, [2, 2], 128, 128)).toEqual({ x: 0, y: 0, w: 128, h: 128 })
   })
 
-  test("puts a whole pair take beside its pair at full size and zooms a small one up to its own pixels, so the clip is 16:9 and fills it", () => {
-    const { width, height } = CLIP.pairCanvas
+  test('puts a whole pair take beside its pair at full size and zooms a small one up to its own pixels, on a canvas as tall as its cards and never past 16:9', () => {
+    const { width } = CLIP.pairCanvas
     const zoom = CLIP.pair.scale / CLIP.pairCanvas.scale
     const at = pairLayout({ x: 0, y: 0, w: CLIP.pair.width, h: CLIP.pair.height }, zoom)
     expect(at.k).toBe(1)
@@ -244,10 +244,12 @@ describe('a before-and-after pair', () => {
     expect(at.x[0] - 2).toBe(16)
     expect(at.x[1] - at.x[0] - at.panel.w - 4).toBe(16)
     expect(at.y[0] - 28).toBe(16)
-    expect(at.y[0] + at.panel.h + 2).toBe(height - 16)
-    expect((width * CLIP.pairCanvas.scale) / ((height + CLIP.pairBar.height + 76) * CLIP.pairCanvas.scale)).toBeCloseTo(16 / 9)
-    expect(pairLayout({ x: 0, y: 0, w: 380, h: 190 }, zoom).k).toBeGreaterThan(1.5)
+    expect(at.y[0] + at.panel.h + 2).toBe(at.height - 16)
+    const wide = pairLayout({ x: 0, y: 0, w: 380, h: 100 }, zoom)
+    expect(wide.k).toBeGreaterThan(1.5)
+    expect(wide.height).toBe(16 + 28 + 100 * wide.k + 2 + 16)
     expect(pairLayout({ x: 0, y: 0, w: 100, h: 50 }, zoom).k).toBe(zoom)
+    expect(pairLayout({ x: 0, y: 0, w: 300, h: 900 }, zoom).height + CLIP.pairHead.height).toBeCloseTo((width * 9) / 16)
   })
 
   test('replays two copies in rows, or in columns when that shows a tall crop larger, each as large as the page allows but never past its own size', () => {
