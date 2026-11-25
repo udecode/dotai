@@ -23,7 +23,7 @@ import {
   padBox,
   pageColor,
   pairLayout,
-  replayLayout,
+  cardLayout,
   fitCrop,
   openClip,
   fixCaption,
@@ -252,39 +252,35 @@ describe('a before-and-after pair', () => {
     expect(pairLayout({ x: 0, y: 0, w: 300, h: 900 }, zoom).height + CLIP.pairHead.height).toBeCloseTo((width * 9) / 16)
   })
 
-  test('replays two copies in rows, or in columns when that shows a tall crop larger, each as large as the page allows but never past its own size', () => {
+  test('replays two cards in rows, or in columns when that shows a tall crop larger, each copy as large as the page allows but never past its own size', () => {
     const { width, height } = CLIP.x
-    const tab = 17
-    const whole = replayLayout({ x: 0, y: 0, w: width, h: height }, width, height, tab)
-    expect(whole.k).toBeCloseTo((height - 12 - 8 - tab) / 2 / height)
-    expect(whole.y[0]).toBeCloseTo(0)
-    expect(whole.y[1] - whole.y[0]).toBeCloseTo(whole.panel.h + 8 + tab)
-    expect(whole.y[1] + whole.panel.h).toBeCloseTo(height - 12)
+    // Each card adds a 28 px band above its copy and a 2 px border around it, and the cards keep 16 px from the page's edges and between them.
+    const card = { b: 28, e: 2, m: 16, g: 16 }
+    const whole = cardLayout({ x: 0, y: 0, w: width, h: 330 }, width, height, 1, true)
     expect(whole.across).toBe(false)
+    expect(whole.k).toBeCloseTo((height - 2 * card.m - card.g - 2 * (card.b + card.e)) / 2 / 330)
+    expect(whole.y[0]).toBeCloseTo(card.m + card.b)
+    expect(whole.y[1] - whole.y[0]).toBeCloseTo(whole.panel.h + card.e + card.g + card.b)
+    expect(whole.y[1] + whole.panel.h + card.e).toBeCloseTo(height - card.m)
     expect(whole.x[0]).toBeCloseTo((width - whole.panel.w) / 2)
-    const narrow = replayLayout({ x: 100, y: 0, w: 200, h: 300 }, width, height, tab)
+    const narrow = cardLayout({ x: 100, y: 0, w: 200, h: 200 }, width, height, 1, true)
     expect(narrow.k).toBe(1)
-    expect(narrow.panel).toEqual({ w: 200, h: 300 })
+    expect(narrow.panel).toEqual({ w: 200, h: 200 })
     expect(narrow.across).toBe(false)
-    expect(narrow.y[0]).toBeCloseTo((height - 12 - 600 - 8 - tab) / 2)
-    const wide = replayLayout({ x: 0, y: 0, w: width, h: 100 }, width, height, tab)
-    expect(wide.panel.w).toBeCloseTo(width - 24)
-    expect(wide.x[0]).toBeCloseTo(12)
-    const tall = replayLayout({ x: 0, y: 0, w: 200, h: 640 }, width, height, tab)
+    const tall = cardLayout({ x: 0, y: 0, w: 200, h: 540 }, width, height, 1, true)
     expect(tall.across).toBe(true)
-    expect(tall.k).toBeCloseTo(Math.min(1, (width - 24 - 8) / 2 / 200, (height - 12 - tab) / 640))
-    expect(tall.k).toBeGreaterThan((height - 12 - 8 - tab) / 2 / 640)
     expect(tall.y).toEqual([tall.y[0], tall.y[0]])
-    expect(tall.y[0]).toBeGreaterThanOrEqual(tab)
-    expect(tall.x[1] - tall.x[0]).toBeCloseTo(tall.panel.w + 8)
+    expect(tall.y[0]).toBeGreaterThanOrEqual(card.m + card.b)
+    expect(tall.x[1] - tall.x[0]).toBeCloseTo(tall.panel.w + 2 * card.e + card.g)
     expect(tall.x[0] + tall.x[1] + tall.panel.w).toBeCloseTo(width)
+    expect(cardLayout({ x: 0, y: 0, w: 200, h: 540 }, width, height, 1, false).across).toBe(true)
   })
 
   test('an X clip with its bars is 2:3', () => {
     expect((CLIP.x.height + 80 + 76) / CLIP.x.width).toBe(3 / 2)
   })
 
-  test('stacks a before still above an after still, cropped to where they differ', async () => {
+  test('puts a before still beside an after still in cards, cropped to where they differ', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'clip-pair-'))
     const still = (name: string, boxes: string) => {
       const file = join(dir, `${name}.png`)
@@ -296,10 +292,10 @@ describe('a before-and-after pair', () => {
     const out = join(dir, 'pair.png')
     expect((await renderPair([before, after], out)).fails).toEqual([])
     const [w, h] = Bun.spawnSync(['ffprobe', '-v', 'error', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', out]).stdout.toString().trim().split(',').map(Number)
-    expect(w).toBe(400)
-    // Each panel is 150 px of page under a strip that holds its badge.
-    expect(h).toBeGreaterThan(2 * 150 + 8 + 2 * 20)
-    expect(h).toBeLessThan(2 * 150 + 8 + 2 * 60)
+    // Two 400 px crops fit the 800 px page side by side, each in a card with a 2 px border and a 16 px gap, inside 16 px of margin.
+    expect(w).toBe(2 * (400 + 4) + 16 + 32)
+    // Each card is 150 px of page under its 28 px band, over its 2 px border.
+    expect(h).toBe(28 + 150 + 2 + 32)
     expect((await renderPair([before, before], out)).fails[0]).toContain('show the same thing')
     const other = join(dir, 'other.png')
     Bun.spawnSync(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=white:s=640x480', '-frames:v', '1', other])
