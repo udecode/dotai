@@ -37,24 +37,13 @@
       "provenance": null
     },
     {
-      "name": "fseventsd-watchdog",
+      "name": "mac-watchdog",
       "distribution": "bundled",
-      "description": "Restart macOS fseventsd when its memory leak passes 1 GB, from a root launchd job. Use when fseventsd holds GBs of memory, a Mac with many worktrees swaps or freezes, or to install, check or remove the watchdog.",
-      "category": "Maintenance",
-      "dependencies": [],
-      "capabilities": [
-        "macOS with launchd, and the user running the installer with sudo once"
-      ],
-      "provenance": null
-    },
-    {
-      "name": "mem-log",
-      "distribution": "bundled",
-      "description": "Record a Mac's memory every 10 seconds, per process and per Claude Code session, from a user launchd job, so the next freeze leaves a record of what used the memory. Use to install, check or remove the recorder, after a Mac freezes or swaps hard, or to find which session or process used the memory.",
+      "description": "Keep a Mac from freezing under agent workloads. A user launchd job records memory every 10 seconds, per process and per Claude Code session, and stops any process that grows past 40% of RAM, and a root job restarts fseventsd when its memory leak passes 1 GB. Use to install, check or remove them, after a Mac freezes, swaps hard or logs the user out, when fseventsd holds GBs of memory, or to find which session or process used the memory.",
       "category": "Monitoring",
       "dependencies": [],
       "capabilities": [
-        "macOS with launchd, Node.js and the Xcode command line tools for cc; the Claude desktop app to name sessions"
+        "macOS with launchd, Node.js and the Xcode command line tools for cc; the Claude desktop app to name sessions; sudo once for the fseventsd watchdog"
       ],
       "provenance": null
     },
@@ -182,7 +171,7 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "a68da54c4b3b6f21c10a983304e7b318eeabcb4a931b5f0c2911b93a08165890",
+      "sha256": "f5e46870c70932d1cd6a0057a3fdeed64cb7ab6d2fb29482fde5a3f72231cec1",
       "mode": 420
     },
     "scripts/affected-tests.mjs": {
@@ -190,7 +179,7 @@
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
-      "sha256": "6be24f05978c560e4ae5796787d1ded49de365ba5a51764cc6d6d4fce95cc63a",
+      "sha256": "0db54cdf73fe301f82d97beeb8768f2726baa34774f25243f6a6a3ba47f95798",
       "mode": 420
     },
     "scripts/validate-skills": {
@@ -281,36 +270,36 @@
       "sha256": "5713a8add6e622ccb06fbc904ff48e29e2d747c2b229bc5cba3d440bcadb1b16",
       "mode": 420
     },
-    "skills/fseventsd-watchdog/SKILL.md": {
-      "sha256": "f698528b29dca4be01775f4869a6b967625e1e7ae79f18a7b8cb0dc13b08bb18",
+    "skills/mac-watchdog/SKILL.md": {
+      "sha256": "ff89f3b68cbcde92351697b0e2b7d1eeb9f7a11be13d8a5144e24f9e42b241e7",
       "mode": 420
     },
-    "skills/fseventsd-watchdog/scripts/install.sh": {
-      "sha256": "f9d9d490d638008c56e7c0770490114c4c7448135c1debff076936a6494a954a",
-      "mode": 420
-    },
-    "skills/fseventsd-watchdog/scripts/watchdog.sh": {
-      "sha256": "6045f6581b0e352455be4fcbcab8d650056ac02b0a379aebe90752b20b575e6e",
-      "mode": 420
-    },
-    "skills/mem-log/SKILL.md": {
-      "sha256": "6c8d67439a95c86cdc4e2892fd1f3d6354c5c191a87b5ba550248488e1068ee4",
-      "mode": 420
-    },
-    "skills/mem-log/scripts/footprint.c": {
+    "skills/mac-watchdog/scripts/footprint.c": {
       "sha256": "6aa95ab20d8a3ecef5d2554438d6a690c4dab9e722a3fb2bcd62dce849a56e4e",
       "mode": 420
     },
-    "skills/mem-log/scripts/install.sh": {
-      "sha256": "64240d268525f8263ed1f56ee9bd078b4594ee8de9abaeb3c553c89f37e113e7",
+    "skills/mac-watchdog/scripts/fseventsd-diag.sh": {
+      "sha256": "d76cac32688d7dc8b063283f0a6976601761004b325ef362065c836145409520",
       "mode": 420
     },
-    "skills/mem-log/scripts/mem-log.mjs": {
-      "sha256": "469f3f277ee1cec69a39616393da9e0576d986786d13233f1940fb38e96d1d59",
+    "skills/mac-watchdog/scripts/fseventsd.sh": {
+      "sha256": "2eba02c9fad1dc7c6282f462158e5186ee3facde193d36b7d30547df98890f3d",
       "mode": 420
     },
-    "skills/mem-log/scripts/mem-report.mjs": {
-      "sha256": "3b3caaa541549b72040a6e17f225cc6205e8db9e0e0f537c2c6f3df0e252d338",
+    "skills/mac-watchdog/scripts/install-fseventsd.sh": {
+      "sha256": "6cbf5e0638ce212df34b2863cd771dd8c544576c0be4dd36fb2d9659fe0c1121",
+      "mode": 420
+    },
+    "skills/mac-watchdog/scripts/install.sh": {
+      "sha256": "306b60d9ba51e344933aa6331f8feb8c688653a6bae618995d15232601d03b6c",
+      "mode": 420
+    },
+    "skills/mac-watchdog/scripts/recorder.mjs": {
+      "sha256": "7b1541c838ef1e9f9a01bd016ac700573b2bcd7b67e3bd86cd82c9bae847b9e9",
+      "mode": 420
+    },
+    "skills/mac-watchdog/scripts/report.mjs": {
+      "sha256": "34fda4afb0078ea47cd1f49e10e0d0aacd4c024139e4705c5af5792c37f8917b",
       "mode": 420
     },
     "skills/passwords/SKILL.md": {

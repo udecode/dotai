@@ -1,6 +1,6 @@
 # dotai skills
 
-16 skills: 16 maintained in dotai, plus 0 unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from dotai. Methods load only when relevant; tool access is separate from installation.
+15 skills: 15 maintained in dotai, plus 0 unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from dotai. Methods load only when relevant; tool access is separate from installation.
 
 ## Review (1)
 
@@ -25,12 +25,11 @@
 | [passwords](skills/passwords/SKILL.md) | Set up unattended 1Password access on a Mac or sign in to websites and apps without repeated human approvals. Use for new-device setup, passwords, authenticator codes, email or SMS verification, passkey alternatives, and blocked logins. |
 | [redo](skills/redo/SKILL.md) | Redo a prior pstack run at the current session's higher effort or stronger model, treating its plan as a draft: rerun only the plan, design, subagent and seat lanes, code and review judgments that ran below the current level, and reuse the rest. Use for \"redo <plan, page or PR>\", \"run poteto again on it at this effort\", \"treat this plan as a draft\", a teammate's run made at a lower effort, or a Babysit whose levels check finds a unit below target. |
 
-## Maintenance (4)
+## Maintenance (3)
 
 | Skill | Purpose |
 | --- | --- |
 | [cleanup](skills/cleanup/SKILL.md) | Find where a disk's space goes, and free disk in a project by removing the git worktrees, Next.js cache folders, local Docker Postgres test databases, idle Bun, npx and uv cache entries and unused anonymous Docker volumes nothing uses, keeping every worktree a session or process works in and every cache a running server holds. Use for /cleanup, /cleanup disk, \"clean up worktrees\", \"free disk space\", \"what's using my disk\", \"where did my disk space go\", \"what is idle\", \"delete unused worktrees or builds\", or when a session-start hint counts old cleanup candidates. |
-| [fseventsd-watchdog](skills/fseventsd-watchdog/SKILL.md) | Restart macOS fseventsd when its memory leak passes 1 GB, from a root launchd job. Use when fseventsd holds GBs of memory, a Mac with many worktrees swaps or freezes, or to install, check or remove the watchdog. |
 | [sync-pstack](skills/sync-pstack/SKILL.md) | Set up the pstack plugin in a project through an interview, and keep every pstack project on one pinned tag and one shared AGENTS.md overrides block. Use to set up or install pstack in a repo, sync, bump or update pstack everywhere, list which projects use pstack or have drifted, compare setups, audit a project's skills for drift from pstack (which to cut, fold or keep), change which work runs a panel, architect or an arena without asking (\"from now on X runs architect\"), or move a workflow lesson, including a plan page shape change, into every project. Not for choosing pstack's per-role models, which setup-pstack owns. |
 | [worktree-workspace](skills/worktree-workspace/SKILL.md) | Open every git worktree of a project in one VS Code window, each folder labeled by its agent session's title. Use for /worktree-workspace, reviewing worktrees in VS Code, or seeing which worktree holds which task. |
 
@@ -38,7 +37,7 @@
 
 | Skill | Purpose |
 | --- | --- |
-| [mem-log](skills/mem-log/SKILL.md) | Record a Mac's memory every 10 seconds, per process and per Claude Code session, from a user launchd job, so the next freeze leaves a record of what used the memory. Use to install, check or remove the recorder, after a Mac freezes or swaps hard, or to find which session or process used the memory. |
+| [mac-watchdog](skills/mac-watchdog/SKILL.md) | Keep a Mac from freezing under agent workloads. A user launchd job records memory every 10 seconds, per process and per Claude Code session, and stops any process that grows past 40% of RAM, and a root job restarts fseventsd when its memory leak passes 1 GB. Use to install, check or remove them, after a Mac freezes, swaps hard or logs the user out, when fseventsd holds GBs of memory, or to find which session or process used the memory. |
 | [pstack-doctor](skills/pstack-doctor/SKILL.md) | Check every running agent session for a stuck or endless loop, find the pstack rule, override or project playbook that drives it, and propose a steer message and a rule fix. Use for /pstack-doctor, "is any session stuck or endless?", "are my sessions making progress?", a session that has run more than a day, and the owner's regular sanity check. |
 | [pstack-pulse](skills/pstack-pulse/SKILL.md) | Show every Claude Code and Codex session on the iPhone lock screen through ActivitySmith and in the Mac menubar, with each plan page's pipeline, and buzz when a session needs you, ships or fails. |
 | [rca](skills/rca/SKILL.md) | Turn Remote Control on for every non-archived Claude Code session in the Claude desktop app. |
@@ -59,8 +58,7 @@ These skills remain installed when a tool is absent; an unavailable live action 
 - **chips:** Node.js 22+ and Git; the ledger helpers and chips.md rule that sync-pstack installs in .agents/pstack; a suggest tool for cards, with the fallback chips.md gives without one.
 - **cleanup:** Node.js 22+, Git and lsof; a session tool that lists sessions with their folders, or a one-day wait before a worktree counts as unused.
 - **clip:** Bun, ffmpeg and ffprobe; Chromium for playwright-core, which the skill installs on first use.
-- **fseventsd-watchdog:** macOS with launchd, and the user running the installer with sudo once.
-- **mem-log:** macOS with launchd, Node.js and the Xcode command line tools for cc; the Claude desktop app to name sessions.
+- **mac-watchdog:** macOS with launchd, Node.js and the Xcode command line tools for cc; the Claude desktop app to name sessions; sudo once for the fseventsd watchdog.
 - **passwords:** macOS login Keychain, 1Password CLI and an account with service-account access; authorized browser or native-app controls that can consume credentials without exposing them.
 - **plan-page:** Node.js 22+ and Git; the renderer that sync-pstack installs in .agents/pstack; the Artifact tool to publish.
 - **pstack-doctor:** Node.js 22+, Git and ripgrep; pstack-pulse for live session state, and a session tool that lists sessions for the rest.

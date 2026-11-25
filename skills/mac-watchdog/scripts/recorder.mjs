@@ -1,5 +1,6 @@
-// Memory flight recorder: one JSONL line every 10 s in ~/Library/Logs/mem-log/<day>.jsonl,
-// so the next freeze leaves a record of what ran, who owned it, and how the kernel coped.
+// mac-watchdog's recorder: one JSONL line every 10 s in ~/Library/Logs/mac-watchdog/<day>.jsonl,
+// so the next freeze leaves a record of what ran, who owned it, and how the kernel coped, and a
+// guard that stops any of the user's processes whose footprint passes the kill limit.
 // Attribution walks each process up to its Claude Code CLI (`--resume=<id>`) and names the
 // session from the desktop app's records. Footprint, not RSS, because swapped and compressed
 // pages vanish from RSS (on one frozen Mac, RSS summed to 46 GB while footprint was 172 GB).
@@ -11,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FOOTPRINT = join(HERE, 'footprint');
-const LOG_DIR = join(homedir(), 'Library/Logs/mem-log');
+const LOG_DIR = join(homedir(), 'Library/Logs/mac-watchdog');
 const STORE = join(homedir(), 'Library/Application Support/Claude/claude-code-sessions');
 const APP_LOG = join(homedir(), 'Library/Logs/Claude/main.log');
 const INTERVAL_MS = 10_000;
@@ -231,6 +232,45 @@ function appStalls() {
   }
 }
 
+// --- runaway guard ---------------------------------------------------------
+// One leaking test grew to 214 GB on a 128 GB Mac, and the freeze that followed made macOS kill
+// WindowServer, which logs the user out. A single process this large is a runaway, so it gets
+// SIGTERM, then SIGKILL at the next sample if it is still over the limit.
+const RAM_MB = Math.round(Number(run('sysctl', ['-n', 'hw.memsize'])) / MB);
+const KILL_GB = process.env.MAC_WATCHDOG_KILL_GB;
+const KILL_MB = KILL_GB === undefined ? Math.round(RAM_MB * 0.4) : Number(KILL_GB) * 1024;
+const TERM_GRACE_MS = INTERVAL_MS / 2;
+// Apps and system programs are never signalled: Claude, Chrome and the VMs all run from app bundles.
+const PROTECTED = /\.app\/Contents\/|^\/(System|usr|bin|sbin|Library\/Apple)\//;
+const terminated = new Map();
+
+function notify(text) {
+  run('osascript', ['-e', `display notification ${JSON.stringify(text)} with title "mac-watchdog"`]);
+}
+
+function guard(procs) {
+  if (!(KILL_MB > 0)) return [];
+  for (const [pid, t] of terminated) if (procs.get(pid)?.cmd !== t.cmd) terminated.delete(pid);
+  const kills = [];
+  for (const p of procs.values()) {
+    if (p.fpMB < KILL_MB || p.pid === process.pid || !p.cmd || PROTECTED.test(p.cmd)) continue;
+    const t = terminated.get(p.pid);
+    if (t && Date.now() - t.at < TERM_GRACE_MS) continue;
+    const signal = t ? 'SIGKILL' : 'SIGTERM';
+    try {
+      process.kill(p.pid, signal);
+    } catch {
+      continue;
+    }
+    if (!t) terminated.set(p.pid, { at: Date.now(), cmd: p.cmd });
+    const g = groupOf(procs, p.pid, new Map());
+    const s = g.startsWith('cli:') ? sessionNames().get(g.slice(4)) : null;
+    kills.push({ pid: p.pid, signal, mb: p.fpMB, limitMB: KILL_MB, age: p.age, g, title: s?.title, local: s?.local, cwd: s?.cwd, cmd: p.cmd.slice(0, 400) });
+    if (!t) notify(`Stopped ${p.comm} at ${(p.fpMB / 1024).toFixed(0)} GB${s?.title ? ` from "${s.title}"` : ''}. Details: ${join(LOG_DIR, 'kills.jsonl')}`);
+  }
+  return kills;
+}
+
 // --- loop ------------------------------------------------------------------
 mkdirSync(LOG_DIR, { recursive: true });
 let day = '';
@@ -261,7 +301,13 @@ function sample() {
   rec.freeMB = Math.round((vm.freePages * PAGE) / MB);
   rec.compressedMB = Math.round((vm.cmpStored * PAGE) / MB);
   rec.compressorMB = Math.round((vm.cmpOccupied * PAGE) / MB);
-  Object.assign(rec, attribute(processes()));
+  const procs = processes();
+  Object.assign(rec, attribute(procs));
+  const kills = guard(procs);
+  if (kills.length) {
+    rec.kills = kills;
+    appendFileSync(join(LOG_DIR, 'kills.jsonl'), kills.map((k) => `${JSON.stringify({ t: rec.t, ...k })}\n`).join(''));
+  }
   if (tick % TOP_EVERY === 0) rec.top = topSnapshot();
   const stalls = appStalls();
   if (stalls.length) rec.app = stalls;

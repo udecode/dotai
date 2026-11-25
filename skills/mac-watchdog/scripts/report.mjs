@@ -1,8 +1,9 @@
-// Reads the mem-log flight recorder. Usage:
-//   node mem-report.mjs                       last 6 samples
-//   node mem-report.mjs --last 30
-//   node mem-report.mjs --from 10:30 --to 10:50 [--day 2026-11-18]   local times
-//   node mem-report.mjs --detail              also print groups and big processes per sample
+// Reads mac-watchdog's recorder log. Usage:
+//   node report.mjs                       last 6 samples
+//   node report.mjs --last 30
+//   node report.mjs --from 10:30 --to 10:50 [--day 2026-11-18]   local times
+//   node report.mjs --detail              also print groups and big processes per sample
+// A sample in which the guard stopped a process prints a `kill:` line under it.
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -20,7 +21,7 @@ const from = at(opt('--from'));
 const to = at(opt('--to'));
 
 // Files are named by UTC day; a local day can span two of them.
-const dir = join(homedir(), 'Library/Logs/mem-log');
+const dir = join(homedir(), 'Library/Logs/mac-watchdog');
 const base = new Date(`${day}T12:00:00`);
 const files = [-1, 0, 1].map((d) => join(dir, `${new Date(base.getTime() + d * 86400e3).toISOString().slice(0, 10)}.jsonl`)).filter(existsSync);
 let recs = files.flatMap((f) =>
@@ -48,6 +49,7 @@ for (const r of recs) {
     `${time} free=${r.freePct}% ${r.pressure} swap=${gb(r.swapUsedMB)} in=${r.swapinsMBps ?? '-'} out=${r.swapoutsMBps ?? '-'}MB/s cmpr=${gb(r.compressorMB)} gap=${r.gapS ?? '-'}s took=${r.sampleMs}ms user=${gb(r.userFootprintMB)} claudes=${r.claudes}  ${heads}`,
   );
   if (r.app) for (const l of r.app) console.log(`    app: ${l}`);
+  for (const k of r.kills ?? []) console.log(`    kill: ${k.signal} pid=${k.pid} ${gb(k.mb)} over ${gb(k.limitMB)} ${k.title ?? k.g} ${k.cmd.slice(0, 120)}`);
   if (detail) {
     for (const g of r.groups) console.log(`    group ${gb(g.mb).padStart(6)} n=${String(g.n).padStart(3)} ${label(g)} (${g.local ?? g.g}) biggest=${g.biggest}`);
     for (const b of r.big) console.log(`    big   ${gb(b.mb).padStart(6)} pid=${b.pid} age=${b.age} ${b.g} ${b.cmd.slice(0, 120)}`);

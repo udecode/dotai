@@ -1,14 +1,14 @@
 #!/bin/zsh
 # Restarts fseventsd when its resident memory passes LIMIT_MB, working around the macOS 15.6 to 27.x
-# sweeper leak the fseventsd-watchdog skill describes. install.sh runs it as root every 2 minutes
-# and passes the user whose log and notifications it uses: watchdog.sh <user>
+# sweeper leak the mac-watchdog skill describes. install-fseventsd.sh runs it as root every 2 minutes
+# and passes the user whose log and notifications it uses: fseventsd.sh <user>
 LIMIT_MB=1024
 MIN_GAP_S=3600
 USER_NAME=$1
-[[ -n $USER_NAME ]] || { print -u2 "usage: watchdog.sh <user>"; exit 1; }
+[[ -n $USER_NAME ]] || { print -u2 "usage: fseventsd.sh <user>"; exit 1; }
 HOME_DIR=$(dscl . -read "/Users/$USER_NAME" NFSHomeDirectory | sed 's/^NFSHomeDirectory: //')
-LOG=$HOME_DIR/Library/Logs/fseventsd-watchdog.log
-STAMP=/var/run/fseventsd-watchdog.last
+LOG=$HOME_DIR/Library/Logs/mac-watchdog/fseventsd.log
+STAMP=/var/run/mac-watchdog-fseventsd.last
 BIN=/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/FSEvents.framework/Versions/A/Support/fseventsd
 
 log() {
@@ -31,7 +31,7 @@ rss_mb() {
   [[ $kb == <-> ]] && print $(( kb / 1024 ))
 }
 notify() {
-  launchctl asuser "$(id -u "$USER_NAME")" sudo -u "$USER_NAME" osascript -e "display notification \"$1\" with title \"fseventsd watchdog\"" 2>/dev/null
+  launchctl asuser "$(id -u "$USER_NAME")" sudo -u "$USER_NAME" osascript -e "display notification \"$1\" with title \"mac-watchdog\"" 2>/dev/null
 }
 
 pid=$(launchd_pid)
