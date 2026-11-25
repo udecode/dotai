@@ -246,12 +246,15 @@ function coleadMachine() {
 
 test('a co-lead runs agy unsandboxed in the lead worktree, resumes its conversation, and can neither push nor use the GitHub token', () => {
   const { cross, git, remote, worktree } = coleadMachine();
-  const first = cross('--colead', worktree, '--effort', 'xhigh', 'build step one');
+  const stream = join(worktree, '..', 'colead-1.jsonl');
+  const first = cross('--colead', worktree, '--effort', 'xhigh', '--stream', stream, 'build step one');
   assert.equal(first.status, 0, first.stderr);
   const answer = JSON.parse(first.stdout);
   assert.equal(answer.cwd, worktree);
   assert.deepEqual(answer.args.slice(2), ['--model', 'gemini-4-neon-xhigh', '--dangerously-skip-permissions', '--output-format', 'stream-json']);
-  assert.match(answer.args[1], /lead's worktree[^\n]*\n\nbuild step one\n\n/u);
+  assert.match(answer.args[1], /^build step one\n\nYou are the co-lead[^\n]*lead's worktree/u, 'the brief comes first, so its kickoff line stays first');
+  assert.match(readFileSync(stream, 'utf8'), /"event":"init"[^\n]*\n[^\n]*"event":"result"/u);
+  assert.equal(first.stderr.match(/^conversation: /gmu)?.length, 1);
   assert.equal(answer.pushed, false, 'a push from the co-lead fails');
   assert.equal(git(remote, 'branch', '--list', 'colead').stdout, '');
   assert.equal(answer.token, null, 'the co-lead never sees the GitHub token');

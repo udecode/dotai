@@ -14,7 +14,7 @@
   The exception in both is a panel seat or an arena runner, which runs on its named model for model diversity; in Claude Code, a Codex worker the Codex workers rule starts is another.
 <!-- end -->
 <!-- if delivery=trunk -->
-  The exception in both is a panel seat or an arena runner, which runs on its named model for model diversity; in Claude Code, the Neon co-lead is another, as the Neon co-lead rule says. The role lines of a person's own `.claude/pstack-models.local.md` in the main checkout, which git ignores, replace that sheet's line for each role they name and add each role it lacks, for that person. The session-start hook prints them, and the helpers that read the sheet read them too.
+  The exception in both is a panel seat or an arena runner, which runs on its named model for model diversity; in Claude Code, the Neon co-lead is another, and it drafts the design sketches and the code that is not UI, as the Neon co-lead rule says. The role lines of a person's own `.claude/pstack-models.local.md` in the main checkout, which git ignores, replace that sheet's line for each role they name and add each role it lacks, for that person. The session-start hook prints them, and the helpers that read the sheet read them too.
 <!-- end -->
 <!-- if maxEffort -->
 <!-- # adds -->
@@ -144,7 +144,7 @@
 - **Extraction.** The session's own model keeps every judgment: plans, the final call on a design, the code the lead writes, synthesis, explainers, judges, cross-judges other than an arena's cross-judge pool, which runs on the models sheet's line, a second reader that checks extracted claims, and reflect's synthesis with every decision on what it applies. In Claude Code, a seat that only finds evidence for the lead to judge runs as an `Agent` subagent on `opus`, and a drive through a signed-in site runs in Claude in Chrome (owner's word, 2026-11-25). `how`'s own subagent explains, so it stays on the session's model. Before using an evidence seat's answer, the lead checks it covers every source and lookup its brief asked for. A seat that fails, returns nothing or leaves one uncovered, reported or not, reruns once on its model for the part still missing, unless refused for security, and the hand-back names any gap left. In Claude Code, when the lead would otherwise read several unread files to find where a change goes, it asks an evidence subagent for the spans and call sites instead, confirms the call sites with its own `git grep` of each changed symbol, then reads in full the function it changes and each caller whose behavior the change can break.
 <!-- if delivery=trunk -->
   In a run with a Neon co-lead, the co-lead does the evidence work an `opus` subagent would, as the Neon co-lead rule says.
-<!-- # adds -->
+<!-- # overrides poteto-mode/playbooks/feature.md "Delegate code-writing to a subagent" -->
 - **Neon co-lead.** Read `.agents/pstack/rules/colead.md` in full before the first step of a run that follows a pstack playbook, and after each compaction in one. It says when the lead starts Gemini 4 Neon as its co-lead for the whole run, what the co-lead owns and how the lead checks its work.
 <!-- end -->
 <!-- if delivery!=trunk -->
