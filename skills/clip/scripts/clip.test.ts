@@ -193,7 +193,7 @@ describe('a before-and-after pair', () => {
   })
 
   test('refuses takes whose frames differ, naming both sizes', () => {
-    expect(checkPair(at(), at(CLIP.x))[0]).toBe('the before take films 1280x564@1.5 and the after take 540x654@2; film both with the same shape and crop size')
+    expect(checkPair(at(), at(CLIP.x))[0]).toBe('the before take films 624x532@1.5 and the after take 540x654@2; film both with the same shape and crop size')
   })
 
   test("lets a bug clip's reference and beta takes keep their repro window", () => {
@@ -232,6 +232,15 @@ describe('a before-and-after pair', () => {
     expect(padBox(box, [2, 2], 128, 128)).toEqual({ x: 20 - pad, y: 40 - pad, w: 56 + 2 * pad, h: 24 + 2 * pad })
     expect(padBox({ x: 0, y: 0, w: 64, h: 64 }, [2, 2], 128, 128)).toEqual({ x: 0, y: 0, w: 128, h: 128 })
     expect(padBox(undefined, [2, 2], 128, 128)).toEqual({ x: 0, y: 0, w: 128, h: 128 })
+  })
+
+  test("puts a whole pair take beside its pair at full size, so the clip is 16:9 and plays both from its first frame", () => {
+    const { width, height } = CLIP.pairCanvas
+    const at = replayLayout({ x: 0, y: 0, w: CLIP.pair.width, h: CLIP.pair.height }, width, height, 17, true)
+    expect(at.across).toBe(true)
+    expect(at.k).toBe(1)
+    expect((width * CLIP.pair.scale) / ((height + 80 + 76) * CLIP.pair.scale)).toBeCloseTo(16 / 9)
+    expect(replayLayout({ x: 0, y: 0, w: 600, h: 100 }, width, height, 17, true).across).toBe(true)
   })
 
   test('replays two copies in rows, or in columns when that shows a tall crop larger, each as large as the page allows but never past its own size', () => {

@@ -27,8 +27,9 @@ export const CLIP = {
   fps: 60,
   wide: { width: 1100, height: 720, scale: 1 } as View,
   x,
-  // A before-and-after clip goes to a team chat, rarely to X, so it films a desktop page that comes out 1920 by 1080 with its bars (the owner, 2026-11-25).
-  pair: { width: 1280, height: 564, scale: 1.5 } as View,
+  // A before-and-after clip goes to a team chat, rarely to X, so its two takes play side by side from the first frame on a canvas that comes out 1920 by 1080 with its bars, each take filming half of it (the owner, 2026-11-25).
+  pair: { width: 624, height: 532, scale: 1.5 } as View,
+  pairCanvas: { width: 1280, height: 564 },
   // A bug clip for an issue films the window the bug shows in, at 2× pixels, since a fixer watches it on a desktop (the owner, 2026-11-22).
   repro: { width: 760, height: 560, scale: 2 } as View,
   feedPt,
@@ -94,7 +95,7 @@ export const RULES: { rule: string; check: string }[] = [
   },
   { rule: 'Render refuses an X-shape or a before-and-after clip without a title bar, so the clip a team chat gets is the one X can post and a before-and-after clip comes out 16:9.', check: 'checkBar' },
   {
-    rule: `A change to how something a reader already saw behaves shows as one clip made from a take before the change and a take after it, which caption the same beats. Both film \`{ shape: 'pair' }\`, a desktop page ${CLIP.pair.width} by ${CLIP.pair.height} px at ${CLIP.pair.scale}× pixels with no crop, so with its bars the clip is ${CLIP.pair.width * CLIP.pair.scale} by ${(CLIP.pair.height + BAR_PX + FOOT_PX) * CLIP.pair.scale} px, 16:9, because such a clip goes to a team chat and rarely to X. A bug clip's two takes film the same repro window instead. The clip plays the before take whole under a red BEFORE tab, then the after take whole under a green AFTER tab, each tab small and centered on the line under the title bar. Then the after page cuts to its first frame and shrinks into its copy over ${REPLAY.moveFrames} frames while the before copy slides in beside it, and both replay in rows, before above after, or in columns, before left of after, whichever shows them larger, rows on a tie, each tab on its copy's top edge, both playing each step at the same moment, so the reader sees each take at full size and then compares them line by line. Every clip edits this way, whatever the change. The replay trims the page margin that both takes leave blank in every frame, keeps ${CLIP.comparePadPx} px of page around what is left, and zooms both copies as far as the page allows but never past their own size, on the page's own color with a 1 px outline, above the caption footer. Each take holds its result ${CLIP.compareEndS} s at most, unless the scene marks a longer \`read(ms)\`, and the replay ends holding both results for ${CLIP.compareHoldS} s. Render refuses two takes that end every step the same, and the whole clip keeps the length and size limits.`,
+    rule: `A change to how something a reader already saw behaves shows as one clip made from a take before the change and a take after it, which caption the same beats. Both film \`{ shape: 'pair' }\`, a page ${CLIP.pair.width} by ${CLIP.pair.height} px at ${CLIP.pair.scale}× pixels with no crop, and play side by side from the first frame, before left of after, each tab on its copy's top edge, both playing each step at the same moment, on a ${CLIP.pairCanvas.width} by ${CLIP.pairCanvas.height} px page, so with its bars the clip is ${CLIP.pairCanvas.width * CLIP.pair.scale} by ${(CLIP.pairCanvas.height + BAR_PX + FOOT_PX) * CLIP.pair.scale} px, 16:9, because such a clip goes to a team chat and rarely to X. A bug clip's two takes film the same repro window instead, and play the reference take whole under its tab, then the beta take whole under its own, each tab small and centered on the line under the bar. Then the beta page cuts to its first frame and shrinks into its copy over ${REPLAY.moveFrames} frames while the reference copy slides in beside it, and both replay in rows, one above the other, or in columns, whichever shows them larger, rows on a tie. The replay trims the page margin that both takes leave blank in every frame, keeps ${CLIP.comparePadPx} px of page around what is left, and zooms both copies as far as the page allows but never past their own size, on the page's own color with a 1 px outline, above the caption footer. Each take holds its result ${CLIP.compareEndS} s at most, unless the scene marks a longer \`read(ms)\`, and the replay ends holding both results for ${CLIP.compareHoldS} s. Render refuses two takes that end every step the same, and the whole clip keeps the length and size limits.`,
     check: 'checkPair, renderCompare, alignBeats, pageColor, contentBox, replayLayout, renderMove, renderReplay, squeezePlan',
   },
   {
@@ -950,12 +951,12 @@ function spanGraph(input: string, spans: Span[], out: string): string {
 const TAB_PX = 10
 
 /** Where the replay puts two copies of a page's `trim` area on a `width`×`height` page, in CSS px, each zoomed as far as the page allows but never past its own size, with room above each copy that has none above it for its tab, `tabH` tall. Rows put before above after, columns put before left of after. Returns the arrangement that shows the copies larger, rows on a tie, with its zoom, each copy's size, and each copy's left edge and top. */
-export function replayLayout(trim: Box, width: number, height: number, tabH: number) {
+export function replayLayout(trim: Box, width: number, height: number, tabH: number, columnsOnly = false) {
   const { marginPx: m, gapPx: g } = REPLAY
   // A tall crop in rows left each copy under half the frame, so a menu or a list showed as a thumbnail (the owner, 2026-11-23).
   const rows = Math.min(1, (width - 2 * m) / trim.w, (height - m - g - tabH) / 2 / trim.h)
   const columns = Math.min(1, (width - 2 * m - g) / 2 / trim.w, (height - m - tabH) / trim.h)
-  const across = columns > rows
+  const across = columnsOnly || columns > rows
   const k = across ? columns : rows
   const panel = { w: trim.w * k, h: trim.h * k }
   if (across) {
@@ -1022,14 +1023,29 @@ async function renderReplay(
   clips: [string, string],
   plan: Span[][],
   trim: Box,
-  { width, height, scale, background, frames, tabH }: { width: number; height: number; scale: number; background: string; frames: number; tabH: number },
+  { width, height, scale, background, frames, tabH, canvas }: { width: number; height: number; scale: number; background: string; frames: number; tabH: number; canvas?: { width: number; height: number } },
   out: string,
 ): Promise<ReplayPx & { k: number; across: boolean }> {
   const px = (v: number) => 2 * Math.round((v * scale) / 2)
-  const layout = replayLayout(trim, width, height, tabH / scale)
+  const stage = canvas ?? { width, height }
+  const layout = replayLayout(trim, stage.width, stage.height, tabH / scale, !!canvas)
   const crop = { w: px(trim.w), h: px(trim.h), x: 0, y: 0 }
   ;[crop.x, crop.y] = [Math.min(px(trim.x), px(width) - crop.w), Math.min(px(trim.y), px(height) - crop.h)]
   const at: ReplayPx = { crop, w: px(layout.panel.w), h: px(layout.panel.h), x: [px(layout.x[0]), px(layout.x[1])], y: [px(layout.y[0]), px(layout.y[1])], line: Math.max(1, Math.round(scale)) }
+  const renumber = `setpts=N/(${CLIP.fps}*TB)`
+  const { line } = at
+  const replay = [
+    ...clips.map((_, i) => `${spanGraph(`r${i}`, plan[i], `s${i}`)};[s${i}]crop=${crop.w}:${crop.h}:${crop.x}:${crop.y},scale=${at.w}:${at.h}:flags=lanczos,setsar=1,pad=${at.w + 2 * line}:${at.h + 2 * line}:${line}:${line}:color=${REPLAY.outline}[p${i}]`),
+    // A rounded duration can give the background one frame more than the replay holds, so it stops at a frame count.
+    `color=c=${background}:s=${px(stage.width)}x${px(stage.height)}:r=${CLIP.fps},trim=end_frame=${frames}[bg]`,
+    `[bg][p0]overlay=x=${at.x[0] - line}:y=${at.y[0] - line}:shortest=1[b1]`,
+    `[b1][p1]overlay=x=${at.x[1] - line}:y=${at.y[1] - line}:shortest=1,setsar=1,format=yuv420p,${renumber}[rep]`,
+  ]
+  if (canvas) {
+    const graph = ['[0:v]null[r0]', '[1:v]null[r1]', ...replay].join(';')
+    await run(['ffmpeg', '-v', 'error', '-y', '-i', clips[0], '-i', clips[1], '-filter_complex', graph, '-map', '[rep]', '-c:v', 'libx264', '-crf', '16', '-r', String(CLIP.fps), out])
+    return { ...at, k: layout.k, across: layout.across }
+  }
   const dir = mkdtempSync(join(tmpdir(), 'clip-replay-'))
   try {
     const firsts = clips.map((clip, i) => {
@@ -1038,8 +1054,6 @@ async function renderReplay(
       return png
     }) as [string, string]
     const move = renderMove(firsts, at, [px(width), px(height)], background, dir)
-    const { crop: c, line } = at
-    const renumber = `setpts=N/(${CLIP.fps}*TB)`
     const graph = [
       '[0:v]split=2[f0][r0]',
       '[1:v]split=2[f1][r1]',
@@ -1047,11 +1061,7 @@ async function renderReplay(
       `[f0]${renumber},setsar=1,format=yuv420p[full0]`,
       `[f1]${renumber},setsar=1,format=yuv420p[full1]`,
       `[2:v]${renumber},setsar=1,format=yuv420p[move]`,
-      ...clips.map((_, i) => `${spanGraph(`r${i}`, plan[i], `s${i}`)};[s${i}]crop=${c.w}:${c.h}:${c.x}:${c.y},scale=${at.w}:${at.h}:flags=lanczos,setsar=1,pad=${at.w + 2 * line}:${at.h + 2 * line}:${line}:${line}:color=${REPLAY.outline}[p${i}]`),
-      // A rounded duration can give the background one frame more than the replay holds, so it stops at a frame count.
-      `color=c=${background}:s=${px(width)}x${px(height)}:r=${CLIP.fps},trim=end_frame=${frames}[bg]`,
-      `[bg][p0]overlay=x=${at.x[0] - line}:y=${at.y[0] - line}:shortest=1[b1]`,
-      `[b1][p1]overlay=x=${at.x[1] - line}:y=${at.y[1] - line}:shortest=1,setsar=1,format=yuv420p,${renumber}[rep]`,
+      ...replay,
       '[full0][full1][move][rep]concat=n=4:v=1:a=0[v]',
     ].join(';')
     const inputs = ['-i', clips[0], '-i', clips[1], '-framerate', String(CLIP.fps), '-i', move]
@@ -1243,7 +1253,7 @@ export async function renderCompare(before: string, after: string, out: string, 
   const steps = edges.map((e, i) => e.slice(1).map((end, j): [number, number] => [sample(i, e[j]), sample(i, end - 1) + 1])) as [[number, number][], [number, number][]]
   const differs = steps[0].map((_, j) => !!changedBox(sampled[0].frames[steps[0][j][1] - 1], sampled[1].frames[steps[1][j][1] - 1], w, h, CURSOR_AREA))
   if (!differs.some(Boolean)) return { ...review, fails: ['the two takes end every step the same; film the before take on the code before the change'], stills: [] }
-  // A wipe, a stack cropped to the change and cards each fit one kind of change and read as a puzzle, so every clip plays each take whole and then replays both with whole pages, the same edit for any change. Two copies side by side left half a phone's tall frame empty for most crops, so they stack unless the crop is tall enough that columns show it larger (the owner, 2026-11-22).
+  // A wipe, a stack cropped to the change and cards each fit one kind of change and read as a puzzle, so every clip shows both takes with whole pages, the same edit for any change. Waiting through the before take to see the new behavior read as weird, so a pair clip plays the two side by side from its first frame (the owner, 2026-11-25).
   const aligned = alignBeats(beats, frames, Math.round((CLIP.compareHoldS - CLIP.compareEndS) * CLIP.fps))
   const color = pageColor(sampled[1].frames[0], w, h)
   const trim = padBox(contentBox([...sampled[0].frames, ...sampled[1].frames], w, h, color), [width / w, height / h], width, height)
@@ -1253,12 +1263,24 @@ export async function renderCompare(before: string, after: string, out: string, 
   const dir = mkdtempSync(join(tmpdir(), 'clip-tabs-'))
   try {
     const tab = await tabs(dir, scale, take.repro ? (opts.names ?? ['reference', 'beta']) : undefined)
-    const at = await renderReplay(clips, aligned.plan, trim, { width, height, scale, background: `0x${color.toString(16).padStart(6, '0')}`, frames: aligned.frames, tabH: Math.max(tab.Before.h, tab.After.h) }, page)
-    const [moved, end] = [frames[0] + frames[1] + REPLAY.moveFrames, frames[0] + frames[1] + REPLAY.moveFrames + aligned.frames]
+    // A bug clip's small window shrinks when stacked, so only it plays each take whole first; a pair clip plays side by side from its first frame.
+    const canvas = take.repro ? undefined : CLIP.pairCanvas
+    const at = await renderReplay(clips, aligned.plan, trim, { width, height, scale, background: `0x${color.toString(16).padStart(6, '0')}`, frames: aligned.frames, tabH: Math.max(tab.Before.h, tab.After.h), canvas }, page)
+    const solo = canvas ? 0 : frames[0] + frames[1] + REPLAY.moveFrames
+    const [moved, end] = [solo, solo + aligned.frames]
     const rendered = await frameCount(page)
     if (rendered !== end) throw new Error(`the page clip has ${rendered} frames, not the ${end} its tabs and captions expect`)
-    const text = take.textPx && !take.repro ? `, page text at ${phonePt(take.textPx * at.k, width)} pt on a phone` : ''
-    review.fixes.push(`played the before take, the after take, then both in ${at.across ? 'columns' : 'rows'} at ${tenth(at.k)}× size${text}`)
+    const text = take.textPx && !take.repro ? `, page text at ${phonePt(take.textPx * at.k, (canvas ?? { width }).width)} pt on a phone` : ''
+    review.fixes.push(`${canvas ? 'played both' : 'played the before take, the after take, then both'} in ${at.across ? 'columns' : 'rows'} at ${tenth(at.k)}× size${text}`)
+    const copyTabs: Mark[] = [
+      { file: tab.Before.file, x: `${at.x[0] + at.w / 2}-w/2`, y: `${Math.max(0, at.y[0] - at.line)}-h`, from: 0, to: end },
+      { file: tab.After.file, x: `${at.x[1] + at.w / 2}-w/2`, y: `${Math.max(0, at.y[1] - at.line)}-h`, from: 0, to: end },
+    ]
+    if (canvas) {
+      captions = aligned.starts.map((f, i) => ({ t: (i ? f : 0) / CLIP.fps, text: texts[i] }))
+      titlePx = (await renderClip(page, out, { bar: opts.bar, captions, scale, marks: copyTabs })).titlePx
+      return await finishCompare(review, out, take, titlePx, captions, after, pages[1].clip)
+    }
     // The after take's tab rides its page's top edge as the page shrinks into its copy, on the same easing as the frames renderMove writes.
     const u = `clip((t-${((frames[0] + frames[1] - 1) / CLIP.fps).toFixed(4)})/${(REPLAY.moveFrames / CLIP.fps).toFixed(4)},0,1)`
     const center = '(W-w)/2'
@@ -1278,12 +1300,17 @@ export async function renderCompare(before: string, after: string, out: string, 
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
+  return await finishCompare(review, out, take, titlePx, captions, after, pages[1].clip)
+}
+
+/** Reviews a rendered before-and-after clip's title, size and length, and writes its stills. */
+async function finishCompare(review: Review, out: string, take: Take, titlePx: number | undefined, captions: Beat[], after: string, afterPage: string): Promise<Review & { stills: string[]; signals?: Signals }> {
   if (!take.repro) review.suggests.push(...shortTitle(titlePx))
   review.fails.push(...(await reviewFile(out, take.repro ? CLIP.reproMaxMB : CLIP.maxMB)))
   const seconds = await durationOf(out)
   const max = take.repro ? CLIP.reproMaxSeconds : CLIP.maxSeconds
   if (seconds > max + 0.05) review.fails.push(`${out} runs ${tenth(seconds)} s, over ${max} s; shorten either take`)
-  return { ...review, stills: await stills(out, captions, join(after, 'stills-compare')), signals: await clipSignals(pages[1].clip, take) }
+  return { ...review, stills: await stills(out, captions, join(after, 'stills-compare')), signals: await clipSignals(afterPage, take) }
 }
 
 
