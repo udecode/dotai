@@ -289,10 +289,12 @@ describe('a before-and-after pair', () => {
     expect(small.height).toBe(card.b + 200 + card.e + 2 * card.m)
     expect(small.solo.x + small.solo.w / 2).toBeCloseTo(small.width / 2)
     expect(small.x[0] + small.x[1] + small.panel.w).toBeCloseTo(small.width)
-    // The whole repro window plays whole at 1× and pairs in rows, shrunk to fit the bound.
+    // The whole repro window plays whole at 1× and ends stacked, shrunk to fit the bound but larger than side by side.
     const window = reproLayout({ x: 0, y: 0, w: CLIP.repro.width, h: CLIP.repro.height })
     expect(window.solo).toMatchObject({ w: CLIP.repro.width, h: CLIP.repro.height })
+    expect(window.across).toBe(false)
     expect(window.k).toBeLessThan(1)
+    expect(window.k).toBeGreaterThan(0.8)
     expect(window.width).toBeLessThanOrEqual(bound.width)
     expect(window.height).toBeLessThanOrEqual(bound.height)
     // A narrow crop still gets a page wide enough for the head.

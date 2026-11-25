@@ -39,7 +39,8 @@ export const CLIP = {
   // A bug clip for an issue films the window the bug shows in, at 2× pixels, since a fixer watches it on a desktop (the owner, 2026-11-22).
   repro: { width: 760, height: 560, scale: 2 } as View,
   // A bug clip's page fits its cards, up to this bound in CSS px, because its copies stayed small in a page as large as the window with its band (the owner, 2026-11-26).
-  reproStage: { width: 960, height: 720, minWidth: 480 },
+  // It is tall enough that two whole repro windows end stacked at about 0.9×, because side by side they shrank to 0.6× (the owner, 2026-11-26).
+  reproStage: { width: 960, height: 1080, minWidth: 480 },
   feedPt,
   phoneTextPt: 9,
   // Chat bots read these into their media rules, so a change takes a bot restart.
