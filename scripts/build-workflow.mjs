@@ -14,7 +14,7 @@ const groups = {
   'Review': ['test-audit'],
   'Communication': ['clip', 'walkthrough', 'video-transcripts', 'plan-page'],
   'Workflow': ['chips', 'passwords', 'redo'],
-  'Maintenance': ['cleanup', 'sync-pstack', 'worktree-workspace'],
+  'Maintenance': ['cleanup', 'session-transfer', 'sync-pstack', 'worktree-workspace'],
   'Monitoring': ['mac-watchdog', 'pstack-doctor', 'pstack-pulse', 'rca'],
 };
 const explicitDependencies = {};
@@ -27,6 +27,7 @@ const requirements = {
   'plan-page': ['Node.js 22+ and Git; the renderer that sync-pstack installs in .agents/pstack; the Artifact tool to publish'],
   'pstack-doctor': ['Node.js 22+, Git and ripgrep; pstack-pulse for live session state, and a session tool that lists sessions for the rest'],
   'pstack-pulse': ['macOS with launchd and the Keychain, Node.js 22+ and sqlite3; an ActivitySmith account and key; Tailscale Funnel for the session list'],
+  'session-transfer': ['macOS and the Claude desktop app, Python 3; a Code session in the new account to import from, and its session tools to check the sidebar'],
   rca: ['A Code session in the Claude desktop app, which alone has its session tools'],
   'sync-pstack': ['Node.js 22+ and Git; the Claude Code and Codex CLIs for plugin pins and smoke tests'],
   'video-transcripts': ['ffmpeg, curl, jq and a signed-in agy (Antigravity CLI)'],

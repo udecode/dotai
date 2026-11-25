@@ -112,6 +112,17 @@
       "provenance": null
     },
     {
+      "name": "session-transfer",
+      "distribution": "bundled",
+      "description": "Export the Claude desktop app's Code-tab sessions before switching accounts, and import them back into the new account so they reappear in the sidebar with their worktree, branch, PR and history. Use when the user switches Claude accounts, asks to export, back up, move or import sessions, or finds their sessions missing after a switch.",
+      "category": "Maintenance",
+      "dependencies": [],
+      "capabilities": [
+        "macOS and the Claude desktop app, Python 3; a Code session in the new account to import from, and its session tools to check the sidebar"
+      ],
+      "provenance": null
+    },
+    {
       "name": "sync-pstack",
       "distribution": "bundled",
       "description": "Set up the pstack plugin in a project through an interview, and keep every pstack project on one pinned tag and one shared AGENTS.md overrides block. Use to set up or install pstack in a repo, sync, bump or update pstack everywhere, list which projects use pstack or have drifted, compare setups, audit a project's skills for drift from pstack (which to cut, fold or keep), change which work runs a panel, architect or an arena without asking (\\\"from now on X runs architect\\\"), or move a workflow lesson, including a plan page shape change, into every project. Not for choosing pstack's per-role models, which setup-pstack owns.",
@@ -171,7 +182,7 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "f5e46870c70932d1cd6a0057a3fdeed64cb7ab6d2fb29482fde5a3f72231cec1",
+      "sha256": "9097853a5a578257d71e0fe1cf7f0a83a3eb869c0594e6092b09540c86dec73f",
       "mode": 420
     },
     "scripts/affected-tests.mjs": {
@@ -179,7 +190,7 @@
       "mode": 420
     },
     "scripts/build-workflow.mjs": {
-      "sha256": "0db54cdf73fe301f82d97beeb8768f2726baa34774f25243f6a6a3ba47f95798",
+      "sha256": "342b2341878e909c2430a0fe18533689f521d88e8ff54b102957ad5690d359ff",
       "mode": 420
     },
     "scripts/validate-skills": {
@@ -271,7 +282,7 @@
       "mode": 420
     },
     "skills/mac-watchdog/SKILL.md": {
-      "sha256": "ff89f3b68cbcde92351697b0e2b7d1eeb9f7a11be13d8a5144e24f9e42b241e7",
+      "sha256": "38c595ad4af030747a3fb6c698a8cbe1506d58e6a4fb5cd94f546dbac0dc4ca5",
       "mode": 420
     },
     "skills/mac-watchdog/scripts/footprint.c": {
@@ -414,6 +425,14 @@
       "sha256": "b4dd1b46bdca7cfe79a32c7ecc655b477ab0c52118fd78ff8c1600b2aa882a48",
       "mode": 420
     },
+    "skills/session-transfer/SKILL.md": {
+      "sha256": "fbc4b6e99fb1f1a637136fa1622a7713bcf1700c4622708895a526a198c60603",
+      "mode": 420
+    },
+    "skills/session-transfer/scripts/session_transfer.py": {
+      "sha256": "5e096eec0bc6c64093f0f0aae07d9f86b56877e2efdc74b03ca0bce80fd4f9b9",
+      "mode": 493
+    },
     "skills/sync-pstack/SKILL.md": {
       "sha256": "0c84a2b2e5cac161992d3d2a4feb67b6894b40d16d5068d3e1bf901fce720283",
       "mode": 420
@@ -427,7 +446,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack-models.md": {
-      "sha256": "61db71dda6db7d68ef76b9df91e761b07efd229107b456d848ea4a318a6ca684",
+      "sha256": "5ee62a37058e16041a20287d1520cfecab2709244b23590d66909c59d2ad111a",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/checkout.mjs": {
