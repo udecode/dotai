@@ -38,6 +38,8 @@ export const CLIP = {
   pairHead: { height: 66, stillHeight: 44, stillTitlePx: 16, padPx: 24, titleTop: 10, titlePx: 14, captionTop: 30, captionH: 28, captionPx: 20 },
   // A bug clip for an issue films the window the bug shows in, at 2× pixels, since a fixer watches it on a desktop (the owner, 2026-11-22).
   repro: { width: 760, height: 560, scale: 2 } as View,
+  // A bug clip's page fits its cards, up to this bound in CSS px, because its copies stayed small in a page as large as the window with its band (the owner, 2026-11-26).
+  reproStage: { width: 960, height: 720, minWidth: 480 },
   feedPt,
   phoneTextPt: 9,
   // Chat bots read these into their media rules, so a change takes a bot restart.
@@ -78,8 +80,8 @@ export const CLIP = {
 
 // How many frames a bug clip's after take takes to shrink into its copy.
 const REPLAY = { moveFrames: 24 }
-// Each copy sits in a card under a full-width band in its side's color, with a border of that color, because a small tab over a gray outline was easy to miss (the owner, 2026-11-25). Sizes in CSS px; a bug clip's cards fade in over `fadeFrames`.
-const CARD = { marginPx: 16, gapPx: 16, bandPx: 28, borderPx: 2, radiusPx: 4, labelPx: 13, fadeFrames: 12 }
+// Each copy sits in a card under a full-width band in its side's color, with a border of that color, because a small tab over a gray outline was easy to miss (the owner, 2026-11-25). Sizes in CSS px.
+const CARD = { marginPx: 16, gapPx: 16, bandPx: 28, borderPx: 2, radiusPx: 4, labelPx: 13 }
 
 /** Each rule the checks below enforce, as the clips skill lists it. */
 export const RULES: { rule: string; check: string }[] = [
@@ -103,7 +105,7 @@ export const RULES: { rule: string; check: string }[] = [
   },
   { rule: 'Render refuses an X-shape or a before-and-after clip without a title bar, so the clip a team chat gets is the one X can post and a before-and-after clip names what it shows.', check: 'checkBar' },
   {
-    rule: `A change to how something a reader already saw behaves shows as one clip made from a take before the change and a take after it, which caption the same beats. Both film \`{ shape: 'pair' }\`, a page ${CLIP.pair.width} by ${CLIP.pair.height} px at ${CLIP.pair.scale}× pixels with no crop, and play side by side from the first frame, before left of after, both playing each step at the same moment, on a page ${CLIP.pairCanvas.width} px wide and as tall as the cards with ${CARD.marginPx} px around them, rendered at ${CLIP.pairCanvas.scale}×, so the clip is ${CLIP.pairCanvas.width * CLIP.pairCanvas.scale} px wide and at most 16:9, because such a clip goes to a team chat and rarely to X. It has no footer: one ${CLIP.pairHead.height} px black head on top holds the tag and title at ${CLIP.pairHead.titlePx} px in gray, and under them each step's caption in white at ${CLIP.pairHead.captionPx} px, both left-aligned. Each copy is a card under a ${CARD.bandPx} px band that names its side, red before and green after, with a ${CARD.borderPx} px border of the same color and ${CARD.radiusPx} px corners. A bug clip's two takes film the same repro window instead, and play the reference take whole under its band, a full-width row as tall as a card's band, then the beta take whole under its own. Then the beta page cuts to its first frame and shrinks into its copy over ${REPLAY.moveFrames} frames while the reference copy slides in beside it, and both replay in cards, in rows, one above the other, or in columns, whichever shows them larger, rows on a tie, the cards fading in over ${CARD.fadeFrames} frames. The replay trims the page margin that both takes leave blank in every frame, keeps ${CLIP.comparePadPx} px of page around what is left, and zooms both copies as far as the page allows, never past their own pixels, so a pair copy zooms up to ${CLIP.pair.scale / CLIP.pairCanvas.scale}× and a bug clip's never past 1×, on the page's own color. Each take holds its result ${CLIP.compareEndS} s at most, unless the scene marks a longer \`read(ms)\`, and the replay ends holding both results for ${CLIP.compareHoldS} s. Render refuses two takes that end every step the same, and the whole clip keeps the length and size limits.`,
+    rule: `A change to how something a reader already saw behaves shows as one clip made from a take before the change and a take after it, which caption the same beats. Both film \`{ shape: 'pair' }\`, a page ${CLIP.pair.width} by ${CLIP.pair.height} px at ${CLIP.pair.scale}× pixels with no crop, and play side by side from the first frame, before left of after, both playing each step at the same moment, on a page ${CLIP.pairCanvas.width} px wide and as tall as the cards with ${CARD.marginPx} px around them, rendered at ${CLIP.pairCanvas.scale}×, so the clip is ${CLIP.pairCanvas.width * CLIP.pairCanvas.scale} px wide and at most 16:9, because such a clip goes to a team chat and rarely to X. It has no footer: one ${CLIP.pairHead.height} px black head on top holds the tag and title at ${CLIP.pairHead.titlePx} px in gray, and under them each step's caption in white at ${CLIP.pairHead.captionPx} px, both left-aligned. Each copy is a card under a ${CARD.bandPx} px band that names its side, red before and green after, with a ${CARD.borderPx} px border of the same color and ${CARD.radiusPx} px corners. A bug clip's two takes film the same repro window instead, and play the reference take whole in its card, then the beta take whole in its own, each as large as ${CLIP.reproStage.width} by ${CLIP.reproStage.height} px allows. Then the beta card cuts to its first frame and moves and shrinks into its place over ${REPLAY.moveFrames} frames while the reference card slides in beside it, and both replay in cards, in columns or in rows, one above the other, whichever shows them larger, columns on a tie, on a page just large enough for the whole take or the two cards, at least ${CLIP.reproStage.minWidth} px wide. The replay trims the page margin that both takes leave blank in every frame, keeps ${CLIP.comparePadPx} px of page around what is left, and zooms both copies as far as the page allows, never past their own pixels, so a pair copy zooms up to ${CLIP.pair.scale / CLIP.pairCanvas.scale}× and a bug clip's never past 1×, on the page's own color. Each take holds its result ${CLIP.compareEndS} s at most, unless the scene marks a longer \`read(ms)\`, and the replay ends holding both results for ${CLIP.compareHoldS} s. Render refuses two takes that end every step the same, and the whole clip keeps the length and size limits.`,
     check: 'checkPair, renderCompare, alignBeats, pageColor, contentBox, cardLayout, pairLayout, renderMove, renderReplay, squeezePlan',
   },
   {
@@ -762,8 +764,8 @@ const fitTitle = (page: Page, max = CLIP.titlePx.max) =>
     return size
   }, max)
 
-/** An image laid over a rendered clip from frame `from` until frame `to`, at `x` and `y` video px from the page's top left corner, written as ffmpeg overlay expressions, so they may use the image's `w` and `h` and the clip's time `t`. It fades in over its first `fadeFrames`. */
-export type Mark = { file: string; x: string; y: string; from: number; to: number; fadeFrames?: number }
+/** An image laid over a rendered clip from frame `from` until frame `to`, at `x` and `y` video px from the page's top left corner, written as ffmpeg overlay expressions, so they may use the image's `w` and `h` and the clip's time `t`. */
+export type Mark = { file: string; x: string; y: string; from: number; to: number }
 
 /** Stacks an optional title bar above the clip and a caption bar below it, or with `head` one black head above it that holds both, lays each mark over the result, and encodes at 60 fps. Bars draw at the clip's `scale`, so they keep their size beside the page. Returns the title's size after it shrank to fit. */
 export async function renderClip(
@@ -828,9 +830,8 @@ export async function renderClip(
     const at = (frame: number) => ((frame - 0.5) / CLIP.fps).toFixed(4)
     marks.forEach((m, j) => {
       inputs.push(...loop(m.file))
-      const fade = m.fadeFrames ? `,fade=t=in:st=${(m.from / CLIP.fps).toFixed(4)}:d=${(m.fadeFrames / CLIP.fps).toFixed(4)}:alpha=1` : ''
       const [from, to] = [`v${windows.length + j}`, `v${windows.length + j + 1}`]
-      graph += `;[${layers.length + windows.length + j}:v]format=rgba${fade}[m${j}];[${from}][m${j}]overlay=x='${m.x}':y='${top}+(${m.y})':eval=frame:enable='between(t,${at(m.from)},${at(m.to)})'[${to}]`
+      graph += `;[${layers.length + windows.length + j}:v]format=rgba[m${j}];[${from}][m${j}]overlay=x='${m.x}':y='${top}+(${m.y})':eval=frame:enable='between(t,${at(m.from)},${at(m.to)})'[${to}]`
     })
     const last = `v${windows.length + marks.length}`
     // An odd height pads one row under the footer, so it takes the footer's color.
@@ -969,21 +970,27 @@ function spanGraph(input: string, spans: Span[], out: string): string {
   return [head, ...body, `${ids.map(id => `[${id}]`).join('')}concat=n=${parts.length}:v=1:a=0[${out}]`].join(';')
 }
 
-/** Where two cards put their copies of a page's `trim` area on a `width`×`height` page, in CSS px: each copy zoomed as far as the page allows, up to `maxK`, under its band and inside its border, centered. Columns put before left of after, rows put before above after; with `rows` the layout picks whichever shows the copies larger, columns only when they are strictly larger. Returns its zoom, each copy's size, and each copy's left edge and top, without their cards. */
+/** Where two cards of `panel` size sit centered on a `width`×`height` page, in CSS px: side by side, before left of after, when `across`, otherwise before above after. Returns each copy's left edge and top, inside its border and under its band. */
+function placeCards(panel: { w: number; h: number }, across: boolean, width: number, height: number) {
+  const { gapPx: g, bandPx: b, borderPx: e } = CARD
+  if (across) {
+    const [left, top] = [(width - 2 * panel.w - g - 4 * e) / 2 + e, (height - panel.h - b - e) / 2 + b]
+    return { x: [left, left + panel.w + 2 * e + g] as [number, number], y: [top, top] as [number, number] }
+  }
+  const [left, top] = [(width - panel.w) / 2, (height - 2 * (panel.h + b + e) - g) / 2 + b]
+  return { x: [left, left] as [number, number], y: [top, top + panel.h + e + g + b] as [number, number] }
+}
+
+/** Where two cards put their copies of a page's `trim` area on a `width`×`height` page, in CSS px: each copy zoomed as far as the page allows, up to `maxK`, under its band and inside its border, centered. Columns put before left of after, rows put before above after; with `rows` the layout picks whichever shows the copies larger, columns on a tie. Returns its zoom, each copy's size, and each copy's left edge and top, without their cards. */
 export function cardLayout(trim: Box, width: number, height: number, maxK: number, rows: boolean) {
   const { marginPx: m, gapPx: g, bandPx: b, borderPx: e } = CARD
   const columns = Math.min(maxK, (width - 2 * m - g - 4 * e) / 2 / trim.w, (height - 2 * m - b - e) / trim.h)
   // A tall crop in rows left each copy under half the frame, so a menu or a list showed as a thumbnail (the owner, 2026-11-23).
   const stacked = rows ? Math.min(maxK, (width - 2 * m - 2 * e) / trim.w, (height - 2 * m - g - 2 * (b + e)) / 2 / trim.h) : 0
-  const across = columns > stacked
+  const across = columns >= stacked
   const k = across ? columns : stacked
   const panel = { w: trim.w * k, h: trim.h * k }
-  if (across) {
-    const [left, top] = [(width - 2 * panel.w - g - 4 * e) / 2 + e, (height - panel.h - b - e) / 2 + b]
-    return { k, panel, across, x: [left, left + panel.w + 2 * e + g] as [number, number], y: [top, top] as [number, number] }
-  }
-  const [left, top] = [(width - panel.w) / 2, (height - 2 * (panel.h + b + e) - g) / 2 + b]
-  return { k, panel, across, x: [left, left] as [number, number], y: [top, top + panel.h + e + g + b] as [number, number] }
+  return { k, panel, across, ...placeCards(panel, across, width, height) }
 }
 
 /** Where a pair clip puts its two cards on the pair canvas, side by side, and how tall the canvas is: as tall as the cards with their margin, up to 16:9 with the head. */
@@ -994,29 +1001,42 @@ export function pairLayout(trim: Box, maxK: number) {
   return { ...at, y: [m + b, m + b] as [number, number], height: m + b + at.panel.h + e + m }
 }
 
-/** Renders each side's card for a copy `w`×`h` video px at `scale` video px per CSS px into `dir`, labeled `labels` in their colors: the band, the border and the corners, clear where the copy shows, and a band alone `bandW` video px wide for a take that plays whole. Returns each card's file with how far its corner sits up and left of the copy's, and each band's file. */
-async function cards(dir: string, scale: number, [w, h]: [number, number], { labels, colors, bandW }: { labels: [string, string]; colors: Record<Side, string>; bandW?: number }) {
+/** Where a bug clip puts its cards, in CSS px: each take whole in one card as large as `CLIP.reproStage` allows but never past its own pixels, then both in cards as large as that allows, in rows or columns, on a page just large enough for either, centered. */
+export function reproLayout(trim: Box) {
+  const { marginPx: m, gapPx: g, bandPx: b, borderPx: e } = CARD
+  const bound = CLIP.reproStage
+  const pair = cardLayout(trim, bound.width, bound.height, 1, true)
+  const kSolo = Math.min(1, (bound.width - 2 * m - 2 * e) / trim.w, (bound.height - 2 * m - b - e) / trim.h)
+  const one = { w: trim.w * kSolo, h: trim.h * kSolo }
+  const { w, h } = pair.panel
+  const width = Math.max(bound.minWidth, one.w + 2 * e + 2 * m, pair.across ? 2 * (w + 2 * e) + g + 2 * m : w + 2 * e + 2 * m)
+  const height = Math.max(b + one.h + e + 2 * m, pair.across ? b + h + e + 2 * m : 2 * (b + h + e) + g + 2 * m)
+  return {
+    ...pair,
+    ...placeCards(pair.panel, pair.across, width, height),
+    solo: { ...one, x: (width - one.w) / 2, y: (height - one.h - b - e) / 2 + b },
+    width,
+    height,
+  }
+}
+
+type Card = { file: string; dx: number; dy: number }
+
+/** Renders each side's card for a copy `w`×`h` video px at `scale` video px per CSS px into `dir`, named `name`, labeled `labels` in `colors`: the band, the border and the corners, clear where the copy shows. Returns each card's file with how far its corner sits up and left of the copy's. */
+async function cards(dir: string, name: string, scale: number, [w, h]: [number, number], { labels, colors }: CardStyle): Promise<Record<Side, Card>> {
   const [e, b, r, label, pad] = [CARD.borderPx, CARD.bandPx, CARD.radiusPx, CARD.labelPx, 10].map(v => Math.round(v * scale))
-  const band = (side: Side) =>
-    `<div style="height:${b}px;display:flex;align-items:center;padding:0 ${pad}px;font:700 ${label}px/1 Inter;letter-spacing:0.08em;text-transform:uppercase;background:${colors[side]};color:#fff">${esc(labels[SIDES.indexOf(side)])}</div>`
   const browser = await chromium.launch()
   try {
     const page = await browser.newPage()
-    const out = {} as Record<Side, { file: string; dx: number; dy: number; band: string }>
+    const out = {} as Record<Side, Card>
     for (const side of SIDES) {
-      const file = join(dir, `${side}-card.png`)
+      const file = join(dir, `${name}-${side}.png`)
       await page.setContent(
-        `${fontStyle()}<div id="c" style="width:${w + 2 * e}px;height:${b + h + e}px;box-sizing:border-box;border:${e}px solid ${colors[side]};border-top:0;border-radius:${r}px;overflow:hidden">${band(side)}</div>`,
+        `${fontStyle()}<div id="c" style="width:${w + 2 * e}px;height:${b + h + e}px;box-sizing:border-box;border:${e}px solid ${colors[side]};border-top:0;border-radius:${r}px;overflow:hidden"><div style="height:${b}px;display:flex;align-items:center;padding:0 ${pad}px;font:700 ${label}px/1 Inter;letter-spacing:0.08em;text-transform:uppercase;background:${colors[side]};color:#fff">${esc(labels[SIDES.indexOf(side)])}</div></div>`,
       )
       await page.evaluate(() => document.fonts.ready)
       await page.locator('#c').screenshot({ path: file, omitBackground: true })
-      const bandFile = join(dir, `${side}-band.png`)
-      if (bandW) {
-        await page.setContent(`${fontStyle()}<div id="c" style="width:${bandW}px">${band(side)}</div>`)
-        await page.evaluate(() => document.fonts.ready)
-        await page.locator('#c').screenshot({ path: bandFile })
-      }
-      out[side] = { file, dx: e, dy: b, band: bandFile }
+      out[side] = { file, dx: e, dy: b }
     }
     return out
   } finally {
@@ -1024,78 +1044,90 @@ async function cards(dir: string, scale: number, [w, h]: [number, number], { lab
   }
 }
 
+/** The names and colors of a clip's two cards. */
+type CardStyle = { labels: [string, string]; colors: Record<Side, string> }
+
 const ease = (p: number) => p * p * (3 - 2 * p)
 const lerp = (a: number, b: number, p: number) => a + (b - a) * p
 const even = (v: number) => 2 * Math.round(v / 2)
 
+/** A copy's place in video px: its left edge, top and size. */
+type Rect = { x: number; y: number; w: number; h: number }
+
 /** Where the replay puts each copy, in video px: the crop of the take it shows, each copy's size, and each copy's left edge and top. */
 export type ReplayPx = { crop: Box; w: number; h: number; x: [number, number]; y: [number, number] }
 
-/** Writes the frames in which the after take's first frame, `take` video px and `top` px from the top of a `stage`-sized page, shrinks into its copy while the before copy slides in from above or from the left into its own, so the reader sees that the replay shows the same page beside its pair. The two never overlap, because the before copy keeps its place beside the after one. Returns the frames' file pattern. */
-function renderMove(firsts: [before: string, after: string], at: ReplayPx, take: [number, number], stage: [number, number], top: number, background: string, dir: string): string {
+/** Writes the frames in which the after take's card moves from where it played whole, at `solo`, into its place beside the before take's card, sizing its copy on the way, while the before card slides in beside it, so the reader sees that the replay shows the same page beside its pair. The two never overlap, because the before card keeps its place beside the after one. Returns the frames' file pattern. */
+function renderMove(firsts: [before: string, after: string], at: ReplayPx, solo: Rect, card: { before: Card; after: Card }, stage: [number, number], background: string, dir: string): string {
   const { crop } = at
   for (let i = 0; i < REPLAY.moveFrames; i++) {
     const p = ease((i + 1) / REPLAY.moveFrames)
-    const zoom = lerp(1, at.w / crop.w, p)
-    const [cw, ch, cx, cy] = [even(lerp(take[0], crop.w, p)), even(lerp(take[1], crop.h, p)), even(lerp(0, crop.x, p)), even(lerp(0, crop.y, p))]
-    const [dx, dy] = [even(lerp(0, at.x[1], p)), even(lerp(top, at.y[1], p))]
+    const [w, h, x, y] = [even(lerp(solo.w, at.w, p)), even(lerp(solo.h, at.h, p)), even(lerp(solo.x, at.x[1], p)), even(lerp(solo.y, at.y[1], p))]
+    const [bx, by] = [at.x[0] + x - at.x[1], at.y[0] + y - at.y[1]]
+    // The after card's image is drawn for its whole-take size, so it stretches with its copy.
+    const [aw, ah] = [w + 2 * card.after.dx, h + card.after.dy + card.after.dx]
     const graph = [
       `color=c=${background}:s=${stage[0]}x${stage[1]}[pg]`,
       `[0:v]crop=${crop.w}:${crop.h}:${crop.x}:${crop.y},scale=${at.w}:${at.h}:flags=lanczos[bef]`,
-      `[pg][bef]overlay=x=${at.x[0] - (at.x[1] - dx)}:y=${at.y[0] - (at.y[1] - dy)}[up]`,
-      `[1:v]crop=${cw}:${ch}:${cx}:${cy},scale=${even(cw * zoom)}:${even(ch * zoom)}:flags=lanczos[aft]`,
-      `[up][aft]overlay=x=${dx}:y=${dy}`,
+      `[pg][bef]overlay=x=${bx}:y=${by}[s1]`,
+      `[s1][2:v]overlay=x=${bx - card.before.dx}:y=${by - card.before.dy}[s2]`,
+      `[1:v]crop=${crop.w}:${crop.h}:${crop.x}:${crop.y},scale=${w}:${h}:flags=lanczos[aft]`,
+      `[s2][aft]overlay=x=${x}:y=${y}[s3]`,
+      `[3:v]scale=${aw}:${ah}:flags=lanczos[ac]`,
+      `[s3][ac]overlay=x=${x - card.after.dx}:y=${y - card.after.dy}`,
     ].join(';')
     const png = join(dir, `move-${String(i).padStart(3, '0')}.png`)
-    const r = Bun.spawnSync(['ffmpeg', '-v', 'error', '-y', '-i', firsts[0], '-i', firsts[1], '-filter_complex', graph, '-frames:v', '1', png], { stderr: 'pipe' })
+    const r = Bun.spawnSync(['ffmpeg', '-v', 'error', '-y', '-i', firsts[0], '-i', firsts[1], '-i', card.before.file, '-i', card.after.file, '-filter_complex', graph, '-frames:v', '1', png], { stderr: 'pipe' })
     if (r.exitCode) throw new Error(`ffmpeg exited ${r.exitCode}: ${r.stderr.toString().trim().slice(0, 300)}`)
   }
   return join(dir, 'move-%03d.png')
 }
 
-/** Plays both copies as `plan` lines them up, each cropped to `trim` and placed as `cardLayout` says, on the page's own `background`, into one page clip. On the pair `canvas` they play from the first frame. Otherwise the before take plays whole, then the after take, each under a band row as tall as a card's band, then the after take shrinks into its copy. Returns where the copies sit, in video px, and the page's height in video px. */
+/** Plays both copies as `plan` lines them up, each cropped to `trim`, on the page's own `background`, into one page clip, and renders their cards into `dir`. On the pair `canvas` they play side by side from the first frame. Otherwise each take plays whole in its own card, before then after, and the after card moves into its place beside the before card. Returns where the copies sit and each card, in video px. */
 async function renderReplay(
   clips: [string, string],
   plan: Span[][],
   trim: Box,
-  { width, height, scale, background, frames, canvas }: { width: number; height: number; scale: number; background: string; frames: number; canvas?: { width: number; scale: number } },
+  { width, height, scale, background, frames, canvas, style, dir }: { width: number; height: number; scale: number; background: string; frames: number; canvas?: { width: number; scale: number }; style: CardStyle; dir: string },
   out: string,
-): Promise<ReplayPx & { k: number; across: boolean; stageH: number }> {
+): Promise<ReplayPx & { k: number; across: boolean; card: Record<Side, Card>; solo?: { rect: Rect; card: Record<Side, Card> } }> {
   // The take's pixels and the stage's pixels differ on a pair canvas, so a copy can zoom past its CSS size without upscaling.
   const outScale = canvas?.scale ?? scale
   const src = (v: number) => 2 * Math.round((v * scale) / 2)
   const px = (v: number) => 2 * Math.round((v * outScale) / 2)
-  const pairAt = canvas && pairLayout(trim, scale / outScale)
-  const stage = pairAt ? { width: CLIP.pairCanvas.width, height: pairAt.height } : { width, height: height + CARD.bandPx }
-  const layout = pairAt || cardLayout(trim, stage.width, stage.height, 1, true)
+  const layout = canvas ? pairLayout(trim, scale / outScale) : reproLayout(trim)
+  const stage = canvas ? { width: CLIP.pairCanvas.width, height: (layout as ReturnType<typeof pairLayout>).height } : (layout as ReturnType<typeof reproLayout>)
   const crop = { w: src(trim.w), h: src(trim.h), x: 0, y: 0 }
   ;[crop.x, crop.y] = [Math.min(src(trim.x), src(width) - crop.w), Math.min(src(trim.y), src(height) - crop.h)]
   const at: ReplayPx = { crop, w: px(layout.panel.w), h: px(layout.panel.h), x: [px(layout.x[0]), px(layout.x[1])], y: [px(layout.y[0]), px(layout.y[1])] }
-  const result = { ...at, k: layout.k, across: layout.across, stageH: px(stage.height) }
+  const card = await cards(dir, 'card', outScale, [at.w, at.h], style)
   const renumber = `setpts=N/(${CLIP.fps}*TB)`
+  const [W, H] = [px(stage.width), px(stage.height)]
   const replay = [
     ...clips.map((_, i) => `${spanGraph(`r${i}`, plan[i], `s${i}`)};[s${i}]crop=${crop.w}:${crop.h}:${crop.x}:${crop.y},scale=${at.w}:${at.h}:flags=lanczos,setsar=1[p${i}]`),
     // A rounded duration can give the background one frame more than the replay holds, so it stops at a frame count.
-    `color=c=${background}:s=${px(stage.width)}x${px(stage.height)}:r=${CLIP.fps},trim=end_frame=${frames}[bg]`,
+    `color=c=${background}:s=${W}x${H}:r=${CLIP.fps},trim=end_frame=${frames}[bg]`,
     `[bg][p0]overlay=x=${at.x[0]}:y=${at.y[0]}:shortest=1[b1]`,
     `[b1][p1]overlay=x=${at.x[1]}:y=${at.y[1]}:shortest=1,setsar=1,format=yuv420p,${renumber}[rep]`,
   ]
+  const result = { ...at, k: layout.k, across: layout.across, card }
   if (canvas) {
     const graph = ['[0:v]null[r0]', '[1:v]null[r1]', ...replay].join(';')
     await run(['ffmpeg', '-v', 'error', '-y', '-i', clips[0], '-i', clips[1], '-filter_complex', graph, '-map', '[rep]', '-c:v', 'libx264', '-crf', '16', '-r', String(CLIP.fps), out])
     return result
   }
-  const dir = mkdtempSync(join(tmpdir(), 'clip-replay-'))
+  const { solo: one } = layout as ReturnType<typeof reproLayout>
+  const rect: Rect = { x: px(one.x), y: px(one.y), w: px(one.w), h: px(one.h) }
+  const soloCard = await cards(dir, 'solo', outScale, [rect.w, rect.h], style)
+  const frameDir = mkdtempSync(join(tmpdir(), 'clip-replay-'))
   try {
     const firsts = clips.map((clip, i) => {
-      const png = join(dir, `first-${i}.png`)
+      const png = join(frameDir, `first-${i}.png`)
       Bun.spawnSync(['ffmpeg', '-v', 'error', '-y', '-i', clip, '-frames:v', '1', png])
       return png
     }) as [string, string]
-    const band = px(CARD.bandPx)
-    const move = renderMove(firsts, at, [px(width), px(height)], [px(stage.width), px(stage.height)], band, background, dir)
-    // A take that plays whole sits under a row as tall as a card's band, where its band shows.
-    const whole = `pad=iw:ih+${band}:0:${band}:color=${background}`
+    const move = renderMove(firsts, at, rect, { before: card.Before, after: soloCard.After }, [W, H], background, frameDir)
+    const whole = `crop=${crop.w}:${crop.h}:${crop.x}:${crop.y},scale=${rect.w}:${rect.h}:flags=lanczos,pad=${W}:${H}:${rect.x}:${rect.y}:color=${background}`
     const graph = [
       '[0:v]split=2[f0][r0]',
       '[1:v]split=2[f1][r1]',
@@ -1108,9 +1140,9 @@ async function renderReplay(
     ].join(';')
     const inputs = ['-i', clips[0], '-i', clips[1], '-framerate', String(CLIP.fps), '-i', move]
     await run(['ffmpeg', '-v', 'error', '-y', ...inputs, '-filter_complex', graph, '-map', '[v]', '-c:v', 'libx264', '-crf', '16', '-r', String(CLIP.fps), out])
-    return result
+    return { ...result, solo: { rect, card: soloCard } }
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmSync(frameDir, { recursive: true, force: true })
   }
 }
 
@@ -1316,31 +1348,24 @@ export async function renderCompare(before: string, after: string, out: string, 
     const canvas = take.repro ? undefined : CLIP.pairCanvas
     const outScale = canvas?.scale ?? scale
     const background = `0x${color.toString(16).padStart(6, '0')}`
-    const at = await renderReplay(clips, aligned.plan, trim, { width, height, scale, background, frames: aligned.frames, canvas }, page)
+    const style: CardStyle = canvas ? { labels: [...SIDES], colors: SIDE_COLOR } : { labels: opts.names ?? ['reference', 'beta'], colors: REFERENCE_COLOR }
+    const at = await renderReplay(clips, aligned.plan, trim, { width, height, scale, background, frames: aligned.frames, canvas, style, dir }, page)
     const solo = canvas ? 0 : frames[0] + frames[1] + REPLAY.moveFrames
     const [moved, end] = [solo, solo + aligned.frames]
     const rendered = await frameCount(page)
     if (rendered !== end) throw new Error(`the page clip has ${rendered} frames, not the ${end} its cards and captions expect`)
     const text = take.textPx && !take.repro ? `, page text at ${phonePt(take.textPx * at.k, (canvas ?? { width }).width)} pt on a phone` : ''
     review.fixes.push(`${canvas ? 'played both' : 'played the before take, the after take, then both'} in ${at.across ? 'columns' : 'rows'} at ${tenth(at.k)}× size${text}`)
-    const card = await cards(
-      dir,
-      outScale,
-      [at.w, at.h],
-      canvas ? { labels: [...SIDES], colors: SIDE_COLOR } : { labels: opts.names ?? ['reference', 'beta'], colors: REFERENCE_COLOR, bandW: 2 * Math.round((width * outScale) / 2) },
-    )
-    // A bug clip's cards fade in around the copies once the after page has shrunk into its own.
-    const copies = SIDES.map((side, i): Mark => ({ file: card[side].file, x: String(at.x[i] - card[side].dx), y: String(at.y[i] - card[side].dy), from: moved, to: end, fadeFrames: canvas ? undefined : CARD.fadeFrames }))
+    const place = (c: Card, x: number, y: number, from: number, to: number): Mark => ({ file: c.file, x: String(x - c.dx), y: String(y - c.dy), from, to })
+    const copies = SIDES.map((side, i) => place(at.card[side], at.x[i], at.y[i], moved, end))
     if (canvas) {
       captions = aligned.starts.map((f, i) => ({ t: (i ? f : 0) / CLIP.fps, text: texts[i] }))
       titlePx = (await renderClip(page, out, { bar: opts.bar, captions, scale: outScale, marks: copies, head: true })).titlePx
       return await finishCompare(review, out, take, titlePx, captions, after, pages[1].clip)
     }
-    const marks: Mark[] = [
-      { file: card.Before.band, x: '0', y: '0', from: 0, to: frames[0] },
-      { file: card.After.band, x: '0', y: '0', from: frames[0], to: frames[0] + frames[1] },
-      ...copies,
-    ]
+    const { rect, card } = at.solo!
+    // The move's frames draw the cards themselves, so the marks skip them.
+    const marks: Mark[] = [place(card.Before, rect.x, rect.y, 0, frames[0]), place(card.After, rect.x, rect.y, frames[0], frames[0] + frames[1]), ...copies]
     // Each part's first caption starts on the part's first frame, so a take's last caption never plays over the next part.
     const part = (b: number[], at: number, first: number) => b.map((f, i) => (i ? f + at : first))
     const starts = [...part(beats[0], 0, 0), ...part(beats[1], frames[0], frames[0]), ...part(aligned.starts, moved, frames[0] + frames[1])]
