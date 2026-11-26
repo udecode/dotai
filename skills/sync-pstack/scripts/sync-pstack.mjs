@@ -37,6 +37,7 @@ const HELPER_DIR = '.agents/pstack';
 // hold and is removed once one stops holding.
 // Key order is the order of each project's recorded `synced.files`.
 const HELPER_FILES = {
+  'antigravity-hook.mjs': [],
   'codex-browser.mjs': [],
   'codex-build.md': ['delivery!=trunk'],
   'codex-isolation.mjs': [],
@@ -73,12 +74,13 @@ const RULES = join(HELPERS, 'rules');
 // Claude Code reads a project sheet at the repository root in place of each person's, so every teammate runs the same models.
 export const PROJECT_SHEET = '.claude/pstack-models.md';
 export const RULE_FILES = {
+  'autopilot.md': { blockRule: 'Autopilot', gates: [] },
   'browser.md': { blockRule: 'Browser drives', gates: ['browser'] },
   'chips.md': { blockRule: 'Suggested tasks', gates: ['plans'] },
   'close.md': { blockRule: 'Todo list and close', gates: ['delivery!=trunk'] },
   'fast.md': { blockRule: 'Fast', gates: ['fast'] },
   'codex.md': { blockRule: 'Codex workers', gates: ['delivery!=trunk'] },
-  'colead.md': { blockRule: 'Neon co-lead', gates: ['delivery=trunk'] },
+  'git.md': { blockRule: 'Git', gates: [] },
   'land.md': { blockRule: 'Delivery', gates: ['delivery=trunk'] },
   'linked.md': { blockRule: 'Calls', gates: [] },
   'long-runs.md': { blockRule: 'Long runs', gates: ['long-runs'] },
@@ -90,7 +92,7 @@ export const RULE_FILES = {
   'tests.md': { blockRule: 'Tests', gates: ['tests'] },
   'time.md': { blockRule: 'Time budget', gates: [] },
   'title.md': { blockRule: 'Session title', gates: [] },
-  'trails.md': { blockRule: 'Plans and trails', gates: ['plans', 'delivery!=trunk'] },
+  'trails.md': { blockRule: 'Plans and trails', gates: ['plans'] },
   'writing.md': { blockRule: 'Writing', gates: [] },
 };
 const isCondition = (gate) => gate.includes('=');
@@ -906,7 +908,10 @@ function userPins() {
       else if (inTable) codex = line.match(/^ref\s*=\s*"([^"]+)"/u)?.[1] ?? codex;
     }
   }
-  return { claude, codex };
+  const agyManifest = join(homedir(), '.gemini/config/plugins/pstack/.antigravity-plugin/plugin.json');
+  const agyVersion = existsSync(agyManifest) ? (readJson(agyManifest).version ?? null) : null;
+  const antigravity = agyVersion ? (agyVersion.startsWith('v') ? agyVersion : `v${agyVersion}`) : null;
+  return { claude, codex, antigravity };
 }
 
 const CODEX_DEFAULT_DOC_BYTES = 32768;
@@ -1366,6 +1371,14 @@ export function verify(root) {
   if (codex && agentsBytes > codex.limit) {
     problems.push(`AGENTS.md is ${agentsBytes} bytes, but Codex loads only the first ${codex.limit}; set project_doc_max_bytes = ${Math.max(131072, 2 ** Math.ceil(Math.log2(agentsBytes)))} at the top of ${codex.path}`);
   }
+  if (existsSync(join(homedir(), '.gemini')) && agentsBytes > 24_000) {
+    const agyRules = existsSync(join(root, '.agents/rules'))
+      ? readdirSync(join(root, '.agents/rules')).filter((name) => name.endsWith('.md'))
+      : [];
+    if (agyRules.length === 0) {
+      notes.push(`AGENTS.md is ${agentsBytes} bytes, and Antigravity truncates single rule files past 24000 bytes; add a concise .agents/rules/*.md continuation rule`);
+    }
+  }
 
   const plugin = pluginSkills();
   const lock = existsSync(join(root, 'skills-lock.json')) ? (readJson(join(root, 'skills-lock.json')).skills ?? {}) : {};
@@ -1640,6 +1653,7 @@ function userPin(tag, { write }) {
     'Then, from the home directory:',
     ...(declared ? [`  claude plugin marketplace add ${REPO}#${tag} && claude plugin update ${PLUGIN}`] : []),
     `  codex plugin marketplace remove ${MARKETPLACE} && codex plugin marketplace add ${REPO} --ref ${tag} && codex plugin add ${PLUGIN}`,
+    ...(existsSync(join(homedir(), '.gemini')) ? [`  npx -y open-pstack --only antigravity   # update Antigravity plugin to ${tag}`] : []),
     ...(stale.length > 0
       ? ['A project-scope install keeps its version, so update each older one from its project:', ...stale.map((entry) => `  cd ${entry.projectPath} && claude plugin update ${PLUGIN} --scope project`)]
       : []),
@@ -1783,7 +1797,7 @@ function main(argv) {
       console.info(`latest ${REPO} tag: ${latest ?? 'not checked'}`);
       if (ahead?.startsWith('unknown')) console.info(`upstream VERSION: ${ahead}`);
       else if (ahead) console.info(`upstream VERSION ${ahead} is ahead of the newest tag ${latest}; pin only a pushed tag`);
-      console.info(`user pins: Claude Code ${result.userPins.claude ?? 'none'}, Codex ${result.userPins.codex ?? 'none'}`);
+      console.info(`user pins: Claude Code ${result.userPins.claude ?? 'none'}, Codex ${result.userPins.codex ?? 'none'}, Antigravity ${result.userPins.antigravity ?? 'none'}`);
       for (const state of list) {
         const facts = state.managed
           ? `managed tag=${state.tag} delivery=${state.delivery} skip=[${state.skip.join(',')}] source=${state.source ?? 'unknown'} drift=${state.drift?.length ? state.drift.join('; ') : 'none'}`
@@ -1838,8 +1852,9 @@ function main(argv) {
       }
       for (const line of heldLines(held)) console.info(line);
       const pins = userPins();
-      if (pins.claude !== tag || pins.codex !== tag) {
-        console.info(`user pins still at Claude Code ${pins.claude ?? 'none'}, Codex ${pins.codex ?? 'none'}; run user-pin --tag ${tag}`);
+      const agyMismatch = existsSync(join(homedir(), '.gemini/config/plugins/pstack')) && pins.antigravity !== tag;
+      if (pins.claude !== tag || pins.codex !== tag || agyMismatch) {
+        console.info(`user pins still at Claude Code ${pins.claude ?? 'none'}, Codex ${pins.codex ?? 'none'}, Antigravity ${pins.antigravity ?? 'none'}; run user-pin --tag ${tag}`);
       }
       return failed > 0 ? 1 : 0;
     }
