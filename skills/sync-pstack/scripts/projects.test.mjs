@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
@@ -10,7 +10,6 @@ import { pstackRepo, sandbox } from './test-cli.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SCRIPT = join(HERE, 'sync-pstack.mjs');
-const AUDIT = join(HERE, 'audit.mjs');
 
 test('smoke runs Claude by default, supports both runtimes without CLAUDECODE, and fails on empty answer', () => {
   const { dir, home } = sandbox();
@@ -214,85 +213,6 @@ test('discover counts only user-typed invocations across Claude and Codex and fl
   const data = JSON.parse(result.stdout);
   assert.deepEqual(data.typed.counts, { patch: { all: 1, week: 1 }, task: { all: 4, week: 1 }, 'ui-audit': { all: 3, week: 3 } });
   assert.deepEqual(data.recent, ['fresh']);
-});
-
-test('audit detects user skills, installed copy dotai=null, overlaps, routes, and symlink boundaries', () => {
-  const { dir, home: link, run, cli } = sandbox();
-  const home = realpathSync(link);
-  for (const [skills, name] of [['.agents/skills', 'security-triage'], ['.agents/skills', 'orchestrator'], ['.codex/skills', 'game-guides']]) {
-    mkdirSync(join(home, skills, name), { recursive: true });
-    writeFileSync(join(home, skills, name, 'SKILL.md'), `---\nname: ${name}\ndescription: x\n---\n`);
-  }
-  const elsewhere = join(home, '.claude/projects', join(dir, 'other').replace(/[^a-zA-Z0-9]/g, '-'));
-  mkdirSync(elsewhere, { recursive: true });
-  const now = new Date().toISOString();
-  writeFileSync(
-    join(elsewhere, 'session.jsonl'),
-    [
-      `run [$security-triage](${home}/.agents/skills/security-triage/SKILL.md)`,
-      `use [$orchestrator](${dir}/other/.agents/skills/orchestrator/SKILL.md)`,
-      `again [$security-triage](<${home}/.agents/skills/security-triage/my notes/../SKILL.md>)`,
-      'play $game-guides',
-    ].map((text) => JSON.stringify({ type: 'user', timestamp: now, message: { role: 'user', content: text } })).join('\n'),
-  );
-
-  const block = 'Every test must fail for a named, plausible defect and pass only once it is fixed.';
-  const pstack = 'Verify against the real artifact, never a proxy that only compiles or type checks.';
-  const pstackSkill = join(home, '.claude/plugins/cache/pstack-claude/pstack/9.9.9/skills/prove');
-  mkdirSync(pstackSkill, { recursive: true });
-  writeFileSync(join(pstackSkill, 'SKILL.md'), `# Prove\n\n${pstack}\n`);
-  const sentence = (n, what) => `Rule ${n} keeps ${what} ${n} database free across every suite and runner today.`;
-  const duplicates = Array.from({ length: 40 }, (_, n) => `${sentence(n, 'fixture')} ${sentence(n, 'mock')}`).join('\n\n');
-  const root = project(dir, 'app', {
-    agents: '# App\n\nRead CODING_STANDARDS.md and docs/guide.md. Vendor skills (rate-limiter-flexible) are references.\n',
-    files: {
-      '.agents/pstack.json': '{ "tag": "v9.9.9" }\n',
-      'CODING_STANDARDS.md': 'Use `$cross-review` for a hand-off.\n',
-      'docs/guide.md': 'See [the lanes](../only-rule-rel/lanes.md).\n',
-      '.agents/rules/a.mdc': `# A\n\n${duplicates}\n`,
-      '.agents/rules/b.mdc': `# B\n\n${duplicates}\n\n${block.replace('defect and', 'defect\nand')}\n\n${pstack}\n`,
-      '.agents/rules/shipping.mdc': '---\ndescription: ship\n---\nHand off with [review](../only-rule-rel/SKILL.md). The react docs and @trpc/react-query.\n',
-      ...Object.fromEntries(['cross-review', 'only-rule-rel', 'rate-limiter-flexible', 'react'].map((name) => [`.agents/skills/${name}/SKILL.md`, `---\nname: ${name}\n---\n`])),
-    },
-  });
-
-  const textRes = run(process.execPath, [AUDIT, root], root);
-  assert.equal(textRes.status, 0, textRes.stderr);
-  assert.match(textRes.stdout, /\.agents\/rules\/b\.mdc:\d+ ~ rules\/tests\.md:\d+: Every test must fail/);
-  assert.match(textRes.stdout, /\.agents\/rules\/b\.mdc:\d+ ~ pstack\/prove\/SKILL\.md:\d+: Verify against the real artifact/);
-  assert.match(textRes.stdout, /repeated elsewhere in the project \(score >= 0\.5\): 80,/);
-
-  const jsonRes = spawnSync(process.execPath, [AUDIT, root, '--json'], { cwd: home, encoding: 'utf8', env: { ...process.env, HOME: home } });
-  assert.equal(jsonRes.status, 0, jsonRes.stderr);
-  const data = JSON.parse(jsonRes.stdout);
-  assert.deepEqual(Object.fromEntries(data.userSkills.map((s) => [s.name, s.typed.all])), { 'game-guides': 1, orchestrator: 0, 'security-triage': 2 });
-  assert.deepEqual(Object.fromEntries(data.skills.map((s) => [s.name, s.routes])), {
-    'cross-review': ['CODING_STANDARDS.md'],
-    'only-rule-rel': ['.agents/rules/shipping.mdc'],
-    'rate-limiter-flexible': ['AGENTS.md'],
-    react: [],
-  });
-
-  // Installed copy reports dotai facts as unknown.
-  const installed = join(home, '.agents/skills/sync-pstack');
-  cpSync(dirname(HERE), installed, { recursive: true });
-  const inst = run(process.execPath, [join(installed, 'scripts/audit.mjs'), root, '--json'], root);
-  assert.equal(inst.status, 0, inst.stderr);
-  const self = JSON.parse(inst.stdout).userSkills.find((e) => e.name === 'sync-pstack');
-  assert.deepEqual([self.inDotai, self.stale], [null, null]);
-
-  // Symlinked AGENTS.md inside project skips its own block; symlink outside project is ignored.
-  const sym = project(dir, 'sym', { config: CONFIG, agents: '# App\n', files: { '.agents/skills/cross-review/SKILL.md': '---\nname: cross-review\n---\n' } });
-  cli('apply', sym);
-  writeFileSync(join(sym, 'instructions.md'), read(sym, 'AGENTS.md'));
-  rmSync(join(sym, 'AGENTS.md'));
-  symlinkSync('instructions.md', join(sym, 'AGENTS.md'));
-  assert.deepEqual(JSON.parse(run(process.execPath, [AUDIT, sym, '--json'], sym).stdout).overlaps.filter((o) => o.with === 'block'), []);
-  const outside = join(dir, 'outside.md');
-  writeFileSync(outside, '# App\n\nUse `$cross-review`.\n');
-  rmSync(join(sym, 'AGENTS.md'));
-  symlinkSync(outside, join(sym, 'AGENTS.md'));
-  assert.deepEqual(JSON.parse(run(process.execPath, [AUDIT, sym, '--json'], sym).stdout).skills.find((s) => s.name === 'cross-review').routes, []);
 });
 
 test('sync enforces clean working branch, respects autoSync false, and isolates malformed configs', () => {

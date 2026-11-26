@@ -1,6 +1,6 @@
 # dotai
 
-Shared skills that the pstack plugin does not cover: test audits (`test-audit`, adapted from openclaw's), screenshot walkthroughs and video transcripts, and pstack setup, sync and skill-drift audits (`sync-pstack`). Review runs on pstack's panels with Codex seats, on the work each project's reviews list names.
+Shared skills that the pstack plugin does not cover: test audits (`test-audit`, adapted from openclaw's), skill and override audits (`skill-audit`), screenshot walkthroughs and video transcripts, and pstack setup and sync (`sync-pstack`). Review runs on pstack's panels with Codex seats, on the work each project's reviews list names.
 
 `passwords` owns unattended 1Password login and new-Mac setup. Each owner's
 machine configuration stays in `~/.config/agent-passwords/machines/`, outside

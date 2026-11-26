@@ -9,7 +9,7 @@ const forbiddenIndex = process.argv.indexOf('--forbid');
 const forbidden = forbiddenIndex < 0 ? null : new RegExp(process.argv[forbiddenIndex + 1], 'i');
 const upstream = JSON.parse(readFileSync(join(root, 'upstream-skills.json'), 'utf8'));
 const groups = {
-  'Review': ['test-audit'],
+  'Review': ['skill-audit', 'test-audit'],
   'Communication': ['clip', 'walkthrough', 'video-transcripts'],
   'Workflow': ['chips', 'passwords', 'redo', 'start'],
   'Maintenance': ['cleanup', 'sync-pstack'],
@@ -25,6 +25,7 @@ const requirements = {
   'pstack-doctor': ['Node.js 22+, Git and ripgrep; pstack-pulse for live session state, Antigravity ACP transcripts for Gemini 4 Neon sessions, and a session tool that lists sessions for the rest'],
   'pstack-pulse': ['macOS with launchd and the Keychain, Node.js 22+ and sqlite3; an ActivitySmith account and key; Tailscale Funnel for the session list'],
   rca: ['A Code session in the Claude desktop app, which alone has its session tools'],
+  'skill-audit': ['Node.js 22+'],
   start: ['A T3 Code session with the t3-code MCP tools (`t3_thread_launch` and `create_threads`, directly or via `acp-mcp-call`)'],
   'sync-pstack': ['Node.js 22+ and Git; the Claude Code and Codex CLIs for plugin pins and smoke tests'],
   'video-transcripts': ['ffmpeg, curl, jq and a signed-in agy (Antigravity CLI)'],

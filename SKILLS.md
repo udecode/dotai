@@ -1,11 +1,12 @@
 # dotai skills
 
-14 skills: 14 maintained in dotai, plus 0 unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from dotai. Methods load only when relevant; tool access is separate from installation.
+15 skills: 15 maintained in dotai, plus 0 unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from dotai. Methods load only when relevant; tool access is separate from installation.
 
-## Review (1)
+## Review (2)
 
 | Skill | Purpose |
 | --- | --- |
+| [skill-audit](skills/skill-audit/SKILL.md) | Audit custom skills, playbooks, AGENTS.md rules, sync-pstack assets, and pstack overrides for drift, overlap, dead routes, and size-budget bloat across any project or dotai itself. |
 | [test-audit](skills/test-audit/SKILL.md) | Prune low-value, internal, flaky, slow or duplicated tests and bloated CI checks in coherent batches while keeping E2E, public boundary and invariant coverage intact. Not for writing new tests. |
 
 ## Communication (3)
@@ -30,7 +31,7 @@
 | Skill | Purpose |
 | --- | --- |
 | [cleanup](skills/cleanup/SKILL.md) | Audit disk usage and remove idle git worktrees, Next.js caches, test Postgres DBs, and unused Bun/npx/uv/Docker caches while preserving active checkouts. Use for /cleanup, /cleanup disk, or freeing worktree/build disk space. |
-| [sync-pstack](skills/sync-pstack/SKILL.md) | Set up pstack in a project and keep every managed project on one pinned tag and shared AGENTS.md overrides block. Use to install, sync, bump, compare, or audit pstack setups, change project review rules, or propagate a shared workflow lesson. |
+| [sync-pstack](skills/sync-pstack/SKILL.md) | Set up pstack in a project and keep every managed project on one pinned tag and shared AGENTS.md overrides block. Use to install, sync, bump, or compare pstack setups, change project review rules, or propagate a shared workflow lesson. |
 
 ## Monitoring (4)
 
@@ -62,6 +63,7 @@ These skills remain installed when a tool is absent; an unavailable live action 
 - **pstack-doctor:** Node.js 22+, Git and ripgrep; pstack-pulse for live session state, Antigravity ACP transcripts for Gemini 4 Neon sessions, and a session tool that lists sessions for the rest.
 - **pstack-pulse:** macOS with launchd and the Keychain, Node.js 22+ and sqlite3; an ActivitySmith account and key; Tailscale Funnel for the session list.
 - **rca:** A Code session in the Claude desktop app, which alone has its session tools.
+- **skill-audit:** Node.js 22+.
 - **start:** A T3 Code session with the t3-code MCP tools (`t3_thread_launch` and `create_threads`, directly or via `acp-mcp-call`).
 - **sync-pstack:** Node.js 22+ and Git; the Claude Code and Codex CLIs for plugin pins and smoke tests.
 - **video-transcripts:** ffmpeg, curl, jq and a signed-in agy (Antigravity CLI).

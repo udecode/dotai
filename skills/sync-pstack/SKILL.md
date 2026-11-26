@@ -1,6 +1,6 @@
 ---
 name: sync-pstack
-description: "Set up pstack in a project and keep every managed project on one pinned tag and shared AGENTS.md overrides block. Use to install, sync, bump, compare, or audit pstack setups, change project review rules, or propagate a shared workflow lesson."
+description: "Set up pstack in a project and keep every managed project on one pinned tag and shared AGENTS.md overrides block. Use to install, sync, bump, or compare pstack setups, change project review rules, or propagate a shared workflow lesson."
 metadata:
   source: udecode/dotai
   source-path: skills/sync-pstack
@@ -36,7 +36,7 @@ Run `node <skill>/scripts/sync-pstack.mjs <command>` from the `udecode/dotai` ch
 | `user-pin --tag <tag>` | Updates user-scope pstack pin and prints refresh commands. |
 | `latest` | Prints newest upstream tag. |
 
-Also: `node <skill>/scripts/audit.mjs <project> [--json] [--min <score>]` reports skill drift, overlap, and size-budget bloat for [Audit](#audit). Anchor checks use `~/.cache/sync-pstack/` (override with `SYNC_PSTACK_UPSTREAM`).
+Anchor checks use `~/.cache/sync-pstack/` (override with `SYNC_PSTACK_UPSTREAM`).
 
 ## Modes
 
@@ -45,7 +45,7 @@ Also: `node <skill>/scripts/audit.mjs <project> [--json] [--min <score>]` report
 | Set up or install pstack in a repo | [Setup](#setup) |
 | Sync, bump, or update pstack | [Sync](#sync) |
 | Compare setups or list drifted projects | [Compare](#compare) (read-only) |
-| Audit skills for drift from pstack | [Audit](#audit) (read-only until owner picks) |
+| Audit skills, playbooks, or pstack overrides | Use `skill-audit` |
 | Change which work auto-runs `architect`, panel, or arena | [Reviews](#reviews) |
 | Propagate a shared workflow lesson or fix | [Lesson](#lesson) |
 | Add or edit a project playbook | [Project playbooks](#project-playbooks) |
@@ -69,19 +69,12 @@ A shared-source change syncs only the active project (none when working directly
 3. Run `sync --tag <tag> --dry-run` on projects in scope. Write a tab-separated dispositions file (`item`, `none|covered|noted|rewritten|dropped`, `reason`) for every printed diff hunk and count line, then run `sync --tag <tag> --dispositions <tsv>`.
 4. Resolve refusals cleanly: move generic edits to `dotai` (Lesson) and project edits outside the block before `--force`; commit/push dirty `dotai` edits before syncing; rewrite broken upstream anchors.
 5. Run `user-pin --tag <tag>` and its refresh commands before smoking.
-6. Run `verify <project>` and smoke any changed playbook, gate, or rewritten/dropped disposition. Run [Audit](#audit) if upstream added/changed skills.
+6. Run `verify <project>` and smoke any changed playbook, gate, or rewritten/dropped disposition. Run `skill-audit` if upstream added/changed skills.
 7. Deliver per project delivery mode (`trunk` in a worktree via `land.mjs`; `push` commits and pushes; `pr` pushes directly to `<branch>` with `[skip ci]` if workflow filters allow; `user` leaves for owner).
 
 ## Compare
 
 Run `status`. For each unmanaged pstack project, map every override against the shared block (`covered`, `project adaptation`, `policy difference`, `drift`, `unresolved`), citing source paths and smallest reconciliation. Apply nothing without a request.
-
-## Audit
-
-1. Run `node <skill>/scripts/audit.mjs <project>` (usage counts, size-budget bloat, unmarked block rules, overlapping sentences).
-2. Judge with [audit-brief.md](references/audit-brief.md): `cut`, `fold`, or `keep`, naming a working replacement for every cut.
-3. Present options via `AskUserQuestion` with usage evidence and exact gate/rule impact.
-4. Execute approved cuts with a disposition table (old rule -> new home or drop), add removed typed commands to `dropped`, update project workflow guides, and remove uninstalled skills via `npx --yes skills remove`.
 
 ## Reviews
 
