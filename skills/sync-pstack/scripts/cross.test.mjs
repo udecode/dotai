@@ -309,6 +309,9 @@ test('a co-lead brief names when the helper stops the call, and a call it stops 
   const stopsAt = JSON.parse(briefed.stdout).args[1].match(/The helper stops this call at (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)/u)?.[1];
   assert.ok(stopsAt, 'the brief names the stop time');
   assert.ok(Math.abs(Date.parse(stopsAt) - before - 21_600_000) < 60_000, 'the stop time is six hours away');
+  const longer = cross('--colead', worktree, '--timeout', '99999', 'build it');
+  const clampedAt = JSON.parse(longer.stdout).args[1].match(/The helper stops this call at (\S+Z)/u)?.[1];
+  assert.ok(Math.abs(Date.parse(clampedAt) - before - 21_600_000) < 60_000, 'a longer --timeout still stops the call at six hours');
   assert.match(JSON.parse(briefed.stdout).args[1], /A probe that edits a tracked file for a moment[^\n]*makes that edit in a detached worktree it adds, never here/u, 'a stopped call cannot leave a probe edit in the lead worktree');
   const capped = cross('--colead', worktree, '--timeout', '1', 'build it, WAIT FOR PROOFS, SAYING built lib.js, waiting on the partitions');
   assert.equal(capped.status, 1);
