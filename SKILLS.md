@@ -6,7 +6,7 @@
 
 | Skill | Purpose |
 | --- | --- |
-| [test-audit](skills/test-audit/SKILL.md) | Audit existing tests for low-value, duplicated or implementation-coupled cases and prune or rewrite them on evidence (/test-audit full also lists unguarded public contracts). Not for writing new tests. |
+| [test-audit](skills/test-audit/SKILL.md) | Prune low-value, internal, flaky, slow or duplicated tests and bloated CI checks in coherent batches while keeping E2E, public boundary and invariant coverage intact. Not for writing new tests. |
 
 ## Communication (4)
 
