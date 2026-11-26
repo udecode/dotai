@@ -52,6 +52,7 @@ const HELPER_FILES = {
   'reply.mjs': ['delivery!=trunk'],
   'reread.mjs': [],
   'seats.mjs': [],
+  'seat-watch.mjs': [],
   'title.mjs': [],
   'decisions-check.mjs': ['plans'],
   'levels.mjs': ['plans'],

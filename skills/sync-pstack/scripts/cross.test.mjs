@@ -146,7 +146,7 @@ test('cross --reach runs a Codex seat on the owner config with network, writing 
 
 const FAKE_AGY = '#!/usr/bin/env node\nconsole.log(JSON.stringify({ event: "init" }));\nconsole.log(JSON.stringify({ event: "result", result: { status: "success", response: JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd() }) } }));\n';
 
-test('cross runs an agy seat from a scratch folder on the model for its effort, reading any file, writing only that folder and denying what it would ask for', () => {
+test('cross runs an agy seat outside the sandbox from a scratch folder on the model for its effort, reading any file and denying its file tools every write outside that folder', () => {
   const { dir, home } = sandbox();
   const bin = join(dir, 'bin');
   mkdirSync(bin);
@@ -161,9 +161,9 @@ test('cross runs an agy seat from a scratch folder on the model for its effort, 
   const { args, cwd } = JSON.parse(seat.stdout);
   assert.match(cwd, /pstack-reach-/u);
   assert.equal(existsSync(cwd), false, 'the scratch folder is deleted once the seat answers');
-  assert.deepEqual(args.slice(2), ['--model', 'gemini-4-neon-xhigh', '--settings', args[5], '--sandbox', '--output-format', 'stream-json']);
+  assert.deepEqual(args.slice(2), ['--model', 'gemini-4-neon-xhigh', '--settings', args[5], '--dangerously-skip-permissions', '--output-format', 'stream-json']);
   assert.equal(args[0], '-p');
-  assert.ok(args[1].startsWith(`Your working directory is a scratch folder you may write. The project is ${project}: read it by absolute path and never write it. Every shell command you run stays in agy's sandbox. Never ask to run one outside it`), args[1]);
+  assert.ok(args[1].startsWith(`Your working directory is a scratch folder you may write. The project is ${project}: read it by absolute path and never write it. Your shell runs outside agy's sandbox and reaches the network`), args[1]);
   assert.match(args[1], /\n\nreview it\n\nPut your whole answer in your final message\./u);
   assert.deepEqual(JSON.parse(args[5]), {
     agentMode: '',
@@ -192,6 +192,8 @@ test('seats runs an offline agy seat with no web, denies writes to every folder 
   const { args } = JSON.parse(readFileSync(join(answers, 'neon.md'), 'utf8'));
   const { permissions } = JSON.parse(args[args.indexOf('--settings') + 1]);
   assert.equal(args[args.indexOf('--model') + 1], 'gemini-4-neon-high');
+  assert.ok(args.includes('--sandbox') && !args.includes('--dangerously-skip-permissions'), 'an offline seat stays in the sandbox');
+  assert.match(args[1], /Every shell command you run stays in agy's sandbox/u);
   assert.doesNotMatch(permissions.allow.join(' '), /read_url/u);
   assert.deepEqual(permissions.deny, [`write_file(${realpathSync(dir)})`, `write_file(${realpathSync(join(dir, 'transcripts'))})`, 'execute_url(*)', 'read_url(*)', 'mcp(*)']);
   writeFileSync(join(bin, 'agy'), "#!/bin/sh\necho \"This request was blocked by Gemini's filters. They can occasionally trigger by mistake.\"\n", { mode: 0o755 });
@@ -258,7 +260,7 @@ function coleadMachine() {
     assert.equal(run.status, 0, run.stderr);
     return JSON.parse(run.stdout);
   };
-  return { ask, cross, git, main, remote, worktree };
+  return { ask, cross, env, git, main, remote, worktree };
 }
 
 test('a co-lead runs agy unsandboxed in the lead worktree, resumes its conversation, and can neither push nor use the GitHub token', () => {
@@ -311,6 +313,34 @@ test('a co-lead brief names when the helper stops the call, and a call it stops 
   const capped = cross('--colead', worktree, '--timeout', '1', 'build it, WAIT FOR PROOFS, SAYING built lib.js, waiting on the partitions');
   assert.equal(capped.status, 1);
   assert.match(capped.stderr, /no answer within 1 seconds: error: interrupted\n\nbuilt lib\.js, waiting on the partitions/u);
+});
+
+test('an agy seat outside the sandbox gets no GitHub token, and one run from a linked worktree that changes the main checkout fails, keeping the answer', () => {
+  const { env, main, worktree } = coleadMachine();
+  const seat = (prompt) => spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'agy', prompt], { cwd: worktree, encoding: 'utf8', env });
+  const clean = seat('review it');
+  assert.equal(clean.status, 0, clean.stderr);
+  const answer = JSON.parse(clean.stdout);
+  assert.equal(answer.token, null, 'the seat never sees the GitHub token');
+  assert.equal(answer.readOnly, '1', 'project helpers still see a read-only run');
+  const shared = seat(`review it, TOUCH ${join(main, 'shared.txt')}`);
+  assert.equal(shared.status, 1);
+  assert.match(shared.stderr, /the seat changed the main checkout [^\n]*; check it before using this answer\.\n\n\{"args"/u);
+});
+
+test('a co-lead call stops once its helper dies, and its stream file keeps what the co-lead said', async () => {
+  const { env, worktree } = coleadMachine();
+  const stream = join(worktree, '..', 'colead-killed.jsonl');
+  const helper = spawn(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'agy', '--colead', worktree, '--stream', stream, 'build it, WAIT FOR PROOFS, SAYING built lib.js, waiting on the partitions'], { env, stdio: 'ignore' });
+  const read = () => (existsSync(stream) ? readFileSync(stream, 'utf8') : '');
+  const until = async (ready) => {
+    const deadline = Date.now() + 15_000;
+    while (!ready() && Date.now() < deadline) await new Promise((wake) => setTimeout(wake, 100));
+  };
+  await until(() => read().includes('"event":"init"'));
+  helper.kill('SIGKILL');
+  await until(() => read().includes('"status":"ERROR"'));
+  assert.match(read(), /"status":"ERROR","response":"built lib\.js, waiting on the partitions"/u, 'the co-lead outlived its helper, or what it said missed the stream file');
 });
 
 test('a co-lead call outlives the idle limit while a step it started prints nothing', () => {
