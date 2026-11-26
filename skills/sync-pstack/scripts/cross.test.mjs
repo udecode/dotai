@@ -212,8 +212,12 @@ const args = process.argv.slice(2);
 const prompt = args[1];
 const touch = prompt.match(/TOUCH (\\S+)/u)?.[1];
 if (touch) writeFileSync(touch, 'stray');
+const write = prompt.match(/WRITE (\\S+) (\\d+)/u);
+if (write) writeFileSync(write[1], 'x\\n'.repeat(Number(write[2])));
 const push = spawnSync('git', ['push', 'origin', 'HEAD:refs/heads/colead'], { encoding: 'utf8' });
 console.log(JSON.stringify({ event: 'init', conversation_id: '11111111-2222-4333-8444-555555555555' }));
+const quiet = Number(prompt.match(/QUIET (\\d+)/u)?.[1] ?? 0);
+if (quiet) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, quiet);
 const answer = { args, cwd: process.cwd(), pushed: push.status === 0, token: process.env.GH_TOKEN ?? null, readOnly: process.env.PSTACK_READ_ONLY ?? null };
 console.log(JSON.stringify({ event: 'result', result: { status: 'success', response: JSON.stringify(answer) } }));
 `;
@@ -235,13 +239,16 @@ function coleadMachine() {
   git(main, 'config', 'remote.origin.pushurl', remote);
   git(main, 'worktree', 'add', '-q', '-b', 'task', join(dir, 'task'));
   const worktree = realpathSync(join(dir, 'task'));
-  const cross = (...args) =>
-    spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'agy', ...args], {
-      cwd: dir,
-      encoding: 'utf8',
-      env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1', GH_TOKEN: 'secret' },
-    });
-  return { cross, git, main, remote, worktree };
+  const env = { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1', GH_TOKEN: 'secret' };
+  const cross = (...args) => spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'agy', ...args], { cwd: dir, encoding: 'utf8', env });
+  const ask = (prompt, options) => {
+    const drive = join(dir, 'drive.mjs');
+    writeFileSync(drive, `import { ask } from ${JSON.stringify(pathToFileURL(join(HELPERS, 'cross.mjs')).href)};\nconsole.log(JSON.stringify(await ask('agy', ${JSON.stringify(prompt)}, ${JSON.stringify(options)})));\n`);
+    const run = spawnSync(process.execPath, [drive], { cwd: dir, encoding: 'utf8', env });
+    assert.equal(run.status, 0, run.stderr);
+    return JSON.parse(run.stdout);
+  };
+  return { ask, cross, git, main, remote, worktree };
 }
 
 test('a co-lead runs agy unsandboxed in the lead worktree, resumes its conversation, and can neither push nor use the GitHub token', () => {
@@ -263,6 +270,30 @@ test('a co-lead runs agy unsandboxed in the lead worktree, resumes its conversat
   const next = cross('--colead', worktree, '--conversation', '11111111-2222-4333-8444-555555555555', 'build step two');
   assert.equal(next.status, 0, next.stderr);
   assert.deepEqual(JSON.parse(next.stdout).args.slice(4, 6), ['--conversation', '11111111-2222-4333-8444-555555555555']);
+});
+
+test("a co-lead brief names the step budget, and a call that leaves a plan step past it fails with the count, keeping the answer", () => {
+  const { cross, git, main, remote, worktree } = coleadMachine();
+  git(main, 'push', '-q', remote, 'HEAD:refs/heads/main');
+  git(worktree, 'fetch', '-q', 'origin');
+  mkdirSync(join(worktree, '.agents'));
+  writeFileSync(join(worktree, '.agents/pstack.json'), JSON.stringify({ branch: 'main', stepBudget: { lines: 3, exclude: ['.agents/**'] } }));
+  const unplanned = cross('--colead', worktree, 'build it, WRITE lib.js 5');
+  assert.equal(unplanned.status, 0, 'a change that builds no plan step has no budget');
+  assert.doesNotMatch(unplanned.stdout, /step budget/u, 'nor a brief that names one');
+  mkdirSync(join(worktree, 'docs/plans'), { recursive: true });
+  writeFileSync(join(worktree, 'docs/plans/2026-01-01-step.md'), '# Step\n');
+  writeFileSync(join(worktree, 'lib.js'), 'x\n');
+  const over = cross('--colead', worktree, 'build it, WRITE lib.js 5');
+  assert.equal(over.status, 1);
+  assert.match(over.stderr, /this worktree's change since origin\/main at [0-9a-f]{10} changes 5 product lines, past the step budget of 3\.[^\n]*\n\n\{"args"/u);
+  assert.match(over.stderr, /counts 1 of the step budget's 3 product lines\. Tests, fixtures, docs and plans do not count\./u, 'the brief gave the count before the call');
+});
+
+test('a co-lead call outlives the idle limit while a step it started prints nothing', () => {
+  const { ask, worktree } = coleadMachine();
+  const quiet = ask('build it, QUIET 3000', { colead: worktree, idle: 1 });
+  assert.equal(quiet.ok, true, quiet.text);
 });
 
 test('a co-lead refuses a main checkout and fails a run that changed it, keeping the answer', () => {

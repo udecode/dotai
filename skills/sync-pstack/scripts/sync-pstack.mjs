@@ -58,7 +58,7 @@ const HELPER_FILES = {
   'plan-open.mjs': ['plans'],
   'page-stop.mjs': ['plans'],
   'plan-page.mjs': ['plans'],
-  'status.mjs': ['plans'],
+  'status.mjs': [],
   'tasks.mjs': ['plans'],
   'scorecard.mjs': ['plans'],
   'guard.mjs': ['delivery=trunk'],

@@ -484,6 +484,26 @@ test('levels reads an agy seat by its Gemini model, skipped when Gemini refused 
   assert.match(run().stdout, /^ {2}below line 3: panel .*\(gemini-4-neon missing\)$/mu);
 });
 
+test("levels judges a co-lead row against the Claude Code sheet's co-lead line, whichever runtime reads the log", () => {
+  const claude = 'interrogate reviewers: opus @high\nco-lead: agy:gemini-4-neon @xhigh or opus @high\ndefault effort: high';
+  const codex = 'interrogate reviewers: opus @high\ndefault effort: high';
+  const log = (colead) => ['ts\tphase\tdecision\twhy\tevidence\tresult', 'T\tlead\tclaude-opus-5-5 @high\tw\te\trecorded', `T\tcolead\t${colead}\tw\te\trecorded`, ''].join('\n');
+  const { dir, run } = levelsRun(['--lead', 'claude-opus-5-5 @high', 'log.tsv'], { claude, codex });
+  writeFileSync(join(dir, 'log.tsv'), log('agy:gemini-4-neon @xhigh'));
+  assert.match(run().stdout, /^ {2}at line 3: colead gemini-4-neon @xhigh$/mu);
+  assert.match(run(['--seats', 'opus @high']).stdout, /^ {2}at line 3: colead /mu, '--seats replaces only panel and arena seats');
+  writeFileSync(join(dir, 'log.tsv'), log('opus @high'));
+  assert.match(run().stdout, /^ {2}at line 3: colead opus @high$/mu, 'the fallback');
+  writeFileSync(join(dir, 'log.tsv'), log('agy:gemini-4-neon @high'));
+  assert.match(run().stdout, /^ {2}below line 3: colead .*\(gemini-4-neon @high is below @xhigh\)$/mu);
+  const codexRun = levelsRun(['--lead', 'gpt-6.1-sol @xhigh', 'log.tsv'], { claude, codex });
+  writeFileSync(join(codexRun.dir, 'log.tsv'), log('agy:gemini-4-neon @xhigh'));
+  assert.match(codexRun.run().stdout, /^ {2}at line 3: colead gemini-4-neon @xhigh$/mu, 'a Codex session reads the Claude Code line');
+  const noLine = levelsRun(['--lead', 'claude-opus-5-5 @high', 'log.tsv'], { claude: codex });
+  writeFileSync(join(noLine.dir, 'log.tsv'), log('agy:gemini-4-neon @xhigh'));
+  assert.match(noLine.run().stderr, /^the Claude Code models sheet has no "co-lead:" line, so line 3 cannot be judged$/mu);
+});
+
 test('levels refuses a missing log, a flag with no value, and a round the models sheet has no line for', () => {
   const { dir, run } = levelsRun([], { claude: 'arena runners: opus @high\ndefault effort: high' });
   writeFileSync(join(dir, 'log.tsv'), LEVELS_LOG);

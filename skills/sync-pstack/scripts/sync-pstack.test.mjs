@@ -109,7 +109,8 @@ test('apply inserts one block after the intro, and a second apply changes nothin
 test('apply installs every helper and rule file the rendered rules name, whichever sections are skipped', () => {
   const { dir, cli } = sandbox();
   const root = project(dir, 'app', { config: { ...CONFIG, skip: ['tests', 'review', 'plans', 'long-runs', 'commits'] }, agents: '# App\n' });
-  assert.equal(cli('apply', root).status, 0);
+  const applied = cli('apply', root);
+  assert.equal(applied.status, 0, `${applied.stdout}${applied.stderr}`);
   const rules = join(root, '.agents/pstack/rules');
   const texts = [read(root, 'AGENTS.md'), ...readdirSync(rules).map((name) => read(root, `.agents/pstack/rules/${name}`))];
   const named = new Set(texts.flatMap((text) => text.match(/\.agents\/pstack\/(?:rules\/)?[\w-]+\.(?:mjs|md)/gu) ?? []));
