@@ -703,7 +703,7 @@
       "mode": 420
     },
     "skills/sync-pstack/scripts/proof.test.mjs": {
-      "sha256": "dc8a3eb5b47ece892f758c32746dbdd88c561a2a3dcd71f6f4fb277f52a0082b",
+      "sha256": "91ec74524b2b8bee751fac143b53cd69107b06559b93e11676cc1e12ea69e480",
       "mode": 420
     },
     "skills/sync-pstack/scripts/replay.test.mjs": {

@@ -74,6 +74,19 @@ test('proof stops every process a timed-out command started, so none writes to i
 const until = async (done) => {
   for (const begun = Date.now(); !done() && Date.now() - begun < 10_000; ) await new Promise((wake) => setTimeout(wake, 50));
 };
+// SIGKILL lands after kill() returns, and a loaded host takes a moment to reap the process.
+const gone = async (pid) => {
+  const alive = () => {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  await until(() => !alive());
+  return !alive();
+};
 
 test('proof logs the exit when it is stopped before its command ends', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-proof-stopped-'));
@@ -95,7 +108,7 @@ test('proof logs the exit of a command that outlives its parent proof.mjs', asyn
   assert.match(read(dir, 'run/orphan-a1.log'), /\nready\n\nproof\.mjs ended before its command\nexit=0\n$/);
 });
 
-test('proof stops a timed-out command whose leader catches SIGTERM while its process scans are slow', () => {
+test('proof stops a timed-out command whose leader catches SIGTERM while its process scans are slow', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'sync-pstack-proof-blocked-'));
   mkdirSync(join(dir, 'bin'));
   writeFileSync(join(dir, 'bin/ps'), '#!/bin/sh\nexec sleep 30\n', { mode: 0o755 });
@@ -110,7 +123,7 @@ test('proof stops a timed-out command whose leader catches SIGTERM while its pro
   const leader = Number(leaderPid);
   assert.ok(leader > 0, 'the leader printed no pid');
   try {
-    assert.throws(() => process.kill(leader, 0), { code: 'ESRCH' }, 'the timed-out command outlived proof.mjs');
+    assert.ok(await gone(leader), 'the timed-out command outlived proof.mjs');
   } finally {
     spawnSync('kill', ['-9', String(leader)]);
   }
@@ -129,7 +142,7 @@ test('proof stops its command when its supervisor dies before reporting', async 
   process.kill(supervisor, 'SIGKILL');
   await exited;
   try {
-    assert.throws(() => process.kill(leader, 0), { code: 'ESRCH' }, 'the command outlived its supervisor');
+    assert.ok(await gone(leader), 'the command outlived its supervisor');
   } finally {
     spawnSync('kill', ['-9', String(leader)]);
   }
