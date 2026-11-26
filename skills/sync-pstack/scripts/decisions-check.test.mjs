@@ -614,6 +614,35 @@ test('decisions-check refuses a named round for a step the log never built, an u
   assert.equal(append('later.decisions.tsv', 'panel', 'seats opus').status, 0, 'a built: row with no step id lets an unnamed round run again');
 });
 
+test('decisions-check counts a seats row that names its reviewed plan against the plan alone, after rounds named their steps', () => {
+  const { dir, run } = sandbox();
+  const root = project(dir, 'app');
+  const check = (...args) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), args[0], 'grow.decisions.tsv', ...args.slice(1)], root);
+  const append = (phase, decision, evidence = 'evidence', result = 'recorded') => check('append', phase, decision, 'why', evidence, result);
+
+  assert.equal(append('build', 'built: step 1i x.ts', 'evidence', 'applied: step 1i').status, 0);
+  assert.equal(append('panel', 'seats opus', 'reviewed step: 1i').status, 0);
+  assert.equal(append('writing', 'deslop on the fixes').status, 0);
+  assert.equal(append('plan', 'step 1j splits into steps 1j to 1m', 'evidence', 'decided: four steps').status, 0);
+  assert.equal(check('rounds', '--plan').status, 0, 'rounds --plan judges the plan round before it launches');
+  assert.equal(append('panel', 'seats opus', 'reviewed tree: abc1234; reviewed plan: docs/plans/grow.md').status, 0, 'a plan round names no step after rounds named theirs');
+  assert.equal(append('writing', 'unslop on the plan fixes').status, 0);
+  const again = append('panel', 'seats opus', 'reviewed plan: docs/plans/grow.md');
+  assert.equal(again.status, 1, "a second plan round is past the cap of one");
+  assert.match(again.stderr, /panel round 2 of the plan, past the cap of 1/);
+  assert.equal(check('rounds', '--plan').status, 1);
+  assert.equal(check('rounds', '--plan', '--step', '1i').status, 2, '--plan and --step judge different rounds');
+  assert.equal(append('panel', 'seats opus').status, 1, 'a plan round lets no unnamed round run');
+
+  assert.equal(append('build', 'built: step 1j y.ts', 'evidence', 'applied: step 1j').status, 0);
+  assert.equal(append('panel', 'seats opus', 'reviewed step: 1j').status, 0, "the plan round spent none of step 1j's rounds");
+  for (const evidence of ['reviewed plan: grow', 'reviewed plan docs/plans/grow.md', 'reviewed plan: docs/plans/grow.md; reviewed step: 1j']) {
+    const refused = append('panel', 'seats opus', evidence);
+    assert.equal(refused.status, 1, `a malformed marker is refused: ${evidence}`);
+    assert.match(refused.stderr, /or name a plan round's plan once as "reviewed plan: <plan>\.md"/);
+  }
+});
+
 test('decisions-check keeps the log-wide verdict of a rebuilt step whose id runs into a curly quote or a no-break space', () => {
   const { dir, run } = sandbox();
   const root = project(dir, 'app');
