@@ -1,11 +1,11 @@
 ---
 name: migrate-t3
-description: "Migrate a setup from Claude Desktop and Claude Code to T3 Code (Antigravity Gemini 4 Neon, T3 config, MCPs, skills, pstack plugin) and return a manual checklist for OAuth and UI steps. Use when the user asks to run migrate-t3 or onboard to T3 Code."
+description: "Migrate a setup from Claude Desktop and Claude Code to T3 Code (Antigravity Gemini 4 Neon, T3 config, MCPs, skills, pstack plugin, browse, cua-driver) and return a manual checklist for OAuth, permissions, and UI steps. Use when the user asks to run migrate-t3 or onboard to T3 Code."
 ---
 
 # Migrate to T3 Code
 
-Run this end-to-end when invoked inside a T3 Code Antigravity (`gemini-4-neon`) thread (or Claude Code). Do every automatable step without stopping, then finish with the manual checklist below so the user can handle OAuth and UI-only clicks.
+Run this end-to-end when invoked inside a T3 Code Antigravity (`gemini-4-neon`) thread (or Claude Code). Do every automatable step without stopping, then finish with the manual checklist below so the user handles only OAuth, permissions, extension pairing, and UI clicks.
 
 Let `<skill-dir>` be the directory holding this `SKILL.md`.
 
@@ -34,23 +34,33 @@ Let `<skill-dir>` be the directory holding this `SKILL.md`.
    ```sh
    npx --yes skills add udecode/ustack --skill start cleanup skill-audit --agent antigravity claude-code --global -y
    ```
-4. **Verify**:
+4. **Install required companion CLIs** if step 1 reported either missing:
+   - OpenCode `browse` (required for signed-in Chrome and native clipboard):
+     ```sh
+     curl -fsSL https://opencode.ai/browse/install | bash
+     ```
+   - `cua-driver` on macOS (required for native macOS app control):
+     ```sh
+     curl -fsSL https://cua.ai/driver/install.sh | bash
+     ```
+5. **Verify**:
    - Run `node <skill-dir>/scripts/migrate.mjs --check` and resolve any remaining automatable `todo:` items (if a profile has a non-empty local file conflicting with a symlink, tell the user instead of overwriting it).
-   - If the repo has `node .agents/rules/contributor-setup/scripts/doctor.mjs`, run it and apply any automatable `fix:` lines until it prints `ok:` (pass any human-only `fix:` lines into the final checklist).
+   - If the repo has `node .agents/rules/contributor-setup/scripts/doctor.mjs`, run it and apply any automatable `fix:` lines until it prints `ok:` (carry any human-only `fix:` lines, such as `mac-watchdog` `sudo` install, into the final checklist).
 
 ## Reply with the manual checklist
 
-End your reply with a brief list of what changed plus this exact checklist (trimmed only for items already verified complete, and filling in the real `<skill-dir>` path):
+End your reply with a brief list of what changed plus this exact checklist (omit only items `migrate.mjs --check` already verified complete, and fill in the real `<skill-dir>` path):
 
 ```markdown
 ### Manual checklist
 
 - [ ] **Quit and reopen T3 Code, then start a fresh Antigravity thread** so linked MCPs, `pstack`, skills, `AGENTS.md`, and T3 settings load. If T3 overwrote `settings.json` on quit, close T3 and run `node <skill-dir>/scripts/migrate.mjs --apply --t3-only`, then reopen T3.
 - [ ] **Sign in to Claude (`opus`) and Codex in T3 Code** so fallback, UI/visual delegation, and multi-family panels work.
-- [ ] **Complete OAuth for remote MCPs** when prompted in your browser. If you relied on Claude.ai cloud connectors (Linear, Slack, Notion), tell me which ones and I will add their `serverUrl` entries to `~/.gemini/config/mcp_config.json`. If you log in via `agy` CLI, re-run `node <skill-dir>/scripts/migrate.mjs --apply` to link `mcp_oauth_tokens.json`.
+- [ ] **Pair the OpenCode `browse` Chrome extension** (for signed-in Chrome and native clipboard): install from https://chromewebstore.google.com/detail/mfnicocicmmlkpjnaffgihfjhdgjkdjg, run `browse pair`, and paste the pairing code in the extension until `browse status` shows `Extension: connected`.
+- [ ] **Grant `cua-driver` macOS permissions** (for native macOS apps): run `cua-driver permissions grant` and approve Accessibility and Screen Recording for `CuaDriver.app` until `cua-driver permissions status` reports both `true`.
 - [ ] **Import signed-in Chrome profile into T3 Browser (macOS):** System Settings -> Privacy & Security -> Full Disk Access -> enable T3 Code -> quit Chrome (`Cmd+Q`) -> T3 Settings (`Cmd+,`) -> Browser -> Browser profiles -> `+ Add profile` -> Import from Chrome -> allow Keychain (disable Full Disk Access afterward if preferred).
-- [ ] **Add issue tracker API keys** (such as Linear) in T3 Settings -> Source control & issues if used.
-- [ ] **Optional CLIs:** install OpenCode `browse` (`~/.local/bin/browse`) for signed-in Chrome or native clipboard, and `cua-driver` (`~/.local/bin/cua-driver`) for native macOS apps.
+- [ ] **Complete OAuth for remote MCPs and add Claude.ai cloud connectors:** finish browser OAuth when prompted; tell me which Claude.ai cloud connectors (Linear, Slack, Notion) to add as `{"serverUrl": "..."}` in `~/.gemini/config/mcp_config.json`. If you log in via `agy` CLI, re-run `node <skill-dir>/scripts/migrate.mjs --apply` to link `mcp_oauth_tokens.json`.
+- [ ] **Add issue tracker API keys** (such as Linear) in T3 Settings -> Source control & issues.
 - [ ] **Verify in the fresh thread:** run `node .agents/pstack/lead.mjs` (in a pstack repo) and confirm `gemini-4-neon @high`.
 ```
 

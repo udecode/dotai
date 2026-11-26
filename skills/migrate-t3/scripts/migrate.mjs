@@ -419,6 +419,46 @@ export function runMigration({
     } else {
       todo.push('install the agy (Antigravity) CLI and ensure it is on PATH');
     }
+
+    const browseBin = existsSync(join(home, '.local/bin/browse')) ? join(home, '.local/bin/browse') : 'browse';
+    const browseRun = spawnSync(browseBin, ['status', '--json'], { encoding: 'utf8' });
+    if (browseRun.error) {
+      todo.push('install OpenCode browse CLI: curl -fsSL https://opencode.ai/browse/install | bash');
+    } else {
+      let status = null;
+      try {
+        status = JSON.parse(browseRun.stdout || '');
+      } catch {
+        status = null;
+      }
+      if (status?.connected || status?.extension?.connected) {
+        ok.push(`OpenCode browse connected (${status.setup?.version ?? status.relay?.version ?? 'installed'})`);
+      } else {
+        manual.push(
+          'Pair OpenCode browse Chrome extension: install https://chromewebstore.google.com/detail/mfnicocicmmlkpjnaffgihfjhdgjkdjg and run `browse pair` until `browse status` shows connected.'
+        );
+      }
+    }
+
+    if (platform === 'darwin') {
+      const cuaBin = existsSync(join(home, '.local/bin/cua-driver')) ? join(home, '.local/bin/cua-driver') : 'cua-driver';
+      const cuaRun = spawnSync(cuaBin, ['permissions', 'status', '--json'], { encoding: 'utf8' });
+      if (cuaRun.error) {
+        todo.push('install cua-driver: curl -fsSL https://cua.ai/driver/install.sh | bash');
+      } else {
+        let perms = null;
+        try {
+          perms = JSON.parse(cuaRun.stdout || '');
+        } catch {
+          perms = null;
+        }
+        if (perms?.accessibility && perms?.screen_recording) {
+          ok.push('cua-driver ready (Accessibility and Screen Recording granted)');
+        } else {
+          manual.push('Grant cua-driver macOS permissions: run `cua-driver permissions grant` and approve Accessibility and Screen Recording for CuaDriver.app.');
+        }
+      }
+    }
   }
 
   const repoAgents = join(cwd, 'AGENTS.md');
