@@ -7,7 +7,7 @@ login Keychain. It does not cache individual passwords or authenticator seeds.
 ## Install the skill and prerequisites
 
 1. Install the shared source with
-   `npx skills add udecode/dotai --skill passwords --agent codex claude-code --global -y`,
+   `npx skills add udecode/ustack --skill passwords --agent codex claude-code --global -y`,
    or extract the shared `passwords` folder into `~/.agents/skills/`.
 2. For Claude, link `~/.claude/skills/passwords` to
    `../../.agents/skills/passwords`. Inspect any existing destination first.
@@ -151,7 +151,7 @@ entries only within the requested cleanup scope.
 
 ## Share a portable copy
 
-Share the `udecode/dotai` install command, or package `SKILL.md` and all shared
+Share the `udecode/ustack` install command, or package `SKILL.md` and all shared
 files under `references/` in a `passwords/` folder. Keep every referenced route
 in the package. Exclude every
 machine configuration, recovery record, account ID, and private proof artifact.

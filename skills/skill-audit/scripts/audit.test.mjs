@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { DOTAI_BUDGETS, SIZE_BUDGETS } from './audit.mjs';
+import { USTACK_BUDGETS, SIZE_BUDGETS } from './audit.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const AUDIT = join(HERE, 'audit.mjs');
@@ -160,15 +160,15 @@ test('audit detects user skills, standalone installed copy without sync-pstack, 
     react: [],
   });
 
-  // Standalone installed copy (without sibling sync-pstack) runs cleanly and reports dotai facts as unknown.
+  // Standalone installed copy (without sibling sync-pstack) runs cleanly and reports ustack facts as unknown.
   const installed = join(home, '.agents/skills/skill-audit');
   cpSync(dirname(HERE), installed, { recursive: true });
   const inst = run(process.execPath, [join(installed, 'scripts/audit.mjs'), root, '--json'], root);
   assert.equal(inst.status, 0, inst.stderr);
   const instData = JSON.parse(inst.stdout);
   const self = instData.userSkills.find((e) => e.name === 'skill-audit');
-  assert.deepEqual([self.inDotai, self.stale], [null, null]);
-  assert.equal(instData.dotai, null);
+  assert.deepEqual([self.inUstack, self.stale], [null, null]);
+  assert.equal(instData.ustack, null);
 
   // Symlinked AGENTS.md inside project skips its own block; symlink outside project is ignored.
   const blockBody = `<!-- pstack:begin -->\n${block}\n<!-- pstack:end -->\n`;
@@ -188,7 +188,7 @@ test('audit detects user skills, standalone installed copy without sync-pstack, 
   assert.deepEqual(JSON.parse(run(process.execPath, [AUDIT, sym, '--json'], sym).stdout).skills.find((s) => s.name === 'cross-review').routes, []);
 });
 
-test('audit handles non-pstack plain repos and dotai-shaped repos without .agents/pstack.json', () => {
+test('audit handles non-pstack plain repos and ustack-shaped repos without .agents/pstack.json', () => {
   const { dir, run } = sandbox();
 
   const plain = project(dir, 'plain', {
@@ -207,27 +207,27 @@ test('audit handles non-pstack plain repos and dotai-shaped repos without .agent
   assert.match(plainRes.stdout, /## Block rules with no overrides note or adds marker: not checked/);
   assert.match(plainRes.stdout, /## Project sentences repeated elsewhere in the project \(score >= 0\.5\): 1/);
 
-  const dotaiLike = project(dir, 'dotai-like', {
-    agents: '# Dotai\n',
+  const ustackLike = project(dir, 'ustack-like', {
+    agents: '# Ustack\n',
     files: {
       'upstream-skills.json': '{"skills":[]}\n',
-      'skills/alpha/SKILL.md': `---\nname: alpha\ndescription: x\n---\n${'x'.repeat(DOTAI_BUDGETS.skillFile + 1)}\n`,
+      'skills/alpha/SKILL.md': `---\nname: alpha\ndescription: x\n---\n${'x'.repeat(USTACK_BUDGETS.skillFile + 1)}\n`,
       'skills/beta/SKILL.md': '---\nname: beta\ndescription: x\n---\nAlways validate schema boundaries before mutating any tracked config file.\n',
       'skills/gamma/SKILL.md': '---\nname: gamma\ndescription: x\n---\nAlways validate schema boundaries before mutating any tracked config file.\n',
       'skills/sync-pstack/assets/block.md': '- **Unmarked rule.** Do something.\n',
-      'skills/sync-pstack/assets/pstack/rules/big.md': 'r'.repeat(DOTAI_BUDGETS.ruleFile + 1),
+      'skills/sync-pstack/assets/pstack/rules/big.md': 'r'.repeat(USTACK_BUDGETS.ruleFile + 1),
     },
   });
-  const dotaiRes = run(process.execPath, [AUDIT, dotaiLike, '--json']);
-  assert.equal(dotaiRes.status, 0, dotaiRes.stderr);
-  const parsed = JSON.parse(dotaiRes.stdout);
+  const ustackRes = run(process.execPath, [AUDIT, ustackLike, '--json']);
+  assert.equal(ustackRes.status, 0, ustackRes.stderr);
+  const parsed = JSON.parse(ustackRes.stdout);
   assert.deepEqual(parsed.skills.map((s) => s.name), ['alpha', 'beta', 'gamma']);
   assert.deepEqual(parsed.unmarkedRules, ['Unmarked rule']);
   assert.deepEqual(
     parsed.sizeBudgets.over.map(({ kind, path }) => ({ kind, path })),
     [
-      { kind: 'dotai-rule-file', path: 'skills/sync-pstack/assets/pstack/rules/big.md' },
-      { kind: 'dotai-skill-file', path: 'skills/alpha/SKILL.md' },
+      { kind: 'ustack-rule-file', path: 'skills/sync-pstack/assets/pstack/rules/big.md' },
+      { kind: 'ustack-skill-file', path: 'skills/alpha/SKILL.md' },
     ],
   );
   assert.ok(parsed.overlaps.some((o) => o.with === 'project' && o.file === 'skills/beta/SKILL.md' && o.source.startsWith('skills/gamma/SKILL.md:')));

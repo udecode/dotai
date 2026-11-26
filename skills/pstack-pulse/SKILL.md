@@ -18,7 +18,7 @@ Mac daemon turning Claude Code and Codex hook events for pstack-titled sessions 
 
 ## Install & update
 
-Install with `npx --yes skills add udecode/dotai --skill pstack-pulse --skill rca --agent claude-code --global -y`.
+Install with `npx --yes skills add udecode/ustack --skill pstack-pulse --skill rca --agent claude-code --global -y`.
 
 1. Run `install` (add `--auto-update` for daily updates). Prints hook files, `daemon: started`, `menubar: started`, and session list URL.
 2. Owner completes the 3 printed setup commands: Keychain ActivitySmith key (`security add-generic-password`), read-only `tailscale funnel`, and trusting Codex `/hooks`.

@@ -6,7 +6,7 @@ set -e
 [[ $EUID -ne 0 ]] && { print "run with sudo"; exit 1; }
 USER_NAME=${SUDO_USER:?run with sudo from your own account}
 SRC=${0:A:h}
-LABEL=dev.dotai.mac-watchdog.fseventsd
+LABEL=dev.ustack.mac-watchdog.fseventsd
 PLIST=/Library/LaunchDaemons/$LABEL.plist
 BIN=/usr/local/sbin/mac-watchdog-fseventsd
 HOME_DIR=$(dscl . -read "/Users/$USER_NAME" NFSHomeDirectory | sed 's/^NFSHomeDirectory: //')
@@ -14,7 +14,9 @@ LOGS=$HOME_DIR/Library/Logs/mac-watchdog
 LOG=$LOGS/fseventsd.log
 
 launchctl bootout system/$LABEL 2>/dev/null || true
-# This watchdog was the fseventsd-watchdog skill before; two would restart fseventsd twice.
+# Remove prior label names so two jobs never restart fseventsd twice.
+launchctl bootout system/dev.dotai.mac-watchdog.fseventsd 2>/dev/null || true
+rm -f /Library/LaunchDaemons/dev.dotai.mac-watchdog.fseventsd.plist
 launchctl bootout system/dev.dotai.fseventsd-watchdog 2>/dev/null || true
 rm -f /Library/LaunchDaemons/dev.dotai.fseventsd-watchdog.plist /usr/local/sbin/fseventsd-watchdog
 if [[ $1 == uninstall ]]; then

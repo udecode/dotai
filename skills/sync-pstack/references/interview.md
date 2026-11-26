@@ -8,7 +8,7 @@ The interview is the first step the user sees in a setup. Prepare it from eviden
    - the branch, the default branch and the package scripts;
    - commit style, merge and author counts, hooks and PR templates;
    - rules, installed skills with their sources, and pstack pins;
-   - vendored pstack copies and skills orphaned by dotai cuts;
+   - vendored pstack copies and skills orphaned by ustack cuts;
    - plan directories, a glossary and proof skills;
    - every local skill or rule the user typed as `/name` or `$name`, over all history and the last seven days, and every skill added in the last two weeks (`recent`).
 2. Read the project's `AGENTS.md` in full, plus every workflow rule it routes work through, such as a task, patch, improve or maintain-workflow rule. Skim domain rules (framework, product, API law) only far enough to classify them.
@@ -37,7 +37,7 @@ The interview is the first step the user sees in a setup. Prepare it from eviden
 | 5 | Plans and trails | The shared plan and decision-log rules in `<plans dir>`. Keep the project's plan system. | `plans` from discover; the project's plan rules | `plans`, `skip: ["plans"]` |
 | 6 | Long runs | pstack's Autonomous run with `/loop` in Claude Code and `/goal` in Codex. Keep the project's own goal controller, if it has one. | Goal and pause rules in `AGENTS.md` | `skip: ["long-runs"]` |
 | 7 | Commit and PR text, asked when the commit style or a PR template conflicts with the shared shape | The shared Conventional Commits and PR sections, with the template rewritten to match. The project's own convention. | `conventionalCommits` and `prTemplates` from discover, with the template's sections | `skip: ["commits"]` |
-| 8 | What to retire, as one multi-select | Each local workflow skill or rule that pstack or the block now covers, each skill orphaned by a dotai cut, and each project rule named like a plugin skill; never a domain method | Typed counts over all history and the last seven days; `dotaiOrphans`; rule names that match `pstack.vendored` | Adaptation only |
+| 8 | What to retire, as one multi-select | Each local workflow skill or rule that pstack or the block now covers, each skill orphaned by a ustack cut, and each project rule named like a plugin skill; never a domain method | Typed counts over all history and the last seven days; `ustackOrphans`; rule names that match `pstack.vendored` | Adaptation only |
 | 9 | The routing table, as one confirmation with the drafted table as a preview | A table of decision or work type to owner skill, drafted from the project's skills, their descriptions and the routing already in `AGENTS.md`, with the project's domain owners first and poteto-mode playbooks for the rest. Only the owner's corrections are asked. | Skill descriptions; existing routing sections; typed counts | Written outside the block as the project's Routing section |
 | 10 | The proof skill, asked only when `discover` finds none | Create one now with `pstack:create-verification-skill`, named `verify` so pstack finds it. Fall back to pstack's `run` for now. | `proofSkills` from discover; the app's run and test scripts | `proof` |
 

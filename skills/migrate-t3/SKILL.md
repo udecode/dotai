@@ -30,9 +30,9 @@ Let `<skill-dir>` be the directory holding this `SKILL.md`.
    node <skill-dir>/scripts/migrate.mjs --apply
    ```
    Never symlink `.agents/plugins/pstack` inside a repo; `agy` ignores symlinked project plugins.
-3. **Install shared global `dotai` skills** if missing (`start`, `cleanup`, `skill-audit`):
+3. **Install shared global `ustack` skills** if missing (`start`, `cleanup`, `skill-audit`):
    ```sh
-   npx --yes skills add udecode/dotai --skill start cleanup skill-audit --agent antigravity claude-code --global -y
+   npx --yes skills add udecode/ustack --skill start cleanup skill-audit --agent antigravity claude-code --global -y
    ```
 4. **Verify**:
    - Run `node <skill-dir>/scripts/migrate.mjs --check` and resolve any remaining automatable `todo:` items (if a profile has a non-empty local file conflicting with a symlink, tell the user instead of overwriting it).

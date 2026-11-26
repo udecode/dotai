@@ -1,12 +1,12 @@
-# dotai skills
+# ustack skills
 
-15 skills: 15 maintained in dotai, plus 0 unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from dotai. Methods load only when relevant; tool access is separate from installation.
+15 skills: 15 maintained in ustack, plus 0 unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from ustack. Methods load only when relevant; tool access is separate from installation.
 
 ## Review (2)
 
 | Skill | Purpose |
 | --- | --- |
-| [skill-audit](skills/skill-audit/SKILL.md) | Audit custom skills, playbooks, AGENTS.md rules, sync-pstack assets, and pstack overrides for drift, overlap, dead routes, and size-budget bloat across any project or dotai itself. |
+| [skill-audit](skills/skill-audit/SKILL.md) | Audit custom skills, playbooks, AGENTS.md rules, sync-pstack assets, and pstack overrides for drift, overlap, dead routes, and size-budget bloat across any project or ustack itself. |
 | [test-audit](skills/test-audit/SKILL.md) | Prune low-value, internal, flaky, slow or duplicated tests and bloated CI checks in coherent batches while keeping E2E, public boundary and invariant coverage intact. Not for writing new tests. |
 
 ## Communication (2)
@@ -71,4 +71,4 @@ These skills remain installed when a tool is absent; an unavailable live action 
 
 ## Deliberate boundaries
 
-dotai holds shared methods that pstack does not cover. It excludes product-specific schemas, routes, fixtures, provider adapters, release environments and personal configuration; those belong to each project. Framework packages (React, Next.js, Prisma, tRPC and the like) are stack-specific: install named official packages with the Skills CLI after source review. The skills contain no accounts, credentials, personal histories or connector configuration.
+ustack holds shared methods that pstack does not cover. It excludes product-specific schemas, routes, fixtures, provider adapters, release environments and personal configuration; those belong to each project. Framework packages (React, Next.js, Prisma, tRPC and the like) are stack-specific: install named official packages with the Skills CLI after source review. The skills contain no accounts, credentials, personal histories or connector configuration.

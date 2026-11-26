@@ -1,7 +1,7 @@
 <!-- # Shared rule file. sync-pstack renders it into each project's .agents/pstack/rules/; the grammar is in the skill's SKILL.md. -->
 # Worktrees and landing
 
-This file says how a task works in its own worktree and lands on `{{branch}}` in `trunk` delivery. The pstack block in `AGENTS.md` points here. Edit its shared source in `udecode/dotai`.
+This file says how a task works in its own worktree and lands on `{{branch}}` in `trunk` delivery. The pstack block in `AGENTS.md` points here. Edit its shared source in `udecode/ustack`.
 
 <!-- # overrides poteto-mode/playbooks/opening-a-pr.md "Work from a git worktree off trunk" -->
 <!-- # relies poteto-mode/playbooks/feature.md "**Give every file-writing delegate its own worktree**" -->

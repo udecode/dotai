@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Structural budget gate for sync-pstack rules, helper scripts, and dotai skills.
+// Structural budget gate for sync-pstack rules, helper scripts, and ustack skills.
 // Enforces:
 //  - principle-guard-the-context-window + principle-subtract-before-you-add:
 //    per-rule-file byte cap, total rules byte cap, per-skill byte cap, total skill byte cap

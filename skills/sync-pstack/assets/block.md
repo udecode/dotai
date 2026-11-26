@@ -34,7 +34,7 @@
 <!-- if glossary -->
 - Use the words in `{{glossary}}`.
 <!-- end -->
-- pstack is never edited here; an override changes its behavior. The `sync-pstack` skill renders this block from its shared source in `udecode/dotai`, replaces it on every sync, and moves every pin to a new tag together after reading pstack's changelog, so never bump a `ref` by hand. The next sync refuses an edit made inside this block. A lesson that changes a rule in this block goes to the shared source; a lesson for this repository alone goes outside the block.
+- pstack is never edited here; an override changes its behavior. The `sync-pstack` skill renders this block from its shared source in `udecode/ustack`, replaces it on every sync, and moves every pin to a new tag together after reading pstack's changelog, so never bump a `ref` by hand. The next sync refuses an edit made inside this block. A lesson that changes a rule in this block goes to the shared source; a lesson for this repository alone goes outside the block.
 
 ## pstack overrides
 

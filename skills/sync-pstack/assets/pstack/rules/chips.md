@@ -1,7 +1,7 @@
 <!-- # Shared rule file. sync-pstack renders it into each project's .agents/pstack/rules/; the grammar is in the skill's SKILL.md. -->
 # Suggested tasks
 
-This file says how to offer, track, card, and close suggested tasks in the project's ledger. A card session works from `chips brief <id>` and reads this file only to offer or drop another task. Edit its shared source in `udecode/dotai`.
+This file says how to offer, track, card, and close suggested tasks in the project's ledger. A card session works from `chips brief <id>` and reads this file only to offer or drop another task. Edit its shared source in `udecode/ustack`.
 
 - **Suggested tasks.** A suggested task tracks side work outside the current run's target (or a measurement that cannot fit the one-hour time budget). A finding that pivots the run never becomes a suggested task.
 <!-- if delivery=trunk -->

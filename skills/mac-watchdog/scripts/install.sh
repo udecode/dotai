@@ -5,7 +5,7 @@
 # The job runs a copy in Application Support, because the skill folder changes when the skill updates.
 set -e
 SRC=${0:A:h}
-LABEL=dev.dotai.mac-watchdog
+LABEL=dev.ustack.mac-watchdog
 HOME_DIR=${HOME:?}
 DEST="$HOME_DIR/Library/Application Support/mac-watchdog"
 PLIST="$HOME_DIR/Library/LaunchAgents/$LABEL.plist"
@@ -20,7 +20,9 @@ if [[ $1 == uninstall ]]; then
   exit 0
 fi
 
-# This skill was named mem-log before. Its job would log twice, so it goes, and its logs move here.
+# Remove prior label names so two jobs never log twice.
+launchctl bootout $DOMAIN/dev.dotai.mac-watchdog 2>/dev/null || true
+rm -f "$HOME_DIR/Library/LaunchAgents/dev.dotai.mac-watchdog.plist"
 launchctl bootout $DOMAIN/dev.dotai.mem-log 2>/dev/null || true
 rm -f "$HOME_DIR/Library/LaunchAgents/dev.dotai.mem-log.plist"
 rm -rf "$HOME_DIR/Library/Application Support/mem-log"
@@ -69,4 +71,4 @@ for _ in {1..20}; do
   [[ -s $LOGS/$today.jsonl ]] && break
 done
 node "$SRC/report.mjs" --last 1
-launchctl print system/dev.dotai.mac-watchdog.fseventsd >/dev/null 2>&1 || print "the fseventsd watchdog is not installed; it needs root: sudo zsh $SRC/install-fseventsd.sh"
+launchctl print system/dev.ustack.mac-watchdog.fseventsd >/dev/null 2>&1 || print "the fseventsd watchdog is not installed; it needs root: sudo zsh $SRC/install-fseventsd.sh"

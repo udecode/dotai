@@ -1,7 +1,7 @@
 <!-- # Shared rule file. sync-pstack renders it into each project's .agents/pstack/rules/; the grammar is in the skill's SKILL.md. -->
 # Git and worktrees
 
-This file says how sessions handle branches, worktrees, unrelated diffs and setup. The pstack block in `AGENTS.md` points here. The `sync-pstack` skill renders this file from its shared source in `udecode/dotai`, so change it there.
+This file says how sessions handle branches, worktrees, unrelated diffs and setup. The pstack block in `AGENTS.md` points here. The `sync-pstack` skill renders this file from its shared source in `udecode/ustack`, so change it there.
 
 - **Git.** Before a nontrivial edit, check only `git branch --show-current`.
 <!-- if protected -->

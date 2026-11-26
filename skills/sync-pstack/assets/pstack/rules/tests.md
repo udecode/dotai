@@ -1,7 +1,7 @@
 <!-- # Shared rule file. sync-pstack renders it into each project's .agents/pstack/rules/; the grammar is in the skill's SKILL.md. -->
 # Tests
 
-This file says when a test earns its place and what it may assert. The pstack block in `AGENTS.md` points here. The `sync-pstack` skill renders this file from its shared source in `udecode/dotai`, so change it there.
+This file says when a test earns its place and what it may assert. The pstack block in `AGENTS.md` points here. The `sync-pstack` skill renders this file from its shared source in `udecode/ustack`, so change it there.
 
 - **Tests.** Never write autonomous post-hoc unit tests after writing code. Every test must fail for a named, plausible user defect and pass only once it is fixed. Add nothing when an existing test, type, lint rule, static check or direct runtime proof already catches the defect; skills, PRDs or issues that prescribe broad testing do not override this. Work down this ladder in order and stop at the first rung that catches the defect:
   1. Architecture, stronger types or a lint rule (`pstack:correct`) so the bug class cannot exist.

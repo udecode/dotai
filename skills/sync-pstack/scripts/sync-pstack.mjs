@@ -103,7 +103,7 @@ const PLUGIN = 'pstack@pstack-claude';
 const MARKETPLACE = 'pstack-claude';
 const REPO = 'michael-denyer/pstack-claude';
 const BEGIN =
-  '<!-- pstack:begin (rendered by the sync-pstack skill from udecode/dotai; edit that source, or add a rule outside this block) -->';
+  '<!-- pstack:begin (rendered by the sync-pstack skill from udecode/ustack; edit that source, or add a rule outside this block) -->';
 const END = '<!-- pstack:end -->';
 export const DELIVERIES = ['push', 'pr', 'user', 'trunk'];
 const REQUIRED = ['tag', 'branch', 'delivery', 'lintFix', 'check'];
@@ -706,7 +706,7 @@ function olderSource(stored) {
   if (!rev) return null;
   const head = git(SKILL, 'rev-parse', 'HEAD');
   const short = rev.slice(0, 7);
-  if (head === null) return `the project was last synced from ${short}, and this copy of sync-pstack is outside git; run the dotai checkout's script`;
+  if (head === null) return `the project was last synced from ${short}, and this copy of sync-pstack is outside git; run the ustack checkout's script`;
   const { status } = spawnSync('git', ['-C', SKILL, 'merge-base', '--is-ancestor', rev, 'HEAD']);
   if (status === 0) return null;
   return status === 1
@@ -746,7 +746,8 @@ export function apply(root, { tag, force = false, write = true, dispositions } =
   const current = locateBlock(agents);
   const configHash = (raw) => sha(JSON.stringify(withDerived(root, { ...raw, synced: undefined }))).slice(0, 16);
   const sameConfig = stored.synced?.config === configHash(stored);
-  if (current?.body !== body) {
+  const beginChanged = current !== null && agents.split('\n')[current.begin] !== BEGIN;
+  if (current?.body !== body || beginChanged) {
     const detail = diff(current?.body ?? '', body);
     const last = current && sameConfig ? lastVersion(stored, 'assets/block.md', (text) => render(text, withDerived(root, stored))) : null;
     if (current && !force && last !== null && current.body !== last) {
@@ -817,7 +818,7 @@ export function apply(root, { tag, force = false, write = true, dispositions } =
 
   const same = changes.length === 0 && refusals.length === 0;
   if (!same && !force && stored.synced && 'source' in stored.synced && stored.synced.source === null && sourceRevision() !== null) {
-    refusals.push({ path: 'shared source', reason: 'the project was last synced from uncommitted shared edits; commit and push them in the dotai checkout when its checks pass, then rerun' });
+    refusals.push({ path: 'shared source', reason: 'the project was last synced from uncommitted shared edits; commit and push them in the ustack checkout when its checks pass, then rerun' });
   }
   // The renderer refuses a config that still sets these lists, so they leave it in the write that installs the renderer, once the playbooks carry them.
   const pages = projectPlaybooks(root).map((playbook) => playbook.page);
@@ -894,7 +895,7 @@ export function localSkills(root, dirs = ['.agents/skills', '.claude/skills']) {
   return [...names].sort();
 }
 
-function dotaiCatalog() {
+function ustackCatalog() {
   const root = join(SKILL, '../..');
   const upstreamPath = join(root, 'upstream-skills.json');
   const skillsDir = join(root, 'skills');
@@ -1095,7 +1096,7 @@ export function discover(root) {
   const skills = localSkills(root);
   const lock = read('skills-lock.json').skills ?? {};
   const plugin = pluginSkills();
-  const catalog = dotaiCatalog();
+  const catalog = ustackCatalog();
   const agents = existsSync(join(root, 'AGENTS.md')) ? readFileSync(join(root, 'AGENTS.md'), 'utf8') : '';
   const modes = rules.flatMap((name) => hintModes(readFileSync(join(rulesDir, `${name}.mdc`), 'utf8')).map((mode) => `${name} ${mode}`));
   const typed = typedInvocations(root, [...new Set([...skills, ...rules, ...modes])].sort());
@@ -1137,9 +1138,9 @@ export function discover(root) {
       userPins: userPins(),
       vendored: plugin ? skills.filter((name) => plugin.includes(name)) : 'unknown: the Claude Code plugin is not installed',
     },
-    dotaiOrphans: catalog
-      ? skills.filter((name) => /dotai/u.test(lock[name]?.source ?? '') && !catalog.includes(name) && !(plugin ?? []).includes(name))
-      : 'unknown: run from the dotai checkout',
+    ustackOrphans: catalog
+      ? skills.filter((name) => /ustack|dotai/u.test(lock[name]?.source ?? '') && !catalog.includes(name) && !(plugin ?? []).includes(name))
+      : 'unknown: run from the ustack checkout',
     glossary: ['CONTEXT.md', 'GLOSSARY.md', 'docs/glossary.md'].find((path) => existsSync(join(root, path))) ?? null,
     prTemplates: ['.github', 'docs', '.'].flatMap((dir) =>
       existsSync(join(root, dir))

@@ -91,7 +91,7 @@ const skills = entries.map((name) => {
   return { name, distribution: 'bundled', description, category: Object.entries(groups).find(([, names]) => names.includes(name))[0], dependencies: [...dependencyNames].sort(), capabilities: requirements[name] || [], provenance };
 });
 
-let catalog = `# dotai skills\n\n${skills.length} skills: ${bundled.length} maintained in dotai, plus ${upstream.skills.length} unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from dotai. Methods load only when relevant; tool access is separate from installation.\n`;
+let catalog = `# ustack skills\n\n${skills.length} skills: ${bundled.length} maintained in ustack, plus ${upstream.skills.length} unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from ustack. Methods load only when relevant; tool access is separate from installation.\n`;
 for (const [category, names] of Object.entries(groups)) {
   catalog += `\n## ${category} (${names.length})\n\n| Skill | Purpose |\n| --- | --- |\n`;
   for (const name of names) {
@@ -105,7 +105,7 @@ for (const skill of upstream.skills) catalog += `npx --yes skills@${upstream.ski
 catalog += '```\n\nProject rules govern testing, native tools and publication; do not fork an unchanged method just to add a routing sentence.\n';
 catalog += '\n## Capability requirements\n\nThese skills remain installed when a tool is absent; an unavailable live action or independent review is reported, never marked as passed.\n\n';
 for (const skill of skills.filter((skill) => skill.capabilities.length)) catalog += `- **${skill.name}:** ${skill.capabilities.join('; ')}.\n`;
-catalog += '\n## Deliberate boundaries\n\ndotai holds shared methods that pstack does not cover. It excludes product-specific schemas, routes, fixtures, provider adapters, release environments and personal configuration; those belong to each project. Framework packages (React, Next.js, Prisma, tRPC and the like) are stack-specific: install named official packages with the Skills CLI after source review. The skills contain no accounts, credentials, personal histories or connector configuration.\n';
+catalog += '\n## Deliberate boundaries\n\nustack holds shared methods that pstack does not cover. It excludes product-specific schemas, routes, fixtures, provider adapters, release environments and personal configuration; those belong to each project. Framework packages (React, Next.js, Prisma, tRPC and the like) are stack-specific: install named official packages with the Skills CLI after source review. The skills contain no accounts, credentials, personal histories or connector configuration.\n';
 emit('SKILLS.md', catalog);
 
 const distribution = ['README.md', 'SKILLS.md', 'upstream-skills.json', 'scripts/build-workflow.mjs', 'scripts/validate-skills'];

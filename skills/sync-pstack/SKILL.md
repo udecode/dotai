@@ -2,7 +2,7 @@
 name: sync-pstack
 description: "Set up pstack in a project and keep every managed project on one pinned tag and shared AGENTS.md overrides block. Use to install, sync, bump, or compare pstack setups, change project review rules, or propagate a shared workflow lesson."
 metadata:
-  source: udecode/dotai
+  source: udecode/ustack
   source-path: skills/sync-pstack
 ---
 
@@ -15,12 +15,12 @@ Sets up `pstack@pstack-claude` in a project and keeps managed projects aligned w
 | Layer | Lives in | Changed by |
 | --- | --- | --- |
 | Upstream | `pstack@pstack-claude` pinned tag in `.claude/settings.json`, `~/.claude/settings.json`, Codex marketplace, and `~/.gemini/config/plugins/pstack` | `sync --tag` and `user-pin`. Never edit upstream pstack. |
-| Shared | [`assets/block.md`](assets/block.md) (between `pstack:begin`/`pstack:end` in `AGENTS.md`), `assets/pstack/*.mjs` -> `.agents/pstack/`, and `assets/pstack/rules/*.md` -> `.agents/pstack/rules/` | Edit in `udecode/dotai`, then sync |
+| Shared | [`assets/block.md`](assets/block.md) (between `pstack:begin`/`pstack:end` in `AGENTS.md`), `assets/pstack/*.mjs` -> `.agents/pstack/`, and `assets/pstack/rules/*.md` -> `.agents/pstack/rules/` | Edit in `udecode/ustack`, then sync |
 | Project | `.agents/pstack.json`, `.agents/playbooks/*.md`, and project rules outside the block (which win over the block) | Project edits or setup |
 
 ## Commands
 
-Run `node <skill>/scripts/sync-pstack.mjs <command>` from the `udecode/dotai` checkout when present (`assets/` is the source of truth):
+Run `node <skill>/scripts/sync-pstack.mjs <command>` from the `udecode/ustack` checkout when present (`assets/` is the source of truth):
 
 | Command | Effect |
 | --- | --- |
@@ -50,7 +50,7 @@ Anchor checks use `~/.cache/sync-pstack/` (override with `SYNC_PSTACK_UPSTREAM`)
 | Propagate a shared workflow lesson or fix | [Lesson](#lesson) |
 | Add or edit a project playbook | [Project playbooks](#project-playbooks) |
 
-A shared-source change syncs only the active project (none when working directly in `dotai`) unless the owner names other projects.
+A shared-source change syncs only the active project (none when working directly in `ustack`) unless the owner names other projects.
 
 ## Setup
 
@@ -67,7 +67,7 @@ A shared-source change syncs only the active project (none when working directly
 1. Run `status`; pin only a tag printed by `latest`.
 2. When bumping tags, read upstream `CHANGES.md` from `~/.cache/sync-pstack/` (`git -C <clone> show <tag>:CHANGES.md`). Judge each new/changed upstream skill or step per project: `already wired`, `wire it in`, `manual only`, or `nowhere`. Fold shared block updates through [Lesson](#lesson).
 3. Run `sync --tag <tag> --dry-run` on projects in scope. Write a tab-separated dispositions file (`item`, `none|covered|noted|rewritten|dropped`, `reason`) for every printed diff hunk and count line, then run `sync --tag <tag> --dispositions <tsv>`.
-4. Resolve refusals cleanly: move generic edits to `dotai` (Lesson) and project edits outside the block before `--force`; commit/push dirty `dotai` edits before syncing; rewrite broken upstream anchors.
+4. Resolve refusals cleanly: move generic edits to `ustack` (Lesson) and project edits outside the block before `--force`; commit/push dirty `ustack` edits before syncing; rewrite broken upstream anchors.
 5. Run `user-pin --tag <tag>` and its refresh commands before smoking.
 6. Run `verify <project>` and smoke any changed playbook, gate, or rewritten/dropped disposition. Run `skill-audit` if upstream added/changed skills.
 7. Deliver per project delivery mode (`trunk` in a worktree via `land.mjs`; `push` commits and pushes; `pr` pushes directly to `<branch>` with `[skip ci]` if workflow filters allow; `user` leaves for owner).
@@ -88,7 +88,7 @@ Run `status`. For each unmanaged pstack project, map every override against the 
 
 Use when a lesson or fix applies to every managed project (project-only lessons go outside the project's block).
 
-1. Fetch/fast-forward `udecode/dotai` on `main` and edit in place (never create branches or worktrees in `dotai`).
+1. Fetch/fast-forward `udecode/ustack` on `main` and edit in place (never create branches or worktrees in `ustack`).
 2. Edit `assets/block.md`, `assets/pstack/rules/*.md`, or `assets/pstack/*.mjs`:
    - Subtract before adding: remove dead rules, redundant validators, and overlapping prose first.
    - Guard system boundaries only (CLI args, config, git pushes, PR creation, external APIs), never internal agent notes.
@@ -97,8 +97,8 @@ Use when a lesson or fix applies to every managed project (project-only lessons 
    - Keep project-specific names/paths out (use `<!-- if key -->` and optional config fields).
 3. Run `apply <project> --dry-run` (and `corpus` for ledger helper changes) on projects in scope.
 4. Run writing passes (`deslop`/`no-comments` on helpers, `unslop` on prose), `node scripts/build-workflow.mjs`, and `scripts/validate-skills`.
-5. Commit and push `dotai` (committing any other session's remaining edits in a second commit per `dotai/AGENTS.md`). Never amend or rebase a commit a project already synced from.
-6. Sync each project in scope from the pushed commit, run `verify <project>`, reinstall any changed `dotai` skills, and deliver per Sync step 7.
+5. Commit and push `ustack` (committing any other session's remaining edits in a second commit per `ustack/AGENTS.md`). Never amend or rebase a commit a project already synced from.
+6. Sync each project in scope from the pushed commit, run `verify <project>`, reinstall any changed `ustack` skills, and deliver per Sync step 7.
 
 ## Project playbooks
 

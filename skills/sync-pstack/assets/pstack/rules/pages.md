@@ -1,7 +1,7 @@
 <!-- # Shared rule file. sync-pstack renders it into each project's .agents/pstack/rules/; the grammar is in the skill's SKILL.md. -->
 # Plans and hand-backs
 
-This file says how plans and topic files stay structured in git, how hand-back replies read, and how PR bodies render from plans. The pstack block in `AGENTS.md` points here. Edit its shared source in `udecode/dotai`.
+This file says how plans and topic files stay structured in git, how hand-back replies read, and how PR bodies render from plans. The pstack block in `AGENTS.md` points here. Edit its shared source in `udecode/ustack`.
 
 <!-- # adds -->
 - **Plans and topics.** Committed Markdown plan files (`{{plans}}/<YYYY-MM-DD>-<slug>.md`) and topic files (`{{plans}}/topics/<slug>.md`) are the record. Every revisited scope keeps one topic file holding current state; each subsequent plan carries only its delta (`Topic: <slug>` and `Playbook: <name>` under `Status:`).

@@ -9,8 +9,8 @@ A frozen Mac leaves almost nothing behind. macOS logs that memory ran out, not w
 
 | Job | Runs as | Does |
 | --- | --- | --- |
-| `dev.dotai.mac-watchdog` | the user | Records memory every 10 seconds and stops runaway processes |
-| `dev.dotai.mac-watchdog.fseventsd` | root | Restarts fseventsd when its leak passes 1 GB |
+| `dev.ustack.mac-watchdog` | the user | Records memory every 10 seconds and stops runaway processes |
+| `dev.ustack.mac-watchdog.fseventsd` | root | Restarts fseventsd when its leak passes 1 GB |
 
 They are two jobs because restarting fseventsd needs root, and a root job must never run a file the user can edit, such as Node or the recorder. Both write to `~/Library/Logs/mac-watchdog/`.
 
@@ -18,13 +18,13 @@ They are two jobs because restarting fseventsd needs root, and a root job must n
 
 ## Install, update or remove
 
-1. To install the recorder, or to apply an edit to `scripts/recorder.mjs`, run `zsh <skill>/scripts/install.sh`. It needs no sudo. It copies the recorder to `~/Library/Application Support/mac-watchdog`, compiles the `footprint` helper with `cc`, writes `~/Library/LaunchAgents/dev.dotai.mac-watchdog.plist` with the `node` on PATH, starts the job and prints the first sample. It refuses when another recorder already runs, and when `cc` is missing, which `xcode-select --install` fixes. It also removes the job of `mem-log`, this skill's old name, and moves its logs here. Done when it prints a sample line.
-2. To install the fseventsd watchdog, or to apply an edit to `scripts/fseventsd.sh`, the user runs `sudo zsh <skill>/scripts/install-fseventsd.sh`, because it needs root; give them the command. It copies the watchdog to `/usr/local/sbin` as root-owned, writes `/Library/LaunchDaemons/dev.dotai.mac-watchdog.fseventsd.plist`, removes the job of `fseventsd-watchdog`, this part's old name, starts the job, then prints its log, fseventsd's memory and the leak's onset line from the last 7 days (`event table has grown too large`).
+1. To install the recorder, or to apply an edit to `scripts/recorder.mjs`, run `zsh <skill>/scripts/install.sh`. It needs no sudo. It copies the recorder to `~/Library/Application Support/mac-watchdog`, compiles the `footprint` helper with `cc`, writes `~/Library/LaunchAgents/dev.ustack.mac-watchdog.plist` with the `node` on PATH, starts the job and prints the first sample. It refuses when another recorder already runs, and when `cc` is missing, which `xcode-select --install` fixes. It also removes the job of `mem-log`, this skill's old name, and moves its logs here. Done when it prints a sample line.
+2. To install the fseventsd watchdog, or to apply an edit to `scripts/fseventsd.sh`, the user runs `sudo zsh <skill>/scripts/install-fseventsd.sh`, because it needs root; give them the command. It copies the watchdog to `/usr/local/sbin` as root-owned, writes `/Library/LaunchDaemons/dev.ustack.mac-watchdog.fseventsd.plist`, removes the job of `fseventsd-watchdog`, this part's old name, starts the job, then prints its log, fseventsd's memory and the leak's onset line from the last 7 days (`event table has grown too large`).
 3. To remove them, run `zsh <skill>/scripts/install.sh uninstall` and `sudo zsh <skill>/scripts/install-fseventsd.sh uninstall`. The logs stay.
 
 ## Check
 
-- `launchctl print gui/$(id -u)/dev.dotai.mac-watchdog` and `launchctl print system/dev.dotai.mac-watchdog.fseventsd` show each job and its last exit code.
+- `launchctl print gui/$(id -u)/dev.ustack.mac-watchdog` and `launchctl print system/dev.ustack.mac-watchdog.fseventsd` show each job and its last exit code.
 - `node <skill>/scripts/report.mjs --last 3` prints the latest samples. A sample older than a minute means the recorder stopped, and `~/Library/Logs/mac-watchdog/stderr.log` says why, such as a `node` path that moved after a Node upgrade, which a new install fixes.
 
 ## The recorder

@@ -1,7 +1,7 @@
 <!-- # Shared rule file. sync-pstack renders it into each project's .agents/pstack/rules/; the grammar is in the skill's SKILL.md. -->
 # Session title
 
-How the lead titles a session by state. Edit in `udecode/dotai`.
+How the lead titles a session by state. Edit in `udecode/ustack`.
 
 - **Session title.** When the runtime can rename the thread (`t3_thread_update` with `action: "rename"`, omitting `threadId`), title it by state and update only on state change or step land. Skip if no rename tool exists.
 

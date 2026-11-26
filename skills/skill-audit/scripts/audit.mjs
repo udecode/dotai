@@ -5,7 +5,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const DOTAI_CHECKOUT = existsSync(resolve(HERE, '../../../upstream-skills.json')) ? resolve(HERE, '../../..') : null;
+const USTACK_CHECKOUT = existsSync(resolve(HERE, '../../../upstream-skills.json')) ? resolve(HERE, '../../..') : null;
 const USER_SKILL_DIRS = ['.agents/skills', '.claude/skills', '.codex/skills'];
 const DAY = 24 * 60 * 60 * 1000;
 const SHINGLE = 3;
@@ -22,7 +22,7 @@ export const SIZE_BUDGETS = {
   skillDir: 40_000,
 };
 
-export const DOTAI_BUDGETS = {
+export const USTACK_BUDGETS = {
   skillFile: 16_384,
   skillsTotal: 100_000,
   ruleFile: 8_192,
@@ -95,7 +95,7 @@ function repoTopSkills(root) {
     .sort();
 }
 
-const isDotaiRepo = (root) =>
+const isUstackRepo = (root) =>
   existsSync(join(root, 'skills/sync-pstack/assets/pstack/rules')) || existsSync(join(root, 'upstream-skills.json'));
 
 const distinctiveName = (name) => /[-\d]/u.test(name);
@@ -378,12 +378,12 @@ export function unmarkedRules(template) {
   return [...unmarked];
 }
 
-function pstackSkillsDir(root, dotaiTarget) {
+function pstackSkillsDir(root, ustackTarget) {
   const configPath = join(root, '.agents/pstack.json');
   const hasConfig = existsSync(configPath);
   let tag = hasConfig ? readJson(configPath).tag?.replace(/^v/u, '') : null;
   let source = hasConfig ? 'project' : 'none';
-  if (!tag && dotaiTarget) {
+  if (!tag && ustackTarget) {
     const userRef = readJson(join(homedir(), '.claude/settings.json')).extraKnownMarketplaces?.['pstack-claude']?.source?.ref;
     if (userRef) {
       tag = userRef.replace(/^v/u, '');
@@ -397,7 +397,7 @@ function pstackSkillsDir(root, dotaiTarget) {
 function resolveSharedSource(root) {
   const candidates = [
     join(root, 'skills/sync-pstack/assets'),
-    DOTAI_CHECKOUT && join(DOTAI_CHECKOUT, 'skills/sync-pstack/assets'),
+    USTACK_CHECKOUT && join(USTACK_CHECKOUT, 'skills/sync-pstack/assets'),
     resolve(HERE, '../../sync-pstack/assets'),
     ...USER_SKILL_DIRS.map((dir) => join(homedir(), dir, 'sync-pstack/assets')),
   ].filter(Boolean);
@@ -543,58 +543,58 @@ export function sizeAudit(root) {
     }
   }
 
-  let dotai = null;
+  let ustack = null;
   const repoSkills = repoTopSkills(root);
-  const dotaiTarget = isDotaiRepo(root);
+  const ustackTarget = isUstackRepo(root);
   if (repoSkills.length > 0) {
-    const fileLimit = dotaiTarget ? DOTAI_BUDGETS.skillFile : SIZE_BUDGETS.skillFile;
+    const fileLimit = ustackTarget ? USTACK_BUDGETS.skillFile : SIZE_BUDGETS.skillFile;
     let repoSkillBytes = 0;
     for (const name of repoSkills) {
       const skillFile = join(root, 'skills', name, 'SKILL.md');
       const bytes = statSync(skillFile).size;
       repoSkillBytes += bytes;
       if (bytes > fileLimit) {
-        over.push({ kind: dotaiTarget ? 'dotai-skill-file' : 'skill-file', path: relative(root, skillFile), bytes, limit: fileLimit });
+        over.push({ kind: ustackTarget ? 'ustack-skill-file' : 'skill-file', path: relative(root, skillFile), bytes, limit: fileLimit });
       }
     }
-    if (dotaiTarget && repoSkillBytes > DOTAI_BUDGETS.skillsTotal) {
-      over.push({ kind: 'dotai-skills-total', path: 'skills/*/SKILL.md', bytes: repoSkillBytes, limit: DOTAI_BUDGETS.skillsTotal });
+    if (ustackTarget && repoSkillBytes > USTACK_BUDGETS.skillsTotal) {
+      over.push({ kind: 'ustack-skills-total', path: 'skills/*/SKILL.md', bytes: repoSkillBytes, limit: USTACK_BUDGETS.skillsTotal });
     }
-    let dotaiRuleBytes = 0;
-    const dotaiRulesDir = join(root, 'skills/sync-pstack/assets/pstack/rules');
-    if (existsSync(dotaiRulesDir)) {
-      for (const name of readdirSync(dotaiRulesDir).filter((file) => file.endsWith('.md')).sort()) {
-        const path = join(dotaiRulesDir, name);
+    let ustackRuleBytes = 0;
+    const ustackRulesDir = join(root, 'skills/sync-pstack/assets/pstack/rules');
+    if (existsSync(ustackRulesDir)) {
+      for (const name of readdirSync(ustackRulesDir).filter((file) => file.endsWith('.md')).sort()) {
+        const path = join(ustackRulesDir, name);
         const bytes = statSync(path).size;
-        dotaiRuleBytes += bytes;
-        if (bytes > DOTAI_BUDGETS.ruleFile) {
-          over.push({ kind: 'dotai-rule-file', path: relative(root, path), bytes, limit: DOTAI_BUDGETS.ruleFile });
+        ustackRuleBytes += bytes;
+        if (bytes > USTACK_BUDGETS.ruleFile) {
+          over.push({ kind: 'ustack-rule-file', path: relative(root, path), bytes, limit: USTACK_BUDGETS.ruleFile });
         }
       }
-      if (dotaiRuleBytes > DOTAI_BUDGETS.rulesTotal) {
-        over.push({ kind: 'dotai-rules-total', path: 'skills/sync-pstack/assets/pstack/rules', bytes: dotaiRuleBytes, limit: DOTAI_BUDGETS.rulesTotal });
+      if (ustackRuleBytes > USTACK_BUDGETS.rulesTotal) {
+        over.push({ kind: 'ustack-rules-total', path: 'skills/sync-pstack/assets/pstack/rules', bytes: ustackRuleBytes, limit: USTACK_BUDGETS.rulesTotal });
       }
     }
     const blockPath = join(root, 'skills/sync-pstack/assets/block.md');
     const blockBytes = existsSync(blockPath) ? statSync(blockPath).size : 0;
     const helpersDir = join(root, 'skills/sync-pstack/assets/pstack');
     const helpersCount = existsSync(helpersDir) ? readdirSync(helpersDir).filter((file) => file.endsWith('.mjs')).length : 0;
-    if (dotaiTarget && helpersCount > DOTAI_BUDGETS.helperFiles) {
-      over.push({ kind: 'dotai-helpers', path: 'skills/sync-pstack/assets/pstack', bytes: helpersCount, limit: DOTAI_BUDGETS.helperFiles });
+    if (ustackTarget && helpersCount > USTACK_BUDGETS.helperFiles) {
+      over.push({ kind: 'ustack-helpers', path: 'skills/sync-pstack/assets/pstack', bytes: helpersCount, limit: USTACK_BUDGETS.helperFiles });
     }
-    if (dotaiTarget) {
-      dotai = { skills: repoSkillBytes, rules: dotaiRuleBytes, block: blockBytes, helpers: helpersCount };
+    if (ustackTarget) {
+      ustack = { skills: repoSkillBytes, rules: ustackRuleBytes, block: blockBytes, helpers: helpersCount };
     } else {
       skillsTotal += repoSkillBytes;
     }
   }
 
   over.sort((a, b) => a.kind.localeCompare(b.kind) || b.bytes - a.bytes || a.path.localeCompare(b.path));
-  return { limits: SIZE_BUDGETS, totals: { playbooks: playbooksTotal, rules: rulesTotal, skills: skillsTotal }, ...(dotai ? { dotai } : {}), over };
+  return { limits: SIZE_BUDGETS, totals: { playbooks: playbooksTotal, rules: rulesTotal, skills: skillsTotal }, ...(ustack ? { ustack } : {}), over };
 }
 
 export function audit(root, minScore = 0.5) {
-  const dotaiTarget = isDotaiRepo(root);
+  const ustackTarget = isUstackRepo(root);
   const hasPstackConfig = existsSync(join(root, '.agents/pstack.json'));
   const rulesDir = join(root, '.agents/rules');
   const ruleNames = existsSync(rulesDir) ? readdirSync(rulesDir).filter((name) => name.endsWith('.mdc')).map((name) => name.slice(0, -4)) : [];
@@ -629,7 +629,7 @@ export function audit(root, minScore = 0.5) {
     project.push(...shingledSentences(outside, 'AGENTS.md'));
   }
 
-  const sharedSource = hasPstackConfig || dotaiTarget ? resolveSharedSource(root) : null;
+  const sharedSource = hasPstackConfig || ustackTarget ? resolveSharedSource(root) : null;
   const sharedFileSet = new Set(sharedSource ? ['block', ...sharedSource.rules.map((rule) => `rules/${rule.name}`)] : []);
   const shared = sharedSource
     ? [
@@ -637,7 +637,7 @@ export function audit(root, minScore = 0.5) {
         ...sharedSource.rules.flatMap((rule) => shingledSentences(rule.text, `rules/${rule.name}`)),
       ]
     : [];
-  const pstackText = pstackSkillsDir(root, dotaiTarget);
+  const pstackText = pstackSkillsDir(root, ustackTarget);
   const pstack = pstackText.dir ? [...markdownFiles(pstackText.dir)].flatMap((path) => shingledSentences(readFileSync(path, 'utf8'), `pstack/${relative(pstackText.dir, path)}`)) : [];
   const references = { pstack: [pstack, index(pstack)], block: [shared, index(shared)], project: [project, index(project)] };
 
@@ -667,7 +667,7 @@ export function audit(root, minScore = 0.5) {
   const pstackRuleFiles = files
     .filter((file) => file.startsWith('.agents/pstack/rules/') && file.endsWith('.md'))
     .map((file) => join(root, file));
-  const dotaiRuleFiles = dotaiTarget
+  const ustackRuleFiles = ustackTarget
     ? [
         ...(existsSync(join(root, 'skills/sync-pstack/assets/block.md')) ? [join(root, 'skills/sync-pstack/assets/block.md')] : []),
         ...(existsSync(join(root, 'skills/sync-pstack/assets/pstack/rules'))
@@ -678,23 +678,23 @@ export function audit(root, minScore = 0.5) {
           : []),
       ]
     : [];
-  const routeFiles = [...(agents ? [join(root, agents)] : []), ...projectFiles, ...pstackRuleFiles, ...dotaiRuleFiles];
+  const routeFiles = [...(agents ? [join(root, agents)] : []), ...projectFiles, ...pstackRuleFiles, ...ustackRuleFiles];
   const routeTexts = routeFiles.map((path) => [relative(root, path), readFileSync(path, 'utf8')]);
   const routes = (name) => {
     const [inRules, elsewhere] = [true, false].map((links) => skillMention(name, { siblingLinks: links }));
     const own = (path) => path === `.agents/rules/${name}.mdc` || path.startsWith(`.agents/rules/${name}/`) || path.startsWith(`skills/${name}/`);
     return routeTexts.filter(([path, text]) => !own(path) && (siblingLinks(path) ? inRules : elsewhere).test(text)).map(([path]) => path);
   };
-  const dotaiCopy = (name) => join(DOTAI_CHECKOUT, 'skills', name);
-  const inDotai = (name) => (DOTAI_CHECKOUT ? existsSync(join(dotaiCopy(name), 'SKILL.md')) : null);
-  const stale = (installed, name) => (DOTAI_CHECKOUT ? inDotai(name) && !sameTree(installed, dotaiCopy(name)) : null);
+  const ustackCopy = (name) => join(USTACK_CHECKOUT, 'skills', name);
+  const inUstack = (name) => (USTACK_CHECKOUT ? existsSync(join(ustackCopy(name), 'SKILL.md')) : null);
+  const stale = (installed, name) => (USTACK_CHECKOUT ? inUstack(name) && !sameTree(installed, ustackCopy(name)) : null);
 
   const skills = projectSkillEntries.map((skill) => ({
     name: skill.name,
     source: skill.source,
     typed: typedCounts[skill.name] ?? { all: 0, week: 0 },
     routes: routes(skill.name),
-    stale: /dotai/u.test(lock[skill.name]?.source ?? '') && existsSync(skill.dir) ? stale(skill.dir, skill.name) : false,
+    stale: /ustack|dotai/u.test(lock[skill.name]?.source ?? '') && existsSync(skill.dir) ? stale(skill.dir, skill.name) : false,
   }));
 
   const userLock = readJson(join(homedir(), '.agents/.skill-lock.json')).skills ?? {};
@@ -705,13 +705,13 @@ export function audit(root, minScore = 0.5) {
     const body = readFileSync(join(dir, 'SKILL.md'), 'utf8');
     const source = userLock[name]?.source ?? body.match(/^\s*source:\s*(\S+)/mu)?.[1] ?? null;
     const real = realpathSync(dir);
-    const linkedToDotai = DOTAI_CHECKOUT && (real === realpathSync(DOTAI_CHECKOUT) || real.startsWith(`${realpathSync(DOTAI_CHECKOUT)}/`));
+    const linkedToUstack = USTACK_CHECKOUT && (real === realpathSync(USTACK_CHECKOUT) || real.startsWith(`${realpathSync(USTACK_CHECKOUT)}/`));
     return {
       name,
       source,
       typed: userTyped[name],
-      inDotai: inDotai(name),
-      stale: linkedToDotai ? false : stale(dir, name),
+      inUstack: inUstack(name),
+      stale: linkedToUstack ? false : stale(dir, name),
     };
   });
 
@@ -720,7 +720,7 @@ export function audit(root, minScore = 0.5) {
   return {
     root,
     minScore,
-    dotai: DOTAI_CHECKOUT,
+    ustack: USTACK_CHECKOUT,
     hasPstackConfig,
     hasSharedSource: sharedSource !== null,
     skills,
@@ -742,16 +742,16 @@ export function report(result) {
       ? 'no tag in .agents/pstack.json'
       : 'no .agents/pstack.json (non-pstack repo)';
   const pstack = result.pstack.dir ?? `${missing}, so nothing was compared with pstack`;
-  const out = [`Skill-drift facts for ${result.root}`, `pstack text: ${pstack}`, `dotai checkout: ${result.dotai ?? 'unknown; run from the dotai checkout for source facts'}`];
+  const out = [`Skill-drift facts for ${result.root}`, `pstack text: ${pstack}`, `ustack checkout: ${result.ustack ?? 'unknown; run from the ustack checkout for source facts'}`];
   out.push('', '## Project skills', 'name | source | typed all (week) | routes | stale copy');
   for (const skill of result.skills) out.push(`${skill.name} | ${skill.source ?? '?'} | ${skill.typed.all} (${skill.typed.week}) | ${skill.routes.length} | ${yesNo(skill.stale)}`);
-  out.push('', '## User-scope skills', 'name | source | typed anywhere | in dotai | stale copy');
-  for (const skill of result.userSkills) out.push(`${skill.name} | ${skill.source ?? '?'} | ${skill.typed.all} | ${yesNo(skill.inDotai) || 'no'} | ${yesNo(skill.stale)}`);
+  out.push('', '## User-scope skills', 'name | source | typed anywhere | in ustack | stale copy');
+  for (const skill of result.userSkills) out.push(`${skill.name} | ${skill.source ?? '?'} | ${skill.typed.all} | ${yesNo(skill.inUstack) || 'no'} | ${yesNo(skill.stale)}`);
   out.push('', `## Size budgets (over cap: ${result.sizeBudgets.over.length})`);
   if (result.sizeBudgets.over.length === 0) {
-    if (result.sizeBudgets.dotai) {
-      const d = result.sizeBudgets.dotai;
-      out.push(`none (skills ${d.skills}/${DOTAI_BUDGETS.skillsTotal} B, rules ${d.rules}/${DOTAI_BUDGETS.rulesTotal} B, block.md ${d.block} B raw, helpers ${d.helpers}/${DOTAI_BUDGETS.helperFiles})`);
+    if (result.sizeBudgets.ustack) {
+      const d = result.sizeBudgets.ustack;
+      out.push(`none (skills ${d.skills}/${USTACK_BUDGETS.skillsTotal} B, rules ${d.rules}/${USTACK_BUDGETS.rulesTotal} B, block.md ${d.block} B raw, helpers ${d.helpers}/${USTACK_BUDGETS.helperFiles})`);
     } else {
       out.push(`none (playbooks total ${result.sizeBudgets.totals.playbooks}/${SIZE_BUDGETS.playbooksTotal} B)`);
     }

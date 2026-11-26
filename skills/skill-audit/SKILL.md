@@ -1,8 +1,8 @@
 ---
 name: skill-audit
-description: "Audit custom skills, playbooks, AGENTS.md rules, sync-pstack assets, and pstack overrides for drift, overlap, dead routes, and size-budget bloat across any project or dotai itself."
+description: "Audit custom skills, playbooks, AGENTS.md rules, sync-pstack assets, and pstack overrides for drift, overlap, dead routes, and size-budget bloat across any project or ustack itself."
 metadata:
-  source: udecode/dotai
+  source: udecode/ustack
   source-path: skills/skill-audit
 ---
 
@@ -18,7 +18,7 @@ Stay read-only until the owner approves cuts, unless the request explicitly asks
 node <skill>/scripts/audit.mjs <target> [--json] [--min <score>]
 ```
 
-Works on a pstack-managed project, a plain repo with custom skills or playbooks, or `udecode/dotai` itself. It reports project and user-scope skill inventory, typed counts, route counts, stale dotai copies, size budgets, unmarked block rules, and candidate overlaps.
+Works on a pstack-managed project, a plain repo with custom skills or playbooks, or `udecode/ustack` itself. It reports project and user-scope skill inventory, typed counts, route counts, stale ustack copies, size budgets, unmarked block rules, and candidate overlaps.
 
 ## Surfaces
 
@@ -27,7 +27,7 @@ Audit every surface present in `<target>`:
 1. **Custom project skills and rules:** `.agents/rules/*.mdc` plus `.agents/rules/<name>/`, `.agents/skills/*`, and workflow guides named in `AGENTS.md` (judge each guide as a restatement of the block, like a skill that copies it).
 2. **Project playbooks:** `.agents/playbooks/*.md` against upstream pstack base playbooks (`poteto-mode/playbooks/*.md`).
 3. **pstack overrides:** the `AGENTS.md` `pstack:begin`/`pstack:end` block, `.agents/pstack/rules/*.md`, unmarked rules missing `<!-- # overrides -->`, `<!-- # relies -->`, or `<!-- # adds -->`, and drift from the pinned tag.
-4. **`sync-pstack` and `dotai`:** when auditing `udecode/dotai`, inspect `skills/*/SKILL.md`, `skills/sync-pstack/assets/block.md`, `assets/pstack/rules/*.md`, and `assets/pstack/*.mjs`; check `block-budget.mjs`, `budget-check.mjs`, and cross-skill overlap.
+4. **`sync-pstack` and `ustack`:** when auditing `udecode/ustack`, inspect `skills/*/SKILL.md`, `skills/sync-pstack/assets/block.md`, `assets/pstack/rules/*.md`, and `assets/pstack/*.mjs`; check `block-budget.mjs`, `budget-check.mjs`, and cross-skill overlap.
 
 ## Verdicts
 
@@ -53,10 +53,10 @@ Read each skill's source (`.agents/rules/<name>.mdc` and its references, not gen
 Flag every file or folder over cap; trim duplicated prose, encode rules into checks, or split references before adding text:
 
 - **Project targets:** 14,000 B per playbook or `.mdc` rule, 70,000 B total `.agents/playbooks`, 20,000 B per `SKILL.md`, 40,000 B per skill folder excluding `scripts/`.
-- **`dotai` target:** 16,384 B per `skills/*/SKILL.md`, 100,000 B total skills, 8,192 B per `assets/pstack/rules/*.md`, 80,000 B total rules, 18,200 B max rendered `assets/block.md`, 18 helper `.mjs` files.
+- **`ustack` target:** 16,384 B per `skills/*/SKILL.md`, 100,000 B total skills, 8,192 B per `assets/pstack/rules/*.md`, 80,000 B total rules, 18,200 B max rendered `assets/block.md`, 18 helper `.mjs` files.
 
 ## Apply and verify
 
 1. Present candidates via `AskUserQuestion` (or numbered options in Codex) with typed counts, route counts, and exact rule or gate impact.
 2. Execute approved cuts with a disposition table (old rule -> new home or `dropped`), add removed typed commands to `.agents/pstack.json` `dropped`, update `AGENTS.md` and project workflow guides, and remove dropped external skills via `npx --yes skills remove`.
-3. Verify with `sync-pstack` `verify <project>` on pstack projects, `scripts/validate-skills --all` on `dotai`, and the project's own skill regeneration and check commands.
+3. Verify with `sync-pstack` `verify <project>` on pstack projects, `scripts/validate-skills --all` on `ustack`, and the project's own skill regeneration and check commands.
