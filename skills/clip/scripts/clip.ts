@@ -115,7 +115,7 @@ export const RULES: { rule: string; check: string }[] = [
     check: 'openClip, reviewTake, pageClip, renderClip, renderCompare',
   },
   {
-    rule: `A change to how something looks at rest, such as copy or a style, shows as one image, the still before the change beside the still after it when both fit the page's width and above it otherwise, both cropped to the area where they differ, each in a clip's card, under a ${CLIP.pairHead.stillHeight} px black head whose title is white at ${CLIP.pairHead.stillTitlePx} px. It refuses two stills of different sizes or two that show the same thing.`,
+    rule: `A change to how something looks at rest, such as copy or a style, shows as one image, the still before the change beside the still after it when both fit the page's width or each is taller than wide, and above it otherwise, both cropped to the area where they differ, each in a clip's card, under a ${CLIP.pairHead.stillHeight} px black head whose title is white at ${CLIP.pairHead.stillTitlePx} px. It refuses two stills of different sizes or two that show the same thing.`,
     check: 'renderPair, changedBox',
   },
 ]
@@ -1148,9 +1148,9 @@ export async function renderPair(images: [before: string, after: string], out: s
   if (!box) return { ...review, fails: ['the two stills show the same thing; take the before still on the code before the change'] }
   const c = cropAround(box, [width / qw, height / qh], width, height)
   const src = images.map(f => `data:image/png;base64,${readFileSync(f).toString('base64')}`)
-  // The stills sit in the same cards as a clip's copies, side by side when both fit the page's width.
+  // The stills sit in the same cards as a clip's copies, side by side when both fit the page's width or each is taller than wide, because two phone screens stacked made a strip four times as tall as wide (the owner, 2026-11-26).
   const { marginPx: m, gapPx: g, bandPx: b, borderPx: e, radiusPx: r, labelPx } = CARD
-  const across = 2 * c.w <= width
+  const across = 2 * c.w <= width || c.h > c.w
   const card = (side: Side, i: number) =>
     `<div style="box-sizing:border-box;border:${e}px solid ${SIDE_COLOR[side]};border-top:0;border-radius:${r}px;overflow:hidden;${i ? (across ? `margin-left:${g}px` : `margin-top:${g}px`) : ''}"><div style="height:${b}px;display:flex;align-items:center;padding:0 10px;font:700 ${labelPx}px/1 Inter;letter-spacing:0.08em;text-transform:uppercase;background:${SIDE_COLOR[side]};color:#fff">${side}</div><div style="position:relative;overflow:hidden;width:${c.w}px;height:${c.h}px"><img src="${src[i]}" style="position:absolute;left:${-c.x}px;top:${-c.y}px;width:${width}px;height:${height}px;max-width:none"></div></div>`
   const stageW = (across ? 2 : 1) * (c.w + 2 * e) + (across ? g : 0) + 2 * m

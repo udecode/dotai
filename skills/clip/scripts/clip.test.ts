@@ -320,6 +320,15 @@ describe('a before-and-after pair', () => {
     // Each card is 150 px of page under its 28 px band, over its 2 px border.
     expect(h).toBe(28 + 150 + 2 + 32)
     expect((await renderPair([before, before], out)).fails[0]).toContain('show the same thing')
+    // Two phone screens that differ across their whole width still go side by side, because stacked they make a strip four times as tall as wide.
+    const tall = (name: string, color: string) => {
+      const file = join(dir, `${name}.png`)
+      Bun.spawnSync(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', `color=c=white:s=400x860,drawbox=x=0:y=100:w=400:h=700:color=${color}:t=fill`, '-frames:v', '1', file])
+      return file
+    }
+    expect((await renderPair([tall('phone-before', 'gray'), tall('phone-after', 'black')], out)).fails).toEqual([])
+    const [pw, ph] = Bun.spawnSync(['ffprobe', '-v', 'error', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', out]).stdout.toString().trim().split(',').map(Number)
+    expect([pw, ph]).toEqual([2 * (400 + 4) + 16 + 32, 28 + 860 + 2 + 32])
     const other = join(dir, 'other.png')
     Bun.spawnSync(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=white:s=640x480', '-frames:v', '1', other])
     expect((await renderPair([before, other], out)).fails[0]).toContain('take both at one size')
