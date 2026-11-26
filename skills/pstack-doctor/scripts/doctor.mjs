@@ -666,14 +666,19 @@ export function transcript(args, env) {
 const APPEND = /decisions-check\.mjs\W{0,6}append\b/u;
 const APPENDED = /Appended (?:a row|(\d+) rows) to (.+?\.tsv)\./gu;
 const CALL_IDS = /"(?:tool_use_id|call_id)":"([^"]+)"/gu;
-const TYPED_LINE = /"type":"user"|"role":"user"|"type":"user_message"/u;
-const MAY_MATTER = /decisions-check|Appended |AskUserQuestion|"queued_command"|request_user_input|send_user_message_question_reply|"answers"|the user said:/u;
+const TYPED_LINE = /"type":"user"|"role":"user"|"type":"user_message"|"type":"USER_INPUT"/u;
+const MAY_MATTER = /decisions-check|Appended |AskUserQuestion|ask_question|"queued_command"|request_user_input|send_user_message_question_reply|"answers"|the user said:/u;
 const QUESTION_REPLY = /<send_user_message_question_reply>([\s\S]*?)<\/send_user_message_question_reply>/gu;
+const AGY_USER_REQUEST = /<USER_REQUEST>\s*([\s\S]*?)\s*<\/USER_REQUEST>/u;
 // Claude Code puts this in a card's answer when the owner wrote a message instead.
 const UNANSWERED = /^\[User did not answer this question/u;
 const rowStamp = (iso, shift) => new Date(Date.parse(iso) + shift).toISOString().replace(/\.\d{3}Z$/u, 'Z');
+const agyArg = (value) => (typeof value === 'string' ? (parsed(value) ?? value) : value);
 const cardTexts = (questions) =>
-  (Array.isArray(questions) ? questions : []).flatMap((question) => [question?.question, ...(question?.options ?? []).flatMap((option) => [option?.label, option?.description])]).filter((text) => typeof text === 'string');
+  (Array.isArray(questions) ? questions : []).flatMap((question) => [
+    question?.question,
+    ...(question?.options ?? []).flatMap((option) => (typeof option === 'string' ? [option] : [option?.label, option?.description])),
+  ]).filter((text) => typeof text === 'string');
 
 // Codex sends AGENTS.md as a user message: this heading, then the file in a tag block.
 const CODEX_AGENTS_MD = /^\s*# AGENTS\.md instructions for /u;
@@ -708,12 +713,24 @@ async function sessionOf(path) {
     const event = parsed(line);
     if (!event) continue;
     cwd ??= (event.type === 'session_meta' ? event.payload?.cwd : event.cwd) ?? null;
-    const at = event.timestamp;
+    const at = event.timestamp ?? event.created_at;
     if (!at) continue;
     for (const part of Array.isArray(event.message?.content) ? event.message.content : []) {
       if (part.type === 'tool_use' && part.name === 'Bash' && APPEND.test(part.input?.command ?? '')) opens(part.id, at);
       if (part.type === 'tool_use' && part.name === 'AskUserQuestion') show(at, cardTexts(part.input?.questions));
       if (part.type === 'tool_result' && calls.has(part.tool_use_id)) writes.push({ from: calls.get(part.tool_use_id), to: at, out: textOf(part.content) });
+    }
+    if (event.type === 'PLANNER_RESPONSE' && Array.isArray(event.tool_calls)) {
+      for (const [index, call] of event.tool_calls.entries()) {
+        if (call?.name === 'run_command' && APPEND.test(String(agyArg(call.args?.CommandLine) ?? ''))) opens(`agy:${event.step_index ?? at}:${index}`, at);
+        if (call?.name === 'ask_question') show(at, cardTexts(agyArg(call.args?.questions)));
+      }
+    }
+    if (event.type === 'GENERIC' && typeof event.content === 'string' && lastAppend && event.content.includes('Appended ')) {
+      writes.push({ from: lastAppend, to: at, out: event.content });
+    }
+    if (event.type === 'USER_INPUT' && event.source === 'USER_EXPLICIT' && typeof event.content === 'string') {
+      hear(at, ownWords(event.content.match(AGY_USER_REQUEST)?.[1] ?? event.content));
     }
     hear(at, typedText(event));
     const card = event.toolUseResult;

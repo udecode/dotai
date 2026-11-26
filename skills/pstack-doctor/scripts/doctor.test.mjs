@@ -607,3 +607,46 @@ test("due reads a Codex rollout: the rows its exec, shell and yielded calls appe
   const stop = JSON.stringify({ session_id: 'codex', transcript_path: world.transcriptPath, cwd: elsewhere, hook_event_name: 'Stop', stop_hook_active: false });
   assert.equal(JSON.parse(await due(['--hook'], world.env, stop)).decision, 'block');
 });
+
+test('due reads an Antigravity transcript: detects stalled rounds and fabricated second-plan quotes, outputs continue once, and skips on executionNum > 0', async () => {
+  const world = topic();
+  world.theirs('a.decisions.tsv', plan('5 critical')).save();
+  const at1 = '2026-11-26T13:10:00Z';
+  const at2 = '2026-11-26T13:10:02Z';
+  const at3 = '2026-11-26T13:10:05Z';
+  const logFile = join(world.plans, 'a.decisions.tsv');
+  const existing = readFileSync(logFile, 'utf8');
+  const appendedRows = [
+    `${at2}\tpanel\tseats opus @high\tplan round\treviewed\t5 critical`,
+    `${at2}\towner\tsecond plan: "fake approval" picks b\twhy\tevidence\tapproved`,
+    `${at2}\towner\tsecond plan: "real approval" picks b\twhy\tevidence\tapproved`,
+  ];
+  writeFileSync(logFile, `${existing}${appendedRows.join('\n')}\n`);
+  const agyTranscript = join(world.repo, 'agy-transcript.jsonl');
+  writeFileSync(
+    agyTranscript,
+    [
+      { step_index: 0, source: 'USER_EXPLICIT', type: 'USER_INPUT', created_at: at1, content: '<USER_REQUEST>\nreal approval\n</USER_REQUEST>' },
+      { step_index: 1, source: 'MODEL', type: 'PLANNER_RESPONSE', created_at: at2, tool_calls: [{ name: 'run_command', args: { CommandLine: JSON.stringify('node .agents/pstack/decisions-check.mjs append docs/plans/a.decisions.tsv') } }] },
+      { step_index: 2, source: 'MODEL', type: 'GENERIC', created_at: at3, content: 'Appended 3 rows to docs/plans/a.decisions.tsv.' },
+    ]
+      .map((entry) => JSON.stringify(entry))
+      .join('\n') + '\n'
+  );
+  const stopPayload = (extra = {}) =>
+    JSON.stringify({
+      conversationId: 'agy-1',
+      cwd: world.repo,
+      executionNum: 0,
+      fullyIdle: true,
+      hookEventName: 'Stop',
+      transcriptPath: agyTranscript,
+      ...extra,
+    });
+  const blocked = JSON.parse(await due(['--hook'], world.env, stopPayload()));
+  assert.equal(blocked.decision, 'continue');
+  assert.match(blocked.reason, /plan round 2 of a found 5 critical findings/u);
+  assert.match(blocked.reason, /quotes "fake approval"/u);
+  assert.doesNotMatch(blocked.reason, /real approval/u);
+  assert.deepEqual(JSON.parse(await due(['--hook'], world.env, stopPayload({ executionNum: 1 }))), {});
+});
