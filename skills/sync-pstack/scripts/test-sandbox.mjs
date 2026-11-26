@@ -3,7 +3,7 @@
 // as holding a core already, so none queues behind the machine's real proofs; a test of the pool
 // itself deletes PSTACK_SLOT and gives the pool its own TMPDIR.
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -47,10 +47,18 @@ export function sandbox() {
   return { dir, env, home, run };
 }
 
+let emptyRepo;
+function baseGitRepo() {
+  if (!emptyRepo) {
+    emptyRepo = mkdtempSync(join(tmpdir(), 'sync-pstack-empty-'));
+    spawnSync('git', ['init', '-q', '-b', 'next', emptyRepo]);
+  }
+  return emptyRepo;
+}
+
 export function project(dir, name, { config, agents, settings, files = {} } = {}) {
   const root = join(dir, name);
-  mkdirSync(root, { recursive: true });
-  spawnSync('git', ['init', '-q', '-b', 'next', root]);
+  cpSync(baseGitRepo(), root, { recursive: true });
   const all = {
     ...files,
     ...(agents === undefined ? {} : { 'AGENTS.md': agents }),

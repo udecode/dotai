@@ -1,6 +1,6 @@
 # dotai skills
 
-14 skills: 14 maintained in dotai, plus 0 unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from dotai. Methods load only when relevant; tool access is separate from installation.
+13 skills: 13 maintained in dotai, plus 0 unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from dotai. Methods load only when relevant; tool access is separate from installation.
 
 ## Review (1)
 
@@ -8,14 +8,13 @@
 | --- | --- |
 | [test-audit](skills/test-audit/SKILL.md) | Prune low-value, internal, flaky, slow or duplicated tests and bloated CI checks in coherent batches while keeping E2E, public boundary and invariant coverage intact. Not for writing new tests. |
 
-## Communication (4)
+## Communication (3)
 
 | Skill | Purpose |
 | --- | --- |
 | [clip](skills/clip/SKILL.md) | Record, check and render demo clips or stacked before-and-after images/clips for chat, team posts, social posts, or bug repros. Use before recording any app clip or attaching before/after screenshots. |
 | [walkthrough](skills/walkthrough/SKILL.md) | Present final screenshots or rendered artifacts as an annotated walkthrough when visual evidence is requested. |
 | [video-transcripts](skills/video-transcripts/SKILL.md) | Transcribe a supplied local or linked video from one frame per second with Gemini 4 Neon through agy, or with a Claude subagent when agy fails, and check the transcript against the frames, when a recording's contents are needed as evidence, such as a bug recording on an issue, PR or comment, or a question about what a video shows. |
-| [plan-page](skills/plan-page/SKILL.md) | Write, check, repair and publish plan pages and topic files rendered by .agents/pstack/plan-page.mjs (local HTML + PR bodies/comments). Use before editing plans/topics, at page-work hand-backs, or when a plan page fails to render. |
 
 ## Workflow (3)
 
@@ -30,7 +29,7 @@
 | Skill | Purpose |
 | --- | --- |
 | [cleanup](skills/cleanup/SKILL.md) | Audit disk usage and remove idle git worktrees, Next.js caches, test Postgres DBs, and unused Bun/npx/uv/Docker caches while preserving active checkouts. Use for /cleanup, /cleanup disk, or freeing worktree/build disk space. |
-| [sync-pstack](skills/sync-pstack/SKILL.md) | Set up the pstack plugin in a project through an interview, and keep every pstack project on one pinned tag and one shared AGENTS.md overrides block. Use to set up or install pstack in a repo, sync, bump or update pstack everywhere, list which projects use pstack or have drifted, compare setups, audit a project's skills for drift from pstack (which to cut, fold or keep), change which work runs a panel, architect or an arena without asking (\"from now on X runs architect\"), or move a workflow lesson, including a plan page shape change, into every project. Not for choosing pstack's per-role models, which setup-pstack owns. |
+| [sync-pstack](skills/sync-pstack/SKILL.md) | Set up pstack in a project and keep every managed project on one pinned tag and shared AGENTS.md overrides block. Use to install, sync, bump, compare, or audit pstack setups, change project review rules, or propagate a shared workflow lesson. |
 
 ## Monitoring (4)
 
@@ -38,7 +37,7 @@
 | --- | --- |
 | [mac-watchdog](skills/mac-watchdog/SKILL.md) | Keep a Mac from freezing under agent workloads. A user launchd job records memory every 10 seconds, per process and per Claude Code session, and stops any process that grows past 40% of RAM, and a root job restarts fseventsd when its memory leak passes 1 GB. Use to install, check or remove them, after a Mac freezes, swaps hard or logs the user out, when fseventsd holds GBs of memory, or to find which session or process used the memory. |
 | [pstack-doctor](skills/pstack-doctor/SKILL.md) | Check every running agent session for a stuck or endless loop, find the pstack rule, override or project playbook that drives it, and propose a steer message and a rule fix. Use for /pstack-doctor, "is any session stuck or endless?", "are my sessions making progress?", a session that has run more than a day, a stop the doctor's Stop hook blocked, and the owner's regular sanity check. |
-| [pstack-pulse](skills/pstack-pulse/SKILL.md) | Show every Claude Code and Codex session on the iPhone lock screen through ActivitySmith and in the Mac menubar, with each plan page's pipeline, and buzz when a session needs you, ships or fails. |
+| [pstack-pulse](skills/pstack-pulse/SKILL.md) | Show Claude Code and Codex pstack sessions on the iPhone lock screen through ActivitySmith and in the Mac menubar, with each plan's pipeline, and buzz when a session needs you, ships or fails. |
 | [rca](skills/rca/SKILL.md) | Turn Remote Control on for every non-archived Claude Code session in the Claude desktop app. |
 
 ## Unchanged upstream installation
@@ -59,7 +58,6 @@ These skills remain installed when a tool is absent; an unavailable live action 
 - **clip:** Bun, ffmpeg and ffprobe; Chromium for playwright-core, which the skill installs on first use.
 - **mac-watchdog:** macOS with launchd, Node.js and the Xcode command line tools for cc; the Claude desktop app to name sessions; sudo once for the fseventsd watchdog.
 - **passwords:** macOS login Keychain, 1Password CLI and an account with service-account access; authorized browser or native-app controls that can consume credentials without exposing them.
-- **plan-page:** Node.js 22+ and Git; the renderer that sync-pstack installs in .agents/pstack; the Artifact tool to publish.
 - **pstack-doctor:** Node.js 22+, Git and ripgrep; pstack-pulse for live session state, Antigravity ACP transcripts for Gemini 4 Neon sessions, and a session tool that lists sessions for the rest.
 - **pstack-pulse:** macOS with launchd and the Keychain, Node.js 22+ and sqlite3; an ActivitySmith account and key; Tailscale Funnel for the session list.
 - **rca:** A Code session in the Claude desktop app, which alone has its session tools.

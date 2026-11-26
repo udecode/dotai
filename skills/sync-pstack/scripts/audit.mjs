@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { discover, localSkills, locateBlock, markdownFiles, projectRuleFiles, RULE_FILES, skillMention, unmarkedRules, USER_SKILL_DIRS, userTypedInvocations } from './sync-pstack.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const DOTAI_CHECKOUT = existsSync(resolve(HERE, '../../../workflow-manifest.json')) ? resolve(HERE, '../../..') : null;
+const DOTAI_CHECKOUT = existsSync(resolve(HERE, '../../../upstream-skills.json')) ? resolve(HERE, '../../..') : null;
 const TEMPLATE = resolve(HERE, '../assets/block.md');
 const RULES = resolve(HERE, '../assets/pstack/rules');
 const SHARED_FILES = new Set(['block', ...Object.keys(RULE_FILES).map((name) => `rules/${name}`)]);

@@ -886,8 +886,13 @@ export function localSkills(root, dirs = ['.agents/skills', '.claude/skills']) {
 }
 
 function dotaiCatalog() {
-  const manifest = join(SKILL, '../../workflow-manifest.json');
-  return existsSync(manifest) ? readJson(manifest).skills.map((skill) => skill.name) : null;
+  const root = join(SKILL, '../..');
+  const upstreamPath = join(root, 'upstream-skills.json');
+  const skillsDir = join(root, 'skills');
+  if (!existsSync(upstreamPath) || !existsSync(skillsDir)) return null;
+  const bundled = readdirSync(skillsDir, { withFileTypes: true }).filter((entry) => entry.isDirectory() && existsSync(join(skillsDir, entry.name, 'SKILL.md'))).map((entry) => entry.name);
+  const remote = (readJson(upstreamPath).skills ?? []).map((skill) => skill.name);
+  return [...new Set([...bundled, ...remote])].sort();
 }
 
 function userPins() {

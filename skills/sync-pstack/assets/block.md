@@ -50,7 +50,7 @@
 - **Delivery.** The user owns commits. A completed task runs its writing passes, then `{{lintFix}}` as its last check that edits code, and leaves its changes in the working tree. Commit, push or open a PR only when the user's own message asks for it. Approving an agent's plan is not commit authority, and no plan or step list proposes a commit.
 <!-- end -->
 <!-- if pushBranches -->
-- **Delivery.** The user owns commits on `{{branch}}`. A completed task runs its writing passes, then `{{lintFix}}` as its last check that edits code, and leaves its changes on `{{branch}}` in the working tree; commit or push `{{branch}}` only when the user's own message asks for it. Approving an agent's plan is not commit authority, and no plan or step list proposes a commit on `{{branch}}`. On every other branch the lead commits and pushes its work without asking, another person's PR head branch included. It keeps the description of a PR it opened true to the pushed diff. On another person's PR it leaves their description alone and keeps its latest comment about its own commits true instead, as the `plan-page` skill's PR section says. A runtime whose own instructions refuse to post that comment leaves it as a draft under the page's Needs you. When maintainer edits on a PR's head branch are not allowed, it opens a PR stacked on that branch instead; any other PR waits for the user's word. Merging, closing, other comments, reviews and CI approval need the user's word.
+- **Delivery.** The user owns commits on `{{branch}}`. A completed task runs its writing passes, then `{{lintFix}}` as its last check that edits code, and leaves its changes on `{{branch}}` in the working tree; commit or push `{{branch}}` only when the user's own message asks for it. Approving an agent's plan is not commit authority, and no plan or step list proposes a commit on `{{branch}}`. On every other branch the lead commits and pushes its work without asking, another person's PR head branch included. It keeps the description of a PR it opened true to the pushed diff. On another person's PR it leaves their description alone and keeps its latest comment about its own commits true instead (`plan-page.mjs --comment`). A runtime whose own instructions refuse to post that comment leaves it as a draft under Open questions. When maintainer edits on a PR's head branch are not allowed, it opens a PR stacked on that branch instead; any other PR waits for the user's word. Merging, closing, other comments, reviews and CI approval need the user's word.
 <!-- end -->
 <!-- end -->
 <!-- if delivery!=trunk -->
@@ -95,10 +95,10 @@
 <!-- # adds -->
 - **Calls.** Each call the lead makes re-reads the session's whole context, so in a long session the number of calls, not their size, sets the cost. Read several files or line ranges in one command, or as parallel calls in one message, instead of one small read per call. A session that another session started reads `.agents/pstack/rules/linked.md` in full before its first step, and a lead reads it before it starts a session its run waits on.
 <!-- if delivery!=trunk -->
-  Bookkeeping never takes a call of its own: a retitle, a todo update, a decision-log append, a page publish or a plan-page render goes out in the same message as the next working call, a rename that ends the turn, such as to 🟠 or 👀, as the Session title rule says, and several decision rows go in one `decisions-check.mjs append <log> --from <rows.tsv>` call (owner's word, 2026-10-17).
+  Bookkeeping never takes a call of its own: a retitle, a todo update, or a decision-log append goes out in the same message as the next working call, a rename that ends the turn, such as to 🟠 or 👀, as the Session title rule says, and several decision rows go in one `decisions-check.mjs append <log> --from <rows.tsv>` call (owner's word, 2026-10-17).
 <!-- end -->
 <!-- if delivery=trunk -->
-  Bookkeeping never takes a call of its own: a retitle, a todo update, a decision-log append, a page publish or a plan-page render goes out in the same message as the next working call, a rename that ends the turn, such as to 🟠 or 👀, as the Session title rule says, and several decision rows go in one append (owner's word, 2026-10-17).
+  Bookkeeping never takes a call of its own: a retitle, a todo update, or a decision-log append goes out in the same message as the next working call, a rename that ends the turn, such as to 🟠 or 👀, as the Session title rule says, and several decision rows go in one append (owner's word, 2026-10-17).
 <!-- end -->
 <!-- # overrides arena/SKILL.md "The judge is never from the parent's family" -->
 <!-- # overrides setup-pstack/SKILL.md "An `inherit-parent` or `auto` value never judges." -->
@@ -158,7 +158,7 @@
 - **Plans and trails.** Before you draft or write a plan, in plan mode or a plan file, or write a decision-log row or a proof log, read `.agents/pstack/rules/trails.md` in full.
 <!-- # overrides poteto-mode/playbooks/multi-phase-plan.md "Hand back the plan path and stop." -->
 <!-- # overrides poteto-mode/playbooks/multi-phase-plan.md "Write the plan file. Open with what changes" -->
-- **Plan pages.** Before you draft or change a plan, in plan mode or a plan file, and before the reply that hands back playbook work, planned or not, read `.agents/pstack/rules/pages.md` in full; it holds which work gets a page, what that page holds and what the hand-back reply holds.
+- **Plans and hand-backs.** Before you draft or change a plan, in plan mode or a plan file, and before the reply that hands back playbook work, planned or not, read `.agents/pstack/rules/pages.md` in full; it holds plan/topic shape, PR rendering, Defaults vs Open questions, and what the hand-back reply holds.
 <!-- # overrides poteto-mode/playbooks/prototype.md "let the user pick directions before building" -->
 <!-- # overrides poteto-mode/playbooks/worktree-cleanup.md "`wip`, `untracked`, `ignored`, `reflog`, locked, and in-use pause" -->
 <!-- # overrides poteto-mode/SKILL.md "Fall back to the role's line or default, then the calling skill's fallback, then the closest valid slug of the same family, then omit `model`." -->
@@ -216,7 +216,7 @@
 <!-- if protected -->
   It never targets `{{protected}}`.
 <!-- end -->
-  Its body is the page of the PR's plan, written with the `plan-page` skill's PR mode. That plan is the one plan that covers the whole diff, or a PR plan that lists the plans it carries.
+  Its body renders from the PR's plan via `node .agents/pstack/plan-page.mjs <plan> --pr`. That plan is the one plan that covers the whole diff, or a PR plan that lists the plans it carries.
 <!-- end -->
 <!-- end -->
 <!-- # overrides poteto-mode/references/merge-safety.md "A queue or automatic request may outlive its admission revision." -->

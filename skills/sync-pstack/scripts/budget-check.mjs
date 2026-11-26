@@ -1,29 +1,32 @@
 #!/usr/bin/env node
-// Structural budget gate for sync-pstack rules and helper scripts.
+// Structural budget gate for sync-pstack rules, helper scripts, and dotai skills.
 // Enforces:
 //  - principle-guard-the-context-window + principle-subtract-before-you-add:
-//    per-rule-file byte cap and total rules byte cap
+//    per-rule-file byte cap, total rules byte cap, per-skill byte cap, total skill byte cap
 //  - principle-subtract-before-you-add + principle-boundary-discipline:
 //    helper .mjs file count cap and per-helper line cap (with shrinking baselines
 //    only for existing large core engines)
 
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ASSETS = join(import.meta.dirname, '../assets/pstack');
 const RULES = join(ASSETS, 'rules');
+const SKILLS = join(import.meta.dirname, '../..');
 
 const MAX_RULE_BYTES = 8192;
 const MAX_TOTAL_RULE_BYTES = 80000;
+const MAX_SKILL_BYTES = 16384;
+const MAX_TOTAL_SKILL_BYTES = 100000;
 const MAX_HELPER_FILES = 19;
 const MAX_HELPER_LINES = 400;
 
 // Existing core engines above 400 lines; ceilings may only shrink, never grow.
 const LEGACY_LINE_CEILINGS = {
   'cross.mjs': 444,
-  'land.mjs': 1143,
+  'land.mjs': 947,
   'lead.mjs': 458,
-  'plan-page.mjs': 2684,
+  'plan-page.mjs': 752,
   'proof.mjs': 546,
   'status.mjs': 416,
   'tasks.mjs': 1699,
@@ -44,6 +47,19 @@ if (totalRuleBytes > MAX_TOTAL_RULE_BYTES) {
   failures.push(`assets/pstack/rules/*.md total ${totalRuleBytes} bytes (max ${MAX_TOTAL_RULE_BYTES}); subtract before adding (principle-guard-the-context-window + principle-subtract-before-you-add)`);
 }
 
+const skillDirs = readdirSync(SKILLS, { withFileTypes: true }).filter((entry) => entry.isDirectory() && existsSync(join(SKILLS, entry.name, 'SKILL.md'))).map((entry) => entry.name).sort();
+let totalSkillBytes = 0;
+for (const name of skillDirs) {
+  const bytes = statSync(join(SKILLS, name, 'SKILL.md')).size;
+  totalSkillBytes += bytes;
+  if (bytes > MAX_SKILL_BYTES) {
+    failures.push(`skills/${name}/SKILL.md is ${bytes} bytes (max ${MAX_SKILL_BYTES}); keep well below agy's 24 KB cap (principle-guard-the-context-window + principle-subtract-before-you-add)`);
+  }
+}
+if (totalSkillBytes > MAX_TOTAL_SKILL_BYTES) {
+  failures.push(`skills/*/SKILL.md total ${totalSkillBytes} bytes (max ${MAX_TOTAL_SKILL_BYTES}); subtract before adding (principle-guard-the-context-window + principle-subtract-before-you-add)`);
+}
+
 const helperFiles = readdirSync(ASSETS).filter((name) => name.endsWith('.mjs')).sort();
 if (helperFiles.length > MAX_HELPER_FILES) {
   failures.push(`assets/pstack has ${helperFiles.length} .mjs helpers (max ${MAX_HELPER_FILES}); delete or merge before adding (principle-subtract-before-you-add + principle-boundary-discipline)`);
@@ -60,4 +76,4 @@ if (failures.length > 0) {
   for (const failure of failures) console.error(`budget-check: ${failure}`);
   process.exit(1);
 }
-console.log(`budgets ok: ${ruleFiles.length} rules (${totalRuleBytes}/${MAX_TOTAL_RULE_BYTES} bytes, max ${MAX_RULE_BYTES}/file), ${helperFiles.length}/${MAX_HELPER_FILES} helpers`);
+console.log(`budgets ok: ${ruleFiles.length} rules (${totalRuleBytes}/${MAX_TOTAL_RULE_BYTES} bytes), ${skillDirs.length} skills (${totalSkillBytes}/${MAX_TOTAL_SKILL_BYTES} bytes, max ${MAX_SKILL_BYTES}/file), ${helperFiles.length}/${MAX_HELPER_FILES} helpers`);

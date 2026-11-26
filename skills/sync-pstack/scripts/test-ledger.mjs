@@ -6,7 +6,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { commit, project, sandbox } from './test-sandbox.mjs';
 
-const CHECK = fileURLToPath(new URL('../assets/pstack/decisions-check.mjs', import.meta.url));
+const HELPERS = fileURLToPath(new URL('../assets/pstack', import.meta.url));
+const CHECK = join(HELPERS, 'decisions-check.mjs');
 
 export const chipLedger = ({ config = {}, files = {} } = {}) => {
   const { dir, env, run } = sandbox();
@@ -49,3 +50,33 @@ export const linkedWorktree = (delivery, card) => {
   const offerHere = (decision, evidence) => helper('append', LEDGER, 'chip', decision, 'why', `${evidence}; priority: P1; repro: steps`, 'offered');
   return { ...context, LEDGER, helper, offerHere, worktree };
 };
+
+
+export const daysAgo = (days) => new Date(Date.now() - days * 86_400_000).toISOString();
+export const LOG_HEADER = 'ts\tphase\tdecision\twhy\tevidence\tresult\n';
+export const planRow = (when) => `${when}\tbuild\tStep\twhy\tscope: x\tdone\n`;
+export const commitAt = (root, days, ...paths) => {
+  const when = daysAgo(days);
+  spawnSync('git', ['-C', root, 'add', ...paths]);
+  spawnSync('git', ['-C', root, 'commit', '-qm', `touch ${paths[0]}`], { env: { ...process.env, GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when } });
+};
+
+
+export const stalePlanLedger = (config = {}, files = {}) => {
+  const ledger = chipLedger({ config: { chips: { scopes: 'docs/scopes', ...config }, pageTopic: { field: 'review_scopes' } }, files: { 'docs/scopes/parser.json': '{}\n', ...files } });
+  const stalePlan = (name, scope, days = 10) => {
+    const path = `docs/plans/${name}.md`;
+    writeFileSync(join(ledger.root, path), `---\nreview_scopes: [${scope}]\n---\n\n# ${name}\n\nStatus: building: step 2\n`);
+    commitAt(ledger.root, days, path);
+    return path;
+  };
+  const timed = (args) => spawnSync(process.execPath, [join(HELPERS, 'decisions-check.mjs'), ...args], { cwd: ledger.root, encoding: 'utf8', env: ledger.env, timeout: 30_000 });
+  return { ...ledger, stalePlan, timed };
+};
+
+
+export const ledgerRows = (rows) => `ts\tphase\tdecision\twhy\tevidence\tresult\n${rows.map(([decision, evidence, result]) => ['2026-01-01T10:00:00Z', 'chip', decision, 'why', evidence, result].join('\t')).join('\n')}\n`;
+
+export const triagedLedger = (files = {}) =>
+  chipLedger({ config: { triage: { experimental: ['pagination'] }, chips: { scopes: 'scopes' } }, files: { 'scopes/editor.json': '{}', 'scopes/native.json': '{}', 'scopes/pagination.json': '{}', ...files } });
+
