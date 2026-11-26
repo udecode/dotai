@@ -215,7 +215,7 @@ test('a render without options keeps the whole local page and matches the body a
   const plain = join(root, 'docs/plans/plain.md');
   const local = page(plain).html;
   assert.doesNotMatch(local, /plan-page-(?:data|live|others|deck)|window\.claude|pstack-page/u, 'no deck, mount or data block');
-  assert.match(local, /^<title>Plain<\/title>\n<meta charset="utf-8">/u);
+  assert.match(local, /^<!doctype html>\n<title>Plain<\/title>\n<meta charset="utf-8">/u);
   assert.match(local, /<header id="run-plain" data-plan="docs\/plans\/plain\.md">/u);
   const { html } = runBody(plain, { key: 'plain.s' });
   const text = (markup) =>

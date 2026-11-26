@@ -207,38 +207,23 @@ test('seats runs an offline agy seat with no web, denies writes to every folder 
   assert.match(limited.stdout, /^neon: skipped, exit 3: error: Individual quota reached\. Resets in 4m25s\., seat: gemini-4-neon @high$/mu);
 });
 
-const FAKE_COLEAD = `#!/usr/bin/env node
+const FAKE_SEAT_AGY = `#!/usr/bin/env node
 const { spawnSync } = require('node:child_process');
 const { writeFileSync } = require('node:fs');
 const args = process.argv.slice(2);
 const prompt = args[1];
 const touch = prompt.match(/TOUCH (\\S+)/u)?.[1];
 if (touch) writeFileSync(touch, 'stray');
-const write = prompt.match(/WRITE (\\S+) (\\d+)/u);
-if (write) writeFileSync(write[1], 'x\\n'.repeat(Number(write[2])));
-const push = spawnSync('git', ['push', 'origin', 'HEAD:refs/heads/colead'], { encoding: 'utf8' });
-console.log(JSON.stringify({ event: 'init', conversation_id: '11111111-2222-4333-8444-555555555555' }));
-const quiet = Number(prompt.match(/QUIET (\\d+)/u)?.[1] ?? 0);
-if (quiet) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, quiet);
-const said = prompt.match(/WAIT FOR PROOFS, SAYING (.+)/u)?.[1];
-if (said) {
-  process.on('SIGTERM', () => {
-    console.error('error: interrupted');
-    console.log(JSON.stringify({ event: 'result', result: { status: 'ERROR', response: said } }));
-    process.exit(1);
-  });
-  setInterval(() => {}, 1000);
-  return;
-}
+const push = spawnSync('git', ['push', 'origin', 'HEAD:refs/heads/seat'], { encoding: 'utf8' });
 const answer = { args, cwd: process.cwd(), pushed: push.status === 0, token: process.env.GH_TOKEN ?? null, readOnly: process.env.PSTACK_READ_ONLY ?? null };
 console.log(JSON.stringify({ event: 'result', result: { status: 'success', response: JSON.stringify(answer) } }));
 `;
 
-function coleadMachine() {
+function unboxedSeatMachine() {
   const { dir, home } = sandbox();
   const bin = join(dir, 'bin');
   mkdirSync(bin);
-  writeFileSync(join(bin, 'agy'), FAKE_COLEAD, { mode: 0o755 });
+  writeFileSync(join(bin, 'agy'), FAKE_SEAT_AGY, { mode: 0o755 });
   const git = (cwd, ...args) => spawnSync('git', ['-C', cwd, ...args], { encoding: 'utf8' });
   const remote = join(dir, 'remote.git');
   const main = join(dir, 'main');
@@ -252,74 +237,11 @@ function coleadMachine() {
   git(main, 'worktree', 'add', '-q', '-b', 'task', join(dir, 'task'));
   const worktree = realpathSync(join(dir, 'task'));
   const env = { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, CLAUDECODE: '1', GH_TOKEN: 'secret' };
-  const cross = (...args) => spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'agy', ...args], { cwd: dir, encoding: 'utf8', env });
-  const ask = (prompt, options) => {
-    const drive = join(dir, 'drive.mjs');
-    writeFileSync(drive, `import { ask } from ${JSON.stringify(pathToFileURL(join(HELPERS, 'cross.mjs')).href)};\nconsole.log(JSON.stringify(await ask('agy', ${JSON.stringify(prompt)}, ${JSON.stringify(options)})));\n`);
-    const run = spawnSync(process.execPath, [drive], { cwd: dir, encoding: 'utf8', env });
-    assert.equal(run.status, 0, run.stderr);
-    return JSON.parse(run.stdout);
-  };
-  return { ask, cross, env, git, main, remote, worktree };
+  return { env, main, worktree };
 }
 
-test('a co-lead runs agy unsandboxed in the lead worktree, resumes its conversation, and can neither push nor use the GitHub token', () => {
-  const { cross, git, remote, worktree } = coleadMachine();
-  const stream = join(worktree, '..', 'colead-1.jsonl');
-  const first = cross('--colead', worktree, '--effort', 'xhigh', '--stream', stream, 'build step one');
-  assert.equal(first.status, 0, first.stderr);
-  const answer = JSON.parse(first.stdout);
-  assert.equal(answer.cwd, worktree);
-  assert.deepEqual(answer.args.slice(2), ['--model', 'gemini-4-neon-xhigh', '--dangerously-skip-permissions', '--output-format', 'stream-json']);
-  assert.match(answer.args[1], /^build step one\n\nYou are the co-lead[^\n]*lead's worktree/u, 'the brief comes first, so its kickoff line stays first');
-  assert.match(readFileSync(stream, 'utf8'), /"event":"init"[^\n]*\n[^\n]*"event":"result"/u);
-  assert.equal(first.stderr.match(/^conversation: /gmu)?.length, 1);
-  assert.equal(answer.pushed, false, 'a push from the co-lead fails');
-  assert.equal(git(remote, 'branch', '--list', 'colead').stdout, '');
-  assert.equal(answer.token, null, 'the co-lead never sees the GitHub token');
-  assert.equal(answer.readOnly, null, 'setup.mjs may write in the co-lead worktree');
-  assert.match(first.stderr, /^conversation: 11111111-2222-4333-8444-555555555555$/mu);
-  const next = cross('--colead', worktree, '--conversation', '11111111-2222-4333-8444-555555555555', 'build step two');
-  assert.equal(next.status, 0, next.stderr);
-  assert.deepEqual(JSON.parse(next.stdout).args.slice(4, 6), ['--conversation', '11111111-2222-4333-8444-555555555555']);
-});
-
-test("a co-lead brief names the step budget, and a call that leaves a plan step past it fails with the count, keeping the answer", () => {
-  const { cross, git, main, remote, worktree } = coleadMachine();
-  git(main, 'push', '-q', remote, 'HEAD:refs/heads/main');
-  git(worktree, 'fetch', '-q', 'origin');
-  mkdirSync(join(worktree, '.agents'));
-  writeFileSync(join(worktree, '.agents/pstack.json'), JSON.stringify({ branch: 'main', stepBudget: { lines: 3, exclude: ['.agents/**'] } }));
-  const unplanned = cross('--colead', worktree, 'build it, WRITE lib.js 5');
-  assert.equal(unplanned.status, 0, 'a change that builds no plan step has no budget');
-  assert.doesNotMatch(unplanned.stdout, /step budget/u, 'nor a brief that names one');
-  mkdirSync(join(worktree, 'docs/plans'), { recursive: true });
-  writeFileSync(join(worktree, 'docs/plans/2026-01-01-step.md'), '# Step\n');
-  writeFileSync(join(worktree, 'lib.js'), 'x\n');
-  const over = cross('--colead', worktree, 'build it, WRITE lib.js 5');
-  assert.equal(over.status, 1);
-  assert.match(over.stderr, /this worktree's change since origin\/main at [0-9a-f]{10} changes 5 product lines, past the step budget of 3\.[^\n]*\n\n\{"args"/u);
-  assert.match(over.stderr, /counts 1 of the step budget's 3 product lines\. Tests, fixtures, docs and plans do not count\./u, 'the brief gave the count before the call');
-});
-
-test('a co-lead brief names when the helper stops the call, and a call it stops prints what the co-lead said after the reason', () => {
-  const { cross, worktree } = coleadMachine();
-  const before = Date.now();
-  const briefed = cross('--colead', worktree, 'build it');
-  const stopsAt = JSON.parse(briefed.stdout).args[1].match(/The helper stops this call at (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)/u)?.[1];
-  assert.ok(stopsAt, 'the brief names the stop time');
-  assert.ok(Math.abs(Date.parse(stopsAt) - before - 21_600_000) < 60_000, 'the stop time is six hours away');
-  const longer = cross('--colead', worktree, '--timeout', '99999', 'build it');
-  const clampedAt = JSON.parse(longer.stdout).args[1].match(/The helper stops this call at (\S+Z)/u)?.[1];
-  assert.ok(Math.abs(Date.parse(clampedAt) - before - 21_600_000) < 60_000, 'a longer --timeout still stops the call at six hours');
-  assert.match(JSON.parse(briefed.stdout).args[1], /A probe that edits a tracked file for a moment[^\n]*makes that edit in a detached worktree it adds, never here/u, 'a stopped call cannot leave a probe edit in the lead worktree');
-  const capped = cross('--colead', worktree, '--timeout', '1', 'build it, WAIT FOR PROOFS, SAYING built lib.js, waiting on the partitions');
-  assert.equal(capped.status, 1);
-  assert.match(capped.stderr, /no answer within 1 seconds: error: interrupted\n\nbuilt lib\.js, waiting on the partitions/u);
-});
-
 test('an agy seat outside the sandbox gets no GitHub token, and one run from a linked worktree that changes the main checkout fails, keeping the answer', () => {
-  const { env, main, worktree } = coleadMachine();
+  const { env, main, worktree } = unboxedSeatMachine();
   const seat = (prompt) => spawnSync(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'agy', prompt], { cwd: worktree, encoding: 'utf8', env });
   const clean = seat('review it');
   assert.equal(clean.status, 0, clean.stderr);
@@ -329,41 +251,6 @@ test('an agy seat outside the sandbox gets no GitHub token, and one run from a l
   const shared = seat(`review it, TOUCH ${join(main, 'shared.txt')}`);
   assert.equal(shared.status, 1);
   assert.match(shared.stderr, /the seat changed the main checkout [^\n]*; check it before using this answer\.\n\n\{"args"/u);
-});
-
-test('a co-lead call stops once its helper dies, and its stream file keeps what the co-lead said', async () => {
-  const { env, worktree } = coleadMachine();
-  const stream = join(worktree, '..', 'colead-killed.jsonl');
-  const helper = spawn(process.execPath, [join(HELPERS, 'cross.mjs'), '--to', 'agy', '--colead', worktree, '--stream', stream, 'build it, WAIT FOR PROOFS, SAYING built lib.js, waiting on the partitions'], { env, stdio: 'ignore' });
-  const read = () => (existsSync(stream) ? readFileSync(stream, 'utf8') : '');
-  const until = async (ready) => {
-    const deadline = Date.now() + 15_000;
-    while (!ready() && Date.now() < deadline) await new Promise((wake) => setTimeout(wake, 100));
-  };
-  await until(() => read().includes('"event":"init"'));
-  helper.kill('SIGKILL');
-  await until(() => read().includes('"status":"ERROR"'));
-  assert.match(read(), /"status":"ERROR","response":"built lib\.js, waiting on the partitions"/u, 'the co-lead outlived its helper, or what it said missed the stream file');
-});
-
-test('a co-lead call outlives the idle limit while a step it started prints nothing', () => {
-  const { ask, worktree } = coleadMachine();
-  const quiet = ask('build it, QUIET 3000', { colead: worktree, idle: 1 });
-  assert.equal(quiet.ok, true, quiet.text);
-});
-
-test('a co-lead refuses a main checkout and fails a run that changed it, keeping the answer', () => {
-  const { cross, main, worktree } = coleadMachine();
-  const refused = cross('--colead', main, 'build it');
-  assert.equal(refused.status, 2);
-  assert.match(refused.stderr, /is a main checkout, and a co-lead writes only a linked worktree/u);
-  const stray = cross('--colead', worktree, `build it, TOUCH ${join(main, 'stray.txt')}`);
-  assert.equal(stray.status, 1);
-  assert.match(stray.stderr, /changed the main checkout[^\n]*\n\n\{"args"/u);
-  writeFileSync(join(main, 'a.txt'), 'dirty');
-  const dirty = cross('--colead', worktree, `build it, TOUCH ${join(main, 'a.txt')}`);
-  assert.equal(dirty.status, 1, 'another edit to a file that was already dirty still counts');
-  assert.match(dirty.stderr, /changed the main checkout/u);
 });
 
 function browserMachine({ profiles = ['Ellie QA'], appVersion = '26.1', stubborn = false } = {}) {

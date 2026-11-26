@@ -310,25 +310,6 @@ test('plan-page shows a skipped seat as skipped, never as a seat that answered',
   assert.match(header, /Reviews claude-opus-5-5 xhigh ×2 gpt-6\.1-sol xhigh skipped gpt-6\.1-sol xhigh /);
 });
 
-test('plan-page shows each co-lead once, beside the lead whose stretch logged it', () => {
-  const { dir, run } = sandbox();
-  const plan = '# Plan\n\nStatus: executed\n\n## Main changes\n\n- Start a co-lead.\n';
-  const log = [
-    'ts\tphase\tdecision\twhy\tevidence\tresult',
-    reviewRow('lead', 'claude-opus-5-5 @xhigh', 'recorded'),
-    reviewRow('colead', 'agy:gemini-4-neon @xhigh', 'recorded agy conversation'),
-    reviewRow('colead', 'agy:gemini-4-neon @xhigh', 'recorded agy conversation'),
-    reviewRow('colead', 'opus @high', 'recorded fallback'),
-    reviewRow('panel', 'seats claude-opus-5-5 @xhigh', 'recorded'),
-  ].join('\n');
-  const root = project(dir, 'app', { files: { 'docs/plans/plan.md': plan, 'docs/plans/plan.decisions.tsv': `${log}\n` } });
-  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/plan.md'], root);
-  assert.equal(result.status, 0, result.stderr);
-  const html = read(root, 'docs/plans/artifacts/plan.html');
-  const header = html.slice(html.indexOf('<header'), html.indexOf('</header>')).replace(/<[^>]+>/gu, ' ').replace(/\s+/gu, ' ');
-  assert.match(header, / Lead claude-opus-5-5 xhigh Co-lead gemini-4-neon xhigh opus high Reviews claude-opus-5-5 xhigh /);
-});
-
 test("plan-page counts each seat's rounds in the header and lists every round at the bottom by priority", () => {
   const { dir, run } = sandbox();
   const plan = '# Plan\n\nStatus: executed\n\n## Main changes\n\n- Seat Codex.\n';
@@ -1531,20 +1512,6 @@ test('plan-open accepts a log with a line that reads exactly exit=<code> and ref
 
 const prPlan = (fields, body = '') =>
   `# PR\n\nStatus: executed\nPlaybook: feature\n${fields}\n${brief()}## Teach\n\nThe page is the plan.\n\n## Demo\n\n1. Open the page. ![after](shots/after.png)\n2. Scroll down. ![before](https://github.com/user-attachments/assets/v1)\n\n## Defaults\n\n| Decision | Pick | Alternative | Word | Impact |\n| --- | --- | --- | --- | --- |\n| Body shape | The page | A hand-written body | hand body | big |\n\n## Public API\n\n\`\`\`ts before\nold()\n\`\`\`\n\n\`\`\`ts after\nnext()\n\`\`\`\n\n## Main changes\n\n- Moves the owner.\n\n## Steps\n\n- [x] Build it. Proof: the test.\n${body}`;
-
-test('plan-page --pr lists the co-lead under the lead that logged it, before the review seats', () => {
-  const { dir, run } = sandbox();
-  const root = project(dir, 'app', {
-    files: {
-      'docs/plans/pr.md': prPlan(''),
-      'docs/plans/shots/after.png': 'png',
-      'docs/plans/pr.decisions.tsv': LOG_HEAD + logRow('lead', 'claude-opus-5-5 @xhigh') + logRow('colead', 'agy:gemini-4-neon @xhigh') + logRow('panel', 'seats claude-opus-5-5 @high'),
-    },
-  });
-  const result = run(process.execPath, [join(HELPERS, 'plan-page.mjs'), 'docs/plans/pr.md', '--pr'], root);
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(read(root, 'docs/plans/artifacts/pr.pr.md'), /\n- `claude-opus-5-5 xhigh`[^\n]*\n {2}- co-lead `gemini-4-neon` `xhigh`\n {2}- `claude-opus-5-5` `high`\n/u);
-});
 
 test('plan-page --pr writes the models, brief, frames, picks and API diff between markers', () => {
   const { dir, run } = sandbox();

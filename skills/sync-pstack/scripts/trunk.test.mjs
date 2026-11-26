@@ -20,6 +20,11 @@ const ENV = {
   CLAUDE_CODE_SESSION_ID: '',
   CODEX_SESSION_ID: '',
   CODEX_THREAD_ID: '',
+  T3CODE_THREAD_ID: '',
+  T3_ACP_MCP_NODE: '',
+  T3_ACP_MCP_ENTRYPOINT: '',
+  T3_ACP_MCP_ENDPOINT: '',
+  ANTIGRAVITY_CONVERSATION_ID: '',
   PSTACK_SLOT: '1',
 };
 const GOOD = 'feat(a): change a\n\nWhy a changes.\n\nBeyond the ask: none\nPicks: none\nNot checked: none';

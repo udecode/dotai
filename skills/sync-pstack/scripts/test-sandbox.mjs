@@ -38,6 +38,11 @@ export function sandbox() {
   mkdirSync(home);
   const env = { ...process.env, HOME: home };
   delete env.PSTACK_BASE;
+  delete env.T3CODE_THREAD_ID;
+  delete env.T3_ACP_MCP_NODE;
+  delete env.T3_ACP_MCP_ENTRYPOINT;
+  delete env.T3_ACP_MCP_ENDPOINT;
+  delete env.ANTIGRAVITY_CONVERSATION_ID;
   const run = (command, args, cwd) => spawnSync(command, args, { cwd, encoding: 'utf8', env });
   return { dir, env, home, run };
 }

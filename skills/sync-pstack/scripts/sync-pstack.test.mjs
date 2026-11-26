@@ -144,9 +144,9 @@ test('switching delivery to trunk and back swaps the shared-checkout files for t
   const { dir, cli } = sandbox();
   const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
   const pstack = (name) => join(root, '.agents/pstack', name);
-  const sharedCheckout = ['codex-build.md', 'freeze.mjs', 'mutate.mjs', 'reply.mjs', ...['close', 'codex', 'trails'].map((name) => `rules/${name}.md`)];
+  const sharedCheckout = ['codex-build.md', 'freeze.mjs', 'mutate.mjs', 'reply.mjs', ...['close', 'codex'].map((name) => `rules/${name}.md`)];
   const landing = ['guard.mjs', 'land.mjs', 'replay.mjs', 'review.mjs', 'setup.mjs', 'rules/land.md'];
-  const everywhere = ['cross.mjs', 'decisions-check.mjs', 'lead.mjs', 'levels.mjs', 'plan-open.mjs', 'plan-page.mjs', 'proof.mjs', 'status.mjs', 'tasks.mjs', 'rules/chips.md', 'rules/panel.md', 'rules/pages.md', 'rules/title.md', 'checkout.mjs', 'reread.mjs', 'rules/long-runs.md'];
+  const everywhere = ['cross.mjs', 'decisions-check.mjs', 'lead.mjs', 'levels.mjs', 'plan-open.mjs', 'plan-page.mjs', 'proof.mjs', 'status.mjs', 'tasks.mjs', 'rules/autopilot.md', 'rules/chips.md', 'rules/git.md', 'rules/panel.md', 'rules/pages.md', 'rules/title.md', 'rules/trails.md', 'checkout.mjs', 'reread.mjs', 'rules/long-runs.md'];
   const deliver = (delivery) => {
     writeFileSync(join(root, '.agents/pstack.json'), `${JSON.stringify({ ...JSON.parse(read(root, '.agents/pstack.json')), delivery }, null, 2)}\n`);
     assert.equal(cli('apply', root).status, 0);
@@ -183,11 +183,11 @@ test('pushBranches lets the lead commit and push every branch but the working on
   const branches = project(dir, 'branches', { config: { ...CONFIG, delivery: 'user', pushBranches: true }, agents: '# App\n' });
   assert.equal(cli('apply', owner).status, 0);
   assert.equal(cli('apply', branches).status, 0);
-  assert.match(read(owner, 'AGENTS.md'), /The repair stays uncommitted there for the owner's commit\./);
+  assert.match(read(owner, '.agents/pstack/rules/git.md'), /The repair stays uncommitted there for the owner's commit\./);
   assert.doesNotMatch(read(owner, 'AGENTS.md'), /On every other branch the lead commits and pushes/);
   assert.match(read(branches, 'AGENTS.md'), /On every other branch the lead commits and pushes/);
-  assert.match(read(branches, 'AGENTS.md'), /git push origin HEAD:<head branch>/);
-  assert.doesNotMatch(read(branches, 'AGENTS.md'), /The repair stays uncommitted there/);
+  assert.match(read(branches, '.agents/pstack/rules/git.md'), /git push origin HEAD:<head branch>/);
+  assert.doesNotMatch(read(branches, '.agents/pstack/rules/git.md'), /The repair stays uncommitted there/);
 });
 
 test('check fails once the project config moves past what was applied', () => {

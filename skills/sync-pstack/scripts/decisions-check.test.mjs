@@ -27,19 +27,6 @@ test('decisions-check append writes only a row that passes the check', () => {
   assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'log.decisions.tsv'], root).status, 0);
 });
 
-test("decisions-check takes a colead row only when its decision is the co-lead's model and effort", () => {
-  const { dir, run } = sandbox();
-  const root = project(dir, 'app');
-  const append = (decision) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', 'colead', decision, 'started for the run', 'conversation c-1', 'recorded agy conversation'], root);
-  const prose = append('Started Neon as the co-lead');
-  assert.equal(prose.status, 1, 'a decision in prose');
-  assert.match(prose.stderr, /a colead row's decision is only the co-lead's model and effort/u);
-  assert.equal(append('agy:gemini-4-neon').status, 1, 'a model with no effort');
-  assert.equal(append('agy:gemini-4-neon @huge').status, 1, 'an effort no runtime has');
-  assert.equal(append('agy:gemini-4-neon @xhigh').status, 0);
-  assert.equal(append('opus @high').status, 0, 'the fallback');
-});
-
 test('decisions-check prints every problem of a long log through a pipe, as a shell tool reads it', () => {
   const { dir, run } = sandbox();
   const root = project(dir, 'app');
