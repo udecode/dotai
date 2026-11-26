@@ -890,13 +890,12 @@ test("setup prints a person's local sheet lines from the main checkout to a Clau
   assert.doesNotMatch(codex.stdout, /pstack-models\.local\.md/u);
 });
 
-test('antigravity-hook translates PreToolUse deny from guard.mjs and allows safe commands', () => {
+test('guard handles native Antigravity PreToolUse payloads directly (deny force-push, allow safe commands)', () => {
   const { clone } = ledgerRemote();
   const main = clone('main');
-  const hook = join(main, '.agents/pstack/antigravity-hook.mjs');
-  writeFileSync(hook, readFileSync(join(HELPERS, 'antigravity-hook.mjs'), 'utf8'));
+  const guard = join(main, '.agents/pstack/guard.mjs');
 
-  const denied = spawnSync(process.execPath, [hook, 'PreToolUse'], {
+  const denied = spawnSync(process.execPath, [guard], {
     cwd: main,
     encoding: 'utf8',
     input: JSON.stringify({
@@ -911,7 +910,7 @@ test('antigravity-hook translates PreToolUse deny from guard.mjs and allows safe
   assert.equal(deniedOut.decision, 'deny');
   assert.match(deniedOut.reason, /guard\.mjs: agents never force-push/u);
 
-  const allowed = spawnSync(process.execPath, [hook, 'PreToolUse'], {
+  const allowed = spawnSync(process.execPath, [guard], {
     cwd: main,
     encoding: 'utf8',
     input: JSON.stringify({

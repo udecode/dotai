@@ -37,7 +37,6 @@ const HELPER_DIR = '.agents/pstack';
 // hold and is removed once one stops holding.
 // Key order is the order of each project's recorded `synced.files`.
 const HELPER_FILES = {
-  'antigravity-hook.mjs': [],
   'codex-browser.mjs': [],
   'codex-build.md': ['delivery!=trunk'],
   'codex-isolation.mjs': [],

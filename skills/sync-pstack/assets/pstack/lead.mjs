@@ -386,18 +386,22 @@ export const capEffort = (effort, max) => (max && EFFORTS.indexOf(effort) > EFFO
 // follow pstack's own defaults at high, below a project's maxEffort of xhigh (owner's word, 2026-11-20).
 const SEAT_ROLES = ['interrogate reviewers', 'arena runners'];
 const SEAT_FLOOR = 'high';
-const NEVER = /\b(?:sonnet|haiku)\b/gu;
+const NEVER = /\b(?:sonnet|haiku|pro|flash|flash_lite)\b/gu;
 
 const ROLE_LINE = /^([a-z][a-z ,-]*):\s*(.*)$/u;
 export const LOCAL_SHEET = '.claude/pstack-models.local.md';
 
-// A Claude Code sheet committed at the repository root replaces each person's, as pstack's session hook reads it.
-export const modelsSheet = (runtime, env = process.env, root = process.cwd()) =>
-  runtime === 'claude' || runtime === 'agy'
-    ? existsSync(join(root, '.claude/pstack-models.md'))
-      ? join(root, '.claude/pstack-models.md')
-      : join(env.HOME ?? homedir(), '.claude/pstack-models.md')
-    : join(env.CODEX_HOME ?? join(env.HOME ?? homedir(), '.codex'), 'pstack-models.md');
+// A project sheet committed at .claude/pstack-models.md replaces each person's; otherwise each runtime reads its own user sheet.
+export const modelsSheet = (runtime, env = process.env, root = process.cwd()) => {
+  const home = env.HOME ?? homedir();
+  if (runtime === 'claude' || runtime === 'agy') {
+    if (existsSync(join(root, '.claude/pstack-models.md'))) return join(root, '.claude/pstack-models.md');
+    return runtime === 'agy'
+      ? join(env.GEMINI_HOME ?? join(home, '.gemini'), 'config/pstack-models.md')
+      : join(home, '.claude/pstack-models.md');
+  }
+  return join(env.CODEX_HOME ?? join(home, '.codex'), 'pstack-models.md');
+};
 
 export function localOverrides(main) {
   const path = join(main, LOCAL_SHEET);
