@@ -23,11 +23,12 @@ clipboards, screenshots, and logs. Never reveal password fields for debugging.
    Check relevant existing profiles before declaring the service signed out.
    An agent's built-in browser, such as the Claude desktop app's pane, holds only
    the cookies imported into it. When it shows the service signed out, open the
-   service in Claude in Chrome before any login or owner handoff. Claude in Chrome
-   drives the Chrome profile whose Claude extension is signed in and connected,
-   which need not be Default. `list_connected_browsers` lists the connected
-   profiles, and `select_browser` picks the one whose page shows the requested
-   account.
+   service in the owner's signed-in Chrome through OpenCode `browse`
+   (`~/.local/bin/browse`, or Claude in Chrome as a fallback) before any login or
+   owner handoff. If using Claude in Chrome, it drives the Chrome profile whose
+   Claude extension is signed in and connected, which need not be Default;
+   `list_connected_browsers` lists the connected profiles, and `select_browser`
+   picks the one whose page shows the requested account.
 2. Read the current owner's machine configuration in
    `~/.config/agent-passwords/machines/`. Match its device and account before using
    its Keychain entry, vault IDs, and retrieval pattern. Keep local configuration
