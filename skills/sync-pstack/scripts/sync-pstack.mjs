@@ -1662,7 +1662,7 @@ function userPin(tag, { write }) {
     'Then, from the home directory:',
     ...(declared ? [`  claude plugin marketplace add ${REPO}#${tag} && claude plugin update ${PLUGIN}`] : []),
     `  codex plugin marketplace remove ${MARKETPLACE} && codex plugin marketplace add ${REPO} --ref ${tag} && codex plugin add ${PLUGIN}`,
-    ...(existsSync(join(homedir(), '.gemini')) ? [`  npx -y open-pstack --only antigravity   # update Antigravity plugin to ${tag}`] : []),
+    ...(existsSync(join(homedir(), '.gemini')) ? [`  npx -y open-pstack --only agy --yes   # update Antigravity plugin to ${tag}`] : []),
     ...(stale.length > 0
       ? ['A project-scope install keeps its version, so update each older one from its project:', ...stale.map((entry) => `  cd ${entry.projectPath} && claude plugin update ${PLUGIN} --scope project`)]
       : []),
