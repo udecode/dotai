@@ -148,3 +148,84 @@ test('effectiveModelsSheet merges main checkout local overrides in trunk Claude 
   writeFileSync(join(tree, '.agents/pstack.json'), JSON.stringify({ delivery: 'pr' }));
   assert.equal(effectiveModelsSheet('claude', { HOME: dir }, tree).text, committed);
 });
+
+const cleanEnv = (extra = {}) => ({
+  ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(?:CLAUDE|CODEX|T3|ANTIGRAVITY|GEMINI)/u.test(key))),
+  ...extra,
+});
+
+function probeFindLead(env, binName = null) {
+  const dir = mkdtempSync(join(tmpdir(), 'lead-probe-'));
+  const probe = join(dir, 'probe.mjs');
+  writeFileSync(probe, `import { findLead } from ${JSON.stringify(LEAD)};\nconsole.log(JSON.stringify(findLead()));\n`);
+  if (!binName) return JSON.parse(execFileSync(process.execPath, [probe], { encoding: 'utf8', env: cleanEnv(env) }).trim());
+  const runner = join(dir, 'run.mjs');
+  writeFileSync(runner, "import { spawnSync } from 'node:child_process';\nprocess.exit(spawnSync(process.execPath, [process.argv[2]], { stdio: 'inherit' }).status ?? 1);\n");
+  const bin = join(dir, binName);
+  symlinkSync(process.execPath, bin);
+  return JSON.parse(execFileSync(bin, [runner, probe], { encoding: 'utf8', env: cleanEnv(env) }).trim());
+}
+
+function stubT3Node(dir, payload) {
+  const entry = join(dir, 't3-stub.mjs');
+  writeFileSync(entry, `console.log(JSON.stringify({ structuredContent: ${JSON.stringify(payload)} }));\n`);
+  return { T3_ACP_MCP_NODE: process.execPath, T3_ACP_MCP_ENTRYPOINT: entry };
+}
+
+test('t3Lead resolves real Antigravity transcripts across brain roots and uses null when absent or non-Antigravity', () => {
+  const home = mkdtempSync(join(tmpdir(), 'lead-t3-'));
+  const id = '11111111-2222-4333-8444-555555555555';
+  const agyPayload = { inheritedProviderInstanceId: 'antigravity', inheritedModel: 'gemini-4-neon', inheritedOptions: [{ id: 'thought_level', value: 'high' }] };
+  const t3 = stubT3Node(home, agyPayload);
+
+  // Absent transcript returns null, never a synthetic relative <sessionId>.jsonl path.
+  const missing = probeFindLead({ ...t3, HOME: home, T3CODE_THREAD_ID: 't3:thread', ANTIGRAVITY_CONVERSATION_ID: id });
+  assert.deepEqual(missing.run, { runtime: 'agy', model: 'gemini-4-neon', effort: 'high', transcript: null });
+
+  const writeTranscript = (root, name = 'transcript.jsonl') => {
+    const file = join(root, id, '.system_generated', 'logs', name);
+    mkdirSync(join(root, id, '.system_generated', 'logs'), { recursive: true });
+    writeFileSync(file, '{"type":"PLANNER_RESPONSE","model":"gemini-4-neon-high"}\n');
+    return file;
+  };
+
+  // ~/.gemini/antigravity/brain
+  const geminiDefault = writeTranscript(join(home, '.gemini', 'antigravity', 'brain'));
+  assert.equal(probeFindLead({ ...t3, HOME: home, ANTIGRAVITY_CONVERSATION_ID: id }).run?.transcript, geminiDefault);
+
+  // $T3_USERDATA_DIR/providers/antigravity/*/antigravity-acp/brain beats ~/.gemini
+  const t3User = join(home, 't3-user');
+  const t3Transcript = writeTranscript(join(t3User, 'providers', 'antigravity', 'acct1', 'antigravity-acp', 'brain'));
+  assert.equal(probeFindLead({ ...t3, HOME: home, T3_USERDATA_DIR: t3User, ANTIGRAVITY_CONVERSATION_ID: id }).run?.transcript, t3Transcript);
+
+  // GEMINI_HOME/{antigravity-acp,antigravity}/brain beats T3_USERDATA_DIR
+  const geminiHome = join(home, 'gem-home');
+  const geminiAcp = writeTranscript(join(geminiHome, 'antigravity-acp', 'brain'), 'transcript_full.jsonl');
+  assert.equal(probeFindLead({ ...t3, HOME: home, T3_USERDATA_DIR: t3User, GEMINI_HOME: geminiHome, ANTIGRAVITY_CONVERSATION_ID: id }).run?.transcript, geminiAcp);
+
+  // ANTIGRAVITY_APP_DATA_DIR/brain wins over all other roots
+  const appData = join(home, 'app-data');
+  const appTranscript = writeTranscript(join(appData, 'brain'));
+  assert.equal(probeFindLead({ ...t3, HOME: home, T3_USERDATA_DIR: t3User, GEMINI_HOME: geminiHome, ANTIGRAVITY_APP_DATA_DIR: appData, ANTIGRAVITY_CONVERSATION_ID: id }).run?.transcript, appTranscript);
+
+  // Non-Antigravity T3 fallback returns null transcript (never synthetic <sessionId>.jsonl)
+  const codexT3 = stubT3Node(join(home, 'app-data'), { inheritedProviderInstanceId: 'codex', inheritedModel: 'gpt-6.2-sol', inheritedOptions: [{ id: 'reasoningEffort', value: 'xhigh' }] });
+  const nonAgy = probeFindLead({ ...codexT3, HOME: home, T3CODE_THREAD_ID: 't3:codex-1' });
+  assert.deepEqual(nonAgy.run, { runtime: 'codex', model: 'gpt-6.2-sol', effort: 'xhigh', transcript: null });
+});
+
+test('standalone antigravity/agy sessions resolve model, effort and real transcript without T3_ACP_MCP_NODE', () => {
+  const home = mkdtempSync(join(tmpdir(), 'lead-agy-'));
+  const id = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+  const logs = join(home, 'app', 'brain', id, '.system_generated', 'logs');
+  mkdirSync(logs, { recursive: true });
+  const file = join(logs, 'transcript.jsonl');
+  writeFileSync(file, `${JSON.stringify({ type: 'PLANNER_RESPONSE', model: 'agy:gemini-4-neon-xhigh', created_at: '2026-11-26T23:00:00Z' })}\n`);
+
+  for (const binName of ['antigravity', 'agy']) {
+    const res = probeFindLead({ HOME: home, ANTIGRAVITY_APP_DATA_DIR: join(home, 'app'), ANTIGRAVITY_CONVERSATION_ID: id }, binName);
+    assert.deepEqual(res.run, { runtime: 'agy', model: 'gemini-4-neon', effort: 'xhigh', at: '2026-11-26T23:00:00Z', transcript: file });
+  }
+  unknown(probeFindLead({ HOME: home, ANTIGRAVITY_APP_DATA_DIR: join(home, 'app') }, 'agy'));
+  unknown(probeFindLead({ HOME: home, ANTIGRAVITY_CONVERSATION_ID: 'missing-id' }, 'agy'));
+});
