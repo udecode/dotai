@@ -10,7 +10,7 @@ const forbidden = forbiddenIndex < 0 ? null : new RegExp(process.argv[forbiddenI
 const upstream = JSON.parse(readFileSync(join(root, 'upstream-skills.json'), 'utf8'));
 const groups = {
   'Review': ['skill-audit', 'test-audit'],
-  'Communication': ['clip', 'walkthrough', 'video-transcripts'],
+  'Communication': ['clip', 'video-transcripts'],
   'Workflow': ['chips', 'passwords', 'redo', 'start'],
   'Maintenance': ['cleanup', 'migrate-t3', 'sync-pstack'],
   'Monitoring': ['mac-watchdog', 'pstack-doctor', 'pstack-pulse', 'rca'],
@@ -30,7 +30,6 @@ const requirements = {
   start: ['A T3 Code session with the t3-code MCP tools (`t3_thread_launch` and `create_threads`, directly or via `acp-mcp-call`)'],
   'sync-pstack': ['Node.js 22+ and Git; the Claude Code and Codex CLIs for plugin pins and smoke tests'],
   'video-transcripts': ['ffmpeg, curl, jq and a signed-in agy (Antigravity CLI)'],
-  walkthrough: ['Real final-state captures, Node.js and the configured annotation tool'],
 };
 
 function walk(dir) {

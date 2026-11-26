@@ -1,6 +1,6 @@
 # dotai skills
 
-16 skills: 16 maintained in dotai, plus 0 unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from dotai. Methods load only when relevant; tool access is separate from installation.
+15 skills: 15 maintained in dotai, plus 0 unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from dotai. Methods load only when relevant; tool access is separate from installation.
 
 ## Review (2)
 
@@ -9,12 +9,11 @@
 | [skill-audit](skills/skill-audit/SKILL.md) | Audit custom skills, playbooks, AGENTS.md rules, sync-pstack assets, and pstack overrides for drift, overlap, dead routes, and size-budget bloat across any project or dotai itself. |
 | [test-audit](skills/test-audit/SKILL.md) | Prune low-value, internal, flaky, slow or duplicated tests and bloated CI checks in coherent batches while keeping E2E, public boundary and invariant coverage intact. Not for writing new tests. |
 
-## Communication (3)
+## Communication (2)
 
 | Skill | Purpose |
 | --- | --- |
 | [clip](skills/clip/SKILL.md) | Record, check and render demo clips or stacked before-and-after images/clips for chat, team posts, social posts, or bug repros. Use before recording any app clip or attaching before/after screenshots. |
-| [walkthrough](skills/walkthrough/SKILL.md) | Present final screenshots or rendered artifacts as an annotated walkthrough when visual evidence is requested. |
 | [video-transcripts](skills/video-transcripts/SKILL.md) | Transcribe a supplied local or linked video from one frame per second with Gemini 4 Neon through agy, or with a Claude subagent when agy fails, and check the transcript against the frames, when a recording's contents are needed as evidence, such as a bug recording on an issue, PR or comment, or a question about what a video shows. |
 
 ## Workflow (4)
@@ -31,7 +30,7 @@
 | Skill | Purpose |
 | --- | --- |
 | [cleanup](skills/cleanup/SKILL.md) | Audit disk usage and remove idle git worktrees, Next.js caches, test Postgres DBs, and unused Bun/npx/uv/Docker caches while preserving active checkouts. Use for /cleanup, /cleanup disk, or freeing worktree/build disk space. |
-| [migrate-t3](skills/migrate-t3/SKILL.md) | Migrate a setup from Claude Desktop and Claude Code to T3 Code with Antigravity (Gemini 4 Neon) plus Claude and Codex. Use for /migrate-t3, onboarding a teammate to T3 Code, or fixing missing MCPs, skills, plugins, or Chrome profiles in T3. |
+| [migrate-t3](skills/migrate-t3/SKILL.md) | Migrate a setup from Claude Desktop and Claude Code to T3 Code (Antigravity Gemini 4 Neon, T3 config, MCPs, skills, pstack plugin) and return a manual checklist for OAuth and UI steps. Use when the user asks to run migrate-t3 or onboard to T3 Code. |
 | [sync-pstack](skills/sync-pstack/SKILL.md) | Set up pstack in a project and keep every managed project on one pinned tag and shared AGENTS.md overrides block. Use to install, sync, bump, or compare pstack setups, change project review rules, or propagate a shared workflow lesson. |
 
 ## Monitoring (4)
@@ -69,7 +68,6 @@ These skills remain installed when a tool is absent; an unavailable live action 
 - **start:** A T3 Code session with the t3-code MCP tools (`t3_thread_launch` and `create_threads`, directly or via `acp-mcp-call`).
 - **sync-pstack:** Node.js 22+ and Git; the Claude Code and Codex CLIs for plugin pins and smoke tests.
 - **video-transcripts:** ffmpeg, curl, jq and a signed-in agy (Antigravity CLI).
-- **walkthrough:** Real final-state captures, Node.js and the configured annotation tool.
 
 ## Deliberate boundaries
 

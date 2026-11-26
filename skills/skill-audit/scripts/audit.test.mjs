@@ -232,3 +232,41 @@ test('audit handles non-pstack plain repos and dotai-shaped repos without .agent
   );
   assert.ok(parsed.overlaps.some((o) => o.with === 'project' && o.file === 'skills/beta/SKILL.md' && o.source.startsWith('skills/gamma/SKILL.md:')));
 });
+
+test('audit skips node_modules and scripts markdown, excludes binary assets from skill-dir cap, and counts routes from .agents/pstack/rules', () => {
+  const { dir, run } = sandbox();
+  const duplicate = 'Always run deterministic schema validation before writing tracked workspace files.';
+
+  const repo = project(dir, 'fixes', {
+    config: CONFIG,
+    agents: '# Fixes\n',
+    files: {
+      '.agents/pstack/rules/long-runs.md': `# Long runs\n\nUse \`redo\` to rerun a prior plan at a higher effort.\n\n${duplicate}\n`,
+      '.agents/rules/local.mdc': `# Local\n\n${duplicate}\n`,
+      '.agents/skills/redo/SKILL.md': '---\nname: redo\ndescription: x\n---\n',
+      '.agents/skills/clip/SKILL.md': '---\nname: clip\ndescription: x\n---\n',
+      '.agents/skills/clip/assets/font.ttf': 'f'.repeat(50_000),
+      '.agents/skills/clip/assets/poster.png': 'p'.repeat(50_000),
+      'skills/clip/SKILL.md': '---\nname: clip\ndescription: x\n---\n',
+      'skills/clip/scripts/README.md': `# Script\n\n${duplicate}\n`,
+      'skills/clip/scripts/node_modules/pkg/README.md': `# Pkg\n\n${duplicate}\n`,
+    },
+  });
+
+  const res = run(process.execPath, [AUDIT, repo, '--json']);
+  assert.equal(res.status, 0, res.stderr);
+  const data = JSON.parse(res.stdout);
+
+  // Binary assets do not trip the 40 KB skill-dir cap.
+  assert.deepEqual(data.sizeBudgets.over, []);
+
+  // node_modules and scripts markdown produce zero overlap hits, and .agents/pstack/rules stays out of project overlaps.
+  assert.equal(
+    data.overlaps.some((o) => o.file.includes('node_modules') || o.file.includes('/scripts/') || o.file.startsWith('.agents/pstack/rules/') || o.source.startsWith('.agents/pstack/rules/')),
+    false,
+  );
+
+  // Route counting scans .agents/pstack/rules/*.md so `redo` routed by long-runs.md reports routes >= 1.
+  const redo = data.skills.find((s) => s.name === 'redo');
+  assert.deepEqual(redo.routes, ['.agents/pstack/rules/long-runs.md']);
+});

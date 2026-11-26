@@ -177,3 +177,22 @@ test('apply drops legacy page lists from config once a playbook carries them, an
   assert.ok(!('pageLead' in applied) && !('pagePairs' in applied));
   assert.deepEqual(applied.pageTopic, { field: 'review_scopes' });
 });
+
+test('check flags and apply removes orphaned files under .agents/pstack/rules', () => {
+  const { dir, cli } = sandbox();
+  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
+  assert.equal(cli('apply', root).status, 0);
+  const orphan = join(root, '.agents/pstack/rules/old-rule.md');
+  writeFileSync(orphan, '# Retired rule\n');
+
+  const check = cli('check', root);
+  assert.equal(check.status, 1);
+  assert.match(check.stdout, /stale \.agents\/pstack\/rules\/old-rule\.md/);
+  assert.equal(existsSync(orphan), true);
+
+  const applied = cli('apply', root);
+  assert.equal(applied.status, 0, applied.stderr);
+  assert.match(applied.stdout, /remove \.agents\/pstack\/rules\/old-rule\.md/);
+  assert.equal(existsSync(orphan), false);
+  assert.equal(cli('check', root).status, 0);
+});

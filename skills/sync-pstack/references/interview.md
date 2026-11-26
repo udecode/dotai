@@ -50,15 +50,15 @@ For question 8, show each candidate's typed count (`typed.counts` from `discover
 The owner settled these for every project. Report them as applied.
 
 - The lead writes the code; subagents research, review and fan out read-only, and a Codex worker the owner asks for runs with no sandbox through `cross.mjs --bypass`.
-- A message anyone outside the team can read, a comment, review, label or close on a public repository included, needs explicit authorization from the active request and otherwise waits as a draft, and a "can we X?" question gets a proposal, not the action. A message only team members can read and shared quota proceed without asking; widening an access grant needs a go-ahead per target.
-- Claude Code runs every pstack role on Opus except Codex panel seats; Codex roles inherit the session model.
+- External messages, shared quota, and access grants follow `rules/messages.md`; "can we X?" questions get a proposal, not the action.
+- Three lead runtimes: Antigravity (`gemini-4-neon @high`) is the default across all projects (escalating to `xhigh` only for `arena` runners, stuck debugging, or deep architectural pivots), Claude Code runs roles on `opus` (with `fable @high` for `strongest judgment`), and Codex inherits `gpt-6.2-sol`. UI/visual runs on `opus @high`; see `assets/pstack-models.md` for every role.
 - No per-delegate worktrees.
-- Panels seat Opus and `codex:gpt-6.2-sol @xhigh`, through `cross.mjs --reach`, which cannot write the project, and a critical finding is the blocking ceiling.
+- Panels seat `opus @high`, `codex:gpt-6.2-astra @high or fable @high`, and `agy:gemini-4-neon @high` (arena runners seat `fable @high`, `codex:gpt-6.2-sol @xhigh or opus @high`, and `agy:gemini-4-neon @xhigh`), through `cross.mjs --reach`, with a critical finding as the blocking ceiling.
 - Principles are read, not named in replies.
 - One writing pass per kind of change, with `deslop` and `no-comments` before any review, each panel round's fixes included.
 - A `codex:gpt-6.2-sol` seat, at the effort the panel gives it, reviews decision trails from Claude Code, and an Opus seat from Codex.
 - The blocked budget, and the todo list and close discipline.
-- Production deploys and releases need an explicit request.
+- Production deploys and releases follow the Delivery rule in `block.md`.
 - The plugin pin follows the latest upstream tag.
 
 Delivery confirms `branch` and `protected`. The other values that discover reports (`lintFix`, `check`, `glossary`, a proof skill, skiller) are confirmed only when missing or ambiguous.
@@ -88,13 +88,12 @@ Write `.agents/pstack.json`. The script adds `synced` on the first apply. This e
 | `tag` | The pstack-claude tag every pin uses. Required. |
 | `branch` | The branch agents work on and deliver to; in `pr` mode, the PR base. Required. |
 | `protected` | A branch agents never edit or push without a request, usually the default branch. It must differ from `branch`; leave it out when agents work on the default branch. |
-| `delivery` | `push`, `pr`, `user` or `trunk`. Required. `push` installs `rules/shared.md`, which holds the Shared checkout rule. `trunk` installs `land.mjs`, `review.mjs`, `guard.mjs`, `setup.mjs` and `rules/land.md`; the project wires `guard.mjs` as a Claude Code `PreToolUse` hook on `Bash|Edit|MultiEdit|Write|NotebookEdit|mcp__ccd_host__sync_with_base_branch` and `setup.mjs --hook` as a `SessionStart` hook in its `.claude/settings.json`, and sets `worktree.baseRef` to `"head"` there so a code delegate's worktree starts from the session's branch. `trunk` also drops the rules a shared checkout needs and returns them to pstack's defaults: the lead writing all code, Codex workers and extraction, Other sessions, suggested tasks, the strict decision-log checks, close, long runs, panel round bookkeeping and the Commit and PR text rule, with their rule files and helpers. |
+| `delivery` | `push`, `pr`, `user` or `trunk`. Required. `push` installs `rules/shared.md`. `trunk` installs `land.mjs`, `review.mjs`, `guard.mjs`, `setup.mjs` and `rules/land.md`, and drops shared-checkout files (`codex-build.md`, `rules/close.md`, `rules/codex.md`) plus the block's Other sessions, Lead-writes-code, Codex workers, Babysit levels, and Commit/PR text rules; `chips.md`, `long-runs.md`, `trails.md`, `pages.md`, and `panel.md` all install in `trunk`. In `trunk`, wire `guard.mjs` as a Claude Code `PreToolUse` hook on `Bash|Edit|MultiEdit|Write|NotebookEdit|mcp__ccd_host__sync_with_base_branch`, `setup.mjs --hook` as a `SessionStart` hook, and `worktree.baseRef: "head"` in `.claude/settings.json`. |
 | `pushBranches` | `true` in `user` delivery to let the lead commit and push every branch except `branch` and `protected`, a PR head branch included. Optional; off by default. |
 | `autoSync` | `false` holds the project out of `status`, `sync` and `corpus` runs that name no project; a run that names it still applies. Optional; on by default. |
-| `lintFix` | The last check a completed task runs. Required. |
+| `lintFix` | Formatter/linter command run at task close per the Delivery rule. Required. |
 | `check` | The broad check for a settled change, used by the Tests and Commit rules. Required. |
 | `plans` | The directory for plans and decision logs, used by the Plans rule and its helpers. Required unless `plans` is skipped. |
-| `pageWork` | The work besides an architecture or API adoption plan that publishes a page, written to follow "It is also", such as "the verdict an `explore` run converges on, and a `radar` pass". All other work hands back in its reply. Optional; no other page work when absent. |
 | `reviews` | The work that runs a panel, `architect` or an arena without asking, as rows `{ "id": "<kebab-case>", "rule": "<one sentence>" }`, such as `{ "id": "pr", "rule": "Before a PR is opened, its diff gets a panel." }`. The block lists each row, and a project playbook that runs one of those tools cites its row as `(reviews: <id>)`. Optional; an empty list leaves every panel to the user's word. |
 | `proof` | The project's proof skill: pstack's driver skill for reproducing and verifying, and the replacement for its swarm lanes. Optional. |
 | `glossary` | A glossary file whose words agents use. Optional. |
@@ -109,7 +108,7 @@ Write `.agents/pstack.json`. The script adds `synced` on the first apply. This e
 | `freshEnv` | `["NAME=value"...]`: environment assignments under which `land.mjs` runs its checks again on a commit it already recorded as checked, such as the variables that make the project's checks ignore cached passes. Optional. |
 | `regen` | The project's command that regenerates skills from rules when `bunx skiller@latest apply` alone is not enough, such as `pnpm install` when a prepare script also syncs rule resources. Optional; used only with `skiller`. |
 | `dropped` | Typed commands the owner chose to drop without an entry point; `verify` stops flagging them. Optional. |
-| `pageTopic` | `{ "field": "<frontmatter list>", "hub": "<path with {topic}>" }`: a plan without a `Topic:` line takes its subject from the first entry of that list, and the page links the subject's history at `hub`. A subject whose hub exists must carry each required section in its file, or in the plan that leads its page when that plan has a brief. The leading plan's playbook lists them under `page-require`, or every playbook does when that plan names none. The review sections themselves live in each playbook's frontmatter, as the `plan-page` skill describes, never in this config. For a project whose plans already name a ledger scope. Optional. |
+| `pageTopic` | `{ "field": "<frontmatter list>", "hub": "<path with {topic}>" }`: a plan without a `Topic:` line takes its subject from the first entry of that list, and the page links the subject's history at `hub`. A subject whose hub exists must carry each required section in its file, or in the plan that leads its page when that plan has a brief. The leading plan's playbook lists them under `page-require`, or every playbook does when that plan names none. The review sections themselves live in each playbook's frontmatter, as `rules/pages.md` describes, never in this config. For a project whose plans already name a ledger scope. Optional. |
 | `skip` | Block sections the project keeps as its own rule: `tests`, `review`, `plans`, `long-runs`, `commits`, `browser`. A skipped section also drops the rule file it owns from `.agents/pstack/rules/`, or its part of a shared one, as `review` does in `panel.md`. |
 
 Answers to questions 2 and 8 have no field. Carry them into the adaptation and the setup summary.

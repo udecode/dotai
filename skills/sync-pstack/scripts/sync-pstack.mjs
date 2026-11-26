@@ -86,7 +86,7 @@ export const RULE_FILES = {
   'linked.md': { blockRule: 'Calls', gates: [] },
   'long-runs.md': { blockRule: 'Long runs', gates: ['long-runs'] },
   'messages.md': { blockRule: 'Messages and shared resources', gates: [] },
-  'pages.md': { blockRule: 'Plan pages', gates: ['plans'] },
+  'pages.md': { blockRule: 'Plans and hand-backs', gates: ['plans'] },
   'panel.md': { blockRule: 'Panel review', gates: [] },
   'reflect.md': { blockRule: 'Improve the workflow mid-task', gates: [] },
   'shared.md': { blockRule: 'Shared checkout', gates: ['delivery=push'] },
@@ -798,6 +798,12 @@ export function apply(root, { tag, force = false, write = true, dispositions } =
   for (const retired of RETIRED_HELPERS) {
     const path = `${HELPER_DIR}/${retired}`;
     if (existsSync(join(root, path))) changes.push({ path, remove: true });
+  }
+  const installedRulesDir = join(root, HELPER_DIR, 'rules');
+  if (existsSync(installedRulesDir)) {
+    for (const name of readdirSync(installedRulesDir).filter((file) => file.endsWith('.md')).sort()) {
+      if (!Object.hasOwn(RULE_FILES, name)) changes.push({ path: `${HELPER_DIR}/rules/${name}`, remove: true });
+    }
   }
 
   const settingsPath = join(root, '.claude/settings.json');

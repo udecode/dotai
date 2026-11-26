@@ -12,6 +12,7 @@ const SHINGLE = 3;
 const MIN_WORDS = 6;
 const STOP_WORDS = new Set('a an and any are as at be by each every for from if in into is it its no not of on one only or so than that the their then this to when with'.split(' '));
 const PER_KIND = 40;
+const BINARY_ASSET_EXT = /\.(?:ttf|otf|woff2?|png|jpe?g|webp|gif|mp4|webm|ico|pdf)$/iu;
 
 export const SIZE_BUDGETS = {
   playbookFile: 14_000,
@@ -50,6 +51,7 @@ function* walkFiles(dir) {
 function* markdownFiles(dir) {
   if (!existsSync(dir)) return;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory() && (entry.name === 'node_modules' || entry.name === 'scripts')) continue;
     const path = join(dir, entry.name);
     if (entry.isDirectory()) yield* markdownFiles(path);
     else if (/\.(?:md|mdc)$/u.test(entry.name)) yield path;
@@ -102,9 +104,10 @@ function skillMention(name, { siblingLinks = true } = {}) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
   const end = '(?![\\w:-]|[./]\\w)';
   const invocation = `(?<![\\w./:@-])[$/]${escaped}${end}`;
+  const codeSpan = `(?<![\`\\w./:@-])\`${escaped}\`(?![\`\\w:-])`;
   const path = `(?:skills|rules${siblingLinks ? '|\\.\\.' : ''})/${escaped}(?:/|\\.mdc(?![\\w.]))`;
   const bareName = `(?<![\\w./:@$-])${escaped}${end}`;
-  return new RegExp([invocation, path, ...(distinctiveName(name) ? [bareName] : [])].join('|'), 'u');
+  return new RegExp([invocation, codeSpan, path, ...(distinctiveName(name) ? [bareName] : [])].join('|'), 'u');
 }
 
 function hintModes(rule) {
@@ -530,6 +533,7 @@ export function sizeAudit(root) {
       for (const path of walkFiles(dir)) {
         const rel = relative(dir, path);
         if (rel === 'scripts' || rel.startsWith('scripts/')) continue;
+        if (BINARY_ASSET_EXT.test(rel)) continue;
         dirBytes += statSync(path).size;
       }
       skillsTotal += dirBytes;
@@ -660,7 +664,21 @@ export function audit(root, minScore = 0.5) {
   for (const sentence of shared) compare(sentence, 'pstack');
   overlaps.sort((a, b) => b.score - a.score || a.file.localeCompare(b.file) || a.line - b.line);
 
-  const routeFiles = [...(agents ? [join(root, agents)] : []), ...projectFiles];
+  const pstackRuleFiles = files
+    .filter((file) => file.startsWith('.agents/pstack/rules/') && file.endsWith('.md'))
+    .map((file) => join(root, file));
+  const dotaiRuleFiles = dotaiTarget
+    ? [
+        ...(existsSync(join(root, 'skills/sync-pstack/assets/block.md')) ? [join(root, 'skills/sync-pstack/assets/block.md')] : []),
+        ...(existsSync(join(root, 'skills/sync-pstack/assets/pstack/rules'))
+          ? readdirSync(join(root, 'skills/sync-pstack/assets/pstack/rules'))
+              .filter((file) => file.endsWith('.md'))
+              .sort()
+              .map((file) => join(root, 'skills/sync-pstack/assets/pstack/rules', file))
+          : []),
+      ]
+    : [];
+  const routeFiles = [...(agents ? [join(root, agents)] : []), ...projectFiles, ...pstackRuleFiles, ...dotaiRuleFiles];
   const routeTexts = routeFiles.map((path) => [relative(root, path), readFileSync(path, 'utf8')]);
   const routes = (name) => {
     const [inRules, elsewhere] = [true, false].map((links) => skillMention(name, { siblingLinks: links }));
