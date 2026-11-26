@@ -11,7 +11,7 @@ const upstream = JSON.parse(readFileSync(join(root, 'upstream-skills.json'), 'ut
 const groups = {
   'Review': ['test-audit'],
   'Communication': ['clip', 'walkthrough', 'video-transcripts'],
-  'Workflow': ['chips', 'passwords', 'redo'],
+  'Workflow': ['chips', 'passwords', 'redo', 'start'],
   'Maintenance': ['cleanup', 'sync-pstack'],
   'Monitoring': ['mac-watchdog', 'pstack-doctor', 'pstack-pulse', 'rca'],
 };
@@ -25,6 +25,7 @@ const requirements = {
   'pstack-doctor': ['Node.js 22+, Git and ripgrep; pstack-pulse for live session state, Antigravity ACP transcripts for Gemini 4 Neon sessions, and a session tool that lists sessions for the rest'],
   'pstack-pulse': ['macOS with launchd and the Keychain, Node.js 22+ and sqlite3; an ActivitySmith account and key; Tailscale Funnel for the session list'],
   rca: ['A Code session in the Claude desktop app, which alone has its session tools'],
+  start: ['A T3 Code session with the t3-code MCP tools (`t3_thread_launch` and `create_threads`, directly or via `acp-mcp-call`)'],
   'sync-pstack': ['Node.js 22+ and Git; the Claude Code and Codex CLIs for plugin pins and smoke tests'],
   'video-transcripts': ['ffmpeg, curl, jq and a signed-in agy (Antigravity CLI)'],
   walkthrough: ['Real final-state captures, Node.js and the configured annotation tool'],
