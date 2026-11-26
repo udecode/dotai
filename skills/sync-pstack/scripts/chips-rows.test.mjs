@@ -127,7 +127,7 @@ test('in a trunk project a linked worktree writes the main checkout ledger, cite
   assert.match(brief, /land the task yourself from it with node \.agents\/pstack\/land\.mjs/);
   assert.match(brief, /scan\.mjs --landed <your worktree's absolute path>\. When it exits 0/, 'the landed scan checks the work reached the checkout');
   assert.match(brief, /holds the change\. Last, stop each server/, 'the landing steps run before the review title');
-  assert.match(brief, /carry the outcome to its next \/chips\. Once the task has landed or its PR is open, where your runtime can rename this session, title your session 👀 <name>, with no count, in the same message as your last other call, such as the scan\.mjs --landed check, and after that call, as [^\n]*\/\.agents\/pstack\/rules\/title\.md says[^\n]*\. When a later message has you work again, title the session 🚧 <name> before your first step\./, 'a landed card session takes the review title in its last message, after the landed check, and drops it when it works again');
+  assert.match(brief, /carry the outcome to its next \/chips\. Once the task has landed or its PR is open, where your runtime can rename this session, title your session ⏳ <name>, with no count, in the same message as your last other call, such as the scan\.mjs --landed check, and after that call, as [^\n]*\/\.agents\/pstack\/rules\/title\.md says[^\n]*\. When a later message has you work again, title the session 🥔 <name> before your first step/, 'a landed card session takes the awaiting-CI title in its last message, after the landed check, and drops it when it works again');
   assert.doesNotMatch(brief, /git diff --cached|apply --check|\/wt\b|cd \/|outside the checkout/, 'no patch landing, checkout cd, worktree path or outside-path wait');
   mkdirSync(join(root, 'docs/plans/artifacts/fix'), { recursive: true });
   writeFileSync(join(root, 'docs/plans/artifacts/fix/send-a1.log'), 'exit=0\n');
@@ -684,5 +684,26 @@ test('chips prints the started-overlap note on its own line when a late reader g
   assert.equal(result.status, 0, result.stderr);
   assert.ok(result.stdout.length > 65_536, 'the board outgrows a pipe buffer');
   assert.match(result.stdout, /^t_7a03a000 and t_7a03b000 are both started on an overlapping path outside this checkout; the owner runs both$/mu);
+});
+
+test('decisions-check accepts colon-delimited T3CODE_THREAD_ID session tokens and still refuses malformed ones', () => {
+  const { chip, chips, offer } = chipLedger();
+  const threadId = 'import:claudeAgent:6fa59d13-f5d8-41e1-9b73-264920d44263';
+  const task = 't_7a004000 Fix the T3 session token';
+  const offered = offer(task, 'README.md', `topic: docs; session: ${threadId}`);
+  assert.equal(offered.status, 0, offered.stderr);
+  const carded = chip(task, 'carded', `card: t_7a00d000; session: ${threadId}`);
+  assert.equal(carded.status, 0, carded.stderr);
+  const board = chips('--session', threadId);
+  assert.equal(board.status, 0, board.stderr);
+  assert.match(board.stdout, /t_7a004000 {2}Fix the T3 session token/);
+  const started = chip(task, 'started', `session: ${threadId}`);
+  assert.equal(started.status, 0, started.stderr);
+  for (const bad of [':leading', 'has space', 'bad/slash']) {
+    const refused = offer('t_7a009000 Fix bad session', 'README.md', `topic: docs; session: ${bad}`);
+    assert.equal(refused.status, 1, bad);
+    assert.match(refused.stderr, /session: names the session id as one token/, bad);
+  }
+  assert.equal(chips('--session', ':leading').status, 2);
 });
 

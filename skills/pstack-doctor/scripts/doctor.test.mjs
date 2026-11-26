@@ -142,7 +142,7 @@ function world() {
     join(pulse, 'state.json'),
     JSON.stringify({
       sessions: {
-        'claude:cli-loop': entry('cli-loop', 'local_loop', { transcript: transcriptPath, plan: join(worktree, 'docs', 'plans', 'parent.md'), title: '🚧 Loop (0/3)' }),
+        'claude:cli-loop': entry('cli-loop', 'local_loop', { transcript: transcriptPath, plan: join(worktree, 'docs', 'plans', 'parent.md'), title: '🥔 Loop (0/3)' }),
         'claude:cli-young': entry('cli-young', 'local_young', { title: 'young' }),
         'claude:cli-self': entry('cli-self', 'local_self', { title: 'doctor' }),
       },
@@ -174,7 +174,7 @@ test('facts reports a looping session, skips its own, and remembers the run', as
   const { env, transcriptPath } = world();
   const first = await facts([], env);
   assert.match(first, /^2 sessions: 1 older than 24 h/u);
-  assert.match(first, /## 🚧 Loop \(0\/3\)\n- local_loop, working, 30 h old/u);
+  assert.match(first, /## 🥔 Loop \(0\/3\)\n- local_loop, working, 30 h old/u);
   assert.match(first, /- plan \S+\/worktree\/docs\/plans\/p-3\.md: building: step 1\n/u);
   assert.match(first, /1\/3 boxes, 1 landing\(s\)/u);
   assert.match(first, new RegExp(`transcript: ${transcriptPath}`, 'u'));
@@ -611,11 +611,13 @@ test("due reads a Codex rollout: the rows its exec, shell and yielded calls appe
 test('due reads an Antigravity transcript: detects stalled rounds and fabricated second-plan quotes, outputs continue once, and skips on executionNum > 0', async () => {
   const world = topic();
   world.theirs('a.decisions.tsv', plan('5 critical')).save();
-  const at1 = '2026-11-26T13:10:00Z';
-  const at2 = '2026-11-26T13:10:02Z';
-  const at3 = '2026-11-26T13:10:05Z';
   const logFile = join(world.plans, 'a.decisions.tsv');
   const existing = readFileSync(logFile, 'utf8');
+  const base = Date.parse(existing.trimEnd().split('\n').at(-1).split('\t')[0]);
+  const stamp = (offsetSec) => new Date(base + offsetSec * 1000).toISOString().replace(/\.\d{3}Z$/u, 'Z');
+  const at1 = stamp(60);
+  const at2 = stamp(62);
+  const at3 = stamp(65);
   const appendedRows = [
     `${at2}\tpanel\tseats opus @high\tplan round\treviewed\t5 critical`,
     `${at2}\towner\tsecond plan: "fake approval" picks b\twhy\tevidence\tapproved`,

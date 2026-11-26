@@ -19,7 +19,7 @@ Do this:
 4. Run every check above and fix what your change breaks.
 
 Do not:
-- write a plan, a decision log, a plan page, a changeset or a doc;
+- write a plan, a decision log, a changeset or a doc;
 - run a panel, architect, arena, interrogate or any other subagent or seat, or call cross.mjs;
 - touch the suggested-task ledger or run any decisions-check.mjs command that writes;
 - commit, push, stash, or create or remove a worktree;

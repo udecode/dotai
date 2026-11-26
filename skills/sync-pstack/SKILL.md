@@ -36,7 +36,7 @@ Run `node <skill>/scripts/sync-pstack.mjs <command>` from the `udecode/dotai` ch
 | `user-pin --tag <tag>` | Updates user-scope pstack pin and prints refresh commands. |
 | `latest` | Prints newest upstream tag. |
 
-Also: `node <skill>/scripts/audit.mjs <project> [--json] [--min <score>]` reports skill drift and overlap for [Audit](#audit). Anchor checks use `~/.cache/sync-pstack/` (override with `SYNC_PSTACK_UPSTREAM`).
+Also: `node <skill>/scripts/audit.mjs <project> [--json] [--min <score>]` reports skill drift, overlap, and size-budget bloat for [Audit](#audit). Anchor checks use `~/.cache/sync-pstack/` (override with `SYNC_PSTACK_UPSTREAM`).
 
 ## Modes
 
@@ -78,7 +78,7 @@ Run `status`. For each unmanaged pstack project, map every override against the 
 
 ## Audit
 
-1. Run `node <skill>/scripts/audit.mjs <project>` (usage counts, unmarked block rules, overlapping sentences).
+1. Run `node <skill>/scripts/audit.mjs <project>` (usage counts, size-budget bloat, unmarked block rules, overlapping sentences).
 2. Judge with [audit-brief.md](references/audit-brief.md): `cut`, `fold`, or `keep`, naming a working replacement for every cut.
 3. Present options via `AskUserQuestion` with usage evidence and exact gate/rule impact.
 4. Execute approved cuts with a disposition table (old rule -> new home or drop), add removed typed commands to `dropped`, update project workflow guides, and remove uninstalled skills via `npx --yes skills remove`.

@@ -258,7 +258,7 @@ export function reduce(sessions, observation) {
 }
 
 const LIVE_STAGES = ['now', 'waiting', 'blocked', 'stopped'];
-const TITLE_STATES = { '🚧': 'Working', '🟠': 'Waiting', '🔴': 'Blocked', '💤': 'Paused' };
+const TITLE_STATES = { '🥔': 'Working', '🚧': 'Working', '🟠': 'Waiting', '🔴': 'Blocked', '💤': 'Paused' };
 const OLD_STAGE_TITLES = { '📝': 'Plan', '📐': 'Design', '👥': 'Plan review', '✍': 'Writing', '🔎': 'Code review', '🧪': 'Verify', '🕵': 'Audit', '🚀': 'Ship', '🧠': 'Reflect' };
 
 export function titleStageOf(title) {

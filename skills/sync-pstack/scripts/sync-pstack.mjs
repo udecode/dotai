@@ -45,7 +45,6 @@ const HELPER_FILES = {
   'proof.mjs': [],
   'seats.mjs': [],
   'seat-watch.mjs': [],
-  'title.mjs': [],
   'decisions-check.mjs': ['plans'],
   'plan-open.mjs': ['plans'],
   'plan-page.mjs': ['plans'],
@@ -70,6 +69,7 @@ const RETIRED_HELPERS = [
   'levels.mjs',
   'mutate.mjs',
   'reply.mjs',
+  'title.mjs',
 ];
 const RULES = join(HELPERS, 'rules');
 // Claude Code reads a project sheet at the repository root in place of each person's, so every teammate runs the same models.

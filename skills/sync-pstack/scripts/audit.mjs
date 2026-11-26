@@ -13,6 +13,13 @@ const SHARED_FILES = new Set(['block', ...Object.keys(RULE_FILES).map((name) => 
 const SHINGLE = 3;
 const MIN_WORDS = 6;
 const STOP_WORDS = new Set('a an and any are as at be by each every for from if in into is it its no not of on one only or so than that the their then this to when with'.split(' '));
+export const SIZE_BUDGETS = {
+  playbookFile: 14_000,
+  playbooksTotal: 70_000,
+  ruleFile: 14_000,
+  skillFile: 20_000,
+  skillDir: 40_000,
+};
 
 const readJson = (path) => (existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : {});
 
@@ -97,7 +104,69 @@ function best(sentence, corpus, byShingle, skip = () => false) {
   return top;
 }
 
-function audit(root, minScore) {
+export function sizeAudit(root) {
+  const over = [];
+  let playbooksTotal = 0;
+  let rulesTotal = 0;
+  let skillsTotal = 0;
+
+  const playbooksDir = join(root, '.agents/playbooks');
+  if (existsSync(playbooksDir)) {
+    const playbookPaths = [...files(playbooksDir)].filter((path) => path.endsWith('.md')).sort();
+    for (const path of playbookPaths) {
+      const bytes = statSync(path).size;
+      playbooksTotal += bytes;
+      if (bytes > SIZE_BUDGETS.playbookFile) {
+        over.push({ kind: 'playbook-file', path: relative(root, path), bytes, limit: SIZE_BUDGETS.playbookFile });
+      }
+    }
+    if (playbooksTotal > SIZE_BUDGETS.playbooksTotal) {
+      over.push({ kind: 'playbooks-total', path: '.agents/playbooks', bytes: playbooksTotal, limit: SIZE_BUDGETS.playbooksTotal });
+    }
+  }
+
+  const rulesDir = join(root, '.agents/rules');
+  if (existsSync(rulesDir)) {
+    const rulePaths = [...files(rulesDir)].filter((path) => path.endsWith('.mdc')).sort();
+    for (const path of rulePaths) {
+      const bytes = statSync(path).size;
+      rulesTotal += bytes;
+      if (bytes > SIZE_BUDGETS.ruleFile) {
+        over.push({ kind: 'rule-file', path: relative(root, path), bytes, limit: SIZE_BUDGETS.ruleFile });
+      }
+    }
+  }
+
+  const skillsDir = join(root, '.agents/skills');
+  if (existsSync(skillsDir)) {
+    const entries = readdirSync(skillsDir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).sort((a, b) => a.name.localeCompare(b.name));
+    for (const entry of entries) {
+      const dir = join(skillsDir, entry.name);
+      const skillFile = join(dir, 'SKILL.md');
+      if (existsSync(skillFile)) {
+        const bytes = statSync(skillFile).size;
+        if (bytes > SIZE_BUDGETS.skillFile) {
+          over.push({ kind: 'skill-file', path: relative(root, skillFile), bytes, limit: SIZE_BUDGETS.skillFile });
+        }
+      }
+      let dirBytes = 0;
+      for (const path of files(dir)) {
+        const rel = relative(dir, path);
+        if (rel === 'scripts' || rel.startsWith('scripts/')) continue;
+        dirBytes += statSync(path).size;
+      }
+      skillsTotal += dirBytes;
+      if (dirBytes > SIZE_BUDGETS.skillDir) {
+        over.push({ kind: 'skill-dir', path: relative(root, dir), bytes: dirBytes, limit: SIZE_BUDGETS.skillDir });
+      }
+    }
+  }
+
+  over.sort((a, b) => a.kind.localeCompare(b.kind) || b.bytes - a.bytes || a.path.localeCompare(b.path));
+  return { limits: SIZE_BUDGETS, totals: { playbooks: playbooksTotal, rules: rulesTotal, skills: skillsTotal }, over };
+}
+
+export function audit(root, minScore = 0.5) {
   const facts = discover(root);
   const { agents, files, siblingLinks } = projectRuleFiles(root);
   const projectFiles = files.filter((file) => file !== agents && !file.startsWith('.agents/pstack/')).map((file) => join(root, file));
@@ -183,12 +252,13 @@ function audit(root, minScore) {
     };
   });
 
-  return { root, minScore, dotai: DOTAI_CHECKOUT, skills, userSkills, overlaps, unmarkedRules: unmarkedRules(blockText), pstack: pstackText };
+  const sizeBudgets = sizeAudit(root);
+  return { root, minScore, dotai: DOTAI_CHECKOUT, skills, userSkills, sizeBudgets, overlaps, unmarkedRules: unmarkedRules(blockText), pstack: pstackText };
 }
 
 const PER_KIND = 40;
 
-function report(result) {
+export function report(result) {
   const yesNo = (value) => (value === null ? '?' : value ? 'yes' : '');
   const missing = result.pstack.tag ? `v${result.pstack.tag} is not in the Claude plugin cache` : 'no tag in .agents/pstack.json';
   const pstack = result.pstack.dir ?? `${missing}, so nothing was compared with pstack`;
@@ -197,6 +267,13 @@ function report(result) {
   for (const skill of result.skills) out.push(`${skill.name} | ${skill.source ?? '?'} | ${skill.typed.all} (${skill.typed.week}) | ${skill.routes.length} | ${yesNo(skill.stale)}`);
   out.push('', '## User-scope skills', 'name | source | typed anywhere | in dotai | stale copy');
   for (const skill of result.userSkills) out.push(`${skill.name} | ${skill.source ?? '?'} | ${skill.typed.all} | ${yesNo(skill.inDotai) || 'no'} | ${yesNo(skill.stale)}`);
+  out.push('', `## Size budgets (over cap: ${result.sizeBudgets.over.length})`);
+  if (result.sizeBudgets.over.length === 0) {
+    out.push(`none (playbooks total ${result.sizeBudgets.totals.playbooks}/${SIZE_BUDGETS.playbooksTotal} B)`);
+  } else {
+    out.push('kind | path | bytes | limit');
+    for (const item of result.sizeBudgets.over) out.push(`${item.kind} | ${item.path} | ${item.bytes} | ${item.limit}`);
+  }
   out.push('', `## Block rules with no overrides note or adds marker: ${result.unmarkedRules.join(', ') || 'none'}`);
   const kinds = [
     ['Block sentences that repeat pstack', (overlap) => SHARED_FILES.has(overlap.file), true],

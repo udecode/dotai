@@ -11,7 +11,7 @@ Mac daemon turning Claude Code and Codex hook events for pstack-titled sessions 
 
 ## Behavior
 
-- **Summary card (iPhone):** One card across all active projects (shows up to 7 sessions + overflow, ordered needs-you -> failed -> working -> to-resume; finished `👀` or bare-title sessions drop off). Groups repos by git origin.
+- **Summary card (iPhone):** One card across all active projects (shows up to 7 sessions + overflow, ordered needs-you -> failed -> working -> to-resume; finished `⏳` or bare-title sessions drop off). Groups repos by git origin.
 - **Push notifications:** Sent only when blocked on owner (question, plan approval, unanswered ~6s permission prompt, API error, or dead working process) and away from Mac for 3+ minutes; cleared silently when resolved (ActivitySmith >=1.17.0). Never shows panel seats, smoke runs, headless `-p` runs, subagents, Codex exec/review threads, or `PSTACK_PULSE_OFF=1` sessions.
 - **Check state:** A failing required check at turn stop marks the session red (no push) when run as a direct command (not chained or piped). Active background shells/subagents/servers keep a session in working state.
 - **Pipeline:** Reads plan stages via `node .agents/pstack/plan-page.mjs <plan> --rail`.
