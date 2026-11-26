@@ -925,7 +925,11 @@ function dispatch() {
       const { product, other } = patchLines(readFileSync(patchFile, 'utf8'), budget.excluded);
       console.info(`the patch changes ${product} product line(s), and ${other} more in tests, fixtures, Markdown, generated output and stepBudget.exclude globs; the step budget is ${budget.lines}`);
       const reviewed = named ?? lines.reduce((step, line) => stepOf(line, 'build', STEP_BUILT) ?? step, null);
-      if (product > budget.lines && !liftsStep(lines.join('\n'), opens, reviewed)) {
+      const diffRound = (line) => {
+        const [, , , , evidence = ''] = line.split('\t');
+        return opens(line) && !reviewedStep(evidence).plan;
+      };
+      if (product > budget.lines && !liftsStep(lines.join('\n'), diffRound, reviewed)) {
         console.error(`the patch ${overBudget(product, budget.lines)}. That row lifts the budget for one diff round, whose brief asks the seats what the step can delete as well as what is wrong`);
         status = 1;
       }

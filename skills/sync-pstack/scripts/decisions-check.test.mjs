@@ -726,6 +726,9 @@ test('decisions-check rounds --patch caps a reviewed step at the step budget, co
   assert.match(rounds('renamed.patch').stdout, /changes 401 product line\(s\), and 1 more/, 'a rename git quotes on one side still counts');
   assert.equal(append('owner', 'big step: "ship the parser whole"', 'decided: one round over the budget').status, 0);
   assert.equal(rounds('p401.patch').status, 0, "the owner's big step lifts the budget");
+  assert.equal(check('append', 'log.decisions.tsv', 'panel', 'seats opus', 'why', 'reviewed plan: docs/plans/grow.md; proof: none', 'recorded').status, 0);
+  assert.equal(append('writing', 'unslop on the plan fixes', 'applied: nothing to cut').status, 0);
+  assert.equal(rounds('p401.patch').status, 0, 'a plan round reviews no diff, so it leaves the lift for the step round');
   assert.equal(append('panel', 'seats opus', 'recorded').status, 0);
   assert.equal(append('writing', 'deslop on the round fixes', 'applied: nothing to cut').status, 0);
   assert.equal(rounds('p401.patch').status, 1, 'the lift lasts one round');
