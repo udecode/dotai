@@ -2,15 +2,14 @@ import assert from 'node:assert/strict';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { audit, report, SIZE_BUDGETS, sizeAudit } from './audit.mjs';
+import { SIZE_BUDGETS } from './audit.mjs';
 import { CONFIG, project, sandbox } from './test-sandbox.mjs';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const AUDIT = join(HERE, 'audit.mjs');
+const AUDIT = join(dirname(fileURLToPath(import.meta.url)), 'audit.mjs');
 
-test('sizeAudit reports zero findings when playbooks, rules, and skills stay under caps and excludes skill scripts/', () => {
-  const { dir } = sandbox();
-  const root = project(dir, 'clean', {
+test('audit size budgets pass at cap, exclude scripts/, and flag every over-cap kind in text and JSON', () => {
+  const { dir, run } = sandbox();
+  const clean = project(dir, 'clean', {
     config: CONFIG,
     agents: '# Clean\n',
     files: {
@@ -21,19 +20,11 @@ test('sizeAudit reports zero findings when playbooks, rules, and skills stay und
       '.agents/skills/demo/scripts/heavy.mjs': 'e'.repeat(60_000),
     },
   });
-  const result = sizeAudit(root);
-  assert.deepEqual(result.over, []);
-  assert.equal(result.totals.playbooks, SIZE_BUDGETS.playbookFile);
-  assert.equal(result.totals.rules, SIZE_BUDGETS.ruleFile);
-  assert.equal(result.totals.skills, SIZE_BUDGETS.skillDir);
+  const okText = run(process.execPath, [AUDIT, clean]);
+  assert.equal(okText.status, 0, okText.stderr);
+  assert.match(okText.stdout, /## Size budgets \(over cap: 0\)\nnone \(playbooks total 14000\/70000 B\)/);
 
-  const rendered = report(audit(root));
-  assert.match(rendered, /## Size budgets \(over cap: 0\)\nnone \(playbooks total 14000\/70000 B\)/);
-});
-
-test('sizeAudit flags over-budget playbooks, total playbooks, rules, SKILL.md, and skill folders (excluding scripts/)', () => {
-  const { dir, run } = sandbox();
-  const root = project(dir, 'bloated', {
+  const bloated = project(dir, 'bloated', {
     config: CONFIG,
     agents: '# Bloated\n',
     files: {
@@ -50,10 +41,20 @@ test('sizeAudit flags over-budget playbooks, total playbooks, rules, SKILL.md, a
       '.agents/skills/scripts-heavy/scripts/sub/helper.mjs': 'h'.repeat(80_000),
     },
   });
+  const cliText = run(process.execPath, [AUDIT, bloated]);
+  assert.equal(cliText.status, 0, cliText.stderr);
+  assert.match(cliText.stdout, /## Size budgets \(over cap: 5\)/);
+  assert.match(cliText.stdout, /playbook-file \| \.agents\/playbooks\/a\.md \| 14001 \| 14000/);
+  assert.match(cliText.stdout, /playbooks-total \| \.agents\/playbooks \| 70001 \| 70000/);
+  assert.match(cliText.stdout, /rule-file \| \.agents\/rules\/huge\.mdc \| 14001 \| 14000/);
+  assert.match(cliText.stdout, /skill-file \| \.agents\/skills\/big\/SKILL\.md \| 20001 \| 20000/);
+  assert.match(cliText.stdout, /skill-dir \| \.agents\/skills\/big \| 40001 \| 40000/);
+  assert.doesNotMatch(cliText.stdout.slice(cliText.stdout.indexOf('## Size budgets')), /scripts-heavy/);
 
-  const result = sizeAudit(root);
+  const cliJson = run(process.execPath, [AUDIT, bloated, '--json']);
+  assert.equal(cliJson.status, 0, cliJson.stderr);
   assert.deepEqual(
-    result.over.map(({ kind, path, bytes, limit }) => ({ kind, path, bytes, limit })),
+    JSON.parse(cliJson.stdout).sizeBudgets.over.map(({ kind, path, bytes, limit }) => ({ kind, path, bytes, limit })),
     [
       { kind: 'playbook-file', path: '.agents/playbooks/a.md', bytes: 14_001, limit: 14_000 },
       { kind: 'playbooks-total', path: '.agents/playbooks', bytes: 70_001, limit: 70_000 },
@@ -62,20 +63,4 @@ test('sizeAudit flags over-budget playbooks, total playbooks, rules, SKILL.md, a
       { kind: 'skill-file', path: '.agents/skills/big/SKILL.md', bytes: 20_001, limit: 20_000 },
     ],
   );
-
-  const cliText = run(process.execPath, [AUDIT, root]);
-  assert.equal(cliText.status, 0, cliText.stderr);
-  assert.match(cliText.stdout, /## Size budgets \(over cap: 5\)/);
-  assert.match(cliText.stdout, /playbook-file \| \.agents\/playbooks\/a\.md \| 14001 \| 14000/);
-  assert.match(cliText.stdout, /playbooks-total \| \.agents\/playbooks \| 70001 \| 70000/);
-  assert.match(cliText.stdout, /rule-file \| \.agents\/rules\/huge\.mdc \| 14001 \| 14000/);
-  assert.match(cliText.stdout, /skill-file \| \.agents\/skills\/big\/SKILL\.md \| 20001 \| 20000/);
-  assert.match(cliText.stdout, /skill-dir \| \.agents\/skills\/big \| 40001 \| 40000/);
-  const sizeSection = cliText.stdout.slice(cliText.stdout.indexOf('## Size budgets'));
-  assert.doesNotMatch(sizeSection, /scripts-heavy/);
-
-  const cliJson = run(process.execPath, [AUDIT, root, '--json']);
-  assert.equal(cliJson.status, 0, cliJson.stderr);
-  const parsed = JSON.parse(cliJson.stdout);
-  assert.equal(parsed.sizeBudgets.over.length, 5);
 });

@@ -744,9 +744,11 @@ export function apply(root, { tag, force = false, write = true, dispositions } =
   const agentsPath = join(root, 'AGENTS.md');
   const agents = existsSync(agentsPath) ? readFileSync(agentsPath, 'utf8') : '';
   const current = locateBlock(agents);
+  const configHash = (raw) => sha(JSON.stringify(withDerived(root, { ...raw, synced: undefined }))).slice(0, 16);
+  const sameConfig = stored.synced?.config === configHash(stored);
   if (current?.body !== body) {
     const detail = diff(current?.body ?? '', body);
-    const last = current ? lastVersion(stored, 'assets/block.md', (text) => render(text, withDerived(root, stored))) : null;
+    const last = current && sameConfig ? lastVersion(stored, 'assets/block.md', (text) => render(text, withDerived(root, stored))) : null;
     if (current && !force && last !== null && current.body !== last) {
       refusals.push({
         path: 'AGENTS.md',
@@ -769,6 +771,7 @@ export function apply(root, { tag, force = false, write = true, dispositions } =
     const present = existsSync(join(root, path)) ? readFileSync(join(root, path), 'utf8') : null;
     const build = (text, settings) => (rule ? `${render(text, settings)}\n` : text);
     const off = offGate(gates);
+    const prev = () => (!rule || sameConfig ? lastVersion(stored, `assets/${name}`, (text) => build(text, withDerived(root, stored))) : null);
     if (off === undefined) {
       const source = build(readFileSync(join(SKILL, 'assets', name), 'utf8'), config);
       for (const [, imported] of rule ? [] : source.matchAll(/^\s*import\b[^'"]*['"]\.\/([^'"]+)['"]/gmu)) {
@@ -777,7 +780,7 @@ export function apply(root, { tag, force = false, write = true, dispositions } =
         }
       }
       if (present === source) continue;
-      const last = present !== null ? lastVersion(stored, `assets/${name}`, (text) => build(text, withDerived(root, stored))) : null;
+      const last = present !== null ? prev() : null;
       if (present !== null && !force && last !== null && present !== last) {
         refusals.push({
           path,
@@ -787,7 +790,7 @@ export function apply(root, { tag, force = false, write = true, dispositions } =
       } else changes.push({ path, text: source, executable: name.endsWith('.mjs') });
     } else if (present !== null) {
       const gate = isCondition(off) ? `gate "${off}" no longer holds` : `section "${off}" is now skipped`;
-      const last = lastVersion(stored, `assets/${name}`, (text) => build(text, withDerived(root, stored)));
+      const last = prev();
       if (!force && last !== null && present !== last) refusals.push({ path, reason: `the helper was edited, and its ${gate}` });
       else changes.push({ path, remove: true });
     }
@@ -810,7 +813,6 @@ export function apply(root, { tag, force = false, write = true, dispositions } =
   if (!same && !force && stored.synced && 'source' in stored.synced && stored.synced.source === null && sourceRevision() !== null) {
     refusals.push({ path: 'shared source', reason: 'the project was last synced from uncommitted shared edits; commit and push them in the dotai checkout when its checks pass, then rerun' });
   }
-  const synced = { source: same && stored.synced?.source ? stored.synced.source : sourceRevision() };
   // The renderer refuses a config that still sets these lists, so they leave it in the write that installs the renderer, once the playbooks carry them.
   const pages = projectPlaybooks(root).map((playbook) => playbook.page);
   const declared = (key) => new Set(pages.flatMap((page) => page[key]).map((title) => title.toLowerCase()));
@@ -828,6 +830,7 @@ export function apply(root, { tag, force = false, write = true, dispositions } =
   }
   const kept = Object.fromEntries(Object.entries(stored).filter(([key]) => key !== 'pageLead' && key !== 'pagePairs'));
   if (kept.pageTopic) kept.pageTopic = Object.fromEntries(Object.entries(kept.pageTopic).filter(([key]) => key !== 'require'));
+  const synced = { source: same && stored.synced?.source ? stored.synced.source : sourceRevision(), config: configHash({ ...kept, tag: config.tag }) };
   const next = { ...kept, tag: config.tag, synced };
   if (JSON.stringify(next) !== JSON.stringify(stored)) changes.push({ path: CONFIG, text: json(next) });
 

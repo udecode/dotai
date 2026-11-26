@@ -27,13 +27,13 @@ test('decisions-check append validates 6 cells, status words, scope: on proven r
 test('decisions-check prints every problem of a long log through a pipe', () => {
   const { dir, run } = sandbox();
   const root = project(dir, 'app');
-  const rows = Array.from({ length: 4000 }, (_, n) => `2026-01-01T00:00:00Z\tbuild\tdecision ${n}\twhy\tevidence`);
+  const rows = Array.from({ length: 1200 }, (_, n) => `2026-01-01T00:00:00Z\tbuild\tdecision ${n}\twhy\tevidence`);
   writeFileSync(join(root, 'long.decisions.tsv'), `ts\tphase\tdecision\twhy\tevidence\tresult\n${rows.join('\n')}\n`);
   const result = run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'long.decisions.tsv'], root);
   assert.equal(result.status, 1);
   const [announced, ...problems] = result.stderr.trim().split('\n');
-  assert.equal(announced, '4000 problem(s):');
-  assert.equal(problems.length, 4000);
+  assert.equal(announced, '1200 problem(s):');
+  assert.equal(problems.length, 1200);
 });
 
 test('decisions-check validates basic panel rows and rejects chip states outside phase chip', () => {

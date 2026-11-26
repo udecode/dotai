@@ -218,8 +218,6 @@ const rowsOf = (text) =>
 
 const isRoundRow = (row) => row.phase === 'seats' || (row.phase === 'panel' && /^seats\b/iu.test(row.decision));
 
-export const logFacts = (text, since) => factsOfRows(rowsOf(text), since);
-
 function factsOfRows(all, since) {
   const rows = all.filter((row) => !since || row.at >= since);
   const phases = {};

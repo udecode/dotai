@@ -23,9 +23,9 @@ const MAX_HELPER_LINES = 400;
 
 // Existing core engines above 400 lines; ceilings may only shrink, never grow.
 const LEGACY_LINE_CEILINGS = {
-  'cross.mjs': 444,
+  'cross.mjs': 439,
   'land.mjs': 947,
-  'lead.mjs': 458,
+  'lead.mjs': 456,
   'plan-page.mjs': 744,
   'proof.mjs': 546,
   'status.mjs': 416,
