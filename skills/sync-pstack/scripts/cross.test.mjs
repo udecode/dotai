@@ -218,6 +218,16 @@ const push = spawnSync('git', ['push', 'origin', 'HEAD:refs/heads/colead'], { en
 console.log(JSON.stringify({ event: 'init', conversation_id: '11111111-2222-4333-8444-555555555555' }));
 const quiet = Number(prompt.match(/QUIET (\\d+)/u)?.[1] ?? 0);
 if (quiet) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, quiet);
+const said = prompt.match(/WAIT FOR PROOFS, SAYING (.+)/u)?.[1];
+if (said) {
+  process.on('SIGTERM', () => {
+    console.error('error: interrupted');
+    console.log(JSON.stringify({ event: 'result', result: { status: 'ERROR', response: said } }));
+    process.exit(1);
+  });
+  setInterval(() => {}, 1000);
+  return;
+}
 const answer = { args, cwd: process.cwd(), pushed: push.status === 0, token: process.env.GH_TOKEN ?? null, readOnly: process.env.PSTACK_READ_ONLY ?? null };
 console.log(JSON.stringify({ event: 'result', result: { status: 'success', response: JSON.stringify(answer) } }));
 `;
@@ -288,6 +298,18 @@ test("a co-lead brief names the step budget, and a call that leaves a plan step 
   assert.equal(over.status, 1);
   assert.match(over.stderr, /this worktree's change since origin\/main at [0-9a-f]{10} changes 5 product lines, past the step budget of 3\.[^\n]*\n\n\{"args"/u);
   assert.match(over.stderr, /counts 1 of the step budget's 3 product lines\. Tests, fixtures, docs and plans do not count\./u, 'the brief gave the count before the call');
+});
+
+test('a co-lead brief names when the helper stops the call, and a call it stops prints what the co-lead said after the reason', () => {
+  const { cross, worktree } = coleadMachine();
+  const before = Date.now();
+  const briefed = cross('--colead', worktree, 'build it');
+  const stopsAt = JSON.parse(briefed.stdout).args[1].match(/The helper stops this call at (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)/u)?.[1];
+  assert.ok(stopsAt, 'the brief names the stop time');
+  assert.ok(Math.abs(Date.parse(stopsAt) - before - 3300_000) < 60_000, 'the stop time is 55 minutes away');
+  const capped = cross('--colead', worktree, '--timeout', '1', 'build it, WAIT FOR PROOFS, SAYING built lib.js, waiting on the partitions');
+  assert.equal(capped.status, 1);
+  assert.match(capped.stderr, /no answer within 1 seconds: error: interrupted\n\nbuilt lib\.js, waiting on the partitions/u);
 });
 
 test('a co-lead call outlives the idle limit while a step it started prints nothing', () => {
