@@ -1,6 +1,6 @@
 ---
 name: clip
-description: Record, check and render a demo clip of a web page, one before-and-after clip or image of a change, or a bug clip for an issue, for a chat message, a team post, a social post or an issue. Use before recording any clip of an app, including a bug's repro for an issue, before attaching before and after screenshots of a change (one stacked before-and-after clip or image replaces them), when a clip looks robotic, shaky, rushed or too polished, and when the owner changes how clips look, move or read.
+description: Record, check and render demo clips or stacked before-and-after images/clips for chat, team posts, social posts, or bug repros. Use before recording any app clip or attaching before/after screenshots.
 ---
 
 # Clip

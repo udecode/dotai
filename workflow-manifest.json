@@ -6,7 +6,7 @@
     {
       "name": "chips",
       "distribution": "bundled",
-      "description": "Run the project's suggested-task ledger, the chips. /chips alone brings this session's open tasks up to date: it applies what the ledger helper says, settles stale and split tasks, cards what can start and reports the board, and /chips all also takes the ship-list tasks and the ones no live session owns, and merges duplicate tasks across the board. /chips sync runs the same sweep but offers no card, and it moves the waits on plans idle for a week to a fresh verdict. Use for /chips, /chips sync, /chips offer, start or drop, \\\"update the chips without new cards\\\", \\\"what chips are open\\\", \\\"suggest a task for X\\\", \\\"update the chips\\\", \\\"clean up the chips\\\", \\\"which chips are stale\\\", \\\"is this chip still worth doing\\\", \\\"merge duplicate chips\\\", at the last hand-back of a run that offered a task, and whenever pstack would file a tracked issue, a follow-up, a reflect Backlog item or an out-of-band PR.",
+      "description": "Run the project's suggested-task ledger: /chips, /chips all, /chips sync, offer, start, drop, merge duplicates, or settle stale tasks. Use for suggested tasks, open chips, and whenever pstack would file a follow-up or out-of-band PR.",
       "category": "Workflow",
       "dependencies": [],
       "capabilities": [
@@ -17,7 +17,7 @@
     {
       "name": "cleanup",
       "distribution": "bundled",
-      "description": "Find where a disk's space goes, and free disk in a project by removing the git worktrees, Next.js cache folders, local Docker Postgres test databases, idle Bun, npx and uv cache entries and unused anonymous Docker volumes nothing uses, keeping every worktree a session or process works in and every cache a running server holds. Use for /cleanup, /cleanup disk, \\\"clean up worktrees\\\", \\\"free disk space\\\", \\\"what's using my disk\\\", \\\"where did my disk space go\\\", \\\"what is idle\\\", \\\"delete unused worktrees or builds\\\", or when a session-start hint counts old cleanup candidates.",
+      "description": "Audit disk usage and remove idle git worktrees, Next.js caches, test Postgres DBs, and unused Bun/npx/uv/Docker caches while preserving active checkouts. Use for /cleanup, /cleanup disk, or freeing worktree/build disk space.",
       "category": "Maintenance",
       "dependencies": [],
       "capabilities": [
@@ -28,7 +28,7 @@
     {
       "name": "clip",
       "distribution": "bundled",
-      "description": "Record, check and render a demo clip of a web page, one before-and-after clip or image of a change, or a bug clip for an issue, for a chat message, a team post, a social post or an issue. Use before recording any clip of an app, including a bug's repro for an issue, before attaching before and after screenshots of a change (one stacked before-and-after clip or image replaces them), when a clip looks robotic, shaky, rushed or too polished, and when the owner changes how clips look, move or read.",
+      "description": "Record, check and render demo clips or stacked before-and-after images/clips for chat, team posts, social posts, or bug repros. Use before recording any app clip or attaching before/after screenshots.",
       "category": "Communication",
       "dependencies": [],
       "capabilities": [
@@ -61,7 +61,7 @@
     {
       "name": "plan-page",
       "distribution": "bundled",
-      "description": "Write, check, repair and publish a plan page: a project's plans and subject files under its plans directory, rendered by .agents/pstack/plan-page.mjs and rendered as one local HTML page per subject with a local index of every subject, and published to claude.ai at each hand-back of page work, such as an architecture or API adoption plan, for comments and feedback. Use before writing or changing a plan, a subject file in <plans>/topics or its page; at every stop that hands back page work, such as a plan written or a playbook's close; before writing or updating a PR body, which renders from the PR's plan, or a comment about your commits on someone else's PR; when a plan page or its claude.ai artifact looks wrong or refuses to render; to republish a page; or to change the page shape or a playbook's page sections.",
+      "description": "Write, check, repair and publish plan pages and topic files rendered by .agents/pstack/plan-page.mjs (local HTML + PR bodies/comments). Use before editing plans/topics, at page-work hand-backs, or when a plan page fails to render.",
       "category": "Communication",
       "dependencies": [],
       "capabilities": [
@@ -105,7 +105,7 @@
     {
       "name": "redo",
       "distribution": "bundled",
-      "description": "Redo a prior pstack run at the current session's higher effort or stronger model, treating its plan as a draft: rerun only the plan, design, subagent and seat lanes, code and review judgments that ran below the current level, and reuse the rest. Use for \\\"redo <plan, page or PR>\\\", \\\"run poteto again on it at this effort\\\", \\\"treat this plan as a draft\\\", a teammate's run made at a lower effort, or a Babysit whose levels check finds a unit below target.",
+      "description": "Redo a prior pstack run at a higher effort or stronger model, treating its plan as a draft and rerunning only units below target. Use for \\\"redo <plan, page or PR>\\\" or a Babysit levels failure.",
       "category": "Workflow",
       "dependencies": [],
       "capabilities": [],
@@ -125,7 +125,7 @@
     {
       "name": "test-audit",
       "distribution": "bundled",
-      "description": "Audit existing tests for low-value, duplicated or implementation-coupled cases and the test-only code they keep alive, then remove or rewrite them on evidence. /test-audit full covers the whole suite and also lists public contracts no test guards. Use for test-audit, /test-audit <scope>, /test-audit full, a test sweep, or pruning tests. Not for writing a new test; the project's Tests rule gates that.",
+      "description": "Audit existing tests for low-value, duplicated or implementation-coupled cases and prune or rewrite them on evidence (/test-audit full also lists unguarded public contracts). Not for writing new tests.",
       "category": "Review",
       "dependencies": [],
       "capabilities": [],
@@ -171,7 +171,7 @@
       "mode": 420
     },
     "SKILLS.md": {
-      "sha256": "dee377243ba70890dad30cc1ce81269f209e5da2dd00498c99ed84909e52e2ed",
+      "sha256": "c62249d89589b95f3aae529d3a4c547aaaecc419b2be189a280ffce477e97955",
       "mode": 420
     },
     "scripts/affected-tests.mjs": {
@@ -187,11 +187,11 @@
       "mode": 493
     },
     "skills/chips/SKILL.md": {
-      "sha256": "f26f0fe12bed3ad95c58ae1af34b4299aa312ef43cb92f96e34d4c1ffbcd44f7",
+      "sha256": "3b6cf7e8f3d3605b5ce644f300739287b702fae1504deebbd78076ad9c749aca",
       "mode": 420
     },
     "skills/cleanup/SKILL.md": {
-      "sha256": "2b9aa24dc88d2b7aff39f5d97facabe4019cddce709d4ab17dcdc48f531f3603",
+      "sha256": "3c7a3e5c6c120822f9ae06aa314e68a7841b8a7a8f12bf0ab6b6e4269012cb93",
       "mode": 420
     },
     "skills/cleanup/scripts/daily.mjs": {
@@ -227,7 +227,7 @@
       "mode": 420
     },
     "skills/cleanup/scripts/scan.mjs": {
-      "sha256": "55c3ea7166196c622ac576281427e358a6acc43bc03280ae0496c9fd3c9666ce",
+      "sha256": "01643ec43a58fd0c3f928c0e03b405ad70db18a1692024a21f126a722e062ec1",
       "mode": 420
     },
     "skills/cleanup/scripts/scan.test.mjs": {
@@ -235,7 +235,7 @@
       "mode": 420
     },
     "skills/clip/SKILL.md": {
-      "sha256": "9598662bc79bccb14ff44aca6f3ca11013b202dc7c775c0dbc3d7913d00dfb37",
+      "sha256": "61b7e0774f10aa1f3d39be69fb3af6b825afffbfa8725730ead5a3147ee623be",
       "mode": 420
     },
     "skills/clip/assets/CalSans-SemiBold.ttf": {
@@ -323,7 +323,7 @@
       "mode": 420
     },
     "skills/plan-page/SKILL.md": {
-      "sha256": "0ca14e0c0e236ad28f8957c64f5ce75424eff72f1f2c3f79a14970e848b44b46",
+      "sha256": "4126eb6432903df878d533b50fdbf40cfd929167ec0e0fb677bd024d7362b187",
       "mode": 420
     },
     "skills/plan-page/references/shape.md": {
@@ -335,7 +335,7 @@
       "mode": 420
     },
     "skills/pstack-doctor/scripts/doctor.mjs": {
-      "sha256": "5bdb12568b69b236489f61c838837493044e2baa9a2aa9f34b99010b56c917cf",
+      "sha256": "ef365a952f7729f827c4e5122785fb45dbdeb2ee7ea128a75d9b419f8ccf7f24",
       "mode": 420
     },
     "skills/pstack-doctor/scripts/doctor.test.mjs": {
@@ -411,7 +411,7 @@
       "mode": 420
     },
     "skills/redo/SKILL.md": {
-      "sha256": "b4dd1b46bdca7cfe79a32c7ecc655b477ab0c52118fd78ff8c1600b2aa882a48",
+      "sha256": "d5c909245510c308a178e118ab8b19c5df179e60f6e3e0224cac654813500452",
       "mode": 420
     },
     "skills/sync-pstack/SKILL.md": {
@@ -423,11 +423,11 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/block.md": {
-      "sha256": "78d06e26ea37db7b11dcd3ab7a6fa4496cefdcbd131fb73c2d623e78e217fbc2",
+      "sha256": "b75bd26d7665e40dfabdc85e5b32629b5bb49b14d780f68195246d1c543f925f",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack-models.md": {
-      "sha256": "77c474c1880466e805d8ab85ae1e3add432349b9936cb259a88f8a0b580ddfad",
+      "sha256": "c66be0623a47761be48e7038db9ab3cc86de9e791ddec7a315e6df30553321ac",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/checkout.mjs": {
@@ -567,7 +567,7 @@
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/panel.md": {
-      "sha256": "51ba007154b0c32e640585cc17b3ef60c9c5250deeff4468789ebdf526b9625b",
+      "sha256": "1d580546a43b1bc6c6b4fc80a92dbc9060448dcea5e16f5817ca418714d14ca5",
       "mode": 420
     },
     "skills/sync-pstack/assets/pstack/rules/reflect.md": {
@@ -763,7 +763,7 @@
       "mode": 420
     },
     "skills/test-audit/SKILL.md": {
-      "sha256": "b6499429207d3e738a2d7e7ba17ee4b435280f2b9ef6c017d2105caee3ac84e0",
+      "sha256": "369527e71218e080fe8541d800863f40f1b48edfb3fb92e838153215bce7e657",
       "mode": 420
     },
     "skills/video-transcripts/SKILL.md": {

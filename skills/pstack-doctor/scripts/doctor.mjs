@@ -799,17 +799,20 @@ const reasonOf = (findings, topics) =>
 export async function due(args, env, input) {
   const hook = args.includes('--hook');
   const payload = hook ? (parsed(input ?? '') ?? {}) : {};
-  // Claude Code and Codex set stop_hook_active on a stop that follows a Stop hook's block.
-  if (hook && (env.PSTACK_READ_ONLY || payload.stop_hook_active)) return '';
-  const path = hook ? payload.transcript_path : flagOf(args, '--transcript');
+  const isAgy = Boolean(payload.hookEventName || payload.conversationId || payload.transcriptPath);
+  const emptyHook = isAgy ? '{}' : '';
+  const stopActive = payload.stop_hook_active || (isAgy && (payload.continuationActive || Number(payload.executionNum) > 0));
+  // Claude Code and Codex set stop_hook_active on a stop that follows a Stop hook's block; Antigravity sends continuationActive/executionNum.
+  if (hook && (env.PSTACK_READ_ONLY || stopActive || (isAgy && payload.fullyIdle === false))) return emptyHook;
+  const path = hook ? (payload.transcript_path ?? payload.transcriptPath) : flagOf(args, '--transcript');
   if (!path || !existsSync(path)) {
-    if (hook) return '';
+    if (hook) return emptyHook;
     throw new Error('due needs --hook or --transcript <path>');
   }
   const none = 'No stalled round and no second-plan stop answered without the owner in the rows this session logged.';
   const session = await sessionOf(path);
   const printed = session.writes.flatMap((write) => [...write.out.matchAll(APPENDED)].map((match) => ({ from: write.from, to: write.to, count: Number(match[1] ?? 1), log: match[2] })));
-  if (!printed.length) return hook ? '' : none;
+  if (!printed.length) return hook ? emptyHook : none;
   // Claude Code's project dir names the main checkout even for a session in a worktree, and the payload's cwd follows
   // the session's cd, so the folder the transcript starts in comes first.
   const exists = (dir) => Boolean(dir) && existsSync(dir);
@@ -830,15 +833,15 @@ export async function due(args, env, input) {
   const seen = join(doctorHome(env), 'due');
   const markerOf = (finding) => join(seen, createHash('sha1').update(`${main} ${finding.key}`).digest('hex'));
   const unseen = findings.filter((finding) => !existsSync(markerOf(finding)));
-  if (!unseen.length) return '';
+  if (!unseen.length) return emptyHook;
   const every = mergedLogs(all, dirs);
   const superseded = (await Promise.all(dirs.map(supersededIn))).flat();
   const plansOf = new Map(unseen.map((finding) => [finding, topicWithChains(new Set([stemOf(finding.log.path)]), every, dirs, roots, superseded).plans.map((plan) => plan.stem)]));
   mkdirSync(seen, { recursive: true });
   const fresh = unseen.filter((finding) => claimed(markerOf(finding), finding.key));
-  if (!fresh.length) return '';
+  if (!fresh.length) return emptyHook;
   const topics = new Map(fresh.map((finding) => plansOf.get(finding)).map((plans) => [plans.join(), plans]));
-  return JSON.stringify({ decision: 'block', reason: reasonOf(fresh, [...topics.values()]) });
+  return JSON.stringify({ decision: isAgy ? 'continue' : 'block', reason: reasonOf(fresh, [...topics.values()]) });
 }
 
 const isMain = () => {
