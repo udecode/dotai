@@ -145,14 +145,14 @@ test('decisions-check takes a second open critical finding only with an open des
   assert.equal(second.status, 1, 'a second open finding with no design question');
   assert.match(second.stderr, /this log already holds 1 open critical finding,.*kind: decide task in docs\/plans\/suggested-tasks\.decisions\.tsv, with via: panel when it ranks P2 or P3, whose finding cites 2026-01-01-join .*"task:<id>"/);
   assert.match(open('the unwrap drops the paragraph', ', task:t_none0001').stderr, /task:t_none0001 is not a task/, 'a task the ledger lacks');
-  assert.equal(offer('t_fix00001 Fix the unwrap loss', 'the unwrap in docs/plans/2026-01-01-join.md drops the paragraph', 'fix').status, 0);
-  assert.match(open('the unwrap drops the paragraph', ', task:t_fix00001').stderr, /task:t_fix00001 is a fix task, not a design question/, 'a fix task');
+  assert.equal(offer('t_f1c00001 Fix the unwrap loss', 'the unwrap in docs/plans/2026-01-01-join.md drops the paragraph', 'fix').status, 0);
+  assert.match(open('the unwrap drops the paragraph', ', task:t_f1c00001').stderr, /task:t_f1c00001 is a fix task, not a design question/, 'a fix task');
   assert.equal(offer(QUESTION, 'joins in docs/plans/2026-01-01-join-2.md keep needing special cases', 'decide').status, 0);
   assert.match(open('the unwrap drops the paragraph', ', task:t_dec00001').stderr, /no finding of task:t_dec00001 cites 2026-01-01-join;/, 'a design question that cites only a plan whose name starts the same');
   assert.equal(chip(QUESTION, 'docs/plans/2026-01-01-join.md leaves the redo and the unwrap open', 'kind: decide', 'folded').status, 0);
   const named = open('the unwrap drops the paragraph', ', task:t_dec00001');
   assert.equal(named.status, 0, named.stderr);
-  assert.equal(open('the moved anchor keeps the quotes split', ', stop: task:t_fix00001 lands, task:t_dec00001').status, 0, 'one open design question among the tasks it names');
+  assert.equal(open('the moved anchor keeps the quotes split', ', stop: task:t_f1c00001 lands, task:t_dec00001').status, 0, 'one open design question among the tasks it names');
 
   const declined = chip(QUESTION, 'the owner keeps the join design', 'evidence', 'dismissed declined');
   assert.equal(declined.status, 0, declined.stderr);
@@ -160,7 +160,7 @@ test('decisions-check takes a second open critical finding only with an open des
   const tooling = chip('t_dec00003 Decide whether the join design needs a redesign (xhigh)', 'docs/plans/2026-01-01-join.md leaves four findings open', 'writes: src/join.ts; topic: joins; kind: decide; priority: P3; via: panel', 'offered');
   assert.equal(tooling.status, 0, `a P3 design question on the panel route: ${tooling.stderr}`);
   assert.equal(open('the redo loses the letter', ', task:t_dec00003').status, 0);
-  const unrelated = chip('t_fix00002 Reword the README introduction', 'the introduction reads badly', 'writes: README.md; topic: docs; kind: fix; priority: P3; via: panel', 'offered');
+  const unrelated = chip('t_f1c00002 Reword the README introduction', 'the introduction reads badly', 'writes: README.md; topic: docs; kind: fix; priority: P3; via: panel', 'offered');
   assert.equal(unrelated.status, 1, 'a P3 fix on the panel route');
   assert.match(unrelated.stderr, /via: panel is the route for the design question that two open critical panel findings require, so it goes only on a kind: decide offer/);
 });
