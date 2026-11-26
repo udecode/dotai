@@ -10,6 +10,8 @@ export type View = { width: number; height: number; scale: number }
 export type Modifier = 'Alt' | 'Control' | 'Meta' | 'Shift'
 // CDP's Input.dispatchMouseEvent modifiers bit field.
 const MODIFIER_BITS: Record<Modifier, number> = { Alt: 1, Control: 2, Meta: 4, Shift: 8 }
+// What CDP's Input.dragIntercepted hands back and Input.dispatchDragEvent takes.
+type DragData = { items: { mimeType: string; data: string }[]; dragOperationsMask: number }
 
 const BAR_PX = 80
 const FOOT_PX = 76
@@ -279,15 +281,15 @@ export class Clip {
     await this.mouse('mouseReleased', clickCount)
   }
 
-  /** Moves along `at(p)` as p goes from 0 to 1 over `ms` of wall clock, however long Chrome takes to handle each move. */
-  async over(ms: number, at: (p: number) => readonly [number, number]) {
+  /** Moves along `at(p)` as p goes from 0 to 1 over `ms` of wall clock, however long Chrome takes to handle each move. `send` delivers each move, a mouse move unless the caller says otherwise. */
+  async over(ms: number, at: (p: number) => readonly [number, number], send = () => this.mouse('mouseMoved')) {
     const began = performance.now()
     const sent: Promise<unknown>[] = []
     for (let k = 1; ; k++) {
       const p = Math.min(1, (performance.now() - began) / ms)
       const [x, y] = at(p)
       this.pos = { x, y }
-      sent.push(this.mouse('mouseMoved'))
+      sent.push(send())
       if (p >= 1) break
       await Bun.sleep(Math.max(0, began + k * (1000 / CLIP.fps) - performance.now()))
     }
@@ -295,7 +297,7 @@ export class Clip {
   }
 
   /** A hand's move to (x, y), in Fitts' law time on a minimum-jerk curve that bows a little. The cursor's spring adds the landing. */
-  async glide(x: number, y: number, { ms, bow = true }: { ms?: number; bow?: boolean } = {}) {
+  async glide(x: number, y: number, { ms, bow = true, send }: { ms?: number; bow?: boolean; send?: () => Promise<unknown> } = {}) {
     const from = { ...this.pos }
     const d = Math.hypot(x - from.x, y - from.y)
     const arc = bow ? Math.min(24, d * 0.06) : 0
@@ -304,7 +306,7 @@ export class Clip {
       const t = minimumJerk(p)
       const off = Math.sin(Math.PI * p) * arc
       return [from.x + (x - from.x) * t + nx * off, from.y + (y - from.y) * t + ny * off]
-    })
+    }, send)
   }
 
   /** Puts the pointer at (x, y) at once, before filming. */
@@ -346,6 +348,44 @@ export class Clip {
     await this.glide(...to, { ms, bow: false })
     await this.wait(80)
     await this.up()
+  }
+
+  /**
+   * Drags what sits at `from`, such as a text selection or a draggable element, and drops it at `to` through Chrome's own HTML5 drag and drop.
+   * Throws when nothing at `from` starts a drag, because a faked drag would film what a user cannot do.
+   */
+  async dragDrop(from: readonly [number, number], to: readonly [number, number], ms = 600) {
+    await this.glide(...from)
+    await this.wait(140)
+    let data: DragData | undefined
+    const caught = (e: { data: DragData }) => (data = e.data)
+    this.cdp.on('Input.dragIntercepted', caught)
+    await this.cdp.send('Input.setInterceptDrags', { enabled: true })
+    // Once a drag starts Chrome sends no pointer events, so the drawn cursor follows ones sent to the window, which no page listener below it hears.
+    const cursor = (type: 'pointermove' | 'pointerup') =>
+      this.cdp.send('Runtime.evaluate', { expression: `dispatchEvent(new PointerEvent('${type}', { clientX: ${this.pos.x}, clientY: ${this.pos.y}, pointerType: 'mouse' }))` })
+    const drag = (type: 'dragEnter' | 'dragOver' | 'drop') => this.cdp.send('Input.dispatchDragEvent', { type, x: this.pos.x, y: this.pos.y, data: data!, modifiers: this.mods })
+    let entered = false
+    try {
+      await this.down()
+      // Chrome on a Mac starts no text drag until the button has been down 0.15 s, and a move before then extends the selection instead.
+      await this.wait(200)
+      await this.glide(...to, { ms, bow: false, send: () => {
+        if (!data) return this.mouse('mouseMoved')
+        const type = entered ? 'dragOver' : 'dragEnter'
+        entered = true
+        return Promise.all([drag(type), cursor('pointermove')])
+      } })
+      if (!data) throw new Error(`nothing at (${from.join(', ')}) started a drag; press on a text selection or a draggable element`)
+      if (!entered) await drag('dragEnter')
+      await drag('drop')
+      await this.wait(80)
+    } finally {
+      await this.up()
+      if (data) await cursor('pointerup')
+      this.cdp.off('Input.dragIntercepted', caught)
+      await this.cdp.send('Input.setInterceptDrags', { enabled: false })
+    }
   }
 
   /** Types at a hand's pace, 25 to 70 ms a key and a little longer after a space. */

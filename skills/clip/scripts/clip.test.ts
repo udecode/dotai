@@ -423,6 +423,60 @@ describe('the title bar', () => {
   })
 })
 
+describe('drag and drop', () => {
+  const editor = async () => {
+    // A page set with setContent drops the drawn cursor's listeners, so the fixture loads as the page itself.
+    const clip = await openClip(`data:text/html,${encodeURIComponent('<div contenteditable style="font:20px sans-serif"><p>alpha beta gamma</p><p>delta epsilon</p></div>')}`)
+    // The middle of "beta" in the first paragraph, and the gap before "epsilon" in the second.
+    const [from, to] = await clip.page.evaluate(() => {
+      const [a, b] = [...document.querySelectorAll('p')].map(p => p.firstChild!)
+      const at = (node: Node, start: number, end: number) => {
+        const r = document.createRange()
+        r.setStart(node, start)
+        r.setEnd(node, end)
+        return r
+      }
+      const word = at(a, 6, 10).getBoundingClientRect()
+      const gap = at(b, 6, 6).getBoundingClientRect()
+      return [[word.x + word.width / 2, word.y + word.height / 2], [gap.x + 1, gap.y + gap.height / 2]] as [number, number][]
+    })
+    return { clip, from, to, text: () => clip.page.evaluate(() => [...document.querySelectorAll('p')].map(p => p.textContent)) }
+  }
+
+  test('drops a dragged text selection where the pointer lets go, with the drawn cursor following', async () => {
+    const { clip, from, to, text } = await editor()
+    try {
+      await clip.place(from[0] - 40, from[1] + 60)
+      await clip.glide(from[0], from[1])
+      await clip.wait(300)
+      await clip.dblclick()
+      expect(await clip.page.evaluate(() => getSelection()!.toString())).toBe('beta')
+      await clip.dragDrop(from, to)
+      const [source, target] = await text()
+      expect(source).not.toContain('beta')
+      expect(target).toMatch(/^delta beta ?epsilon$/)
+      await clip.wait(100)
+      const rows: TrailRow[] = await clip.page.evaluate(() => (window as any).__trail)
+      const held = rows.filter(r => r[1] === 1)
+      expect(Math.hypot(held.at(-1)![4] - held[0][4], held.at(-1)![5] - held[0][5])).toBeGreaterThan(20)
+      const last = rows.at(-1)!
+      expect([last[1], Math.round(last[2]), Math.round(last[3])]).toEqual([0, Math.round(to[0]), Math.round(to[1])])
+    } finally {
+      await clip.browser.close()
+    }
+  }, 30_000)
+
+  test('refuses a drag that starts nothing, instead of faking one', async () => {
+    const { clip, from, to, text } = await editor()
+    try {
+      await expect(clip.dragDrop(from, to)).rejects.toThrow('started a drag')
+      expect((await text())[1]).toBe('delta epsilon')
+    } finally {
+      await clip.browser.close()
+    }
+  }, 30_000)
+})
+
 describe('the project shape', () => {
   const project = (config?: string) => {
     const root = mkdtempSync(join(tmpdir(), 'clip-project-'))
