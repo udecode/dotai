@@ -37,31 +37,20 @@ const HELPER_DIR = '.agents/pstack';
 // hold and is removed once one stops holding.
 // Key order is the order of each project's recorded `synced.files`.
 const HELPER_FILES = {
-  'codex-browser.mjs': [],
   'codex-build.md': ['delivery!=trunk'],
-  'codex-isolation.mjs': [],
   'checkout.mjs': [],
   'cross.mjs': [],
-  'cua-steps.mjs': [],
-  'freeze.mjs': ['delivery!=trunk'],
   'head.mjs': [],
   'lead.mjs': [],
-  'mutate.mjs': ['delivery!=trunk'],
   'proof.mjs': [],
-  'replay.mjs': ['delivery=trunk'],
-  'reply.mjs': ['delivery!=trunk'],
-  'reread.mjs': [],
   'seats.mjs': [],
   'seat-watch.mjs': [],
   'title.mjs': [],
   'decisions-check.mjs': ['plans'],
-  'levels.mjs': ['plans'],
   'plan-open.mjs': ['plans'],
-  'page-stop.mjs': ['plans'],
   'plan-page.mjs': ['plans'],
   'status.mjs': [],
   'tasks.mjs': ['plans'],
-  'scorecard.mjs': ['plans'],
   'guard.mjs': ['delivery=trunk'],
   'land.mjs': ['delivery=trunk'],
   'review.mjs': ['delivery=trunk'],
@@ -69,6 +58,19 @@ const HELPER_FILES = {
   'working-branch.mjs': [],
   'writing-check.mjs': [],
 };
+const RETIRED_HELPERS = [
+  'codex-browser.mjs',
+  'codex-isolation.mjs',
+  'cua-steps.mjs',
+  'freeze.mjs',
+  'replay.mjs',
+  'scorecard.mjs',
+  'reread.mjs',
+  'page-stop.mjs',
+  'levels.mjs',
+  'mutate.mjs',
+  'reply.mjs',
+];
 const RULES = join(HELPERS, 'rules');
 // Claude Code reads a project sheet at the repository root in place of each person's, so every teammate runs the same models.
 export const PROJECT_SHEET = '.claude/pstack-models.md';
@@ -687,17 +689,13 @@ function sourceFile(rev, path) {
   return prefix === null ? null : gitRaw(SKILL, 'show', `${rev}:${prefix}${path}`);
 }
 
-// Rebuilds what the last sync wrote, so a refusal shows exactly what changed in
-// the project rather than mixing it with changes to the shared source.
-function lastVersion(stored, path, build, expected) {
-  const text = stored.synced?.source && expected ? sourceFile(stored.synced.source, path) : null;
+// Rebuilds what the last sync wrote from stored.synced.source so local edits are detected without storing per-file SHAs.
+function lastVersion(stored, path, build) {
+  const text = stored.synced?.source ? sourceFile(stored.synced.source, path) : null;
   if (text === null) return null;
   try {
-    const built = build(text);
-    return sha(built) === expected ? built : null;
+    return build(text);
   } catch {
-    // An older template may not render with the current config; the caller
-    // then compares against the new render instead.
     return null;
   }
 }
@@ -728,7 +726,6 @@ export function apply(root, { tag, force = false, write = true, dispositions } =
   const body = render(readFileSync(TEMPLATE, 'utf8'), config);
   const changes = [];
   const refusals = [];
-  const synced = { block: sha(body), files: {} };
   const older = olderSource(stored);
   if (older && !force) refusals.push({ path: 'shared source', reason: older });
   let pstackDiff = null;
@@ -749,12 +746,12 @@ export function apply(root, { tag, force = false, write = true, dispositions } =
   const current = locateBlock(agents);
   if (current?.body !== body) {
     const detail = diff(current?.body ?? '', body);
-    if (current && !force && sha(current.body) !== stored.synced?.block) {
-      const last = lastVersion(stored, 'assets/block.md', (text) => render(text, withDerived(root, stored)), stored.synced?.block);
+    const last = current ? lastVersion(stored, 'assets/block.md', (text) => render(text, withDerived(root, stored))) : null;
+    if (current && !force && last !== null && current.body !== last) {
       refusals.push({
         path: 'AGENTS.md',
         reason: 'the block was edited since the last sync',
-        diff: last === null ? `current block against the new render:\n${detail}` : `the project's edit since the last sync:\n${diff(last, current.body)}`,
+        diff: `the project's edit since the last sync:\n${diff(last, current.body)}`,
       });
     } else {
       changes.push({ path: 'AGENTS.md', text: withBlock(agents, body), diff: detail });
@@ -770,32 +767,34 @@ export function apply(root, { tag, force = false, write = true, dispositions } =
   ];
   for (const [name, gates, rule, path] of files) {
     const present = existsSync(join(root, path)) ? readFileSync(join(root, path), 'utf8') : null;
-    const edited = present !== null && sha(present) !== stored.synced?.files?.[path];
     const build = (text, settings) => (rule ? `${render(text, settings)}\n` : text);
     const off = offGate(gates);
     if (off === undefined) {
       const source = build(readFileSync(join(SKILL, 'assets', name), 'utf8'), config);
-      synced.files[path] = sha(source);
       for (const [, imported] of rule ? [] : source.matchAll(/^\s*import\b[^'"]*['"]\.\/([^'"]+)['"]/gmu)) {
         if (!HELPER_FILES[imported] || offGate(HELPER_FILES[imported]) !== undefined) {
           refusals.push({ path, forceable: false, reason: `it imports ./${imported}, which HELPER_FILES does not install here, so the installed helper would fail to load` });
         }
       }
       if (present === source) continue;
-      if (edited && !force) {
-        const last = lastVersion(stored, `assets/${name}`, (text) => build(text, withDerived(root, stored)), stored.synced?.files?.[path]);
+      const last = present !== null ? lastVersion(stored, `assets/${name}`, (text) => build(text, withDerived(root, stored))) : null;
+      if (present !== null && !force && last !== null && present !== last) {
         refusals.push({
           path,
           reason: 'the helper was edited since the last sync',
-          diff: last === null ? `current helper against the shared one:\n${diff(present, source)}` : `the project's edit since the last sync:\n${diff(last, present)}`,
+          diff: `the project's edit since the last sync:\n${diff(last, present)}`,
         });
-      }
-      else changes.push({ path, text: source, executable: name.endsWith('.mjs') });
+      } else changes.push({ path, text: source, executable: name.endsWith('.mjs') });
     } else if (present !== null) {
       const gate = isCondition(off) ? `gate "${off}" no longer holds` : `section "${off}" is now skipped`;
-      if (edited && !force) refusals.push({ path, reason: `the helper was edited, and its ${gate}` });
+      const last = lastVersion(stored, `assets/${name}`, (text) => build(text, withDerived(root, stored)));
+      if (!force && last !== null && present !== last) refusals.push({ path, reason: `the helper was edited, and its ${gate}` });
       else changes.push({ path, remove: true });
     }
+  }
+  for (const retired of RETIRED_HELPERS) {
+    const path = `${HELPER_DIR}/${retired}`;
+    if (existsSync(join(root, path))) changes.push({ path, remove: true });
   }
 
   const settingsPath = join(root, '.claude/settings.json');
@@ -807,15 +806,11 @@ export function apply(root, { tag, force = false, write = true, dispositions } =
     changes.push({ path: '.gitignore', text: `${ignore}${ignore && !ignore.endsWith('\n') ? '\n' : ''}.claude/*.local.md\n` });
   }
 
-  // Keep the recorded source while the output is unchanged, so an unrelated
-  // shared commit does not make every project's config stale. A null record
-  // came from uncommitted shared edits and is replaced once they land.
-  const same = stored.synced?.block === synced.block && JSON.stringify(stored.synced?.files ?? {}) === JSON.stringify(synced.files);
-  // A null source means the last sync came from uncommitted shared edits, which a clean source would silently drop.
+  const same = changes.length === 0 && refusals.length === 0;
   if (!same && !force && stored.synced && 'source' in stored.synced && stored.synced.source === null && sourceRevision() !== null) {
-    refusals.push({ path: 'shared source', reason: 'the project was last synced from uncommitted shared edits; find the session that wrote them, and once it has ended, commit and push them in the dotai checkout when its checks pass (Lesson step 2), then rerun' });
+    refusals.push({ path: 'shared source', reason: 'the project was last synced from uncommitted shared edits; commit and push them in the dotai checkout when its checks pass, then rerun' });
   }
-  synced.source = same && stored.synced?.source ? stored.synced.source : sourceRevision();
+  const synced = { source: same && stored.synced?.source ? stored.synced.source : sourceRevision() };
   // The renderer refuses a config that still sets these lists, so they leave it in the write that installs the renderer, once the playbooks carry them.
   const pages = projectPlaybooks(root).map((playbook) => playbook.page);
   const declared = (key) => new Set(pages.flatMap((page) => page[key]).map((title) => title.toLowerCase()));

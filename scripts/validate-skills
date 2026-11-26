@@ -2,8 +2,7 @@
 set -euo pipefail
 
 case "${1:-}" in
-  '') scope='' ;;
-  --all) scope='--all' ;;
+  ''|--all) ;;
   *) echo "usage: scripts/validate-skills [--all]" >&2; exit 2 ;;
 esac
 
@@ -77,9 +76,13 @@ for skill_dir in "${skill_dirs[@]}"; do
   fi
 done
 
-# Every session rereads the rendered pstack block on each call, so its budget only goes down: lower it whenever the largest render shrinks.
-if ! budget="$(node "$SKILLS_DIR/sync-pstack/scripts/block-budget.mjs" 28806)"; then
+# Every session rereads the rendered pstack block on each call, so its budget only goes down.
+if ! budget="$(node "$SKILLS_DIR/sync-pstack/scripts/block-budget.mjs" 18200)"; then
   echo "$budget" | tail -1
+  fail=1
+fi
+
+if ! node "$SKILLS_DIR/sync-pstack/scripts/budget-check.mjs"; then
   fail=1
 fi
 
@@ -87,15 +90,13 @@ if [ "$fail" -ne 0 ]; then
   exit 1
 fi
 
-# No CI runs these, so the commit gate does. By default it runs only the test files the working
-# tree's changes can reach, as scripts/affected-tests.mjs says; a release or a pstack sync runs --all.
 node "$ROOT/scripts/build-workflow.mjs" --check >/dev/null
-list="$(node "$ROOT/scripts/affected-tests.mjs" $scope)"
-total="$(node "$ROOT/scripts/affected-tests.mjs" --all | wc -l | tr -d ' ')"
+
 tests=()
 while IFS= read -r test; do
-  [ -n "$test" ] && tests+=("$ROOT/$test")
-done <<< "$list"
+  [ -n "$test" ] && tests+=("$test")
+done < <(find "$SKILLS_DIR" -name '*.test.mjs' | sort)
+
 if [ "${#tests[@]}" -gt 0 ]; then
   if ! out="$(node --test "${tests[@]}" 2>&1)"; then
     printf '%s\n' "$out" | sed -n '/^✖ failing tests/,$p'
@@ -103,4 +104,4 @@ if [ "${#tests[@]}" -gt 0 ]; then
   fi
 fi
 
-echo "skills ok: ran ${#tests[@]} of $total test files${scope:+ (all)}"
+echo "skills ok: ran ${#tests[@]} test files"

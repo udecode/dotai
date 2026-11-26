@@ -62,11 +62,64 @@ const newestOf = (paths) => paths.toSorted((a, b) => statSync(a).mtimeMs - statS
 
 const firstTimestamp = (path) => {
   try {
-    return readSlice(path, 256_000, false).match(/"timestamp":"([^"]+)"/u)?.[1] ?? null;
+    return readSlice(path, 256_000, false).match(/"(?:timestamp|created_at)":"([^"]+)"/u)?.[1] ?? null;
   } catch {
     return null;
   }
 };
+
+function agyBrainRoots(env) {
+  const roots = [];
+  const t3Providers = join(env.T3_USERDATA_DIR ?? join(home(env), '.t3', 'userdata'), 'providers', 'antigravity');
+  if (existsSync(t3Providers)) {
+    for (const entry of readdirSync(t3Providers, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const brain = join(t3Providers, entry.name, 'antigravity-acp', 'brain');
+      if (existsSync(brain)) roots.push(brain);
+    }
+  }
+  const geminiBrain = join(env.GEMINI_HOME ?? join(home(env), '.gemini'), 'antigravity', 'brain');
+  if (existsSync(geminiBrain)) roots.push(geminiBrain);
+  return roots;
+}
+
+function agySessions(env, now) {
+  const found = [];
+  for (const brain of agyBrainRoots(env)) {
+    for (const entry of readdirSync(brain, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const path = join(brain, entry.name, '.system_generated', 'logs', 'transcript.jsonl');
+      if (!existsSync(path)) continue;
+      const stat = statSync(path);
+      if (stat.size === 0) continue;
+      const head = readSlice(path, 65_536, false);
+      if (head.includes('You are running as a subagent') && !head.includes('"USER_EXPLICIT"')) continue;
+      const cwd =
+        head.match(/Command Working Directory:\s*(\/[^\n\\"]+)/u)?.[1]?.trim() ??
+        head.match(/Active Workspaces:(?:\\n|\n)\s*-\s*(\/[^\n\\"]+)/u)?.[1]?.trim() ??
+        head.match(/"cwd":"(\/[^"]+)"/u)?.[1] ??
+        null;
+      let title = '';
+      for (const line of head.split('\n')) {
+        const event = parsed(line);
+        const typed = event && typedText(event);
+        if (typed) {
+          title = typed.replace(/\s+/gu, ' ').slice(0, 80);
+          break;
+        }
+      }
+      found.push({
+        sessionId: entry.name,
+        title,
+        cwd,
+        isRunning: now - stat.mtimeMs < 5 * 60_000,
+        lastActivityAt: new Date(stat.mtimeMs).toISOString(),
+        transcript: path,
+      });
+    }
+  }
+  return found;
+}
 
 // Claude Code names a project's transcript folder after its cwd with every other character turned into a dash.
 // Several sessions can share a folder, so the session's transcript is the one last written when it was last active.
@@ -402,7 +455,7 @@ function glanceOf(session, { pulse, now, env }) {
   const live = entries[0];
   const cwd = session.cwd ?? live?.cwd ?? null;
   const lastActive = session.lastActivityAt ?? live?.lastHookAt ?? null;
-  const transcripts = [...new Set([...entries.map((entry) => entry.transcript).filter(Boolean), ...(entries.length || !cwd ? [] : transcriptOf(cwd, lastActive, env))])].filter((path) => existsSync(path));
+  const transcripts = [...new Set([session.transcript, ...entries.map((entry) => entry.transcript), ...(entries.length || !cwd ? [] : transcriptOf(cwd, lastActive, env))].filter(Boolean))].filter((path) => existsSync(path));
   const start = transcripts.map(firstTimestamp).filter(Boolean).sort()[0] ?? null;
   const glance = {
     id: session.sessionId,
@@ -562,15 +615,20 @@ export async function facts(args, env) {
     known.add(entry.host ?? entry.id);
     sessions.push({ sessionId: entry.host ?? entry.id, title: entry.title, cwd: entry.cwd, isRunning: entry.state === 'working', lastActivityAt: entry.lastHookAt });
   }
+  for (const entry of agySessions(env, now)) {
+    if (known.has(entry.sessionId)) continue;
+    known.add(entry.sessionId);
+    sessions.push(entry);
+  }
   if (!sessions.length) throw new Error('no sessions: pass --sessions <file> holding the desktop session list, or run pstack-pulse so its state lists live sessions');
   const onlySelf = args.includes('--self');
   const minHours = onlySelf ? 0 : Number(flag('--min-hours') ?? 24);
   if (!Number.isFinite(minHours)) throw new Error(`--min-hours ${flag('--min-hours')} is no number`);
   const landingLogs = {};
   const topicLogs = {};
-  const self = [env.CLAUDE_CODE_HOST_SESSION_ID, env.CLAUDE_CODE_SESSION_ID, env.CODEX_SESSION_ID].filter(Boolean);
+  const self = [env.CLAUDE_CODE_HOST_SESSION_ID, env.CLAUDE_CODE_SESSION_ID, env.CODEX_SESSION_ID, env.ANTIGRAVITY_CONVERSATION_ID, env.T3_THREAD_ID].filter(Boolean);
   const isSelf = (glance) => glance.ids.some((id) => self.includes(id));
-  if (onlySelf && !self.length) throw new Error('--self needs CLAUDE_CODE_HOST_SESSION_ID, CLAUDE_CODE_SESSION_ID or CODEX_SESSION_ID to name the session running the doctor');
+  if (onlySelf && !self.length) throw new Error('--self needs CLAUDE_CODE_HOST_SESSION_ID, CLAUDE_CODE_SESSION_ID, CODEX_SESSION_ID, ANTIGRAVITY_CONVERSATION_ID or T3_THREAD_ID to name the session running the doctor');
   const all = await Promise.all(
     sessions
       .map((session) => glanceOf(session, { pulse, now, env }))
@@ -602,6 +660,10 @@ const REFUSAL = /^The user doesn't want to proceed with this tool use\.[\s\S]*?t
 // Claude Code records a message typed while a turn runs as a queued command, and words typed to refuse a tool call in
 // that call's result.
 const typedText = (event) => {
+  if (event.type === 'USER_INPUT' && event.source === 'USER_EXPLICIT' && typeof event.content === 'string') {
+    return ownWords(event.content.match(AGY_USER_REQUEST)?.[1] ?? event.content);
+  }
+  if (event.type === 'event_msg' && event.payload?.type === 'user_message') return ownWords(String(event.payload.message ?? ''));
   if (event.attachment?.type === 'queued_command') return event.attachment.origin?.kind === 'human' ? ownWords(textOf(event.attachment.prompt)) : null;
   if (event.type !== 'user' || event.isMeta || event.isCompactSummary) return null;
   const content = event.message?.content;
@@ -621,7 +683,7 @@ const parsed = (line) => {
 export function lastTypedAt(lines) {
   for (let index = lines.length - 1; index >= 0; index -= 1) {
     const event = parsed(lines[index]);
-    if (event && typedText(event)) return event.timestamp ?? null;
+    if (event && typedText(event)) return event.timestamp ?? event.created_at ?? null;
   }
   return null;
 }
@@ -633,7 +695,7 @@ export function transcriptTail(lines, last) {
     const event = parsed(line);
     if (!event) continue;
     const content = event.message?.content;
-    const at = String(event.timestamp ?? '').slice(0, 16);
+    const at = String(event.timestamp ?? event.created_at ?? '').slice(0, 16);
     const typed = typedText(event);
     if (typed) out.push(`${at} user: ${typed.replace(/\s+/gu, ' ').slice(0, 600)}`);
     else if (event.type === 'assistant' && Array.isArray(content)) {
@@ -641,22 +703,30 @@ export function transcriptTail(lines, last) {
       const tools = content.filter((part) => part.type === 'tool_use').map((part) => part.name);
       if (text) out.push(`${at} lead: ${text.replace(/\s+/gu, ' ').slice(0, 600)}`);
       if (tools.length) out.push(`${at} tools: ${tools.join(', ')}`);
-    } else if (event.isCompactSummary) out.push(`${at} compacted`);
+    } else if (event.type === 'PLANNER_RESPONSE') {
+      const text = String(event.response ?? event.content ?? event.text ?? '').trim();
+      const tools = (Array.isArray(event.tool_calls) ? event.tool_calls : []).map((call) => call?.name).filter(Boolean);
+      if (text) out.push(`${at} lead: ${text.replace(/\s+/gu, ' ').slice(0, 600)}`);
+      if (tools.length) out.push(`${at} tools: ${tools.join(', ')}`);
+    } else if (event.isCompactSummary || event.type === 'CHECKPOINT') out.push(`${at} compacted`);
   }
   return out.slice(-last);
 }
 
-/** The tail of a session's newest transcript, found by its id in pulse's state or given as a path. */
+/** The tail of a session's newest transcript, found by its id in pulse's state, Antigravity brain folders, or given as a path. */
 export function transcript(args, env) {
   const target = args[0];
   if (!target || target.startsWith('--')) throw new Error('transcript needs a session id or a transcript path');
   const last = Number(flagOf(args, '--last') ?? 60);
   const paths = target.endsWith('.jsonl')
     ? [target]
-    : pulseEntries(readJson(pulseState(env)), target)
-        .map((entry) => entry.transcript)
-        .filter((path) => path && existsSync(path));
-  if (!paths.length) throw new Error(`no transcript for ${target}: pulse has no entry for it, so pass the transcript path`);
+    : [
+        ...pulseEntries(readJson(pulseState(env)), target).map((entry) => entry.transcript),
+        ...agySessions(env, Date.now())
+          .filter((entry) => entry.sessionId === target)
+          .map((entry) => entry.transcript),
+      ].filter((path) => path && existsSync(path));
+  if (!paths.length) throw new Error(`no transcript for ${target}: pulse and Antigravity have no entry for it, so pass the transcript path`);
   const newest = newestOf(paths);
   // The tail's first line may start mid-event, which the parser skips.
   const bytes = Number(flagOf(args, '--bytes') ?? 8_000_000);

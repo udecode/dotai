@@ -650,3 +650,59 @@ test('due reads an Antigravity transcript: detects stalled rounds and fabricated
   assert.doesNotMatch(blocked.reason, /real approval/u);
   assert.deepEqual(JSON.parse(await due(['--hook'], world.env, stopPayload({ executionNum: 1 }))), {});
 });
+
+test('facts, transcript, transcriptTail and lastTypedAt discover and audit Gemini 4 Neon (Antigravity ACP) sessions while skipping subagents', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'doctor-agy-'));
+  const repo = join(home, 'repo');
+  mkdirSync(repo, { recursive: true });
+  execFileSync('git', ['-C', repo, 'init', '-q', '-b', 'main']);
+  execFileSync('git', ['-C', repo, '-c', 'user.email=d@e.com', '-c', 'user.name=d', 'commit', '-q', '--allow-empty', '-m', 'init']);
+
+  const t3Brain = join(home, '.t3', 'userdata', 'providers', 'antigravity', 'acct1', 'antigravity-acp', 'brain');
+  const neonDir = join(t3Brain, 'conv-neon-stuck', '.system_generated', 'logs');
+  const subDir = join(t3Brain, 'conv-subagent', '.system_generated', 'logs');
+  const geminiDir = join(home, '.gemini', 'antigravity', 'brain', 'conv-gemini-self', '.system_generated', 'logs');
+  mkdirSync(neonDir, { recursive: true });
+  mkdirSync(subDir, { recursive: true });
+  mkdirSync(geminiDir, { recursive: true });
+
+  const neonTranscript = join(neonDir, 'transcript.jsonl');
+  const neonLines = [
+    JSON.stringify({ step_index: 0, source: 'SYSTEM', type: 'SYSTEM_MESSAGE', created_at: iso(30), content: `Command Working Directory: ${repo}` }),
+    JSON.stringify({ step_index: 1, source: 'USER_EXPLICIT', type: 'USER_INPUT', created_at: iso(29), content: '<USER_REQUEST>\n<t3_code_instructions>skip</t3_code_instructions>\nfix the editor caret\n</USER_REQUEST>' }),
+    JSON.stringify({ step_index: 2, source: 'MODEL', type: 'PLANNER_RESPONSE', created_at: iso(1), model: 'gemini-4-neon-high', response: 'Checking caret logic.', tool_calls: [{ name: 'read_file' }, { name: 'run_command' }] }),
+    JSON.stringify({ step_index: 3, source: 'SYSTEM', type: 'CHECKPOINT', created_at: iso(0.5), content: 'Compacted' }),
+  ];
+  writeFileSync(neonTranscript, `${neonLines.join('\n')}\n`);
+
+  writeFileSync(
+    join(subDir, 'transcript.jsonl'),
+    `${JSON.stringify({ step_index: 0, source: 'SYSTEM', type: 'SYSTEM_MESSAGE', created_at: iso(30), content: 'You are running as a subagent invoked by parent.' })}\n`,
+  );
+
+  writeFileSync(
+    join(geminiDir, 'transcript.jsonl'),
+    `${JSON.stringify({ step_index: 0, source: 'USER_EXPLICIT', type: 'USER_INPUT', created_at: iso(2), content: '<USER_REQUEST>\naudit sessions\n</USER_REQUEST>' })}\n`,
+  );
+
+  const env = { HOME: home, PSTACK_PULSE_HOME: join(home, 'no-pulse'), PSTACK_DOCTOR_HOME: join(home, 'doctor'), ANTIGRAVITY_CONVERSATION_ID: 'conv-gemini-self' };
+  assert.equal(lastTypedAt(neonLines), JSON.parse(neonLines[1]).created_at);
+  assert.deepEqual(
+    transcriptTail(neonLines, 10).map((line) => line.replace(/^\S+ /u, '')),
+    ['user: fix the editor caret', 'lead: Checking caret logic.', 'tools: read_file, run_command', 'compacted'],
+  );
+
+  const report = await facts(['--no-record'], env);
+  assert.match(report, /^1 sessions: 1 older than 24 h/u);
+  assert.match(report, /conv-neon-stuck/u);
+  assert.match(report, /no landing for \d+ h while working/u);
+  assert.doesNotMatch(report, /conv-subagent|conv-gemini-self/u);
+
+  const selfReport = await facts(['--self', '--no-record'], env);
+  assert.match(selfReport, /conv-gemini-self/u);
+  assert.doesNotMatch(selfReport, /conv-neon-stuck/u);
+
+  const tail = transcript(['conv-neon-stuck', '--last', '2'], env);
+  assert.match(tail, /tools: read_file, run_command/u);
+  assert.match(tail, /compacted/u);
+});

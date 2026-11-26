@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 
-// These copy sync-pstack's lead.mjs, levels.mjs and pinned(), because one installed skill cannot import another's;
+// These copy sync-pstack's lead.mjs and pinned(), because one installed skill cannot import another's;
 // pulse.test.mjs fails when the copies drift from lead.mjs.
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
 const rank = (effort) => EFFORTS.indexOf(effort);

@@ -1,6 +1,6 @@
 # dotai skills
 
-15 skills: 15 maintained in dotai, plus 0 unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from dotai. Methods load only when relevant; tool access is separate from installation.
+14 skills: 14 maintained in dotai, plus 0 unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from dotai. Methods load only when relevant; tool access is separate from installation.
 
 ## Review (1)
 
@@ -25,13 +25,12 @@
 | [passwords](skills/passwords/SKILL.md) | Set up unattended 1Password access on a Mac or sign in to websites and apps without repeated human approvals. Use for new-device setup, passwords, authenticator codes, email or SMS verification, passkey alternatives, and blocked logins. |
 | [redo](skills/redo/SKILL.md) | Redo a prior pstack run at a higher effort or stronger model, treating its plan as a draft and rerunning only units below target. Use for \"redo <plan, page or PR>\" or a Babysit levels failure. |
 
-## Maintenance (3)
+## Maintenance (2)
 
 | Skill | Purpose |
 | --- | --- |
 | [cleanup](skills/cleanup/SKILL.md) | Audit disk usage and remove idle git worktrees, Next.js caches, test Postgres DBs, and unused Bun/npx/uv/Docker caches while preserving active checkouts. Use for /cleanup, /cleanup disk, or freeing worktree/build disk space. |
 | [sync-pstack](skills/sync-pstack/SKILL.md) | Set up the pstack plugin in a project through an interview, and keep every pstack project on one pinned tag and one shared AGENTS.md overrides block. Use to set up or install pstack in a repo, sync, bump or update pstack everywhere, list which projects use pstack or have drifted, compare setups, audit a project's skills for drift from pstack (which to cut, fold or keep), change which work runs a panel, architect or an arena without asking (\"from now on X runs architect\"), or move a workflow lesson, including a plan page shape change, into every project. Not for choosing pstack's per-role models, which setup-pstack owns. |
-| [worktree-workspace](skills/worktree-workspace/SKILL.md) | Open every git worktree of a project in one VS Code window, each folder labeled by its agent session's title. Use for /worktree-workspace, reviewing worktrees in VS Code, or seeing which worktree holds which task. |
 
 ## Monitoring (4)
 
@@ -61,13 +60,12 @@ These skills remain installed when a tool is absent; an unavailable live action 
 - **mac-watchdog:** macOS with launchd, Node.js and the Xcode command line tools for cc; the Claude desktop app to name sessions; sudo once for the fseventsd watchdog.
 - **passwords:** macOS login Keychain, 1Password CLI and an account with service-account access; authorized browser or native-app controls that can consume credentials without exposing them.
 - **plan-page:** Node.js 22+ and Git; the renderer that sync-pstack installs in .agents/pstack; the Artifact tool to publish.
-- **pstack-doctor:** Node.js 22+, Git and ripgrep; pstack-pulse for live session state, and a session tool that lists sessions for the rest.
+- **pstack-doctor:** Node.js 22+, Git and ripgrep; pstack-pulse for live session state, Antigravity ACP transcripts for Gemini 4 Neon sessions, and a session tool that lists sessions for the rest.
 - **pstack-pulse:** macOS with launchd and the Keychain, Node.js 22+ and sqlite3; an ActivitySmith account and key; Tailscale Funnel for the session list.
 - **rca:** A Code session in the Claude desktop app, which alone has its session tools.
 - **sync-pstack:** Node.js 22+ and Git; the Claude Code and Codex CLIs for plugin pins and smoke tests.
 - **video-transcripts:** ffmpeg, curl, jq and a signed-in agy (Antigravity CLI).
 - **walkthrough:** Real final-state captures, Node.js and the configured annotation tool.
-- **worktree-workspace:** Node.js 22+, Git and the VS Code `code` command; session titles from a sessions file or the Claude desktop app on macOS.
 
 ## Deliberate boundaries
 

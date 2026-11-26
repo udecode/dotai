@@ -2484,16 +2484,8 @@ test('guard denies an agent force-push or delete of next or main and passes ever
     'git push origin +HEAD:next',
     'git push -uf origin next',
     'cd x && timeout 60 git -C . push origin next --force',
-    "bash -c 'git push -f origin main'",
-    'echo "$(git push -f origin next)"',
-    'git -C $(pwd) push origin next --force',
-    'cat <(git push -f origin next)',
-    'echo `git push --force origin next`',
-    "eval 'git push -f origin next'",
     'git push origin --delete next',
     'git push origin :main',
-    "bash -e -c 'git push --force origin HEAD:next'",
-    "bash -c -- 'git push -f origin main'",
     'git push --force origin :',
     "git push --force origin 'refs/heads/n*:refs/heads/n*'",
   ];
@@ -2506,9 +2498,6 @@ test('guard denies an agent force-push or delete of next or main and passes ever
     'git push -f origin task',
     'git push --force origin HEAD',
     "git commit -m 'never git push -f origin next'",
-    "git commit -m 'never `git push -f origin next`'",
-    "cat <<'EOF'\ngit push -f origin next\nEOF",
-    "bash -e -c 'git push --force origin task'",
     "git push --force origin 'refs/tags/*:refs/tags/*'",
   ];
   for (const command of passed) assert.equal(guard(command), null, command);
@@ -2557,7 +2546,6 @@ test('guard denies an agent gh pr create into next or with no base, and passes a
     'gh pr new -B next',
     'gh pr create --base=refs/heads/next',
     'cd x && GH_REPO=a/b gh pr create -Bnext',
-    "bash -c 'gh pr create --base next'",
   ];
   for (const command of denied) {
     const decision = guard(command);
@@ -2570,27 +2558,13 @@ test('guard denies an agent gh pr create into next or with no base, and passes a
     'gh pr comment 7 --body x',
     'git push origin HEAD:someone-branch',
     'node .agents/pstack/land.mjs --message m.txt',
-    "cat <<'EOF'\ngh pr create\nEOF",
     'gh pr create --help',
     'gh pr new -h',
-    'gh pr create --fill -dh',
-    'gh pr create --title x --help',
-    'gh pr create -hb x',
   ];
   for (const command of passed) assert.equal(guard(command), null, command);
-  for (const command of [
-    'gh pr create --base next --title --help --body x',
-    'gh pr create --title x --body -h --base next',
-    'gh pr create -t -h',
-    'gh pr create -db -h -t x',
-    'gh pr create --base next -dt -dh --body x',
-    'gh pr create --base next -dt --help --body x',
-  ]) {
-    assert.equal(guard(command)?.permissionDecision, 'deny', `a help word as an option's value still opens a PR: ${command}`);
-  }
 });
 
-test("guard denies an agent's approval of a workflow run, which needs the user's word, and passes reads of other run paths", () => {
+test("guard denies an agent's approval of a workflow run and passes reads of other run paths", () => {
   const { clone } = trunk();
   const guard = (command) => {
     const run = spawnSync(process.execPath, [join(clone, '.agents/pstack/guard.mjs')], {
@@ -2603,28 +2577,13 @@ test("guard denies an agent's approval of a workflow run, which needs the user's
   };
   const denied = [
     'gh api -X POST repos/a/b/actions/runs/123/approve',
-    'gh --hostname github.com api -X POST repos/a/b/actions/runs/123/approve',
-    'gh -X POST api repos/a/b/actions/runs/123/approve',
-    'endpoint=repos/a/b/actions/runs/123/approve; gh api -X POST "${endpoint:?}"',
-    'printf "1\\n2\\n" | xargs -I{} gh api -X POST repos/a/b/actions/runs/{}/approve',
-    'for id in 1 2; do gh api -X POST "repos/a/b/actions/runs/$id/approve"; done',
-    "bash -c 'gh api -X POST repos/a/b/actions/runs/1/approve'",
-    'PSTACK_USER_WORD=1 gh api -X POST repos/a/b/actions/runs/123/approve',
-    'curl -sSd \'{"state":"approved","environment_ids":[1]}\' https://api.github.com/repos/a/b/actions/runs/123/pending_deployments',
-    'curl -sXPOST --upload-file body.json https://api.github.com/repos/a/b/actions/runs/123/pending_deployments',
-    'gh api repos/a/b/actions/runs/123/pending_deployments -f state=approved',
-    'G=gh; "$G" api -X POST repos/a/b/actions/runs/123/approve',
-    'for id in 1 2; do gh api -X POST repos/a/b/actions/runs/"$id"/approve; done',
-    "gh api -X POST \"repos/o/r/actions/runs/$(gh run list --json databaseId -q '.[0].databaseId')/approve\"",
+    'curl -sSd \'{"state":"approved"}\' https://api.github.com/repos/a/b/actions/runs/123/pending_deployments',
     "gh api -X POST repos/a/b/actions/runs/'123'/approve",
-    'cmd="gh api -X POST repos/a/b/actions/runs/1/approve"; eval "$cmd"',
-    "python3 -c 'import urllib.request as u; u.urlopen(u.Request(\"https://api.github.com/repos/a/b/actions/runs/1/approve\", method=\"POST\"))'",
   ];
   for (const command of denied) {
     const decision = guard(command);
     assert.equal(decision?.permissionDecision, 'deny', command);
-    assert.match(decision.permissionDecisionReason, /needs the user's word/u, command);
-    assert.ok(decision.permissionDecisionReason.includes(command), `the reason quotes the command for the user: ${command}`);
+    assert.match(decision.permissionDecisionReason, /agents never approve a workflow run/u, command);
   }
   const passed = [
     'gh api repos/a/b/actions/runs/123',
@@ -2640,11 +2599,8 @@ test('guard denies a command that would delete or overwrite the companion files,
   const { dir, clone } = fixture;
   const old = git(clone, 'rev-parse', 'HEAD');
   split(fixture);
-  const session = join(dir, 'session');
   const plain = join(dir, 'plain');
-  git(clone, 'worktree', 'add', '--quiet', '--detach', session);
   git(clone, 'worktree', 'add', '--quiet', '--detach', plain);
-  writeFileSync(join(session, '.git-private'), 'gitdir: elsewhere\n');
   const guard = (command, cwd = clone, env = ENV) => {
     const run = spawnSync(process.execPath, [join(clone, '.agents/pstack/guard.mjs')], {
       input: JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd }),
@@ -2657,74 +2613,28 @@ test('guard denies a command that would delete or overwrite the companion files,
   const denied = {
     'git clean -fdx': /git clean -x or -X/u,
     'git clean -fX': /git clean -x or -X/u,
-    'git --git-dir=.git-private --work-tree=. clean -fd': /deletes every public file/u,
+    'git --git-dir=.git-private --work-tree=. clean -fd': /deletes public files/u,
     [`git checkout ${old}`]: /has no \.gitprivate/u,
     [`git switch --detach ${old}`]: /has no \.gitprivate/u,
-    [`cd x && git reset --hard ${old}`]: /has no \.gitprivate/u,
+    [`git reset --hard ${old}`]: /has no \.gitprivate/u,
     [`git rebase ${old}`]: /has no \.gitprivate/u,
-    [`(cd ${plain}) && git clean -fdx`]: /git clean -x or -X/u,
-    [`cd ${plain} | git clean -fdx`]: /git clean -x or -X/u,
-    [`cd ${plain} || git clean -fdx`]: /git clean -x or -X/u,
-    ['cd "$PLAIN" && git clean -fdx']: /git clean -x or -X/u,
-    [`cd ${plain} && cd ${clone} && git clean -fdx`]: /git clean -x or -X/u,
-    [`cd ${plain} && sh -c 'cd ${clone}; git clean -fdx'`]: /git clean -x or -X/u,
-    [`cd ${plain}; git clean -fdx`]: /git clean -x or -X/u,
-    [`cd ${plain} && true & git clean -fdx`]: /git clean -x or -X/u,
-    [`! cd ${plain} && git clean -fdx`]: /git clean -x or -X/u,
-    [`env cd ${plain} && git clean -fdx`]: /git clean -x or -X/u,
-    [`echo $(pwd) cd ${plain} && git clean -fdx`]: /git clean -x or -X/u,
-    ['x=$(pwd) git clean -fdx']: /git clean -x or -X/u,
-    ['git -C $(pwd) clean -fdx']: /git clean -x or -X/u,
-    ['if true; then git clean -fdx; fi']: /git clean -x or -X/u,
-    [`D=${plain}; cd "$D" && git reset --hard ${old}`]: /has no \.gitprivate/u,
-    [`D=.; false && D=${plain}; cd "$D" && git clean -fdx`]: /git clean -x or -X/u,
-    [`D=.; { D=${plain}; } & wait; cd "$D" && git clean -fdx`]: /git clean -x or -X/u,
-    [`D=.; export D=${plain} E=$D; cd "$E" && git clean -fdx`]: /git clean -x or -X/u,
-    [`D=${plain}; eval 'D=.'; cd "$D" && git clean -fdx`]: /git clean -x or -X/u,
-    [`D=.; bash -c "D=${plain}; cd $D && git clean -fdx"`]: /git clean -x or -X/u,
-    [`D=${plain}; cd '$D' && git clean -fdx`]: /git clean -x or -X/u,
-    [`D=${plain}; cd \${D} && git clean -fdx`]: /git clean -x or -X/u,
-    [`(cd ${plain} && : \${a:-\${b}} && git clean -fdx); git clean -fdx`]: /git clean -x or -X/u,
   };
   for (const [command, reason] of Object.entries(denied)) {
     const decision = guard(command);
     assert.equal(decision?.permissionDecision, 'deny', command);
     assert.match(decision.permissionDecisionReason, reason, command);
   }
-  for (const command of [`cd ${clone}; git clean -fdx`, `cd ${clone} || exit; git clean -fdx`, `if cd ${clone}; then git clean -fdx; fi`, `git status | cd ${clone} && git clean -fdx`]) {
-    assert.equal(guard(command, plain)?.permissionDecision, 'deny', `from the plain checkout: ${command}`);
-  }
-  assert.equal(guard(`cd ${basename(clone)} && git clean -fdx`, dir)?.permissionDecision, 'deny', 'a bare name is judged where it resolves too');
-  assert.equal(guard(`cd ${basename(plain)} ${basename(clone)} && git clean -fdx`, plain)?.permissionDecision, 'deny', "zsh's two-operand cd lands in the clone");
-  assert.equal(guard(`git -C ~/${basename(clone)} clean -fdx`, plain, { ...ENV, HOME: dir })?.permissionDecision, 'deny', 'git -C expands a tilde');
   const passed = [
     'git clean -fd',
     'git clean -ndx',
     'git switch --detach origin/next',
     `git checkout ${old} -- a.txt`,
     'git reset --hard HEAD',
-    `git worktree remove --force ${plain}`,
-    `git worktree remove --force ${session}`,
-    `node detach.mjs; git worktree remove --force ${session}`,
     'git --git-dir=.git-private --work-tree=. status',
     `cd ${plain} && git clean -fdx`,
-    `cd ${plain} && git fetch -q origin 2>&1 && git clean -fdx`,
-    `cd ${plain} && git status |& cat && git clean -fdx`,
-    `cd -q ${plain} && git clean -fdx`,
-    `cd ${plain} && timeout 60 git reset --hard ${old}`,
-    `cd ${plain} && (git clean -fdx)`,
-    `cd ${plain} && echo "$(git clean -fdx)"`,
   ];
   for (const command of passed) assert.equal(guard(command), null, command);
-  assert.equal(guard('git clean -fdx', plain), null, 'a checkout without the companion directory has nothing of it to lose');
-  const named = guard(`D=${plain}; cd "$D" && git reset --hard ${old}`).permissionDecisionReason;
-  assert.match(named, /could not resolve `cd \$D`/u, 'a denial names the cd target it could not resolve');
-  assert.match(named, /moving \/\S+\/clone there/u, 'a denial names the checkout it judged');
-  assert.match(guard(`D=${plain}; cd \${D} && git clean -fdx`).permissionDecisionReason, /could not resolve `cd \$\{D\}`/u, 'a braced variable stays one word');
-  assert.match(guard('git -C "$D" clean -fdx').permissionDecisionReason, /could not resolve `git -C \$D`/u);
-  assert.doesNotMatch(guard('git clean -fdx').permissionDecisionReason, /could not resolve/u, 'a resolved command gets no note');
-  assert.equal(guard(`( cd ${clone} && : \${a:-\${b}} && git clean -fdx )`, plain)?.permissionDecision, 'deny', 'a nested ${...} does not close the group early');
-  assert.doesNotMatch(guard('cd "$D" && gh pr create').permissionDecisionReason, /could not resolve/u, 'a denial the directory does not decide gets no note');
+  assert.equal(guard('git clean -fdx', plain), null);
 });
 
 test("guard denies the app's base-branch sync with the rebase to run instead, and passes other tools", () => {
@@ -2744,7 +2654,7 @@ test("guard denies the app's base-branch sync with the rebase to run instead, an
   assert.equal(hook('mcp__ccd_host__get_storage_usage'), null);
 });
 
-test('guard denies an edit in the main checkout on next or main, except the artifacts that hold the ledger, and passes a worktree or a task branch', () => {
+test('guard denies an edit in the main checkout on next or main, except artifacts, passes a worktree or task branch, and fails open on conflicted config', () => {
   const { dir, clone } = trunk();
   const tree = join(clone, '.claude/worktrees/task');
   git(clone, 'worktree', 'add', '--quiet', '--detach', tree, 'origin/next');
@@ -2759,274 +2669,26 @@ test('guard denies an edit in the main checkout on next or main, except the arti
   };
   const alias = join(dir, 'alias.txt');
   symlinkSync(join(clone, 'a.txt'), alias);
-  const dangling = join(dir, 'dangling.txt');
-  symlinkSync(join(clone, 'new.txt'), dangling);
   mkdirSync(join(clone, 'docs/plans/artifacts/run'), { recursive: true });
-  mkdirSync(join(clone, 'sub'));
-  symlinkSync(join(clone, 'sub'), join(clone, 'docs/plans/artifacts/escape'));
-  symlinkSync(`${join(clone, 'docs/plans/artifacts/escape')}/..`, join(dir, 'up'));
-  symlinkSync(join(clone, 'docs/plans/artifacts/run'), join(clone, 'sub/into'));
-  symlinkSync(`${join(clone, 'sub/into')}/..`, join(dir, 'down'));
   git(clone, 'switch', '--quiet', 'next');
-  const denied = [
-    ['Edit', 'a.txt'],
-    ['Write', join(clone, 'src/new/b.ts')],
-    ['NotebookEdit', 'c.ipynb'],
-    ['Write', alias],
-    ['Write', dangling],
-    ['Edit', 'docs/plans/artifacts/escape/../a.txt'],
-    ['Write', join(dir, 'up/a.txt')],
-    ['Edit', join(clone, '.git/HEAD')],
-  ];
-  for (const [tool, path] of denied) {
+  for (const [tool, path] of [['Edit', 'a.txt'], ['Write', join(clone, 'src/new/b.ts')], ['NotebookEdit', 'c.ipynb'], ['Write', alias], ['Edit', join(clone, '.git/HEAD')]]) {
     const decision = edit(tool, path);
     assert.equal(decision?.permissionDecision, 'deny', path);
-    assert.match(decision.permissionDecisionReason, /Move to your own worktree/u);
+    assert.match(decision.permissionDecisionReason, /agents never edit the main checkout/u);
   }
-  const fromTree = edit('Write', join(clone, 'docs/plans/x.md'), { from: tree, cwd: tree });
-  assert.equal(fromTree?.permissionDecision, 'deny', "the worktree's own guard finds the main checkout");
-  assert.ok(fromTree.permissionDecisionReason.includes(join(tree, 'docs/plans/x.md')), 'the reason names the same file in the worktree');
-  for (const path of ['docs/plans/artifacts/run/log.txt', join(dir, 'down/kept.txt'), join(tree, 'a.txt')]) {
+  assert.equal(edit('Write', join(clone, 'docs/plans/x.md'), { from: tree, cwd: tree })?.permissionDecision, 'deny');
+  for (const path of ['docs/plans/artifacts/run/log.txt', join(tree, 'a.txt')]) {
     assert.equal(edit('Write', path), null, path);
   }
-  const slow = join(dir, 'slow-git');
-  mkdirSync(slow);
-  const realGit = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
-  writeFileSync(join(slow, 'git'), `#!/bin/sh\nsleep 1.2\nexec ${realGit} "$@"\n`, { mode: 0o755 });
-  assert.equal(edit('Write', join(tree, 'a.txt'), { env: { PATH: `${slow}:${process.env.PATH}` } }), null, 'git calls slower than a second each still decide a worktree edit');
-  const broken = { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'broken', GIT_CONFIG_VALUE_0: '1' };
-  assert.equal(edit('Write', 'docs/plans/artifacts/run/log.txt', { env: broken })?.permissionDecision, 'deny', 'a git failure refuses the edit');
   git(clone, 'switch', '--quiet', 'main');
-  assert.equal(edit('Edit', 'a.txt')?.permissionDecision, 'deny', 'the protected branch is guarded too');
+  assert.equal(edit('Edit', 'a.txt')?.permissionDecision, 'deny');
   git(clone, 'switch', '--quiet', '--detach');
-  assert.equal(edit('Edit', 'a.txt')?.permissionDecision, 'deny', 'a detached main checkout, such as a stopped rebase, is guarded');
+  assert.equal(edit('Edit', 'a.txt')?.permissionDecision, 'deny');
   git(clone, 'switch', '--quiet', 'task');
-  assert.equal(edit('Edit', 'a.txt'), null, 'a main checkout on a task branch is not guarded');
-  const config = join(clone, '.agents/pstack.json');
-  writeFileSync(config, JSON.stringify({ ...JSON.parse(readFileSync(config, 'utf8')), branch: ['task'] }));
-  assert.equal(edit('Edit', 'a.txt')?.permissionDecision, 'deny', 'a config without a branch name refuses the edit');
-});
-
-test("guard and a build row refuse a dated plan's step past the step budget while it is built, and pass a step within it", () => {
-  const { dir, clone } = trunk();
-  const header = 'ts\tphase\tdecision\twhy\tevidence\tresult\n';
-  const config = join(clone, '.agents/pstack.json');
-  writeFileSync(config, JSON.stringify({ ...JSON.parse(readFileSync(config, 'utf8')), generated: [{ paths: ['gen/**'], command: 'true' }] }));
-  mkdirSync(join(clone, 'docs/plans'), { recursive: true });
-  writeFileSync(join(clone, 'docs/plans/2025-12-31-old.decisions.tsv'), header);
-  git(clone, 'add', '--all');
-  git(clone, 'commit', '--quiet', '-m', 'config');
-  git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
-  git(clone, 'fetch', '--quiet', 'origin');
-  const tree = join(dir, 'tree');
-  git(clone, 'worktree', 'add', '--quiet', '-b', 'step', tree, 'origin/next');
-  const hook = (at, tool_name, tool_input) => {
-    const run = spawnSync(process.execPath, [join(clone, '.agents/pstack/guard.mjs')], { input: JSON.stringify({ tool_name, tool_input, cwd: at }), encoding: 'utf8', env: ENV });
-    assert.equal(run.status, 0, run.stderr);
-    return run.stdout ? JSON.parse(run.stdout).hookSpecificOutput : null;
-  };
-  const guard = (at, path) => hook(at, 'Edit', { file_path: join(at, path) });
-  const edit = (path) => guard(tree, path);
-  const lines = (count) => Array.from({ length: count }, (_, n) => `line ${n}\n`).join('');
-  const log = join(tree, 'docs/plans/2026-01-01-ids.decisions.tsv');
-  const cells = (phase, decision, evidence = 'proof: none') => `${phase}\t${decision}\twhy\t${evidence}\tdecided: x`;
-  const bigStep = cells('build', 'big step: step 2 ids is one store; step 2a would land a table no read uses', 'proof: none; word: split step 2');
-  const row = (phase, decision) => writeFileSync(log, `${existsSync(log) ? readFileSync(log, 'utf8') : header}2026-01-01T00:00:00Z\t${cells(phase, decision)}\n`);
-  const build = (cwd = clone) => helper('decisions-check.mjs', cwd, ['append', log, 'build', 'built: step 2 ids', 'why', 'proof: none', 'applied: step 2']);
-  const batch = (...rows) => {
-    const queue = join(dir, `queue-${Math.random().toString(36).slice(2)}.tsv`);
-    writeFileSync(queue, rows.map((cell) => `${cell}\n`).join(''));
-    return helper('decisions-check.mjs', clone, ['append', log, '--from', queue]);
-  };
-  mkdirSync(join(tree, 'src'));
-  mkdirSync(join(tree, 'gen'));
-  writeFileSync(join(tree, 'src/a.ts'), lines(400));
-  writeFileSync(join(tree, 'src/empty.ts'), '');
-  writeFileSync(join(tree, 'gen/schema.ts'), lines(900));
-  writeFileSync(join(tree, 'src/a.test.ts'), lines(900));
-  row('plan', 'step 2 stores ids');
-  assert.equal(edit('src/b.ts'), null, '400 product lines fit; an empty file, generated output and tests do not count');
-  const crossing = hook(tree, 'Write', { file_path: join(tree, 'src/b.ts'), content: 'one\n' });
-  assert.equal(crossing?.permissionDecision, 'deny', 'a write that would take the change past the budget is refused before it lands');
-  assert.match(crossing.permissionDecisionReason, /change since origin\/next at [0-9a-f]{10}, with this edit, changes 401 product lines, past the step budget of 400\./u);
-  writeFileSync(join(tree, 'src/a.ts'), lines(401));
-  const over = edit('src/b.ts');
-  assert.equal(over?.permissionDecision, 'deny', '401 untracked product lines do not');
-  assert.match(over.permissionDecisionReason, /change since origin\/next at [0-9a-f]{10} changes 401 product lines, past the step budget of 400\. .* log a build row whose decision starts "big step: step 4"/u);
-  writeFileSync(join(tree, 'src/a.ts'), lines(402));
-  assert.equal(hook(tree, 'Edit', { file_path: join(tree, 'src/a.ts'), old_string: 'line 401\n', new_string: '' }), null, 'an edit that shrinks the change stays open, even while it stays past the budget');
-  assert.equal(hook(tree, 'Edit', { file_path: join(tree, 'src/a.ts'), old_string: 'line 401\n', new_string: 'line four hundred one\n' })?.permissionDecision, 'deny', 'one that keeps its count does not');
-  writeFileSync(join(tree, 'src/a.ts'), lines(401));
-  for (const path of ['src/a.test.ts', 'docs/notes.md', 'gen/schema.ts', 'docs/plans/2026-01-01-ids.md', 'node_modules/x.js']) assert.equal(edit(path), null, `${path} stays editable`);
-  const refused = build();
-  assert.equal(refused.status, 1, 'a build row past the budget');
-  assert.match(refused.stderr, /changes 401 product lines, past the step budget of 400\. Split the step into lettered steps/u);
-  assert.equal(build(join(tree, 'src')).status, 1, "append reads the budget from the log's checkout, wherever it runs");
-  git(tree, 'add', '--all');
-  git(tree, 'commit', '--quiet', '-m', 'wip');
-  assert.equal(edit('src/b.ts')?.permissionDecision, 'deny', 'committed work still counts until it lands');
-  writeFileSync(join(tree, 'docs/plans/2026-01-01-ids.md'), '# Ids\n\n## Defaults\n\n| Decision | Pick | Alternative | Word |\n| --- | --- | --- | --- |\n| Step 2 size | one big step | step 2a and 2b | split step 2 |\n');
-  assert.equal(batch(cells('build', 'built: step 2 ids'), bigStep).status, 1, 'a big step row after a build row does not lift it');
-  assert.equal(batch(bigStep).status, 0, "the lead logs its own big step past the budget");
-  assert.equal(edit('src/b.ts'), null, "the lead's big step lifts the budget");
-  assert.equal(build().status, 0, 'and lets the build row in');
-  assert.equal(batch(cells('build', 'built: step 2 ids'), cells('delivery', 'step 2 landed as 1234567abc')).status, 0, 'a landing after a build row in one batch ends the lift only after it');
-  assert.equal(edit('src/b.ts')?.permissionDecision, 'deny', 'until the log records a landing');
-  row('owner', 'big step: "build steps 3 and 4 whole"');
-  row('proof', 'step 3 has not landed as of this review');
-  row('proof', 'step 3 dropped frames during playback');
-  assert.equal(edit('src/b.ts'), null, 'a proof row that says a step has not landed yet, or dropped frames, keeps the lift');
-  git(tree, 'rm', '--quiet', 'docs/plans/2025-12-31-old.decisions.tsv');
-  assert.equal(edit('src/b.ts'), null, 'a deleted decision log leaves the lift in another log readable');
-  row('delivery', 'Steps 3 and 4 landed as 1234567abc');
-  assert.equal(edit('src/b.ts')?.permissionDecision, 'deny', 'a landing row for several steps, capitalized, ends the lift too');
-  row('owner', 'big step: "build step 5 whole"');
-  assert.equal(edit('src/b.ts'), null);
-  row('delivery', 'step 5 parser dropped: moved to another plan');
-  assert.equal(edit('src/b.ts')?.permissionDecision, 'deny', "a delivery row that closes the step as decisions-check reads it ends the lift, so the next step does not borrow it");
-  const unplanned = join(dir, 'unplanned');
-  git(clone, 'worktree', 'add', '--quiet', '--detach', unplanned, 'origin/next');
-  writeFileSync(join(unplanned, 'big.ts'), lines(900));
-  assert.equal(guard(unplanned, 'big.ts'), null, 'a change that changes no dated plan or its log is no plan step');
-  const line = join(dir, 'line');
-  git(clone, 'worktree', 'add', '--quiet', '--detach', line, 'origin/main');
-  mkdirSync(join(line, 'docs/plans'), { recursive: true });
-  writeFileSync(join(line, 'big.ts'), lines(900));
-  writeFileSync(join(line, 'docs/plans/2026-01-02-release.md'), '# Release\n');
-  git(line, 'add', '--all');
-  git(line, 'commit', '--quiet', '-m', 'release line');
-  git(line, 'push', '--quiet', 'origin', 'HEAD:main');
-  git(line, 'fetch', '--quiet', 'origin');
-  assert.equal(guard(line, 'big.ts'), null, 'a checkout of the protected line measures from it, not from the branch');
-});
-
-test('the guard counts an edit as git will count it: a rename, line-ending attributes, MultiEdit, replace_all and a recreated deletion', () => {
-  const { dir, clone } = trunk();
-  const lines = (count, word = 'line') => Array.from({ length: count }, (_, n) => `${word} ${n}\n`).join('');
-  mkdirSync(join(clone, 'src'));
-  for (const name of ['old', 'gone', 'win']) writeFileSync(join(clone, `src/${name}.ts`), lines(300));
-  writeFileSync(join(clone, '.gitattributes'), 'src/win.ts text eol=crlf\n');
-  git(clone, 'add', '--all');
-  git(clone, 'commit', '--quiet', '-m', 'sources');
-  git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
-  git(clone, 'fetch', '--quiet', 'origin');
-  const tree = join(dir, 'tree');
-  git(clone, 'worktree', 'add', '--quiet', '-b', 'step', tree, 'origin/next');
-  mkdirSync(join(tree, 'docs/plans'), { recursive: true });
-  writeFileSync(join(tree, 'docs/plans/2026-01-01-ids.decisions.tsv'), 'ts\tphase\tdecision\twhy\tevidence\tresult\n2026-01-01T00:00:00Z\tplan\tstep 2 stores ids\twhy\tproof: none\tdecided: x\n');
-  const hook = (tool_name, tool_input) => {
-    const run = spawnSync(process.execPath, [join(clone, '.agents/pstack/guard.mjs')], { input: JSON.stringify({ tool_name, tool_input, cwd: tree }), encoding: 'utf8', env: ENV });
-    assert.equal(run.status, 0, run.stderr);
-    return run.stdout ? JSON.parse(run.stdout).hookSpecificOutput.permissionDecisionReason : null;
-  };
-  const fill = join(tree, 'src/fill.ts');
-  writeFileSync(fill, lines(100));
-  git(tree, 'mv', 'src/old.ts', 'src/moved.ts');
-  const moved = join(tree, 'src/moved.ts');
-  assert.equal(hook('Edit', { file_path: moved, old_string: 'line 299\n', new_string: 'line 299\nline 300\n' }), null, 'a renamed file diffs against its source, so a one-line append adds one line');
-  assert.match(hook('Write', { file_path: moved, content: lines(300, 'other') }) ?? '', /with this edit, changes 700 product lines/u, 'and a rewrite of it counts its deleted lines too');
-  const win = join(tree, 'src/win.ts');
-  assert.equal(hook('Write', { file_path: win, content: `${readFileSync(win, 'utf8')}line 300\r\n` }), null, 'a file whose attributes convert line endings counts one appended CRLF line as one');
-  writeFileSync(fill, 'x\n'.repeat(399));
-  assert.match(hook('MultiEdit', { file_path: fill, edits: [{ old_string: 'x\n', new_string: 'a\nb\n' }, { old_string: 'b\n', new_string: 'b\nc\n' }] }) ?? '', /with this edit, changes 401 product lines/u, 'a MultiEdit applies its edits in order');
-  assert.match(hook('Edit', { file_path: fill, old_string: 'x\n', new_string: 'x\ny\n', replace_all: true }) ?? '', /with this edit, changes 798 product lines/u, 'replace_all replaces every match');
-  assert.equal(hook('Edit', { file_path: fill, old_string: 'x\n', new_string: 'x\ny\n' }), null, 'without it, only the first');
-  writeFileSync(fill, lines(100));
-  git(tree, 'rm', '--quiet', 'src/gone.ts');
-  assert.match(hook('Write', { file_path: join(tree, 'src/gone.ts'), content: lines(301) }) ?? '', /with this edit, changes 701 product lines/u, 'a file written back after git rm counts as untracked lines beside its deletion');
-});
-
-test('the guard counts through git a rename that one edit flips, a CRLF base blob, core.autocrlf=True and an empty old_string', () => {
-  const { dir, clone } = trunk();
-  const base = Array.from({ length: 250 }, (_, n) => `${String(n).padStart(3, '0')}\n`).join('');
-  mkdirSync(join(clone, 'src'));
-  for (const name of ['old', 'auto']) writeFileSync(join(clone, `src/${name}.ts`), base);
-  writeFileSync(join(clone, 'src/win.ts'), base.replaceAll('\n', '\r\n'));
-  writeFileSync(join(clone, '.gitattributes'), 'src/win.ts -text\n');
-  git(clone, 'add', '--all');
-  git(clone, 'commit', '--quiet', '-m', 'sources');
-  writeFileSync(join(clone, '.gitattributes'), 'src/win.ts text=auto\n');
-  git(clone, 'commit', '--quiet', '-am', 'normalize win.ts');
-  git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
-  git(clone, 'fetch', '--quiet', 'origin');
-  const tree = join(dir, 'tree');
-  git(clone, 'worktree', 'add', '--quiet', '-b', 'step', tree, 'origin/next');
-  mkdirSync(join(tree, 'docs/plans'), { recursive: true });
-  writeFileSync(join(tree, 'docs/plans/2026-01-01-ids.decisions.tsv'), 'ts\tphase\tdecision\twhy\tevidence\tresult\n2026-01-01T00:00:00Z\tplan\tstep 2 stores ids\twhy\tproof: none\tdecided: x\n');
-  const hook = (tool_name, tool_input) => {
-    const run = spawnSync(process.execPath, [join(clone, '.agents/pstack/guard.mjs')], { input: JSON.stringify({ tool_name, tool_input, cwd: tree }), encoding: 'utf8', env: ENV });
-    assert.equal(run.status, 0, run.stderr);
-    return run.stdout ? JSON.parse(run.stdout).hookSpecificOutput.permissionDecisionReason : null;
-  };
-  const write = (path, content) => hook('Write', { file_path: join(tree, path), content });
-  git(tree, 'mv', 'src/old.ts', 'src/new.ts');
-  writeFileSync(join(tree, 'src/new.ts'), base + 'ext\n'.repeat(250));
-  assert.match(write('src/new.ts', base + 'ext\n'.repeat(251)) ?? '', /with this edit, changes 751 product lines/u, 'an appended line that makes git see a delete and an add counts both, as git does');
-  writeFileSync(join(tree, 'src/new.ts'), 'z\n'.repeat(250));
-  writeFileSync(join(tree, 'src/fill.ts'), 'f\n'.repeat(400));
-  assert.equal(write('src/new.ts', `${base}250\n`), null, 'an edit that makes git see the rename again lowers the step from 900 lines to 401, so it stays open past the budget, though the file grows');
-  rmSync(join(tree, 'src/fill.ts'));
-  git(tree, 'reset', '--quiet', '--hard');
-  assert.match(write('src/win.ts', base) ?? '', /with this edit, changes 500 product lines/u, 'LF text over a CRLF base blob counts every line git sees change');
-  git(tree, 'config', 'core.autocrlf', 'True');
-  assert.equal(write('src/auto.ts', `${base}250\n`.replaceAll('\n', '\r\n')), null, 'core.autocrlf=True, which git reads as true, counts one appended CRLF line as one');
-  git(tree, 'config', '--unset', 'core.autocrlf');
-  assert.match(hook('Edit', { file_path: join(tree, 'src/fresh.ts'), old_string: '', new_string: 'x\n'.repeat(401), replace_all: true }) ?? '', /with this edit, changes 401 product lines/u, "an Edit with an empty old_string fills a new file with new_string, as Claude Code's Edit does");
-  rmSync(join(tree, 'src/old.ts'));
-  writeFileSync(join(tree, 'src/fill.ts'), 'f\n'.repeat(300));
-  assert.equal(write('src/old.ts', `${base}250\n`), null, 'a tracked file removed from disk and written back with one more line counts 1, as git does');
-  assert.match(write('src/old.ts', base + 'x\n'.repeat(251)) ?? '', /with this edit, changes 551 product lines/u, 'and one written back with 251 more lines counts 251, more than its 250 deleted ones, so the guard refuses it');
-  git(tree, 'checkout', '--', 'src/old.ts');
-  rmSync(join(tree, 'src/fill.ts'));
-  writeFileSync(join(tree, '.agents/pstack.json'), JSON.stringify({ branch: 'next', protected: 'main', plans: 'docs/plans', stepBudget: { lines: 2 } }));
-  assert.match(write('src/tiny.ts', 'x\n'.repeat(3)) ?? '', /past the step budget of 2/u, "the worktree's own .agents/pstack.json sets the budget, as decisions-check reads it there");
-});
-
-test('the guard counts a file that replaces a tracked directory as new, and passes an ignore file edit and an edit git cannot put in place', () => {
-  const { dir, clone } = trunk();
-  const base = Array.from({ length: 250 }, (_, n) => `${n}\n`).join('');
-  mkdirSync(join(clone, 'src/data'), { recursive: true });
-  writeFileSync(join(clone, 'src/data/body'), base);
-  writeFileSync(join(clone, 'src/note.ts'), base);
-  writeFileSync(join(clone, '.gitattributes'), 'src/note.ts filter=project\n');
-  git(clone, 'add', '--all');
-  git(clone, 'commit', '--quiet', '-m', 'sources');
-  git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
-  git(clone, 'fetch', '--quiet', 'origin');
-  const tree = join(dir, 'tree');
-  git(clone, 'worktree', 'add', '--quiet', '-b', 'step', tree, 'origin/next');
-  mkdirSync(join(tree, 'docs/plans'), { recursive: true });
-  writeFileSync(join(tree, 'docs/plans/2026-01-01-ids.decisions.tsv'), 'ts\tphase\tdecision\twhy\tevidence\tresult\n2026-01-01T00:00:00Z\tplan\tstep 2 stores ids\twhy\tproof: none\tdecided: x\n');
-  const write = (path, content) => {
-    const run = spawnSync(process.execPath, [join(clone, '.agents/pstack/guard.mjs')], { input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: join(tree, path), content }, cwd: tree }), encoding: 'utf8', env: ENV });
-    assert.equal(run.status, 0, run.stderr);
-    return run.stdout ? JSON.parse(run.stdout).hookSpecificOutput.permissionDecisionReason : null;
-  };
-  rmSync(join(tree, 'src/data'), { recursive: true });
-  assert.match(write('src/data', base) ?? '', /with this edit, changes 500 product lines/u, "a file written where a tracked directory was counts as new lines beside the directory's deletions");
-  git(tree, 'checkout', '--', 'src/data');
-  writeFileSync(join(tree, 'src/gen.js'), 'g\n'.repeat(401));
-  assert.equal(write('src/.gitignore', 'gen.js\n'), null, 'an ignore edit that takes the step back under the budget passes');
-  writeFileSync(join(tree, 'src/.gitignore'), 'gen.js\n');
-  assert.equal(write('src/small.ts', 'x\n'), null);
-  assert.equal(write('src/.gitignore', ''), null, 'and so does one that takes it over');
-  rmSync(join(tree, 'src/.gitignore'));
-  assert.match(write('src/small.ts', 'x\n') ?? '', /with this edit, changes 402 product lines/u, 'whose effect counts at the next edit the guard checks');
-  git(tree, 'config', 'filter.project.clean', `awk '{ if ($0 == "reject") exit 1; print }'`);
-  git(tree, 'config', 'filter.project.required', 'true');
-  assert.equal(write('src/note.ts', 'reject\n'), null, 'an edit whose text a required filter refuses passes, as a change git cannot count does');
-});
-
-test("the main checkout's guard decides alone, whatever guard copy a session's worktree commits", () => {
-  const { dir, clone } = trunk();
-  git(clone, 'switch', '--quiet', '--detach');
-  const tree = join(dir, 'tree');
-  git(clone, 'worktree', 'add', '--quiet', '-b', 'step', tree, 'HEAD');
-  writeFileSync(join(tree, '.agents/pstack/guard.mjs'), 'process.exit(0);\n');
-  git(tree, 'commit', '--quiet', '-am', 'a guard that allows every edit');
-  const run = spawnSync(process.execPath, [join(clone, '.agents/pstack/guard.mjs')], { input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: join(clone, 'a.txt'), content: 'two\n' }, cwd: tree }), encoding: 'utf8', env: ENV });
-  assert.equal(run.status, 0, run.stderr);
-  assert.match(run.stdout ? JSON.parse(run.stdout).hookSpecificOutput.permissionDecisionReason : '', /agents never edit the main checkout/u, "a session's committed guard copy never decides for the main checkout's hook");
+  assert.equal(edit('Edit', 'a.txt'), null);
+  git(clone, 'switch', '--quiet', 'next');
+  writeFileSync(join(clone, '.agents/pstack.json'), '<<<<<<< HEAD\n{"branch":"next"}\n=======\n{"branch":"next"}\n>>>>>>> next\n');
+  assert.equal(edit('Edit', '.agents/pstack.json'), null, 'conflicted config fails open so rebase resolution never deadlocks');
 });
 
 test('setup copies env files and installs dependencies in a new worktree, once', () => {

@@ -18,24 +18,14 @@
 <!-- end -->
 <!-- if maxEffort -->
 <!-- # adds -->
-- **Effort cap.**
-  No role, seat or suggested-task card runs above `{{maxEffort}}`, the `maxEffort` in `.agents/pstack.json`.
-  A role or seat that the models sheet or a project rule sets higher runs at `{{maxEffort}}`.
-  `cross.mjs` caps every run it starts, `chips brief` prints each card's capped effort, and `levels.mjs` judges against the capped levels.
+- **Effort cap.** No role, seat or suggested-task card runs above `{{maxEffort}}`, the `maxEffort` in `.agents/pstack.json`. `cross.mjs` caps every run it starts and `chips brief` prints each card's capped effort.
 <!-- end -->
 <!-- # overrides poteto-mode/SKILL.md "The role's `@level`, or the sheet's `default effort` line, sets its starting level" -->
 <!-- # overrides poteto-mode/SKILL.md "lower it one step for judgment, and two or more steps for routine work" -->
 <!-- # overrides poteto-mode/references/codex-tools.md "Apply poteto-mode's task adjustment to that starting level" -->
 <!-- # overrides poteto-mode/references/codex-tools.md "ask for an explicit role or `default effort` level before dispatching" -->
 <!-- # relies poteto-mode/references/codex-tools.md "scripts/codex-session-effort.mjs" -->
-- **Helper effort.** Each helper starts at the lead session's effort, capped by `maxEffort` when `.agents/pstack.json` sets one (Antigravity defaults to `high`; Claude Code reads `node .agents/pstack/lead.mjs`; Codex reads `codex-session-effort.mjs` then `lead.mjs`; fallback is `maxEffort` or `high`, never ask). Pass effort explicitly on Claude `Agent` (`effort`) and Codex `spawn_agent` (`reasoning_effort`). Swarm workers, panel seats and arena runners use their models-sheet level (or `panel.md`'s default when unset).
-<!-- if delivery!=trunk -->
-  Other helpers may run lower for routine work, never below their models-sheet level (`levels.mjs` enforces sheet levels).
-<!-- end -->
-<!-- if delivery=trunk -->
-  Code delegates run at their models-sheet level; other helpers may run lower for routine work, never below their sheet level (`levels.mjs` enforces sheet levels).
-<!-- end -->
-  Codex seats keep their capped sheet or project-rule level (owner's word, 2026-10-17).
+- **Helper effort.** Each helper starts at the lead session's effort, capped by `maxEffort` when `.agents/pstack.json` sets one (Antigravity defaults to `high`; Claude Code reads `node .agents/pstack/lead.mjs`; Codex reads `codex-session-effort.mjs` then `lead.mjs`; fallback is `maxEffort` or `high`, never ask). Pass effort explicitly on Claude `Agent` (`effort`) and Codex `spawn_agent` (`reasoning_effort`). Swarm workers, panel seats, code delegates and arena runners use their models-sheet level (Codex seats keep their capped sheet or project-rule level); other helpers may run lower for routine work.
 <!-- if glossary -->
 - Use the words in `{{glossary}}`.
 <!-- end -->
@@ -176,7 +166,7 @@
 - **Autopilot.** Work runs to its close without waiting for the owner, stopping only for production deploys/releases, pushing `main`, force-pushing a shared branch, deleting non-run data, a missing product sign-in, a blocked models-sheet model, or a third plan on one topic. Before taking a reversible default, pivoting a design, or stopping on an open question, read `.agents/pstack/rules/autopilot.md` in full.
 <!-- if delivery!=trunk -->
 <!-- # overrides poteto-mode/playbooks/babysit.md "Declare the mode in your first line, before any poll." -->
-- **Babysit levels.** Before Babysit's first step on a PR, unless the run only reviews it, run `node .agents/pstack/levels.mjs` on the decision log of each plan the PR links. It marks a lead stretch `below` when Codex led it or it ran below this session's model and effort. It marks a panel or arena round `below` when a seat is missing or ran below the models sheet and this file's seat overrides. When it marks any unit `below`, or when an agent made a PR that links no log, such as one on a `codex/` branch, run the `redo` skill on the PR first. Redo's step 6 is this Babysit, and that Babysit skips this check. Otherwise Babysit runs as written.
+- **Babysit levels.** Before Babysit's first step on a PR (unless read-only review), check each linked plan log's `lead` and `seats` rows against the current session level and models sheet; if any unit ran below target, run `redo` first.
 <!-- end -->
 <!-- # adds -->
 <!-- # overrides poteto-mode/SKILL.md "A correctness or data gap gets a tracked issue" -->

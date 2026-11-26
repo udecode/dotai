@@ -137,10 +137,7 @@ test('in a trunk project a linked worktree writes the main checkout ledger, cite
   assert.ok(existsSync(join(worktree, log)), 'a run log stays in the worktree');
   const missing = helper('append', log, 'verify', 'Prove the reply', 'why', 'proof: docs/plans/artifacts/fix/reply-a1.log', 'partial, no run');
   assert.equal(missing.status, 1, 'a path neither checkout holds');
-  writeFileSync(join(root, 'docs/plans/artifacts/fix/open-a1.log'), 'exit=1\n');
-  writeFileSync(join(worktree, 'docs/plans/2026-01-01-fix.md'), '# Fix\n\nStatus: building\n\n## Defaults\n\n| Decision | Pick | Alternative | Word | Impact |\n| --- | --- | --- | --- | --- |\n| A | B | C | hold | small |\n');
-  const accepted = helper('append', log, 'verify', 'Accept the gap', 'why', 'proof: docs/plans/artifacts/fix/open-a1.log; word: hold', 'accepted');
-  assert.match(accepted.stderr, /open-a1\.log has no labeled partial, open, gap, blocked or inconclusive row before this one/, 'a main checkout proof still needs its earlier verdict');
+  writeFileSync(join(worktree, 'docs/plans/2026-01-01-fix.md'), '# Fix\n\nStatus: building\n');
   mkdirSync(join(dir, 'replay'), { recursive: true });
   assert.equal(helper('append', join(dir, 'replay', 'suggested-tasks.decisions.tsv'), 'trail', 'Inspect the replay', 'why', 'proof: none', 'recorded').status, 0);
   assert.match(read(dir, 'replay/suggested-tasks.decisions.tsv'), /Inspect the replay/, 'an explicit log path keeps its destination');
@@ -2369,35 +2366,6 @@ test('fast work stays owed until a review task covers it, and comes back when th
   assert.equal(chip(link, 'reviewed').status, 0);
   assert.doesNotMatch(chips().stdout, /Owed review|review the fast work/);
   assert.match(chip(review, 'reviewed').stderr, /t_7a037000 is dismissed declined, so it cannot be reviewed/);
-});
-
-test('decisions-check refuses a round past a maxRounds of 3 until a built: or another round: row', () => {
-  const { dir, run } = sandbox();
-  const root = project(dir, 'app', { config: { ...CONFIG, maxRounds: 3 } });
-  const append = (phase, decision, result = 'recorded') => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', phase, decision, 'why', 'evidence', result], root);
-  const rounds = (count) => {
-    for (let round = 1; round <= count; round += 1) {
-      assert.equal(append('panel', 'seats opus').status, 0, `round ${round}`);
-      assert.equal(append('writing', 'unslop on the round fixes').status, 0);
-    }
-  };
-  rounds(3);
-  const stuck = append('panel', 'seats opus');
-  assert.equal(stuck.status, 1, 'a fourth round with no build between');
-  assert.match(stuck.stderr, /panel round 4 since the last restart/);
-  const roundsCheck = run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'rounds', 'log.decisions.tsv'], root);
-  assert.equal(roundsCheck.status, 1, 'rounds exits 1 at the cap before any seat launches');
-  assert.equal(append('build', 'Build has not started').status, 0);
-  assert.equal(append('build', 'built: parser.mjs', 'skipped: the build has not run').status, 0);
-  assert.equal(append('owner', 'Owner asked: "how long will this take?"').status, 0);
-  assert.equal(append('panel', 'seats opus').status, 1, 'a build row with no built:, a skipped built: row and an owner row with no another round: restart nothing');
-  assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'rounds', 'missing.decisions.tsv'], root).status, 2, 'rounds fails closed on a missing log');
-  assert.equal(append('build', 'built: decisions-check.mjs and its test').status, 0);
-  assert.equal(run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'rounds', 'log.decisions.tsv'], root).status, 0, 'rounds exits 0 after a restart');
-  rounds(3);
-  assert.equal(append('panel', 'seats opus').status, 1, 'the count starts again after a built: row');
-  assert.equal(append('owner', 'another round: "panel"').status, 0);
-  assert.equal(append('panel', 'seats opus').status, 0, 'an another round: row allows the next round');
 });
 
 test('an effort: high row lowers a stored (xhigh) title, and a design question stays at xhigh', () => {

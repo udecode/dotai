@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -8,13 +7,12 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const check = process.argv.includes('--check');
 const forbiddenIndex = process.argv.indexOf('--forbid');
 const forbidden = forbiddenIndex < 0 ? null : new RegExp(process.argv[forbiddenIndex + 1], 'i');
-const sha = (data) => createHash('sha256').update(data).digest('hex');
 const upstream = JSON.parse(readFileSync(join(root, 'upstream-skills.json'), 'utf8'));
 const groups = {
   'Review': ['test-audit'],
   'Communication': ['clip', 'walkthrough', 'video-transcripts', 'plan-page'],
   'Workflow': ['chips', 'passwords', 'redo'],
-  'Maintenance': ['cleanup', 'sync-pstack', 'worktree-workspace'],
+  'Maintenance': ['cleanup', 'sync-pstack'],
   'Monitoring': ['mac-watchdog', 'pstack-doctor', 'pstack-pulse', 'rca'],
 };
 const explicitDependencies = {};
@@ -25,13 +23,12 @@ const requirements = {
   'mac-watchdog': ['macOS with launchd, Node.js and the Xcode command line tools for cc; the Claude desktop app to name sessions; sudo once for the fseventsd watchdog'],
   chips: ['Node.js 22+ and Git; the ledger helpers and chips.md rule that sync-pstack installs in .agents/pstack; a suggest tool for cards, with the fallback chips.md gives without one'],
   'plan-page': ['Node.js 22+ and Git; the renderer that sync-pstack installs in .agents/pstack; the Artifact tool to publish'],
-  'pstack-doctor': ['Node.js 22+, Git and ripgrep; pstack-pulse for live session state, and a session tool that lists sessions for the rest'],
+  'pstack-doctor': ['Node.js 22+, Git and ripgrep; pstack-pulse for live session state, Antigravity ACP transcripts for Gemini 4 Neon sessions, and a session tool that lists sessions for the rest'],
   'pstack-pulse': ['macOS with launchd and the Keychain, Node.js 22+ and sqlite3; an ActivitySmith account and key; Tailscale Funnel for the session list'],
   rca: ['A Code session in the Claude desktop app, which alone has its session tools'],
   'sync-pstack': ['Node.js 22+ and Git; the Claude Code and Codex CLIs for plugin pins and smoke tests'],
   'video-transcripts': ['ffmpeg, curl, jq and a signed-in agy (Antigravity CLI)'],
   walkthrough: ['Real final-state captures, Node.js and the configured annotation tool'],
-  'worktree-workspace': ['Node.js 22+, Git and the VS Code `code` command; session titles from a sessions file or the Claude desktop app on macOS'],
 };
 
 function walk(dir) {
@@ -110,13 +107,13 @@ for (const skill of skills.filter((skill) => skill.capabilities.length)) catalog
 catalog += '\n## Deliberate boundaries\n\ndotai holds shared methods that pstack does not cover. It excludes product-specific schemas, routes, fixtures, provider adapters, release environments and personal configuration; those belong to each project. Framework packages (React, Next.js, Prisma, tRPC and the like) are stack-specific: install named official packages with the Skills CLI after source review. The skills contain no accounts, credentials, personal histories or connector configuration.\n';
 emit('SKILLS.md', catalog);
 
-const distribution = ['README.md', 'SKILLS.md', 'upstream-skills.json', 'scripts/affected-tests.mjs', 'scripts/build-workflow.mjs', 'scripts/validate-skills'];
+const distribution = ['README.md', 'SKILLS.md', 'upstream-skills.json', 'scripts/build-workflow.mjs', 'scripts/validate-skills'];
 const all = [...files, ...distribution.map((file) => join(root, file))].sort();
-const manifest = { schemaVersion: 1, source: 'udecode/dotai', skillsCliVersion: upstream.skillsCliVersion, skills, files: {} };
-for (const file of all) {
-  const bytes = readFileSync(file);
-  if (forbidden?.test(bytes.toString('utf8'))) throw new Error(`Forbidden content in distribution: ${relative(root, file)}`);
-  manifest.files[relative(root, file).split(sep).join('/')] = { sha256: sha(bytes), mode: statSync(file).mode & 0o111 ? 0o755 : 0o644 };
+if (forbidden) {
+  for (const file of all) {
+    if (forbidden.test(readFileSync(file, 'utf8'))) throw new Error(`Forbidden content in distribution: ${relative(root, file)}`);
+  }
 }
+const manifest = { schemaVersion: 1, source: 'udecode/dotai', skillsCliVersion: upstream.skillsCliVersion, skills };
 emit('workflow-manifest.json', JSON.stringify(manifest, null, 2) + '\n');
-console.log(`${check ? 'Verified' : 'Built'} ${skills.length} skills, ${all.length} complete bundle files, resolved skill dependencies and local Markdown references.`);
+console.log(`${check ? 'Verified' : 'Built'} ${skills.length} skills, ${all.length} bundle files, resolved skill dependencies and local Markdown references.`);
