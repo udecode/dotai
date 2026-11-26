@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
@@ -27,7 +27,7 @@ test('convertClaudeMcpServer translates http url to serverUrl and preserves stdi
   assert.equal(convertClaudeMcpServer({}), null);
 });
 
-test('apply migrates Claude Desktop and Claude Code MCPs, seeds gemini config, links T3 profile, and is idempotent', () => {
+test('apply migrates Claude MCPs, seeds gemini and T3 defaults while preserving local keys, links T3 profile, and is idempotent', () => {
   const { home, repo } = makeEnv();
 
   mkdirSync(join(home, 'Library/Application Support/Claude'), { recursive: true });
@@ -66,6 +66,22 @@ test('apply migrates Claude Desktop and Claude Code MCPs, seeds gemini config, l
   mkdirSync(join(home, '.gemini/antigravity-cli'), { recursive: true });
   writeFileSync(join(home, '.gemini/antigravity-cli/mcp_oauth_tokens.json'), '{"linear":"tok"}\n');
 
+  mkdirSync(join(home, '.t3/userdata'), { recursive: true });
+  writeFileSync(
+    join(home, '.t3/userdata/settings.json'),
+    JSON.stringify({
+      projectSettingsOverrides: { 'local-proj-uuid': { defaultAutoPull: true } },
+    })
+  );
+  writeFileSync(
+    join(home, '.t3/userdata/client-settings.json'),
+    JSON.stringify({
+      browserProfiles: [{ id: 'chrome-default' }],
+      fontSizeInterface: 15,
+      voiceMicrophones: [{ deviceId: 'dev-1', kind: 'device', label: 'My Mic' }],
+    })
+  );
+
   const profile = join(home, '.t3/userdata/providers/antigravity/abcdef1234567890');
   mkdirSync(join(profile, 'config'), { recursive: true });
   writeFileSync(join(profile, 'config/mcp_config.json'), '');
@@ -81,11 +97,21 @@ test('apply migrates Claude Desktop and Claude Code MCPs, seeds gemini config, l
   writeFileSync(join(repo, 'AGENTS.md'), '# Repo rules\n');
 
   const auditBefore = runMigration({ apply: false, checkBinaries: false, cwd: repo, home, platform: 'darwin' });
-  assert.ok(auditBefore.todo.length >= 4);
+  assert.ok(auditBefore.todo.length >= 6);
 
   const applied = runMigration({ apply: true, checkBinaries: false, cwd: repo, home, platform: 'darwin' });
   assert.deepEqual(applied.todo, []);
-  assert.ok(applied.changed.length >= 5);
+  assert.ok(applied.changed.length >= 7);
+
+  const t3Settings = JSON.parse(readFileSync(join(home, '.t3/userdata/settings.json'), 'utf8'));
+  assert.deepEqual(t3Settings.defaultModelSelection, { instanceId: 'antigravity', model: 'gemini-4-neon' });
+  assert.deepEqual(t3Settings.projectSettingsOverrides, { 'local-proj-uuid': { defaultAutoPull: true } });
+
+  const t3Client = JSON.parse(readFileSync(join(home, '.t3/userdata/client-settings.json'), 'utf8'));
+  assert.equal(t3Client.followUpBehavior, 'steer');
+  assert.equal(t3Client.fontSizeInterface, 15);
+  assert.deepEqual(t3Client.browserProfiles, [{ id: 'chrome-default' }]);
+  assert.deepEqual(t3Client.voiceMicrophones, [{ deviceId: 'dev-1', kind: 'device', label: 'My Mic' }]);
 
   const mcp = JSON.parse(readFileSync(join(home, '.gemini/config/mcp_config.json'), 'utf8'));
   assert.deepEqual(mcp.mcpServers, {
@@ -120,6 +146,14 @@ test('apply migrates Claude Desktop and Claude Code MCPs, seeds gemini config, l
   const second = runMigration({ apply: true, checkBinaries: false, cwd: repo, home, platform: 'darwin' });
   assert.deepEqual(second.changed, []);
   assert.deepEqual(second.todo, []);
+});
+
+test('t3Only updates only T3 settings without touching gemini config', () => {
+  const { home, repo } = makeEnv();
+  const res = runMigration({ apply: true, checkBinaries: false, cwd: repo, home, platform: 'darwin', t3Only: true });
+  assert.deepEqual(res.todo, []);
+  assert.equal(res.changed.length, 2);
+  assert.equal(existsSync(join(home, '.gemini')), false);
 });
 
 test('apply refuses to overwrite non-empty local profile files and flags oversized AGENTS.md and stale pstack pin', () => {

@@ -1,0 +1,109 @@
+{
+  "settings": {
+    "favorites": [
+      {
+        "provider": "antigravity",
+        "model": "gemini-4-neon"
+      },
+      {
+        "provider": "claudeAgent",
+        "model": "claude-opus-5-5"
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-6.2-sol"
+      },
+      {
+        "provider": "antigravity",
+        "model": "gemini-pro-orchestrator-neon"
+      }
+    ],
+    "providerModelPreferences": {
+      "codex": {
+        "hiddenModels": [
+          "gpt-6.1-terra",
+          "gpt-6.1-sol",
+          "gpt-6-astra",
+          "gpt-6-sol",
+          "gpt-5.6-sol",
+          "gpt-5.6-terra",
+          "gpt-5.6-luna"
+        ],
+        "modelOrder": []
+      },
+      "claudeAgent": {
+        "hiddenModels": [
+          "claude-fable-5-1",
+          "claude-fable-5",
+          "claude-opus-5",
+          "claude-opus-4-8",
+          "claude-opus-4-7",
+          "claude-opus-4-6",
+          "claude-opus-4-5",
+          "claude-sonnet-5",
+          "claude-sonnet-4-6",
+          "claude-haiku-4-5"
+        ],
+        "modelOrder": []
+      },
+      "antigravity": {
+        "hiddenModels": [
+          "gpt-oss-120b-medium"
+        ],
+        "modelOrder": []
+      }
+    },
+    "storageCleanup": {
+      "worktreeOnDelete": true
+    },
+    "defaultModelSelection": {
+      "instanceId": "antigravity",
+      "model": "gemini-4-neon"
+    },
+    "fallbackModelSelection": {
+      "instanceId": "claudeAgent",
+      "model": "claude-opus-5-5",
+      "options": [
+        {
+          "id": "effort",
+          "value": "high"
+        }
+      ]
+    },
+    "enableAgentDeviceAccess": true,
+    "enableDeviceSupport": true,
+    "idleCompaction": "onReturn",
+    "autoResumeLimitedThreads": true,
+    "textGenerationModelSelection": {
+      "instanceId": "antigravity",
+      "model": "gemini-4-hydrogen",
+      "options": [
+        {
+          "id": "thought_level",
+          "value": "low"
+        }
+      ]
+    },
+    "branchNamingMode": "semantic",
+    "providerInstances": {
+      "antigravity": {
+        "driver": "antigravity",
+        "enabled": true
+      }
+    }
+  },
+  "clientSettings": {
+    "panelAnimationDurationMs": 0,
+    "browserLinkTarget": "app",
+    "browserAutoShowFloatingPreview": true,
+    "confirmQuit": "hold",
+    "diffFilesCollapsed": true,
+    "diffIgnoreWhitespace": true,
+    "pullRequestLinksOpenInApp": true,
+    "followUpBehavior": "steer",
+    "showSkillsInSlashMenu": true,
+    "toolCallVisibility": "showAll",
+    "sidebarWorkingShelfEnabled": true,
+    "sidebarProjectGroupingMode": "repository"
+  }
+}

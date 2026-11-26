@@ -20,6 +20,10 @@ import { fileURLToPath } from 'node:url';
 export const AGY_RULE_SAFE_BYTES = 22_500;
 export const AGY_SKILL_DESC_BUDGET = 16_000;
 
+const T3_DEFAULTS = JSON.parse(
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../assets/t3-defaults.json'), 'utf8')
+);
+
 export const DEFAULT_PSTACK_MODELS = `# pstack model configuration (Antigravity)
 
 Antigravity (\`gemini-4-neon @high\`) is the default lead. Native Antigravity subagents (\`invoke_subagent\`) always use \`inherit\`, never \`pro\`, \`flash\`, or \`flash_lite\`. Escalate Neon to \`@xhigh\` only for \`arena runners\`, stuck debugging after \`high\` fails, or deep architectural pivots. Route UI and visual work to Claude Opus (\`opus @high\`).
@@ -81,6 +85,39 @@ function isSymlinkTo(linkPath, targetPath) {
   } catch {
     return false;
   }
+}
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function deepEqual(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function mergePreset(current, preset, nestedKeys = new Set()) {
+  const next = isPlainObject(current) ? { ...current } : {};
+  const updatedKeys = [];
+  for (const [key, desired] of Object.entries(preset)) {
+    if (nestedKeys.has(key) && isPlainObject(desired)) {
+      const mergedNested = isPlainObject(next[key]) ? { ...next[key] } : {};
+      let nestedChanged = false;
+      for (const [subKey, subVal] of Object.entries(desired)) {
+        if (!deepEqual(mergedNested[subKey], subVal)) {
+          mergedNested[subKey] = subVal;
+          nestedChanged = true;
+        }
+      }
+      if (nestedChanged || !isPlainObject(next[key])) {
+        next[key] = mergedNested;
+        updatedKeys.push(key);
+      }
+    } else if (!deepEqual(next[key], desired)) {
+      next[key] = desired;
+      updatedKeys.push(key);
+    }
+  }
+  return { next, updatedKeys };
 }
 
 export function convertClaudeMcpServer(entry) {
@@ -192,17 +229,55 @@ function linkIntoProfile({ apply, dst, label, src, isDir = false }) {
   return { status: 'changed', message: `linked ${label} -> ${src}` };
 }
 
+function applyT3Settings({ apply, changed, home, ok, todo }) {
+  const userdataDir = join(home, '.t3/userdata');
+  const settingsPath = join(userdataDir, 'settings.json');
+  const clientPath = join(userdataDir, 'client-settings.json');
+
+  const mergedSettings = mergePreset(
+    readJson(settingsPath),
+    T3_DEFAULTS.settings,
+    new Set(['providerModelPreferences', 'providerInstances', 'storageCleanup'])
+  );
+  if (mergedSettings.updatedKeys.length > 0) {
+    if (apply) {
+      writeJson(settingsPath, mergedSettings.next);
+      changed.push(`updated ~/.t3/userdata/settings.json (${mergedSettings.updatedKeys.join(', ')})`);
+    } else {
+      todo.push(`apply T3 defaults to ~/.t3/userdata/settings.json (${mergedSettings.updatedKeys.join(', ')})`);
+    }
+  } else {
+    ok.push('~/.t3/userdata/settings.json matches curated defaults');
+  }
+
+  const mergedClient = mergePreset(readJson(clientPath), T3_DEFAULTS.clientSettings);
+  if (mergedClient.updatedKeys.length > 0) {
+    if (apply) {
+      writeJson(clientPath, mergedClient.next);
+      changed.push(`updated ~/.t3/userdata/client-settings.json (${mergedClient.updatedKeys.join(', ')})`);
+    } else {
+      todo.push(`apply T3 workflow defaults to ~/.t3/userdata/client-settings.json (${mergedClient.updatedKeys.join(', ')})`);
+    }
+  } else {
+    ok.push('~/.t3/userdata/client-settings.json matches curated workflow defaults');
+  }
+}
+
 export function runMigration({
   apply = false,
   checkBinaries = true,
   cwd = process.cwd(),
   home = homedir(),
   platform = process.platform,
+  t3Only = false,
 } = {}) {
   const ok = [];
   const changed = [];
   const todo = [];
   const manual = [];
+
+  applyT3Settings({ apply, changed, home, ok, todo });
+  if (t3Only) return { changed, manual, ok, todo };
 
   const record = (res) => {
     if (!res) return;
@@ -381,15 +456,15 @@ export function runMigration({
     }
   }
 
-  manual.push('In T3 Code, pick Antigravity gemini-4-neon (high) as default lead and sign in to Claude and Codex for UI/panel work.');
+  manual.push('Quit and reopen T3 Code, then start a fresh Antigravity thread so MCPs, plugins, skills, AGENTS.md, and T3 settings load.');
+  manual.push('Sign in to Claude (opus) and Codex in T3 Code so fallback, UI delegation, and multi-family panels work.');
+  manual.push('Complete browser OAuth for remote MCP servers and add any Claude.ai cloud connectors (Linear, Slack, Notion) to ~/.gemini/config/mcp_config.json as {"serverUrl": "..."}.');
   if (platform === 'darwin') {
     manual.push(
-      'Import signed-in Chrome profile: System Settings -> Privacy & Security -> Full Disk Access -> enable T3 Code -> quit Chrome (Cmd+Q) -> T3 Settings -> Browser -> Browser profiles -> + Add profile -> Import from Chrome.'
+      'Import signed-in Chrome profile: System Settings -> Privacy & Security -> Full Disk Access -> enable T3 Code -> quit Chrome (Cmd+Q) -> T3 Settings -> Browser -> Browser profiles -> + Add profile -> Import from Chrome -> allow Keychain.'
     );
   }
-  manual.push(
-    'Add any Claude.ai cloud connector URLs (Linear, Slack, Notion) to ~/.gemini/config/mcp_config.json as {"serverUrl": "..."} and complete browser OAuth when prompted.'
-  );
+  manual.push('Add issue tracker API keys (such as Linear) in T3 Settings -> Source control & issues if used.');
 
   return { changed, manual, ok, todo };
 }
@@ -397,6 +472,7 @@ export function runMigration({
 function main() {
   const args = process.argv.slice(2);
   const apply = args.includes('--apply');
+  const t3Only = args.includes('--t3-only');
   const asJson = args.includes('--json');
   const flag = (name) => {
     const i = args.indexOf(name);
@@ -406,7 +482,7 @@ function main() {
   const cwd = flag('--cwd') ? resolve(flag('--cwd')) : process.cwd();
   const checkBinaries = !args.includes('--no-bin-check');
 
-  const result = runMigration({ apply, checkBinaries, cwd, home });
+  const result = runMigration({ apply, checkBinaries, cwd, home, t3Only });
   if (asJson) {
     console.log(JSON.stringify(result, null, 2));
   } else {
