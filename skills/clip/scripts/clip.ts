@@ -486,18 +486,25 @@ export async function openClip(
   url: string,
   {
     cursor = true,
+    clipboard = true,
     colorScheme = 'light',
     // The scene's own folder decides first, because a scene lives with the work it films.
     shape = projectShape([dirname(Bun.main), process.cwd()]),
     size,
     storageState,
-  }: { cursor?: boolean; colorScheme?: 'light' | 'dark'; shape?: 'wide' | 'x' | 'pair' | 'repro'; size?: { width: number; height: number }; storageState?: string } = {},
+  }: { cursor?: boolean; clipboard?: boolean; colorScheme?: 'light' | 'dark'; shape?: 'wide' | 'x' | 'pair' | 'repro'; size?: { width: number; height: number }; storageState?: string } = {},
 ) {
   // A bug clip may film the narrow or tall window its bug needs.
   const view = shape === 'repro' && size ? { ...CLIP.repro, ...size } : CLIP[shape]
   // With only the context's deviceScaleFactor, Chrome screencast an X page at 540 px into a 1080 px frame.
   const browser = await chromium.launch({ args: [`--force-device-scale-factor=${view.scale}`] })
-  const ctx = await browser.newContext({ colorScheme, viewport: { width: view.width, height: view.height }, deviceScaleFactor: view.scale, storageState })
+  const ctx = await browser.newContext({
+    colorScheme,
+    viewport: { width: view.width, height: view.height },
+    deviceScaleFactor: view.scale,
+    storageState,
+    permissions: clipboard ? ['clipboard-read', 'clipboard-write'] : undefined,
+  })
   if (cursor) await ctx.addInitScript(drawCursor, { idleS: CLIP.cursorIdleS, fadeS: CLIP.cursorFadeS })
   const page = await ctx.newPage()
   await page.goto(url, { waitUntil: 'networkidle' })

@@ -272,6 +272,43 @@ describe('captions, titles, crop, and rendering', () => {
       await clip.page.context().browser()!.close()
     }
   }, 30_000)
+
+  test('grants clipboard permissions by default and leaves them ungranted with clipboard: false', async () => {
+    const server = Bun.serve({
+      port: 0,
+      fetch: () => new Response('<!doctype html><body>clipboard</body>', { headers: { 'content-type': 'text/html' } }),
+    })
+    const url = `http://localhost:${server.port}/`
+    const states = (clip: Awaited<ReturnType<typeof openClip>>) =>
+      clip.page.evaluate(async () => [
+        (await navigator.permissions.query({ name: 'clipboard-read' as PermissionName })).state,
+        (await navigator.permissions.query({ name: 'clipboard-write' as PermissionName })).state,
+      ])
+    try {
+      const granted = await openClip(url, { cursor: false })
+      try {
+        expect(await states(granted)).toEqual(['granted', 'granted'])
+        const text = await granted.page.evaluate(async () => {
+          await navigator.clipboard.writeText('clip-round-trip')
+          return navigator.clipboard.readText()
+        })
+        expect(text).toBe('clip-round-trip')
+      } finally {
+        await granted.browser.close()
+      }
+
+      const ungranted = await openClip(url, { cursor: false, clipboard: false })
+      try {
+        const [readState, writeState] = await states(ungranted)
+        expect(readState).not.toBe('granted')
+        expect(writeState).not.toBe('granted')
+      } finally {
+        await ungranted.browser.close()
+      }
+    } finally {
+      server.stop(true)
+    }
+  }, 30_000)
 })
 
 describe('drag and drop', () => {

@@ -55,7 +55,7 @@ Evidence clips keep real time (no still-frame cuts):
 - Call `beat()` at each action start; show keyboard shortcuts as `[Key]`.
 - Keep clips snappy (~14 s for 4 beats), light mode unless testing dark mode, zero artificial polish (no zoom/wallpaper/blur/music). Use `read(ms)` (~1 s label, 2-3 s toast) to preserve readable holds; render trims other dead air automatically.
 - Shapes: default is X 2:3 (`540x654` page); `{ shape: 'wide' }` (`1100x720`) for desktop chat (or set `{ "shape": "wide" }` in `.agents/clip.json` for projects not posting to X); `{ shape: 'pair' }` for before/after.
-- Pass `{ storageState: '<file>' }` for signed-in pages, `stroke` for pen easing, `{ cursor: false }` for keyboard-only clips.
+- Pass `{ storageState: '<file>' }` for signed-in pages, `stroke` for pen easing, `{ cursor: false }` for keyboard-only clips. `openClip` grants clipboard permissions by default (`{ clipboard: false }` to disable).
 
 ## Review and fix
 
