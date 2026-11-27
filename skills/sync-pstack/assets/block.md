@@ -19,7 +19,7 @@
 <!-- # adds -->
 - **T3 orchestration.** Pick the child tier by who owns the result and what model or isolation it needs:
   - `invoke_subagent` (`Model: "inherit"`, never `pro`, `flash`, or `flash_lite`): default for same-provider, same-model child work where the parent waits on and consumes the result (research lanes, package audits, `operator` normal fixes or judges, parallel plan steps, `verdict` exploration).
-  - `delegate_task` (`mode: "async"`): parent still owns the result, when needing another provider (`claude-opus-5-5` for UI/visual, `gpt-6.2-astra`/`sol`, `claude-fable-5-2`), higher effort (`gemini-4-neon @xhigh` for stuck debugging, arena, or panels), or T3-managed `isolation: "worktree"`.
+  - `delegate_task` (`mode: "async"`): parent still owns the result, when needing another provider (`claude-opus-5-5` for UI/visual, `gpt-6.2-sol`, `claude-fable-5-2`), higher effort (`gemini-4-neon @xhigh` for stuck debugging or arena), or T3-managed `isolation: "worktree"`.
   - `t3_thread_launch`: only for standalone top-level threads that outlive the parent and talk directly to the user in their own worktree (`workspaceStrategy`): launching an independent queued task, a standalone feature thread explicitly spun off, or a pinned daemon (`📌 operator`). Never for subtasks, parallel steps, `verdict`, routine `operator` fixes, or panels.
 <!-- if maxEffort -->
 <!-- # adds -->
