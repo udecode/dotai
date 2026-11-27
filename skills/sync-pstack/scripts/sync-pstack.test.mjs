@@ -60,6 +60,9 @@ test('apply inserts one block, removes retired helpers, stays idempotent, and ch
   });
   mkdirSync(join(root, '.agents/pstack'), { recursive: true });
   writeFileSync(join(root, '.agents/pstack/freeze.mjs'), '// retired\n');
+  writeFileSync(join(root, '.agents/pstack/plan-page.mjs'), '// retired\n');
+  writeFileSync(join(root, '.agents/pstack/decisions-check.mjs'), '// retired\n');
+  writeFileSync(join(root, '.agents/pstack/plan-open.mjs'), '// retired\n');
 
   assert.equal(cli('apply', root).status, 0);
   const agents = read(root, 'AGENTS.md');
@@ -68,8 +71,10 @@ test('apply inserts one block, removes retired helpers, stays idempotent, and ch
   assert.ok(agents.indexOf('<!-- pstack:end -->') < agents.indexOf('## Product\n\nKeep this.'));
   assert.match(agents, /`\.agents\/playbooks\/bug-fix\.md`, on top of pstack's `bug-fix`\. Use it for any bug report\./);
   assert.match(agents, /\n {2}- `pr`: Before opening a PR, the diff gets a panel\./);
-  assert.equal(read(root, '.agents/pstack/plan-open.mjs'), readFileSync(join(HELPERS, 'plan-open.mjs'), 'utf8'));
-  assert.equal(existsSync(join(root, '.agents/pstack/freeze.mjs')), false, 'retired helper removed');
+  assert.equal(read(root, '.agents/pstack/status.mjs'), readFileSync(join(HELPERS, 'status.mjs'), 'utf8'));
+  for (const retired of ['freeze.mjs', 'plan-page.mjs', 'decisions-check.mjs', 'plan-open.mjs']) {
+    assert.equal(existsSync(join(root, '.agents/pstack', retired)), false, `${retired} removed`);
+  }
   assert.equal(existsSync(join(root, '.agents/pstack/rules/long-runs.md')), false, 'skipped rule omitted');
   const trails = read(root, '.agents/pstack/rules/trails.md');
   assert.match(trails, /notes\/plans\/<date>-<slug>\.md/);
@@ -134,7 +139,7 @@ test('switching delivery to trunk and back swaps shared-checkout files for landi
   const pstack = (name) => join(root, '.agents/pstack', name);
   const sharedCheckout = ['codex-build.md', 'rules/close.md', 'rules/codex.md'];
   const landing = ['guard.mjs', 'land.mjs', 'review.mjs', 'setup.mjs', 'rules/land.md'];
-  const everywhere = ['cross.mjs', 'decisions-check.mjs', 'lead.mjs', 'plan-open.mjs', 'plan-page.mjs', 'proof.mjs', 'status.mjs', 'checkout.mjs', 'rules/autopilot.md', 'rules/git.md', 'rules/panel.md', 'rules/pages.md', 'rules/title.md', 'rules/trails.md', 'rules/long-runs.md'];
+  const everywhere = ['cross.mjs', 'lead.mjs', 'proof.mjs', 'status.mjs', 'checkout.mjs', 'rules/autopilot.md', 'rules/git.md', 'rules/panel.md', 'rules/pages.md', 'rules/title.md', 'rules/trails.md', 'rules/long-runs.md'];
   const deliver = (delivery) => {
     writeFileSync(join(root, '.agents/pstack.json'), `${JSON.stringify({ ...readJson(root, '.agents/pstack.json'), delivery }, null, 2)}\n`);
     const res = cli('apply', root);
@@ -162,21 +167,6 @@ test('pushBranches toggles branch pushes in user delivery', () => {
   assert.match(read(owner, '.agents/pstack/rules/git.md'), /The repair stays uncommitted there for the owner's commit\./);
   assert.match(read(branches, 'AGENTS.md'), /On every other branch the lead commits and pushes/);
   assert.match(read(branches, '.agents/pstack/rules/git.md'), /git push origin HEAD:<head branch>/);
-});
-
-test('apply drops legacy page lists from config once a playbook carries them, and refuses until then', () => {
-  const { dir, cli } = sandbox();
-  const config = { ...CONFIG, pageLead: ['What other editors do'], pagePairs: ['Document shape'], pageTopic: { field: 'review_scopes', require: ['What other editors do'] } };
-  const root = project(dir, 'app', { config, agents: '# App\n', files: { '.agents/playbooks/plan.md': '---\nextends: multi-phase-plan\nwhen: Use it to plan.\npage-lead: What other editors do\n---\n' } });
-  const refused = cli('apply', root);
-  assert.equal(refused.status, 1);
-  assert.match(refused.stdout, /pagePairs "Document shape", pageTopic\.require "What other editors do"/);
-  assert.ok(!existsSync(join(root, '.agents/pstack/plan-page.mjs')));
-  writeFileSync(join(root, '.agents/playbooks/plan.md'), '---\nextends: multi-phase-plan\nwhen: Use it to plan.\npage-lead: What other editors do\npage-pairs: Document shape\npage-require: What other editors do\n---\n');
-  assert.equal(cli('apply', root).status, 0);
-  const applied = readJson(root, '.agents/pstack.json');
-  assert.ok(!('pageLead' in applied) && !('pagePairs' in applied));
-  assert.deepEqual(applied.pageTopic, { field: 'review_scopes' });
 });
 
 test('check flags and apply removes orphaned files under .agents/pstack/rules', () => {

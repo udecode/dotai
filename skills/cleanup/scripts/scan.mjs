@@ -680,7 +680,7 @@ const ignoresTmp = (main) => {
 // The run folders sit in the main checkout so they outlive the worktrees that
 // write them. The suggested-task ledger beside them names the ones an open
 // task still reads, and a decision log changed this week names the ones a new
-// row may still cite as proof, which decisions-check requires to exist.
+// row may still cite as proof.
 function runFolders(main, now) {
   const root = runRoot(main);
   const roots = [root, ignoresTmp(main) ? '.tmp' : null].filter((each) => each && existsSync(join(main, each)));

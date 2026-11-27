@@ -40,38 +40,6 @@ test('smoke runs Claude by default, supports both runtimes without CLAUDECODE, a
   assert.equal(run(['--runtime', 'both'], { EMPTY_CODEX: '1' }).status, 1);
 });
 
-test('corpus diffs installed vs bundled decision-log helpers and flags absent helpers', () => {
-  const { dir, env, cli } = sandbox();
-  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
-  project(dir, 'bare', { agents: '# Bare\n' });
-  assert.equal(cli('apply', root).status, 0);
-  spawnSync('git', ['-C', root, 'add', '-A']);
-  commit(root, 'app');
-  mkdirSync(join(root, 'docs/plans'), { recursive: true });
-  writeFileSync(join(root, 'docs/plans/2026-10-01-x.decisions.tsv'), 'ts\tphase\tdecision\twhy\tevidence\tresult\n2026-10-01T00:00:00Z\tbuild\tA decision\tA reason\tsome evidence\tmaybe\n');
-  spawnSync('git', ['-C', root, 'add', '-A']);
-  commit(root, 'log');
-  const installed = join(root, '.agents/pstack/decisions-check.mjs');
-  cpSync(join(root, '.agents/pstack'), join(dir, 'baseline'), { recursive: true });
-
-  const same = spawnSync(process.execPath, [SCRIPT, 'corpus', root, '--out', join(dir, 'same')], { encoding: 'utf8', env: { ...env, PSTACK_BASE: 'HEAD' } });
-  assert.equal(same.status, 0, same.stderr);
-  assert.match(same.stdout, /^\S+\/app\n {2}no difference$/m);
-  assert.match(read(join(dir, 'same'), 'corpus-app-bundled.txt'), /2026-10-01-x\.decisions\.tsv/);
-
-  writeFileSync(installed, "console.log('old', process.argv.slice(2).join(' '));\nif (process.argv[2] === '--all') throw new Error('boom');\n");
-  const out = join(dir, 'out');
-  const changed = cli('corpus', '--root', dir, '--out', out);
-  assert.equal(changed.status, 0, changed.stderr);
-  assert.doesNotMatch(changed.stdout, /bare/);
-  assert.match(changed.stdout, /^ {2}-old --all$/m);
-  assert.match(read(out, 'corpus-app-installed.txt'), /file:\/\/<helpers>\/decisions-check\.mjs:2/);
-  assert.match(cli('corpus', root, '--installed', join(dir, 'baseline')).stdout, /^\S+\/app\n {2}no difference$/m);
-
-  rmSync(installed);
-  assert.match(cli('corpus', root).stdout, /^ {2}-absent$/m);
-});
-
 test('user-pin prints project-scope update commands only for lagging installs', () => {
   const { home, cli } = sandbox();
   mkdirSync(join(home, '.claude/plugins'), { recursive: true });
@@ -233,7 +201,6 @@ test('sync enforces clean working branch, respects autoSync false, and isolates 
 
   // autoSync false holds until named; malformed config fails only its own project.
   const heldLine = new RegExp(`^${held}\\n {2}held: autoSync is false; name it to sync$`, 'm');
-  assert.match(cli('corpus', '--root', repos).stdout, heldLine);
   writeFileSync(join(broken, '.agents/pstack.json'), '{"tag":');
   const status = cli('status', '--root', repos, '--offline');
   assert.equal(status.status, 0, status.stderr);

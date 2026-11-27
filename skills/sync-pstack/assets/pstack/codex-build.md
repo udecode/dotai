@@ -21,7 +21,7 @@ Do this:
 Do not:
 - write a plan, a decision log, a changeset or a doc;
 - run a panel, architect, arena, interrogate or any other subagent or seat, or call cross.mjs;
-- touch the suggested-task ledger or run any decisions-check.mjs command that writes;
+- touch the suggested-task ledger or decision logs;
 - commit, push, stash, or create or remove a worktree;
 - copy or export the repository, or run checks against HEAD; the session that briefed you runs every base control;
 - write scratch files anywhere but <the brief's folder>, which git ignores;

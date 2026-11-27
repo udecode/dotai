@@ -26,8 +26,8 @@ export const ENV = {
   ANTIGRAVITY_CONVERSATION_ID: '',
   PSTACK_SLOT: '1',
 };
-export const GOOD = 'feat(a): change a\n\nWhy a changes.\n\nBeyond the ask: none\nPicks: none\nNot checked: none';
-export const PR = 'feat(a): change a\n\n## Why\n\nWhy a changes.\n\n## Verification\n\n- a.txt reads two.\n\nBeyond the ask: none\nPicks: none\nNot checked: none';
+export const GOOD = 'feat(a): change a\n\nWhy a changes.';
+export const PR = 'feat(a): change a\n\n## Why\n\nWhy a changes.\n\n## Verification\n\n- a.txt reads two.';
 
 export const git = (cwd, ...args) => {
   const run = spawnSync('git', args, { cwd, encoding: 'utf8', env: ENV });

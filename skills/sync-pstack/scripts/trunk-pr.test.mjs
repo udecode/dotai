@@ -39,70 +39,6 @@ test('land stamps Plan: only when one dated plan changed, and stamps Lead:/Sessi
   assert.equal(git(remote, 'log', '-1', '--format=%B', 'next'), `${GOOD}\n\nSession: ${session}\nLead: claude-opus-5-5 @high`);
 });
 
-function sourceless(fixture) {
-  const { dir, clone } = fixture;
-  const config = JSON.parse(readFileSync(join(clone, '.agents/pstack.json'), 'utf8'));
-  writeFileSync(join(clone, '.agents/pstack.json'), JSON.stringify({ ...config, delivery: 'trunk', sourceless: ['owner'] }));
-  writeFileSync(join(clone, '.gitignore'), '.env\n.env.local\nnode_modules\ndocs/plans/artifacts\n');
-  git(clone, 'commit', '--quiet', '-am', 'sourceless');
-  git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
-  git(clone, 'fetch', '--quiet', 'origin');
-  const bin = join(dir, 'login-bin');
-  mkdirSync(bin);
-  writeFileSync(join(bin, 'gh'), '#!/bin/sh\n[ -n "$GH_LOGIN" ] || { echo "not logged in" >&2; exit 1; }\necho "$GH_LOGIN"\n', { mode: 0o755 });
-  return (login) => ({ PATH: `${bin}:${process.env.PATH}`, GH_LOGIN: login });
-}
-
-test('land enforces sourceless policy on public and companion commits', () => {
-  const fixture = trunk();
-  const { dir, remote, clone, message } = fixture;
-  git(clone, 'config', 'pstack.delivery', 'push');
-  const as = sourceless(fixture);
-  const base = git(remote, 'rev-parse', 'next');
-  const body = (line) => `feat(a): change a\n\n${line}\n\nBeyond the ask: none\nPicks: none\nNot checked: none`;
-  let count = 0;
-  const change = () => writeFileSync(join(clone, 'a.txt'), `change ${(count += 1)}\n`);
-  const refused = (text, env, why) => {
-    const run = helper('land.mjs', clone, ['--message', message(text)], env);
-    assert.equal(run.status, 1, `${why}: ${run.stderr}`);
-    return run.stderr;
-  };
-
-  change();
-  git(clone, 'commit', '--quiet', '-am', 'wip');
-  const task = git(clone, 'rev-parse', 'HEAD');
-  assert.match(refused(GOOD, as('teammate'), 'no source'), /names no source, and only owner land without one, not teammate/);
-  assert.equal(git(remote, 'rev-parse', 'next'), base);
-  assert.equal(git(clone, 'rev-parse', 'HEAD'), task);
-  for (const line of ['Step #3.', 'See https://github.com/someone/else/issues/12.', 'Runs card t_00000000.', 'Plan: none', 'Plan: a.txt']) {
-    assert.match(refused(body(line), as('teammate'), line), /names no source/);
-  }
-  assert.match(refused(GOOD, as(''), 'gh fails'), /gh api user failed: not logged in/);
-  assert.match(refused(GOOD, { PATH: '/usr/bin:/bin' }, 'no gh'), /gh api user failed: spawnSync gh ENOENT/);
-
-  const owner = basename(dir).toLowerCase();
-  for (const line of ['Repairs remote#12.', `Repairs ${owner}/remote#12.`, `See https://github.com/${owner}/remote/issues/12.`]) {
-    assert.equal(helper('land.mjs', clone, ['--message', message(body(line))], as('teammate')).status, 0, line);
-    change();
-  }
-  mkdirSync(join(clone, 'docs/plans'), { recursive: true });
-  writeFileSync(join(clone, 'docs/plans/2026-10-28-x.md'), '# X\n');
-  assert.equal(helper('land.mjs', clone, ['--message', message(GOOD)], as('teammate')).status, 0);
-  change();
-  assert.equal(helper('land.mjs', clone, ['--message', message(GOOD)], as('owner')).status, 0);
-
-  // Companion rerun also enforces source.
-  const { companion, side } = split(fixture);
-  const landed = git(clone, 'rev-parse', 'HEAD');
-  const pending = (line) => `feat(a): change a\n\n${line}\n\nBeyond the ask: none\nPicks: none\nNot checked: none\n\nLead: claude-opus-5-5 @max\nLands-With: ${landed}`;
-  writeFileSync(join(clone, 'a.spec'), 'two\n');
-  side('commit', '--quiet', '-am', pending('Why a changes.'));
-  assert.match(helper('land.mjs', clone, [], as('teammate')).stderr, /names no source/);
-  side('commit', '--quiet', '--amend', '-m', pending('Repairs companion#3.'));
-  assert.equal(helper('land.mjs', clone, [], as('teammate')).status, 0);
-  assert.match(git(companion, 'log', '-1', '--format=%B', 'next'), /Repairs companion#3/);
-});
-
 test('land opens PR into next with auto-merge, validates PR body/models sheet, and handles fork & no-push-access clones', () => {
   const { dir, remote, clone, base, message } = trunk();
   const gh = stubGh(dir);
@@ -112,7 +48,7 @@ test('land opens PR into next with auto-merge, validates PR body/models sheet, a
 
   // Refuses PR without ## Why / ## Verification text, keeping HEAD intact.
   assert.match(helper('land.mjs', clone, ['--message', message(GOOD)], gh).stderr, /needs a `## Why` section and a `## Verification` section with text/);
-  assert.match(helper('land.mjs', clone, ['--message', message('feat(a): change a\n\n## Why\n\nWhy.\n\n## Verification\n\n<!-- placeholder -->\n\nBeyond the ask: none\nPicks: none\nNot checked: none')], gh).stderr, /needs a `## Verification` section with text/);
+  assert.match(helper('land.mjs', clone, ['--message', message('feat(a): change a\n\n## Why\n\nWhy.\n\n## Verification\n\n<!-- placeholder -->\n')], gh).stderr, /needs a `## Verification` section with text/);
   assert.equal(git(clone, 'rev-parse', 'HEAD'), head);
 
   // Refuses PR when models sheet seats sonnet/haiku/medium or omits arena runners.
@@ -172,35 +108,18 @@ test('land in a fork rebases onto upstream and opens PR there; direct clone with
   assert.deepEqual([...args.slice(0, 6), ...args.slice(10)], ['pr', 'create', '--base', 'next', '--head', 'contributor:task', '--repo', `${dir.split('/').at(-1)}/remote`]);
 });
 
-test('land renders PR body through plan-page.mjs with --attach, and refuses push when plan-page fails', () => {
-  const { dir, remote, clone, message } = trunk();
-  writeFileSync(
-    join(clone, '.agents/pstack/plan-page.mjs'),
-    `import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-const [plan, flag] = process.argv.slice(2);
-if (flag !== '--pr' || readFileSync(plan, 'utf8').includes('no brief')) { console.error(\`\${plan} needs a ## Brief before --pr\`); process.exit(1); }
-mkdirSync('docs/plans/artifacts', { recursive: true });
-writeFileSync('docs/plans/artifacts/x.pr.md', \`<!-- plan-page:start -->\\nThe page of \${plan}\\n<!-- plan-page:end -->\\n\`);
-console.info(\`\${process.cwd()}/docs/plans/artifacts/x.pr.md\\n--attach ./docs/plans/shots/after.png\`);
-`,
-  );
+test('land uses the changed dated plan Markdown directly as PR body (stripping YAML frontmatter)', () => {
+  const { dir, clone, message } = trunk();
   mkdirSync(join(clone, 'docs/plans'), { recursive: true });
-  writeFileSync(join(clone, 'docs/plans/2026-10-18-x.md'), '# X\n\nno brief\n');
+  writeFileSync(join(clone, 'docs/plans/2026-10-18-x.md'), '---\nstatus: active\n---\n# X\n\nPlan details.\n');
   const gh = stubGh(dir);
 
-  const refused = helper('land.mjs', clone, ['--message', message(GOOD)], gh);
-  assert.equal(refused.status, 1);
-  assert.match(refused.stderr, /plan-page\.mjs refused .*needs a ## Brief/su);
-  assert.equal(spawnSync('git', ['rev-parse', '--verify', 'task'], { cwd: remote, env: ENV }).status, 128);
-
-  writeFileSync(join(clone, 'docs/plans/2026-10-18-x.md'), '# X\n');
-  const landed = helper('land.mjs', clone, [], gh);
+  const landed = helper('land.mjs', clone, ['--message', message(GOOD)], gh);
   assert.equal(landed.status, 0, landed.stderr);
-  assert.equal(readFileSync(join(dir, 'gh-body'), 'utf8'), '<!-- plan-page:start -->\nThe page of docs/plans/2026-10-18-x.md\n<!-- plan-page:end -->\n');
-  assert.deepEqual(ghArgs(dir).slice(10), ['--attach', './docs/plans/shots/after.png']);
+  assert.equal(readFileSync(join(dir, 'gh-body'), 'utf8'), '# X\n\nPlan details.\n');
 });
 
-test('land validates Conventional commits, required trailers, Writing rule, closing keywords, and Introduced-by on fixes', () => {
+test('land validates Conventional commits, Writing rule, closing keywords, and optional Introduced-by on fixes', () => {
   const { remote, clone, base, message } = trunk();
   git(clone, 'config', 'pstack.delivery', 'push');
   writeFileSync(join(clone, 'a.txt'), 'two\n');
@@ -208,20 +127,18 @@ test('land validates Conventional commits, required trailers, Writing rule, clos
 
   const everything = helper('land.mjs', clone, ['--message', message('Change a.\nWhy a changes — and how. Closes #12 and fixes #34\n')]);
   assert.equal(everything.status, 1);
-  for (const problem of [/is not one Conventional Commit/, /a blank line must separate/, /no `Beyond the ask:`/, /no `Picks:`/, /no `Not checked:`/, /breaks the Writing rule/, /"Closes #12" closes an issue/]) {
+  for (const problem of [/is not one Conventional Commit/, /a blank line must separate/, /breaks the Writing rule/, /"Closes #12" closes an issue/]) {
     assert.match(everything.stderr, problem);
   }
-  assert.match(helper('land.mjs', clone, ['--message', message('feat(a): change a\n\nBeyond the ask: none\n<!--\nPicks: hidden\n-->\nNot checked: none\n')]).stderr, /no `Picks:`/);
   for (const [text, name] of [
-    ['feat(a): change a\n\nRan triage fix #5228.\n\nBeyond the ask: none\nPicks: none\nNot checked: none\n', 'remote'],
-    ['feat(a): change a\n\nCloses: udecode/plate#12\n\nBeyond the ask: none\nPicks: none\nNot checked: none\n', 'plate'],
+    ['feat(a): change a\n\nRan triage fix #5228.\n', 'remote'],
+    ['feat(a): change a\n\nCloses: udecode/plate#12\n', 'plate'],
   ]) {
     assert.match(helper('land.mjs', clone, ['--message', message(text)]).stderr, new RegExp(`closes an issue .*write \`${name}#<N>\``));
   }
 
-  const FIX = 'fix(a): repair a\n\nBeyond the ask: none\nPicks: none\nNot checked: none';
+  const FIX = 'fix(a): repair a\n\nWhy.';
   for (const [line, refusal] of [
-    ['', /names no commit that introduced its bug/],
     ['\nIntroduced-by: ', /an `Introduced-by:` line has no value/],
     ['\nIntroduced-by: 0123456789abcdef0123456789abcdef01234567', /names no commit/],
     [`\nIntroduced-by: none\nIntroduced-by: ${base}`, /cannot stand beside another/],
@@ -236,11 +153,12 @@ test('land validates Conventional commits, required trailers, Writing rule, clos
   assert.equal(git(remote, 'rev-parse', 'next'), base);
   assert.equal(git(clone, 'rev-parse', 'HEAD'), head);
 
-  // Valid messages: code-span em-dash, repo#N ref, fix with base sha and fix with none.
+  // Valid messages: code-span em-dash, repo#N ref, fix without Introduced-by, fix with base sha, and fix with none.
   for (const text of [
-    'feat(a): change a\n\nKeeps `—` and fix remote#5228.\n\nBeyond the ask: none\nPicks: none\nNot checked: none',
-    `fix(a)!: repair a\n\nBeyond the ask: none\nPicks: none\nNot checked: none\nIntroduced-by: ${base}`,
-    'fix: repair again\n\nBeyond the ask: none\nPicks: none\nNot checked: none\nIntroduced-by: none',
+    'feat(a): change a\n\nKeeps `—` and fix remote#5228.',
+    'fix(a): repair without trailer\n\nWhy.',
+    `fix(a)!: repair a\n\nIntroduced-by: ${base}`,
+    'fix: repair again\n\nIntroduced-by: none',
   ]) {
     writeFileSync(join(clone, 'a.txt'), `${text}\n`);
     const ok = helper('land.mjs', clone, ['--message', message(text)]);
@@ -256,25 +174,11 @@ test('land validates Conventional commits, required trailers, Writing rule, clos
   assert.match(git(remote, 'log', '-1', '--format=%B', 'next'), /^Plan: docs\/plans\/2026-11-01-pivotal\.md$/mu);
 });
 
-const planDoc = ({ status = 'active', impact }) =>
-  `# X\n\nStatus: ${status}\n\nOne.\n\nTwo.\n\nThree.\n\nFour.\n\n## Defaults\n\n| Decision | Pick | Alternative | Word | Impact |\n| --- | --- | --- | --- | --- |\n| Order | a | b | swap | ${impact} |\n`;
-
-test('land --dry validates Defaults tables (including non-ASCII & companion plans), runs config landChecks, and enforces 55m deadline', () => {
+test('land --dry runs config landChecks without committing and enforces 55m deadline', () => {
   const fixture = trunk();
-  const { dir, remote, clone, base, message } = fixture;
+  const { dir, clone, message } = fixture;
   git(clone, 'config', 'pstack.delivery', 'push');
-  mkdirSync(join(clone, 'docs/plans'), { recursive: true });
-  const planPath = join(clone, 'docs/plans/2026-11-02-café.md');
-  writeFileSync(planPath, planDoc({ impact: 'huge' }));
   const head = git(clone, 'rev-parse', 'HEAD');
-
-  assert.match(helper('land.mjs', clone, ['--message', message(GOOD), '--dry']).stderr, /## Defaults in docs\/plans\/2026-11-02-café\.md gives "Order" the impact "huge"/u);
-  const realBad = helper('land.mjs', clone, ['--message', message(GOOD), '--check', 'touch checked']);
-  assert.equal(realBad.status, 1);
-  assert.equal(existsSync(join(clone, 'checked')), false);
-  assert.equal(git(remote, 'rev-parse', 'next'), base);
-
-  writeFileSync(planPath, planDoc({ impact: 'small' }));
   const ran = join(dir, 'ran');
   const config = JSON.parse(readFileSync(join(clone, '.agents/pstack.json'), 'utf8'));
   config.landChecks = [`test -f c.txt && echo saw >> ${ran}`, 'test -z "$PSTACK_LAND_CHECK"'];
@@ -290,32 +194,4 @@ test('land --dry validates Defaults tables (including non-ASCII & companion plan
   const deadline = helper('land.mjs', clone, ['--message', message(GOOD), '--dry'], { PSTACK_LAND_SPENT_MS: String(55 * 60_000) });
   assert.equal(deadline.status, 1);
   assert.match(deadline.stderr, /land\.mjs --dry stopped .* at 55 minutes into the run/u);
-
-  // Companion-owned plan with bad Defaults is also refused by --dry.
-  split(fixture);
-  writeFileSync(join(clone, '.gitprivate'), '*.spec\n/docs/plans/\n');
-  writeFileSync(join(clone, 'docs/plans/2026-11-02-comp.md'), planDoc({ impact: 'huge' }));
-  assert.match(helper('land.mjs', clone, ['--message', message(GOOD), '--dry']).stderr, /gives "Order" the impact "huge"/u);
-});
-
-test('land refuses an open plan whose Defaults table a clean rebase made bad before running checks', () => {
-  const { dir, remote, clone, message } = trunk();
-  git(clone, 'config', 'pstack.delivery', 'push');
-  mkdirSync(join(clone, 'docs/plans'), { recursive: true });
-  const path = 'docs/plans/2026-11-02-x.md';
-  writeFileSync(join(clone, path), planDoc({ status: 'executed', impact: 'small' }));
-  git(clone, 'add', '--all');
-  git(clone, 'commit', '--quiet', '-m', 'plan');
-  git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
-  const other = join(dir, 'other-plan');
-  git(dir, 'clone', '--quiet', '--branch', 'next', remote, other);
-  writeFileSync(join(other, path), planDoc({ status: 'executed', impact: 'huge' }));
-  git(other, 'commit', '--quiet', '-am', 'impact');
-  git(other, 'push', '--quiet', 'origin', 'HEAD:next');
-  writeFileSync(join(clone, path), planDoc({ status: 'active', impact: 'small' }));
-
-  const run = helper('land.mjs', clone, ['--message', message(GOOD), '--check', 'touch checked']);
-  assert.equal(run.status, 1);
-  assert.match(run.stderr, /gives "Order" the impact "huge"/u);
-  assert.equal(existsSync(join(clone, 'checked')), false);
 });

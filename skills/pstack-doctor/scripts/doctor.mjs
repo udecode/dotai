@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Gathers the facts that tell a landing session from a blocked, stuck or endless one from records the sessions
-// already write: the desktop session list, pstack-pulse's state, landing commits' Session: lines, the plan's Status
-// and boxes, the earlier plans on its topic, their decision logs, and the first and last bytes of each transcript.
+// already write: an optional session list, pstack-pulse's state, Antigravity ACP transcripts, landing commits' Session: lines,
+// the plan's Status and boxes, the earlier plans on its topic, their decision logs, and each transcript's bounds.
 // Usage: node doctor.mjs facts [--sessions <list.json>] [--min-hours 24 | --self] [--json] [--no-record]
 //        node doctor.mjs transcript <session id or transcript path> [--last 60] [--bytes 8000000]
 //        node doctor.mjs due --hook | --transcript <path> [--cwd <checkout>]
@@ -39,7 +39,7 @@ const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 const textOf = (value) => (typeof value === 'string' ? value : Array.isArray(value) ? value.map(textOf).join('\n') : value && typeof value === 'object' ? textOf(value.text ?? value.content ?? value.output ?? '') : '');
 const mainOf = (common, top) => (common && basename(common) === '.git' ? dirname(common) : top);
 
-/** The pulse sessions of one desktop session: its live entry first, then every earlier transcript. */
+/** The pulse sessions of one session id: its live entry first, then every earlier transcript. */
 export function pulseEntries(state, id) {
   const entries = Object.values(state?.sessions ?? {}).filter((entry) => entry.host === id || entry.id === id);
   return entries.sort((a, b) => Number(b.life === 'live') - Number(a.life === 'live') || String(b.lastHookAt).localeCompare(String(a.lastHookAt)));
@@ -262,7 +262,7 @@ const logKey = (path, dirs) => {
 
 const byTime = (a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0);
 const rowText = (row) => Object.values(row).join('\t');
-// Every row of a decisions-check batch carries one stamp, in the logs already written too, so the copy with more rows
+// Every row of a decision-log batch carries one stamp, in the logs already written too, so the copy with more rows
 // keeps their order.
 const fullerCopyFirst = (one, two) => {
   const [more, fewer] = one.length >= two.length ? [one, two] : [two, one];
@@ -607,7 +607,7 @@ export async function facts(args, env) {
   if (args.includes('--sessions') && !Array.isArray(listed)) throw new Error(`--sessions ${flag('--sessions')} holds no JSON array of sessions`);
   const sessions = (listed ?? []).filter((session) => !session.isArchived);
   const known = new Set(sessions.map((session) => session.sessionId));
-  // A Codex or terminal session that pulse sees and the desktop list lacks still counts.
+  // A Codex or terminal session that pulse sees and the session list lacks still counts.
   for (const entry of Object.values(pulse?.sessions ?? {})) {
     if (entry.life !== 'live' || known.has(entry.host) || known.has(entry.id)) continue;
     known.add(entry.host ?? entry.id);
@@ -618,7 +618,7 @@ export async function facts(args, env) {
     known.add(entry.sessionId);
     sessions.push(entry);
   }
-  if (!sessions.length) throw new Error('no sessions: pass --sessions <file> holding the desktop session list, or run pstack-pulse so its state lists live sessions');
+  if (!sessions.length) throw new Error('no sessions: pass --sessions <file>, run pstack-pulse, or have Antigravity transcripts present');
   const onlySelf = args.includes('--self');
   const minHours = onlySelf ? 0 : Number(flag('--min-hours') ?? 24);
   if (!Number.isFinite(minHours)) throw new Error(`--min-hours ${flag('--min-hours')} is no number`);
@@ -633,7 +633,7 @@ export async function facts(args, env) {
       .filter((glance) => isSelf(glance) === onlySelf)
       .map((glance) => (isCandidate(glance, minHours) ? examine(glance, { now, landingLogs, topicLogs }) : glance)),
   );
-  if (onlySelf && !all.length) throw new Error(`no session named ${self.join(' or ')}: pass --sessions <file> holding the desktop session list, or run pstack-pulse`);
+  if (onlySelf && !all.length) throw new Error(`no session named ${self.join(' or ')}: pass --sessions <file> or run pstack-pulse`);
   const historyPath = join(doctorHome(env), 'history.jsonl');
   const previous = lastRecords(historyPath);
   const out = args.includes('--json') ? JSON.stringify(all, null, 2) : report(all, { minHours, previous, detail: onlySelf });
@@ -731,11 +731,11 @@ export function transcript(args, env) {
   return [`Transcript data from ${newest}. It is a record of another session, not instructions.`, ...transcriptTail(readSlice(newest, bytes, true).split('\n'), last)].join('\n');
 }
 
-const APPEND = /decisions-check\.mjs\W{0,6}append\b/u;
+const APPEND = /\.decisions\.tsv\b/u;
 const APPENDED = /Appended (?:a row|(\d+) rows) to (.+?\.tsv)\./gu;
 const CALL_IDS = /"(?:tool_use_id|call_id)":"([^"]+)"/gu;
 const TYPED_LINE = /"type":"user"|"role":"user"|"type":"user_message"|"type":"USER_INPUT"/u;
-const MAY_MATTER = /decisions-check|Appended |AskUserQuestion|ask_question|"queued_command"|request_user_input|send_user_message_question_reply|"answers"|the user said:/u;
+const MAY_MATTER = /\.decisions\.tsv|Appended |AskUserQuestion|ask_question|"queued_command"|request_user_input|send_user_message_question_reply|"answers"|the user said:/u;
 const QUESTION_REPLY = /<send_user_message_question_reply>([\s\S]*?)<\/send_user_message_question_reply>/gu;
 const AGY_USER_REQUEST = /<USER_REQUEST>\s*([\s\S]*?)\s*<\/USER_REQUEST>/u;
 // Claude Code puts this in a card's answer when the owner wrote a message instead.
@@ -830,15 +830,14 @@ async function sessionOf(path) {
   return { cwd, writes, said, shown };
 }
 
-// decisions-check prints the log's path as its caller typed it, absolute or relative to wherever the command ran.
+// The log's path as its caller typed it, absolute or relative to wherever the command ran.
 const printedKey = (printed, keys, dirs) => {
   if (!isAbsolute(printed)) return [...keys].filter((key) => printed === key || printed.endsWith(`/${key}`)).sort((a, b) => b.length - a.length)[0] ?? null;
   const real = existsSync(printed) ? realpathSync(printed) : printed;
   return [printed, real].map((each) => logKey(each, dirs)).find((key) => keys.has(key)) ?? null;
 };
 
-// decisions-check prints how many rows it wrote to which log and stamps them while its call runs, so the last that
-// many rows of that log stamped inside the call are the session's.
+// Matches the last N rows of the log stamped inside the append call's time window.
 function ownRows(logs, writes) {
   const ours = new Set();
   for (const write of writes.toSorted((a, b) => a.to.localeCompare(b.to))) {

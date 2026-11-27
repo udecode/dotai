@@ -23,7 +23,7 @@ test('review groups commits by session, --done advances ref past reviewed commit
 
   const listed = helper('review.mjs', clone).stdout;
   assert.match(listed, /^4 commit\(s\) to review on origin\/next since refs\/pstack\/reviewed/);
-  assert.match(listed, /Session local_s1 \(claude:\/\/claude\.ai\/epitaxy\/local_s1\)[\s\S]*Net: node \.agents\/pstack\/review\.mjs --net local_s1/);
+  assert.match(listed, /Session local_s1\n[\s\S]*Net: node \.agents\/pstack\/review\.mjs --net local_s1/);
   assert.match(listed, /No Session: line \(--done none\)[\s\S]*Picks: kept old name[\s\S]*Not checked: Windows paths/);
   assert.equal(helper('review.mjs', clone, ['--done']).status, 2);
 

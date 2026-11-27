@@ -8,7 +8,7 @@ import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { codeHash, editSettings, hookCommand, nextHeal, plistOf, stableNode, withHook, withoutHook } from './lib/install.mjs';
 import { HOME } from './lib/event.mjs';
-import { accounts, apiKey, claudeRegistry, focusedAt, loadConfig, loadState, probe, projectOf, railOf, readInbox, saveConfig, saveState, writeFileAtomic } from './lib/io.mjs';
+import { accounts, apiKey, claudeRegistry, loadConfig, loadState, probe, projectOf, readInbox, saveConfig, saveState, writeFileAtomic } from './lib/io.mjs';
 import { firstNeed, incidentsOf, menuBoardOf, petOf, planBoard, reduce, shippedToday, titleStageOf } from './lib/model.mjs';
 import { createClient, deliver, teardown } from './lib/phone.mjs';
 import { readPstack } from './lib/pstack.mjs';
@@ -16,7 +16,7 @@ import { readPstack } from './lib/pstack.mjs';
 const SCRIPTS = dirname(realpathSync(fileURLToPath(import.meta.url)));
 const SKILL = dirname(SCRIPTS);
 const MENU_SOURCE = join(SKILL, 'menubar', 'PulseMenu.swift');
-const SKILLS = ['pstack-pulse', 'rca'];
+const SKILLS = ['pstack-pulse'];
 const UPDATE_EVERY_MS = 24 * 3_600_000;
 const UPDATED = join(HOME, 'updated.json');
 const LABEL = 'dev.pstack.pulse';
@@ -24,7 +24,6 @@ const PLIST = join(homedir(), 'Library/LaunchAgents', `${LABEL}.plist`);
 const LOG = join(homedir(), 'Library/Logs/pstack-pulse.log');
 // macOS posts notifications only for an app bundle, so the menubar binary lives inside one.
 const MENU_APP = join(HOME, 'PstackPulse.app');
-const CLAUDE_ICON = '/Applications/Claude.app/Contents/Resources/electron.icns';
 const LSREGISTER = '/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister';
 const MENU = { label: 'dev.pstack.pulse.menu', bin: join(MENU_APP, 'Contents/MacOS/pstack-pulse-menu'), log: join(homedir(), 'Library/Logs/pstack-pulse-menu.log') };
 const MENU_PLIST = join(homedir(), 'Library/LaunchAgents', `${MENU.label}.plist`);
@@ -50,8 +49,6 @@ let accountsPending = false;
 let lastProblems = '';
 
 function viewsOf(sessions) {
-  const live = Object.values(sessions).filter((session) => session.life === 'live' && session.host);
-  const focus = focusedAt(live.map(({ host }) => host));
   if (Date.now() - accountCache.at > 60_000 && !accountsPending) {
     accountsPending = true;
     accounts().then((value) => {
@@ -61,20 +58,17 @@ function viewsOf(sessions) {
   }
   return Object.values(sessions)
     .filter((session) => session.audience === 'owner')
-    .map((session) => {
-      const view = {
-        session,
-        title: session.title ?? basename(session.cwd ?? 'session'),
-        project: projectOf(session.cwd),
-        account: session.runtime === 'codex' ? null : session.entrypoint === 'cli' ? accountCache.value.cli : accountCache.value.desktop,
-        webUrl: session.runtime === 'claude' && session.bridge ? `https://claude.ai/code/${session.bridge}` : null,
-        appUrl: session.runtime === 'codex' ? 'chatgpt://' : null,
-        rail: session.life === 'live' ? railOf(session.plan) : null,
-        focusedAt: focus[session.host]?.at ?? null,
-        record: focus[session.host]?.record ?? null,
-      };
-      return view;
-    });
+    .map((session) => ({
+      session,
+      title: session.title ?? basename(session.cwd ?? 'session'),
+      project: projectOf(session.cwd),
+      account: session.runtime === 'codex' ? null : session.entrypoint === 'cli' ? accountCache.value.cli : accountCache.value.desktop,
+      webUrl: session.runtime === 'claude' && session.bridge ? `https://claude.ai/code/${session.bridge}` : null,
+      appUrl: session.runtime === 'codex' ? 'chatgpt://' : null,
+      rail: null,
+      focusedAt: null,
+      record: null,
+    }));
 }
 
 // The board answers only between blocking steps, so a step that blocks past the menubar's two-second poll is logged.
@@ -262,11 +256,6 @@ const MENU_INFO = `<?xml version="1.0" encoding="UTF-8"?>
 function buildMenu() {
   mkdirSync(dirname(MENU.bin), { recursive: true });
   writeFileAtomic(join(MENU_APP, 'Contents/Info.plist'), MENU_INFO);
-  // Banners carry the Claude app's icon, so they read like the app's own.
-  if (existsSync(CLAUDE_ICON)) {
-    mkdirSync(join(MENU_APP, 'Contents/Resources'), { recursive: true });
-    copyFileSync(CLAUDE_ICON, join(MENU_APP, 'Contents/Resources/AppIcon.icns'));
-  }
   const source = sourceHash();
   const build = spawnSync('xcrun', ['swiftc', '-O', '-o', MENU.bin, MENU_SOURCE], { encoding: 'utf8' });
   if (build.status !== 0) return build;

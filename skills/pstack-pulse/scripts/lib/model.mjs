@@ -392,7 +392,7 @@ export function menuBoardOf(views, context) {
   return { fleet: fleetOf(live, context).body, pstack: pstackSectionOf(context.pstack), cards: ranked.map(rowOf), alerts: ranked.flatMap(deskAlertOf), onScreen: onScreen ? keyOf(onScreen.session) : null };
 }
 
-const deskLinkOf = (view) => (view.session.host ? `claude://claude.ai/epitaxy/${view.session.host}` : (view.appUrl ?? view.webUrl));
+const deskLinkOf = (view) => view.appUrl ?? view.webUrl;
 
 // One Mac banner per session at a time; its id changes with each question, failure or finished turn, so each posts once.
 // Codex posts its own notifications, so only Claude sessions get one. Opening the session after the alert clears it.

@@ -55,7 +55,7 @@
 - **Delivery.** The user owns commits. A completed task runs its writing passes, then `{{lintFix}}` as its last check that edits code, and leaves its changes in the working tree. Commit, push or open a PR only when the user's own message asks for it. Approving an agent's plan is not commit authority, and no plan or step list proposes a commit.
 <!-- end -->
 <!-- if pushBranches -->
-- **Delivery.** The user owns commits on `{{branch}}`. A completed task runs its writing passes, then `{{lintFix}}` as its last check that edits code, and leaves its changes on `{{branch}}` uncommitted; commit or push `{{branch}}` only when asked (plan approval is not commit authority, and no plan proposes committing on `{{branch}}`). On every other branch the lead commits and pushes its work without asking, another person's PR head branch included. Keep the description of your own PR true to the pushed diff; on another person's PR update your latest commit comment (`plan-page.mjs --comment`, or draft under Open questions if posting is disallowed). Stack a new PR when maintainer edits are disallowed; any other PR, merge, close, review or CI approval waits on the user.
+- **Delivery.** The user owns commits on `{{branch}}`. A completed task runs its writing passes, then `{{lintFix}}` as its last check that edits code, and leaves its changes on `{{branch}}` uncommitted; commit or push `{{branch}}` only when asked (plan approval is not commit authority, and no plan proposes committing on `{{branch}}`). On every other branch the lead commits and pushes its work without asking, another person's PR head branch included. Keep the description of your own PR true to the pushed diff; on another person's PR update your latest commit comment (or draft under Open questions if posting is disallowed). Stack a new PR when maintainer edits are disallowed; any other PR, merge, close, review or CI approval waits on the user.
 <!-- end -->
 <!-- end -->
 <!-- if delivery!=trunk -->
@@ -98,13 +98,7 @@
 <!-- end -->
 <!-- end -->
 <!-- # adds -->
-- **Calls.** Every lead turn re-reads the full context, so call count and raw payload bloat set the cost. Batch independent reads, searches, and edits in parallel in one message, and route multi-file `read_file` exploration and raw test/CI logs through short-lived subagents (`medium` when pure extraction) so only tight spans and summaries enter the main thread. A session started by another reads `.agents/pstack/rules/linked.md` in full first; a lead reads it before starting a waited-on session.
-<!-- if delivery!=trunk -->
-  Never spend a turn on bookkeeping alone: send retitles, todo updates, and batched `decisions-check.mjs append <log> --from <rows.tsv>` calls with the next working call, or end-of-turn renames (🟠/⚪) per `title.md` (owner's word, 2026-10-17).
-<!-- end -->
-<!-- if delivery=trunk -->
-  Never spend a turn on bookkeeping alone: send retitles, todo updates, and batched decision-log appends with the next working call, or end-of-turn renames (🟠/⚪) per `title.md` (owner's word, 2026-10-17).
-<!-- end -->
+- **Calls.** Every lead turn re-reads the full context, so call count and raw payload bloat set the cost. Batch independent reads, searches, and edits in parallel in one message, and route multi-file `read_file` exploration and raw test/CI logs through short-lived subagents (`medium` when pure extraction) so only tight spans and summaries enter the main thread. A session started by another reads `.agents/pstack/rules/linked.md` in full first; a lead reads it before starting a waited-on session. Never spend a turn on bookkeeping alone: send retitles, todo updates, and batched decision-log appends with the next working call, or end-of-turn renames (🟠/⚪) per `title.md` (owner's word, 2026-10-17).
 <!-- # overrides arena/SKILL.md "The judge is never from the parent's family" -->
 <!-- # overrides setup-pstack/SKILL.md "An `inherit-parent` or `auto` value never judges." -->
 <!-- # relies how/SKILL.md "that explores and explains in one pass" -->
@@ -215,7 +209,7 @@
 <!-- if protected -->
   It never targets `{{protected}}`.
 <!-- end -->
-  Its body renders from the PR's plan via `node .agents/pstack/plan-page.mjs <plan> --pr`. That plan is the one plan that covers the whole diff, or a PR plan that lists the plans it carries.
+  Its body uses the PR's Markdown plan directly when one plan covers the diff, or the commit body (`## Why` and `## Verification`) otherwise.
 <!-- end -->
 <!-- end -->
 <!-- # overrides poteto-mode/references/merge-safety.md "A queue or automatic request may outlive its admission revision." -->

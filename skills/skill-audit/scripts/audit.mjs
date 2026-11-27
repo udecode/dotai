@@ -13,6 +13,18 @@ const MIN_WORDS = 6;
 const STOP_WORDS = new Set('a an and any are as at be by each every for from if in into is it its no not of on one only or so than that the their then this to when with'.split(' '));
 const PER_KIND = 40;
 const BINARY_ASSET_EXT = /\.(?:ttf|otf|woff2?|png|jpe?g|webp|gif|mp4|webm|ico|pdf)$/iu;
+const SCRIPT_EXT = /\.(?:m?js|cjs|tsx?|sh|py)$/u;
+const TEST_FILE = /\.(?:test|spec)\.[^/]+$/u;
+const RETIRED_SCAN_EXT = /\.(?:mdc?|m?js|cjs|tsx?|sh|py|json)$/u;
+
+export const RETIRED_INFRASTRUCTURE = [
+  { name: 'plan-page', pattern: /\bplan-page\b/u },
+  { name: 'Artifact', pattern: /\bArtifact\b/u },
+  { name: 'ccd_session', pattern: /\bccd_session\b/u },
+  { name: 'page-stop', pattern: /\bpage-stop\b/u },
+  { name: 'chips.mjs', pattern: /\bchips\.mjs\b/u },
+  { name: 'tasks.mjs', pattern: /\btasks\.mjs\b/u },
+];
 
 export const SIZE_BUDGETS = {
   playbookFile: 14_000,
@@ -20,6 +32,7 @@ export const SIZE_BUDGETS = {
   ruleFile: 14_000,
   skillFile: 20_000,
   skillDir: 40_000,
+  scriptLines: 500,
 };
 
 export const USTACK_BUDGETS = {
@@ -27,7 +40,7 @@ export const USTACK_BUDGETS = {
   skillsTotal: 100_000,
   ruleFile: 8_192,
   rulesTotal: 80_000,
-  helperFiles: 18,
+  helperFiles: 14,
 };
 
 const readJson = (path) => {
@@ -42,6 +55,7 @@ const readJson = (path) => {
 function* walkFiles(dir) {
   if (!existsSync(dir)) return;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory() && entry.name === 'node_modules') continue;
     const path = join(dir, entry.name);
     if (entry.isDirectory()) yield* walkFiles(path);
     else if (entry.isFile()) yield path;
@@ -51,7 +65,7 @@ function* walkFiles(dir) {
 function* markdownFiles(dir) {
   if (!existsSync(dir)) return;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (entry.isDirectory() && (entry.name === 'node_modules' || entry.name === 'scripts')) continue;
+    if (entry.isDirectory() && entry.name === 'node_modules') continue;
     const path = join(dir, entry.name);
     if (entry.isDirectory()) yield* markdownFiles(path);
     else if (/\.(?:md|mdc)$/u.test(entry.name)) yield path;
@@ -593,6 +607,65 @@ export function sizeAudit(root) {
   return { limits: SIZE_BUDGETS, totals: { playbooks: playbooksTotal, rules: rulesTotal, skills: skillsTotal }, ...(ustack ? { ustack } : {}), over };
 }
 
+function lineCount(text) {
+  if (!text) return 0;
+  return text.split('\n').length - (text.endsWith('\n') ? 1 : 0);
+}
+
+function scriptDirsOf(root) {
+  const dirs = [join(root, 'tooling/scripts'), join(root, '.agents/pstack')];
+  for (const parent of [join(root, 'skills'), join(root, '.agents/skills'), join(root, '.agents/rules')]) {
+    if (!existsSync(parent)) continue;
+    for (const entry of readdirSync(parent, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const scriptsDir = join(parent, entry.name, 'scripts');
+      if (existsSync(scriptsDir)) dirs.push(scriptsDir);
+    }
+  }
+  return dirs.filter((dir) => existsSync(dir));
+}
+
+export function oversizedScriptAudit(root, limit = SIZE_BUDGETS.scriptLines) {
+  const seen = new Set();
+  const found = [];
+  for (const dir of scriptDirsOf(root)) {
+    for (const path of walkFiles(dir)) {
+      const rel = relative(root, path);
+      if (seen.has(rel) || !SCRIPT_EXT.test(rel) || TEST_FILE.test(rel)) continue;
+      seen.add(rel);
+      const lines = lineCount(readFileSync(path, 'utf8'));
+      if (lines > limit) found.push({ path: rel, lines, limit });
+    }
+  }
+  return found.sort((a, b) => b.lines - a.lines || a.path.localeCompare(b.path));
+}
+
+const isSelfAuditFile = (rel) => /^(?:\.agents\/)?skills\/skill-audit\//u.test(rel);
+
+export function retiredInfrastructureAudit(root) {
+  const seen = new Set();
+  const candidates = [];
+  const agents = join(root, 'AGENTS.md');
+  if (existsSync(agents) && statSync(agents).isFile()) candidates.push(agents);
+  for (const dir of ['.agents/playbooks', '.agents/rules', '.agents/skills', '.agents/pstack', 'skills', 'tooling/scripts']) {
+    for (const path of walkFiles(join(root, dir))) candidates.push(path);
+  }
+  const findings = [];
+  for (const path of candidates) {
+    const rel = relative(root, path);
+    if (seen.has(rel) || isSelfAuditFile(rel) || BINARY_ASSET_EXT.test(rel) || !RETIRED_SCAN_EXT.test(rel)) continue;
+    seen.add(rel);
+    const lines = readFileSync(path, 'utf8').split('\n');
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index];
+      for (const { name, pattern } of RETIRED_INFRASTRUCTURE) {
+        if (pattern.test(line)) findings.push({ path: rel, line: index + 1, token: name, text: line.trim().slice(0, 140) });
+      }
+    }
+  }
+  return findings.sort((a, b) => a.path.localeCompare(b.path) || a.line - b.line || a.token.localeCompare(b.token));
+}
+
 export function audit(root, minScore = 0.5) {
   const ustackTarget = isUstackRepo(root);
   const hasPstackConfig = existsSync(join(root, '.agents/pstack.json'));
@@ -716,6 +789,8 @@ export function audit(root, minScore = 0.5) {
   });
 
   const sizeBudgets = sizeAudit(root);
+  const oversizedScripts = oversizedScriptAudit(root);
+  const retiredRefs = retiredInfrastructureAudit(root);
   const unmarked = sharedSource?.kind === 'template' ? unmarkedRules(sharedSource.blockText) : null;
   return {
     root,
@@ -726,6 +801,8 @@ export function audit(root, minScore = 0.5) {
     skills,
     userSkills,
     sizeBudgets,
+    oversizedScripts,
+    retiredRefs,
     overlaps,
     unmarkedRules: unmarked,
     pstack: pstackText,
@@ -758,6 +835,20 @@ export function report(result) {
   } else {
     out.push('kind | path | bytes | limit');
     for (const item of result.sizeBudgets.over) out.push(`${item.kind} | ${item.path} | ${item.bytes} | ${item.limit}`);
+  }
+  const oversized = result.oversizedScripts ?? [];
+  out.push('', `## Oversized workflow scripts (>${SIZE_BUDGETS.scriptLines} lines): ${oversized.length}`);
+  if (oversized.length === 0) out.push('none');
+  else {
+    out.push('path | lines | limit');
+    for (const item of oversized) out.push(`${item.path} | ${item.lines} | ${item.limit}`);
+  }
+  const retired = result.retiredRefs ?? [];
+  out.push('', `## Retired infrastructure references: ${retired.length}`);
+  if (retired.length === 0) out.push('none');
+  else {
+    out.push('path:line | token | text');
+    for (const item of retired) out.push(`${item.path}:${item.line} | ${item.token} | ${item.text}`);
   }
   const unmarkedLine = result.unmarkedRules === null ? 'not checked (no shared block template)' : result.unmarkedRules.join(', ') || 'none';
   out.push('', `## Block rules with no overrides note or adds marker: ${unmarkedLine}`);

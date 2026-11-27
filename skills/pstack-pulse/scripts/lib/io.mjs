@@ -1,4 +1,4 @@
-import { execFile, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -7,7 +7,6 @@ import { emptyPhone } from './phone.mjs';
 
 const CLAUDE_SESSIONS = join(homedir(), '.claude/sessions');
 const CODEX_STATE = join(homedir(), '.codex/state_5.sqlite');
-const DESKTOP_SESSIONS = join(homedir(), 'Library/Application Support/Claude/claude-code-sessions');
 const INBOX = join(HOME, 'inbox');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 
@@ -363,101 +362,6 @@ export function probe(sessions, now, problems) {
     }
   }
   return observations;
-}
-
-const railCache = {};
-const railQueue = [];
-let railsRunning = 0;
-// The stamp catches every plan or log edit, so the timer only catches what the rail reads elsewhere, such as the subject file.
-const RAIL_TTL_MS = 10 * 60_000;
-const RAILS_AT_ONCE = 2;
-const STAGE_STATES = new Set(['left', 'now', 'waiting', 'blocked', 'stopped', 'done', 'skipped']);
-
-const parseRail = (stdout) => {
-  const raw = JSON.parse(stdout || 'null');
-  if (!raw || !Array.isArray(raw.stages)) return null;
-  return {
-    page: typeof raw.page === 'string' && /^https:\/\/[^\s@]+$/u.test(raw.page) ? raw.page : null,
-    stages: raw.stages.filter(({ state }) => STAGE_STATES.has(state)).map(({ label, state }) => ({ label: String(label).slice(0, 40), state })),
-    steps: { checked: Number(raw.steps?.checked) || 0, total: Number(raw.steps?.total) || 0 },
-  };
-};
-
-function nextRail() {
-  if (railsRunning >= RAILS_AT_ONCE || !railQueue.length) return;
-  const { planPath, stamp, helper, root } = railQueue.shift();
-  railsRunning += 1;
-  execFile(process.execPath, [helper, planPath, '--rail'], { cwd: root, encoding: 'utf8', timeout: 10_000, env: QUIET_ENV }, (error, stdout) => {
-    let rail = railCache[planPath]?.rail ?? null;
-    try {
-      if (!error) rail = parseRail(stdout);
-    } catch {}
-    railCache[planPath] = { stamp, rail, at: Date.now() };
-    railsRunning -= 1;
-    nextRail();
-  });
-  nextRail();
-}
-
-// Each rail runs a node child for about two seconds, so it refreshes in the background and the tick reads the last answer.
-export function railOf(planPath) {
-  if (!planPath || !existsSync(planPath)) return null;
-  const stamp = [planPath, planPath.replace(/\.md$/u, '.decisions.tsv')].filter(existsSync).map((path) => statSync(path).mtimeMs).join(':');
-  const cached = railCache[planPath];
-  if (cached?.stamp === stamp && Date.now() - cached.at < RAIL_TTL_MS) return cached.rail;
-  const root = repoOf(dirname(planPath));
-  const helper = root && join(root, '.agents/pstack/plan-page.mjs');
-  if (!helper || !existsSync(helper)) {
-    railCache[planPath] = { stamp, rail: null, at: Date.now() };
-    return null;
-  }
-  if (!cached?.pending) {
-    railCache[planPath] = { ...(cached ?? { rail: null }), stamp: cached?.stamp, at: cached?.at ?? 0, pending: true };
-    railQueue.push({ planPath, stamp, helper, root });
-    nextRail();
-  }
-  return cached?.rail ?? null;
-}
-
-const recordPaths = {};
-const focusCache = {};
-let recordsScannedAt = 0;
-const RESCAN_MS = 60_000;
-// An account switch adds a copy of every record under the new account's folder, so the folders are scanned again every few minutes.
-const RESCAN_ALL_MS = 5 * 60_000;
-
-function scanRecords() {
-  recordsScannedAt = Date.now();
-  for (const host of Object.keys(recordPaths)) delete recordPaths[host];
-  const list = (dir) => {
-    try {
-      return readdirSync(dir, { withFileTypes: true });
-    } catch {
-      return [];
-    }
-  };
-  for (const account of list(DESKTOP_SESSIONS).filter((entry) => entry.isDirectory()))
-    for (const org of list(join(DESKTOP_SESSIONS, account.name)).filter((entry) => entry.isDirectory()))
-      for (const file of list(join(DESKTOP_SESSIONS, account.name, org.name))) if (/^local_.+\.json$/u.test(file.name)) (recordPaths[file.name.slice(0, -5)] ??= []).push(join(DESKTOP_SESSIONS, account.name, org.name, file.name));
-}
-
-// When the owner last opened each desktop session, from the app's own records, and the copy the app writes now. Each
-// account keeps a copy and only the signed-in one is current, so the latest wins; a copy is read again only after it changes.
-export function focusedAt(hosts) {
-  const since = Date.now() - recordsScannedAt;
-  if (since > RESCAN_ALL_MS || (since > RESCAN_MS && hosts.some((host) => !recordPaths[host]))) scanRecords();
-  const out = {};
-  for (const host of hosts) {
-    for (const path of recordPaths[host] ?? []) {
-      try {
-        const stamp = statSync(path).mtimeMs;
-        if (focusCache[path]?.stamp !== stamp) focusCache[path] = { stamp, at: Number(JSON.parse(readFileSync(path, 'utf8')).lastFocusedAt) || null };
-        const best = out[host];
-        out[host] = { at: Math.max(best?.at ?? 0, focusCache[path].at ?? 0) || null, record: !best || stamp > best.stamp ? path : best.record, stamp: Math.max(best?.stamp ?? 0, stamp) };
-      } catch {}
-    }
-  }
-  return out;
 }
 
 export function apiKey() {

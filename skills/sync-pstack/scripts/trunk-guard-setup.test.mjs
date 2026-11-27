@@ -64,18 +64,6 @@ test('guard blocks force-push/delete on main/next, direct push to next, gh pr cr
   assert.equal(guard('git push -f')?.permissionDecision, 'deny');
   assert.equal(guard('git push')?.permissionDecision, 'deny');
   assert.equal(guard('git push origin --tags'), null);
-
-  const hook = (tool_name) => {
-    const run = spawnSync(process.execPath, [join(clone, '.agents/pstack/guard.mjs')], {
-      input: JSON.stringify({ tool_name, tool_input: {}, cwd: clone }),
-      encoding: 'utf8',
-      env: ENV,
-    });
-    assert.equal(run.status, 0, run.stderr);
-    return run.stdout ? JSON.parse(run.stdout).hookSpecificOutput : null;
-  };
-  assert.match(hook('mcp__ccd_host__sync_with_base_branch')?.permissionDecisionReason ?? '', /git fetch origin next && git rebase origin\/next/u);
-  assert.equal(hook('mcp__ccd_host__get_storage_usage'), null);
 });
 
 test('guard blocks destructive companion commands and passes safe ones', () => {

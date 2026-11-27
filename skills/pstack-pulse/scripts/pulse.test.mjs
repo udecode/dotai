@@ -165,12 +165,12 @@ test('only sessions whose title shows a pstack stage reach the phone', () => {
 test('a menubar row reads the stage from the session title, and links the plan page only while the plan is open', () => {
   const sessions = {};
   reduce(sessions, hook('scrub', 'UserPromptSubmit', 0, { cwd: '/w/a' }));
-  const rail = (state) => ({ page: 'https://claude.ai/artifact/scrub', stages: [{ label: 'Plan', state: 'done' }, { label: 'Reflect', state }], steps: { checked: 12, total: 12 } });
+  const rail = (state) => ({ page: 'https://example.test/plan/scrub', stages: [{ label: 'Plan', state: 'done' }, { label: 'Reflect', state }], steps: { checked: 12, total: 12 } });
   const row = (state) => menuBoardOf(viewsOf(sessions, {}, { scrub: rail(state) }, { scrub: '📝 scrub (1/3)' }), { now: T0 + 60_000, shippedToday: 0, pstack: NO_PSTACK }).cards[0];
   const done = row('done');
   assert.deepEqual([done.content_state.current_step, done.content_state.number_of_steps], [1, 3]);
   assert.equal(done.page, null);
-  assert.equal(row('waiting').page, 'https://claude.ai/artifact/scrub');
+  assert.equal(row('waiting').page, 'https://example.test/plan/scrub');
 });
 
 test('a question turns the session orange on the summary card in place, without ending it', async () => {
@@ -479,7 +479,7 @@ test('the hook drops unattended runs and subagents, keeps no command text, reads
     session_id: 'abc',
     cwd: repo,
     tool_name: 'Bash',
-    tool_input: { command: 'SECRET=hunter2 node .agents/pstack/decisions-check.mjs append docs/plans/x.decisions.tsv build a b c d && git push' },
+    tool_input: { command: 'SECRET=hunter2 cat queue.tsv >> docs/plans/x.decisions.tsv && git push' },
     tool_response: { stdout: 'Appended 2 rows to docs/plans/x.decisions.tsv.\n', gitOperation: { commit: { sha: 'd7cc771' }, push: { branch: 'next' } } },
   };
   assert.equal(eventOf('claude', input, { CLAUDE_CODE_SESSION_ATTENDED: '0' }), null);
@@ -586,16 +586,14 @@ test('the menubar keeps the fleet line and lists every live session ranked, and 
   assert.equal(menu.fleet.content_state.title, 'pstack fleet');
 });
 
-test('a turn that ends with only artifact page sockets open goes idle, and one with a WebSocket monitor the model armed keeps working', () => {
+test('a turn that ends with a running background monitor keeps working', () => {
   const sessions = {};
-  const watch = { id: 'w1', type: 'monitor', status: 'running', description: 'live updates for artifact 1kmVRY8AvwRkf1KwqAuSxM (watch)' };
-  const presence = { id: 'w2', type: 'monitor', status: 'running', description: 'presence on artifact https://claude.ai/artifact/1kmVRY8AvwRkf1KwqAuSxM' };
   const armed = { id: 'm1', type: 'monitor', status: 'running', description: 'deploy events' };
   reduce(sessions, claudeHook('watching', 'UserPromptSubmit', 0));
-  reduce(sessions, claudeHook('watching', 'Stop', 1, { background_tasks: [watch, presence] }));
+  reduce(sessions, claudeHook('watching', 'Stop', 1, { background_tasks: [] }));
   assert.equal(sessions['claude:watching'].state, 'idle');
   reduce(sessions, claudeHook('building', 'UserPromptSubmit', 2));
-  reduce(sessions, claudeHook('building', 'Stop', 3, { background_tasks: [watch, armed] }));
+  reduce(sessions, claudeHook('building', 'Stop', 3, { background_tasks: [armed] }));
   assert.equal(sessions['claude:building'].state, 'working');
 });
 
@@ -616,29 +614,26 @@ test('while you are at the Mac no push goes out, and once you leave only what st
   assert.deepEqual(pushes(away), ['push held needs you']);
 });
 
-test('the menubar opens a session in the desktop app by its host id, with its open plan page on a second row', () => {
+test('the menubar links a session by its app or web url, with its open plan page on a second row', () => {
   const sessions = {};
-  reduce(sessions, hook('desk', 'UserPromptSubmit', 0, { cwd: '/w/a' }));
-  reduce(sessions, { kind: 'registry', runtime: 'claude', session: 'desk', at: at(1), host: 'local_abc', status: 'busy', name: null, bridge: 'session_x', entrypoint: 'claude-desktop', pid: 1 });
   reduce(sessions, hook('cli', 'UserPromptSubmit', 2, { cwd: '/w/a' }));
-  const open = { page: 'https://claude.ai/artifact/p', stages: [{ label: 'Build', state: 'now' }], steps: { checked: 0, total: 0 } };
-  const menu = menuBoardOf(viewsOf(sessions, { cli: 'https://claude.ai/code/session_y' }, { desk: open }), { now: T0 + 60_000, shippedToday: 0, pstack: NO_PSTACK });
+  const open = { page: 'https://example.test/plan/p', stages: [{ label: 'Build', state: 'now' }], steps: { checked: 0, total: 0 } };
+  const menu = menuBoardOf(viewsOf(sessions, { cli: 'https://claude.ai/code/session_y' }, { cli: open }), { now: T0 + 60_000, shippedToday: 0, pstack: NO_PSTACK });
   const row = (id) => menu.cards.find(({ key }) => key === keyOf(sessions[`claude:${id}`]));
-  assert.equal(row('desk').open, 'claude://claude.ai/epitaxy/local_abc');
-  assert.equal(row('desk').page, 'https://claude.ai/artifact/p');
   assert.equal(row('cli').open, 'https://claude.ai/code/session_y');
+  assert.equal(row('cli').page, 'https://example.test/plan/p');
 });
 
 test('tapping a push opens the session, with its open plan page as a button', async () => {
   const sessions = {};
   reduce(sessions, { ...ask('asker', 1), cwd: '/w/a' });
-  const open = { page: 'https://claude.ai/artifact/p', stages: [{ label: 'Build', state: 'now' }], steps: { checked: 0, total: 0 } };
+  const open = { page: 'https://example.test/plan/p', stages: [{ label: 'Build', state: 'now' }], steps: { checked: 0, total: 0 } };
   const [incident] = incidentsOf(viewsOf(sessions, { asker: 'https://claude.ai/code/session_a' }, { asker: open })).values();
   const bodies = [];
   const fetchImpl = async (url, init) => (bodies.push(JSON.parse(init.body)), { ok: true, status: 200, text: async () => '{}', headers: { get: () => null } });
   await createClient({ getKey: () => 'key', fetchImpl }).push(incident, 'https://list.example/');
   assert.equal(bodies[0].redirection, 'https://claude.ai/code/session_a');
-  assert.deepEqual(bodies[0].actions.map(({ url }) => url), ['https://claude.ai/artifact/p', 'https://list.example/']);
+  assert.deepEqual(bodies[0].actions.map(({ url }) => url), ['https://example.test/plan/p', 'https://list.example/']);
 });
 
 test('a skill update restarts the daemon only once a change anywhere in the skill reads the same twice', () => {

@@ -233,7 +233,7 @@ test('audit handles non-pstack plain repos and ustack-shaped repos without .agen
   assert.ok(parsed.overlaps.some((o) => o.with === 'project' && o.file === 'skills/beta/SKILL.md' && o.source.startsWith('skills/gamma/SKILL.md:')));
 });
 
-test('audit skips node_modules and scripts markdown, excludes binary assets from skill-dir cap, and counts routes from .agents/pstack/rules', () => {
+test('audit skips node_modules, includes scripts markdown, excludes binary assets from skill-dir cap, and counts routes from .agents/pstack/rules', () => {
   const { dir, run } = sandbox();
   const duplicate = 'Always run deterministic schema validation before writing tracked workspace files.';
 
@@ -260,13 +260,71 @@ test('audit skips node_modules and scripts markdown, excludes binary assets from
   // Binary assets do not trip the 40 KB skill-dir cap.
   assert.deepEqual(data.sizeBudgets.over, []);
 
-  // node_modules and scripts markdown produce zero overlap hits, and .agents/pstack/rules stays out of project overlaps.
+  // node_modules stays excluded, .agents/pstack/rules stays out of project overlaps, and scripts/ markdown is audited.
   assert.equal(
-    data.overlaps.some((o) => o.file.includes('node_modules') || o.file.includes('/scripts/') || o.file.startsWith('.agents/pstack/rules/') || o.source.startsWith('.agents/pstack/rules/')),
+    data.overlaps.some((o) => o.file.includes('node_modules') || o.file.startsWith('.agents/pstack/rules/') || o.source.startsWith('.agents/pstack/rules/')),
     false,
+  );
+  assert.equal(
+    data.overlaps.some(
+      (o) =>
+        (o.file === 'skills/clip/scripts/README.md' && o.source.startsWith('.agents/rules/local.mdc:')) ||
+        (o.file === '.agents/rules/local.mdc' && o.source.startsWith('skills/clip/scripts/README.md:')),
+    ),
+    true,
   );
 
   // Route counting scans .agents/pstack/rules/*.md so `redo` routed by long-runs.md reports routes >= 1.
   const redo = data.skills.find((s) => s.name === 'redo');
   assert.deepEqual(redo.routes, ['.agents/pstack/rules/long-runs.md']);
+});
+
+test('audit flags oversized workflow scripts (>500 lines, excluding tests) and retired infrastructure references across skills, rules, playbooks, and scripts', () => {
+  const { dir, run } = sandbox();
+  const lines = (n) => `${Array.from({ length: n }, (_, i) => `const v${i} = ${i};`).join('\n')}\n`;
+
+  const repo = project(dir, 'bloat', {
+    config: CONFIG,
+    agents: '# Repo\n\nStore run logs in docs/plans/artifacts/.\n',
+    files: {
+      'tooling/scripts/huge.mjs': lines(501),
+      'tooling/scripts/exact.mjs': lines(500),
+      'tooling/scripts/huge.test.mjs': lines(600),
+      '.agents/pstack/big-helper.mjs': lines(520),
+      'skills/demo/SKILL.md': '---\nname: demo\ndescription: x\n---\nOpen the Artifact panel.\n',
+      'skills/demo/scripts/engine.mjs': `${lines(505)}// calls chips.mjs and tasks.mjs\n`,
+      'skills/demo/scripts/engine.test.mjs': lines(550),
+      '.agents/rules/legacy.mdc': '---\ndescription: x\n---\nUse ccd_session and page-stop.\n',
+      '.agents/playbooks/ship.md': 'Run plan-page.mjs --pr before merge.\n',
+      '.agents/skills/skill-audit/scripts/audit.mjs': '// plan-page Artifact ccd_session page-stop chips.mjs tasks.mjs\n',
+    },
+  });
+
+  const textRes = run(process.execPath, [AUDIT, repo]);
+  assert.equal(textRes.status, 0, textRes.stderr);
+  assert.match(textRes.stdout, /## Oversized workflow scripts \(>500 lines\): 3/);
+  assert.match(textRes.stdout, /\.agents\/pstack\/big-helper\.mjs \| 520 \| 500/);
+  assert.match(textRes.stdout, /skills\/demo\/scripts\/engine\.mjs \| 506 \| 500/);
+  assert.match(textRes.stdout, /tooling\/scripts\/huge\.mjs \| 501 \| 500/);
+  assert.match(textRes.stdout, /## Retired infrastructure references: 6/);
+
+  const jsonRes = run(process.execPath, [AUDIT, repo, '--json']);
+  assert.equal(jsonRes.status, 0, jsonRes.stderr);
+  const data = JSON.parse(jsonRes.stdout);
+  assert.deepEqual(data.oversizedScripts, [
+    { path: '.agents/pstack/big-helper.mjs', lines: 520, limit: 500 },
+    { path: 'skills/demo/scripts/engine.mjs', lines: 506, limit: 500 },
+    { path: 'tooling/scripts/huge.mjs', lines: 501, limit: 500 },
+  ]);
+  assert.deepEqual(
+    data.retiredRefs.map(({ path, token }) => [path, token]),
+    [
+      ['.agents/playbooks/ship.md', 'plan-page'],
+      ['.agents/rules/legacy.mdc', 'ccd_session'],
+      ['.agents/rules/legacy.mdc', 'page-stop'],
+      ['skills/demo/scripts/engine.mjs', 'chips.mjs'],
+      ['skills/demo/scripts/engine.mjs', 'tasks.mjs'],
+      ['skills/demo/SKILL.md', 'Artifact'],
+    ],
+  );
 });

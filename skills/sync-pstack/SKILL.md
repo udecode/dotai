@@ -32,7 +32,6 @@ Run `node <skill>/scripts/sync-pstack.mjs <command>` from the `udecode/ustack` c
 | `sync --tag <tag> [project...]` | Runs `apply --tag` across managed (non-held) projects; refuses off-branch or dirty targets unless `--allow-dirty`. |
 | `playbook <project> <name>` | Prints resolved steps for `.agents/playbooks/<name>.md` applied onto its base pstack playbook(s). Read-only. |
 | `smoke <project> <prompt>...` | Runs read-only routing smoke (`--runtime claude|codex|both`). |
-| `corpus [project...]` | Diffs installed vs local `decisions-check.mjs` across project ledgers and decision logs (`--session <id>`, `--installed <dir>`, `--out <dir>`). Read-only. |
 | `user-pin --tag <tag>` | Updates user-scope pstack pin and prints refresh commands. |
 | `latest` | Prints newest upstream tag. |
 
@@ -95,14 +94,14 @@ Use when a lesson or fix applies to every managed project (project-only lessons 
    - When encoding a rule structurally (check, lint, type, hook), delete the prose rule it replaces.
    - Respect hard size budgets enforced by `scripts/validate-skills` (`block-budget.mjs` + `budget-check.mjs`).
    - Keep project-specific names/paths out (use `<!-- if key -->` and optional config fields).
-3. Run `apply <project> --dry-run` (and `corpus` for ledger helper changes) on projects in scope.
+3. Run `apply <project> --dry-run` on projects in scope.
 4. Run writing passes (`deslop`/`no-comments` on helpers, `unslop` on prose), `node scripts/build-workflow.mjs`, and `scripts/validate-skills`.
 5. Commit and push `ustack` (committing any other session's remaining edits in a second commit per `ustack/AGENTS.md`). Never amend or rebase a commit a project already synced from.
 6. Sync each project in scope from the pushed commit, run `verify <project>`, reinstall any changed `ustack` skills, and deliver per Sync step 7.
 
 ## Project playbooks
 
-Project playbooks live in `.agents/playbooks/<name>.md` with `extends` and `when` frontmatter plus anchored edits (`**Before**`, `**In**`, `**After**`, `**Replace**`). Optional `page-lead`, `page-pairs`, `page-require`, and `page-pr` frontmatter lists configure which review sections `plan-page.mjs --pr` includes. Run `playbook <project> <name>` after edits to inspect resolved steps.
+Project playbooks live in `.agents/playbooks/<name>.md` with `extends` and `when` frontmatter plus anchored edits (`**Before**`, `**In**`, `**After**`, `**Replace**`). Run `playbook <project> <name>` after edits to inspect resolved steps.
 
 ## Template grammar
 

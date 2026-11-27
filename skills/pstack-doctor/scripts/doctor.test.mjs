@@ -176,7 +176,7 @@ function topic() {
     const output = run();
     events.push({ type: 'user', timestamp: next(1), message: { content: [{ type: 'tool_result', tool_use_id: id, content: output }] } });
   };
-  const appendCommand = (name) => `tail -3 docs/plans/b.decisions.tsv; L=${fileOf(name)}; node .agents/pstack/decisions-check.mjs append "$L" --from queue.tsv`;
+  const appendCommand = (name) => `tail -3 docs/plans/b.decisions.tsv; L=${fileOf(name)}; cat queue.tsv >> "$L"`;
   const codexEvent = (seconds, payload) => events.push({ timestamp: next(seconds), type: 'response_item', payload });
   const w = {
     home,
@@ -202,9 +202,9 @@ function topic() {
       return w;
     },
     reads(...rows) {
-      bash("rg -n 'decisions-check.mjs append' notes.md", () => {
+      bash("rg -n 'decisions.tsv' notes.md", () => {
         batch(null, rows);
-        return 'notes.md:3: node .agents/pstack/decisions-check.mjs append log --from queue.tsv';
+        return 'notes.md:3: cat queue.tsv >> log.decisions.tsv';
       });
       return w;
     },
@@ -235,15 +235,15 @@ function topic() {
     },
     codex(name, ...rows) {
       const call_id = `call_${(calls += 1)}`;
-      const argv = ['node', '.agents/pstack/decisions-check.mjs', 'append', fileOf(name), '--from', 'queue.tsv'];
-      const item = calls % 2 ? { type: 'function_call', name: 'shell', call_id, arguments: JSON.stringify({ command: ['bash', '-lc', argv.join(' ')] }) } : { type: 'custom_tool_call', name: 'exec', call_id, input: `await tools.exec(${JSON.stringify(argv)});` };
+      const argv = ['sh', '-c', `cat queue.tsv >> ${fileOf(name)}`];
+      const item = calls % 2 ? { type: 'function_call', name: 'shell', call_id, arguments: JSON.stringify({ command: argv }) } : { type: 'custom_tool_call', name: 'exec', call_id, input: `await tools.exec(${JSON.stringify(argv)});` };
       codexEvent(30, item);
       codexEvent(1, { type: `${item.type}_output`, call_id, output: appended(batch(name, rows), fileOf(name)) });
       return w;
     },
     codexYielded(name, ...rows) {
       const call_id = `call_${(calls += 1)}`;
-      codexEvent(30, { type: 'function_call', name: 'exec_command', call_id, arguments: JSON.stringify({ cmd: `node .agents/pstack/decisions-check.mjs append ${fileOf(name)} --from queue.tsv` }) });
+      codexEvent(30, { type: 'function_call', name: 'exec_command', call_id, arguments: JSON.stringify({ cmd: `cat queue.tsv >> ${fileOf(name)}` }) });
       codexEvent(1, { type: 'function_call_output', call_id, output: 'Process running with session ID 42' });
       const count = batch(name, rows);
       const poll = `call_${(calls += 1)}`;
@@ -485,7 +485,7 @@ test('due flags fabricated second-plan quotes across Claude, Codex, and Antigrav
     agyTranscript,
     [
       { step_index: 0, source: 'USER_EXPLICIT', type: 'USER_INPUT', created_at: stamp(60), content: '<USER_REQUEST>\nreal approval\n</USER_REQUEST>' },
-      { step_index: 1, source: 'MODEL', type: 'PLANNER_RESPONSE', created_at: stamp(62), tool_calls: [{ name: 'run_command', args: { CommandLine: JSON.stringify('node .agents/pstack/decisions-check.mjs append docs/plans/a.decisions.tsv') } }] },
+      { step_index: 1, source: 'MODEL', type: 'PLANNER_RESPONSE', created_at: stamp(62), tool_calls: [{ name: 'run_command', args: { CommandLine: JSON.stringify('cat queue.tsv >> docs/plans/a.decisions.tsv') } }] },
       { step_index: 2, source: 'MODEL', type: 'GENERIC', created_at: stamp(65), content: 'Appended 3 rows to docs/plans/a.decisions.tsv.' },
     ].map(JSON.stringify).join('\n') + '\n',
   );

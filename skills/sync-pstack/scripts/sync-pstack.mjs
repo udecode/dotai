@@ -44,9 +44,6 @@ const HELPER_FILES = {
   'proof.mjs': [],
   'seats.mjs': [],
   'seat-watch.mjs': [],
-  'decisions-check.mjs': ['plans'],
-  'plan-open.mjs': ['plans'],
-  'plan-page.mjs': ['plans'],
   'status.mjs': [],
   'guard.mjs': ['delivery=trunk'],
   'land.mjs': ['delivery=trunk'],
@@ -59,11 +56,14 @@ const RETIRED_HELPERS = [
   'codex-browser.mjs',
   'codex-isolation.mjs',
   'cua-steps.mjs',
+  'decisions-check.mjs',
   'freeze.mjs',
   'replay.mjs',
   'scorecard.mjs',
   'reread.mjs',
   'page-stop.mjs',
+  'plan-open.mjs',
+  'plan-page.mjs',
   'levels.mjs',
   'mutate.mjs',
   'reply.mjs',
@@ -208,7 +208,6 @@ export function projectPlaybooks(root) {
         path: `${PLAYBOOKS}/${name}`,
         extends: list('extends'),
         when: field('when'),
-        page: { lead: list('page-lead'), pairs: list('page-pairs'), require: list('page-require') },
         anchors: text.split('\n').flatMap((line) => line.match(CHANGE)?.[1] ?? []),
         unanchored: text.split('\n').filter((line) => CHANGE_VERB.test(line) && !CHANGE.test(line)).map((line) => line.trim()),
       };
@@ -520,15 +519,6 @@ export function anchorProblems(root, tag) {
         problems.push({ reason: `${playbook.path} anchors a change on "${anchor}", which no playbook it extends says at pstack ${tag}` });
       }
     }
-    const listed = readFileSync(join(HELPERS, 'plan-page.mjs'), 'utf8').match(/const PSTACK_PLAYBOOKS = \[([^\]]*)\]/u);
-    if (!listed) problems.push({ reason: 'the plan-page renderer has no PSTACK_PLAYBOOKS list to check against pstack' });
-    else {
-      const known = new Set([...listed[1].matchAll(/'([^']+)'/gu)].map(([, name]) => name));
-      for (const file of source.names(tag, 'poteto-mode/playbooks').filter((file) => file.endsWith('.md'))) {
-        const name = file.slice(0, -'.md'.length);
-        if (!known.has(name)) problems.push({ reason: `pstack ${tag} has the ${name} playbook, which PSTACK_PLAYBOOKS in the plan-page renderer lacks, so the renderer refuses a plan that names it` });
-      }
-    }
   } catch (error) {
     problems.push({ reason: `cannot read pstack ${tag}: ${error.message}` });
   }
@@ -555,9 +545,6 @@ function validate(config) {
   if (config.maxEffort !== undefined && !EFFORTS.includes(config.maxEffort)) throw new Error(`maxEffort must be one of ${EFFORTS.join(', ')}`);
   if (config.maxAutoStart !== undefined && (!Number.isInteger(config.maxAutoStart) || config.maxAutoStart < 0)) throw new Error('maxAutoStart must be a non-negative integer');
   if (config.maxRounds !== undefined && (!Number.isInteger(config.maxRounds) || config.maxRounds < 1)) throw new Error('maxRounds must be a whole number of 1 or more');
-  if (config.sourceless !== undefined && (!Array.isArray(config.sourceless) || config.sourceless.length === 0 || config.sourceless.some((login) => typeof login !== 'string' || login === ''))) {
-    throw new Error('sourceless must be a list of GitHub logins');
-  }
   if (config.freshEnv !== undefined && (!Array.isArray(config.freshEnv) || config.freshEnv.some((assignment) => typeof assignment !== 'string' || !/^[A-Za-z_]\w*=/u.test(assignment)))) {
     throw new Error('freshEnv must be a list of NAME=value assignments');
   }
@@ -825,25 +812,8 @@ export function apply(root, { tag, force = false, write = true, dispositions } =
   if (!same && !force && stored.synced && 'source' in stored.synced && stored.synced.source === null && sourceRevision() !== null) {
     refusals.push({ path: 'shared source', reason: 'the project was last synced from uncommitted shared edits; commit and push them in the ustack checkout when its checks pass, then rerun' });
   }
-  // The renderer refuses a config that still sets these lists, so they leave it in the write that installs the renderer, once the playbooks carry them.
-  const pages = projectPlaybooks(root).map((playbook) => playbook.page);
-  const declared = (key) => new Set(pages.flatMap((page) => page[key]).map((title) => title.toLowerCase()));
-  const uncovered = [
-    ['pageLead', stored.pageLead, 'lead'],
-    ['pagePairs', stored.pagePairs, 'pairs'],
-    ['pageTopic.require', stored.pageTopic?.require, 'require'],
-  ].flatMap(([key, titles = [], page]) => titles.filter((title) => !declared(page).has(title.toLowerCase())).map((title) => `${key} "${title}"`));
-  if (uncovered.length > 0 && !skipped.has('plans')) {
-    refusals.push({
-      path: CONFIG,
-      forceable: false,
-      reason: `the plan page renderer no longer reads ${uncovered.join(', ')}; add each to the page-lead, page-pairs or page-require frontmatter of the playbook whose plans write it, then rerun`,
-    });
-  }
-  const kept = Object.fromEntries(Object.entries(stored).filter(([key]) => key !== 'pageLead' && key !== 'pagePairs'));
-  if (kept.pageTopic) kept.pageTopic = Object.fromEntries(Object.entries(kept.pageTopic).filter(([key]) => key !== 'require'));
-  const synced = { source: same && stored.synced?.source ? stored.synced.source : sourceRevision(), config: configHash({ ...kept, tag: config.tag }) };
-  const next = { ...kept, tag: config.tag, synced };
+  const synced = { source: same && stored.synced?.source ? stored.synced.source : sourceRevision(), config: configHash({ ...stored, tag: config.tag }) };
+  const next = { ...stored, tag: config.tag, synced };
   if (JSON.stringify(next) !== JSON.stringify(stored)) changes.push({ path: CONFIG, text: json(next) });
 
   if (write && refusals.length === 0) {
@@ -1250,43 +1220,6 @@ export function smoke(root, prompts, { timeout = 900, runtimes = ['claude'] } = 
   return Promise.all(
     prompts.flatMap((prompt) => runtimes.map((runtime) => ask(runtime, prompt, { cwd: root, timeout, hooks: true, userConfig: true, readDirs }).then((answer) => ({ ...answer, prompt })))),
   );
-}
-
-const corpusRuns = () => [['decisions-check.mjs', '--all']];
-
-const maskHelperUrls = (text, dir) =>
-  text.replaceAll(`${pathToFileURL(existsSync(dir) ? realpathSync(dir) : dir).href}/`, 'file://<helpers>/').replaceAll(`${pathToFileURL(dir).href}/`, 'file://<helpers>/');
-
-export function corpus(root, { installedDir = join(root, HELPER_DIR) } = {}) {
-  const wholeLogBase = git(root, 'rev-list', '--max-parents=0', 'HEAD')?.split('\n').at(-1);
-  const env = { ...process.env, PSTACK_BASE: wholeLogBase };
-  if (!wholeLogBase) delete env.PSTACK_BASE;
-  const clock = `data:text/javascript,Date.now=()=>${Date.now()}`;
-  const scratch = mkdtempSync(join(tmpdir(), 'sync-pstack-corpus-'));
-  const sides = { installed: installedDir, bundled: HELPERS };
-  const transcripts = { installed: [], bundled: [] };
-  const incomplete = [];
-  for (const [helper, ...args] of corpusRuns()) {
-    const header = `--- ${helper} ${args.join(' ')}`;
-    for (const [side, dir] of Object.entries(sides)) {
-      if (!existsSync(join(dir, helper))) {
-        transcripts[side].push(`${header}\nabsent`);
-        continue;
-      }
-      // An older helper exits right after printing, which cuts output to a pipe short; a file takes it whole.
-      const streams = ['stdout', 'stderr'].map((name) => join(scratch, `helper.${name}`));
-      const fds = streams.map((path) => openSync(path, 'w'));
-      const result = spawnSync(process.execPath, ['--import', clock, join(dir, helper), ...args], { cwd: root, env, stdio: ['ignore', ...fds], timeout: 300_000 });
-      fds.forEach(closeSync);
-      const [stdout, stderr] = streams.map((path) => readFileSync(path, 'utf8'));
-      if (result.error) incomplete.push(`${side} ${helper} ${args.join(' ')}: ${result.error.code ?? result.error.message}`);
-      transcripts[side].push(maskHelperUrls(`${header}\n${stdout}${stderr}exit ${result.status ?? result.signal}`, dir));
-    }
-  }
-  rmSync(scratch, { recursive: true, force: true });
-  const installed = transcripts.installed.join('\n').replaceAll(scratch, '<snapshot>');
-  const bundled = transcripts.bundled.join('\n').replaceAll(scratch, '<snapshot>');
-  return { installed, bundled, incomplete, diff: diff(installed, bundled) };
 }
 
 export function* markdownFiles(dir) {
@@ -1715,9 +1648,6 @@ const HELP = `Usage: node sync-pstack.mjs <command> [options]
                                    project whose config sets autoSync false unless named.
   playbook <project> <name>        Print each pstack base of .agents/playbooks/<name>.md with its changes applied.
   smoke <project> <prompt>...      Run each prompt read-only in Claude Code from <project>; print the answers.
-  corpus [project...]              Run the project's installed decision-log helpers and this skill's copies over its
-                                   decision logs; print the difference. Every managed project when none are named,
-                                   except one whose config sets autoSync false.
   user-pin --tag <tag>             Pin the user-scope Claude Code marketplace; print the refresh commands.
   latest                           Newest upstream ${REPO} tag.
 
@@ -1727,10 +1657,8 @@ const HELP = `Usage: node sync-pstack.mjs <command> [options]
   --force         apply and sync: overwrite a block or helper edited since the last sync, or render
                   from a source older than the project's last sync
   --allow-dirty   sync: write files that have uncommitted edits
-  --root <dir>    status, sync and corpus: also scan the repositories directly under <dir>
+  --root <dir>    status and sync: also scan the repositories directly under <dir>
   --runtime <claude|codex|both>  smoke: the runtime to run each prompt in, Claude Code by default
-  --installed <dir>  corpus: read the old helpers from <dir>, such as a copy saved before an apply, for one project
-  --out <dir>     corpus: also write corpus-<project>-installed.txt and corpus-<project>-bundled.txt there
   --json          status: print JSON
   --offline       status: skip the upstream tag lookup`;
 
@@ -1870,35 +1798,6 @@ function main(argv) {
         for (const answer of answers) console.info(`## ${answer.runtime}: ${answer.prompt.slice(0, 80)}\n${answer.text}\n`);
         return answers.every((answer) => answer.ok) ? 0 : 1;
       });
-    }
-    case 'corpus': {
-      const { found: all, held } = targets(projects, flags.roots);
-      const found = projects.length > 0 ? all : all.filter((root) => existsSync(join(root, CONFIG)));
-      if (flags.installed && found.length !== 1) throw new Error('corpus --installed takes one project path');
-      const helpersAt = git(SKILL, 'log', '-1', '--format=%H', '--', 'assets');
-      const names = new Set();
-      if (flags.out) mkdirSync(flags.out, { recursive: true });
-      let incomplete = 0;
-      for (const root of found) {
-        const result = corpus(root, { session: flags.session, installedDir: flags.installed });
-        const lines = [root];
-        const syncedFrom = existsSync(join(root, CONFIG)) ? readJson(join(root, CONFIG)).synced?.source : null;
-        if (result.diff && !flags.installed && syncedFrom && helpersAt && syncedFrom !== helpersAt) {
-          lines.push(`  installed helpers come from ${syncedFrom.slice(0, 7)}, not ${helpersAt.slice(0, 7)}; the difference includes every helper change between them`);
-        }
-        for (const failure of result.incomplete) lines.push(`  incomplete: ${failure}`);
-        lines.push(result.diff ? result.diff.replace(/^/gmu, '  ') : '  no difference');
-        console.info(lines.join('\n'));
-        incomplete += result.incomplete.length;
-        if (flags.out) {
-          const name = names.has(basename(root)) ? `${basename(root)}-${sha(root).slice(0, 7)}` : basename(root);
-          names.add(name);
-          writeFileSync(join(flags.out, `corpus-${name}-installed.txt`), `${result.installed}\n`);
-          writeFileSync(join(flags.out, `corpus-${name}-bundled.txt`), `${result.bundled}\n`);
-        }
-      }
-      for (const line of heldLines(held)) console.info(line);
-      return incomplete > 0 ? 1 : 0;
     }
     case 'latest':
       console.info(latestTag() ?? 'no tags found');
