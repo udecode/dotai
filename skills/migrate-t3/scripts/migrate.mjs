@@ -37,10 +37,10 @@ hillclimb: inherit
 judgment and prose: inherit
 strongest judgment: agy:gemini-4-neon @xhigh
 ui, visual: opus @high
-arena runners: fable @high, codex:gpt-6.2-sol @xhigh or opus @high, agy:gemini-4-neon @xhigh
+arena runners: fable @high, codex:gpt-6.2-sol @xhigh, agy:gemini-4-neon @xhigh
 arena cross-judge pool: opus @high, agy:gemini-4-neon @high
 swarm workers: inherit
-interrogate reviewers: opus @high, codex:gpt-6.2-sol @xhigh or fable @high, agy:gemini-4-neon @high
+interrogate reviewers: fable @high, codex:gpt-6.2-sol @xhigh, agy:gemini-4-neon @high
 default effort: high
 session hook: on
 `;

@@ -125,6 +125,12 @@ test('cross and seats run agy seats (online/offline, no GH_TOKEN, dirty main che
   assert.match(skipLimit.stdout, /^astra: skipped, its usage limit ran out/mu);
   assert.equal(seats(join(dir, 'only-limit'), [], 'astra=codex:gpt-6.2-astra@high').status, 1);
 
+  writeFileSync(join(bin, 'codex'), '#!/bin/sh\necho "not logged in" >&2\nexit 1\n', { mode: 0o755 });
+  const skipUnavailable = seats(join(dir, 'skip-unavail'), [], 'opus=claude:opus', 'sol=codex:gpt-6.2-sol@xhigh');
+  assert.equal(skipUnavailable.status, 0, skipUnavailable.stdout);
+  assert.match(skipUnavailable.stdout, /^sol: skipped, exit 1:/mu);
+  assert.equal(seats(join(dir, 'only-unavail'), [], 'sol=codex:gpt-6.2-sol@xhigh').status, 1);
+
   // Unboxed agy seat from a linked worktree fails if it dirties the main checkout.
   const git = (cwd, ...args) => spawnSync('git', ['-C', cwd, ...args], { encoding: 'utf8' });
   const main = join(dir, 'main');

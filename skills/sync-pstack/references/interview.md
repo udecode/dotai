@@ -53,7 +53,7 @@ The owner settled these for every project. Report them as applied.
 - External messages, shared quota, and access grants follow `rules/messages.md`; "can we X?" questions get a proposal, not the action.
 - Three lead runtimes: Antigravity (`gemini-4-neon @high`) is the default across all projects (escalating to `xhigh` only for `arena` runners, stuck debugging, or deep architectural pivots), Claude Code runs roles on `opus` (with `agy:gemini-4-neon @xhigh` for `strongest judgment`), and Codex inherits `gpt-6.2-sol`. UI/visual runs on `opus @high`; see `assets/pstack-models.md` for every role.
 - No per-delegate worktrees.
-- Panels seat `fable @high`, `codex:gpt-6.2-sol @high or opus @high`, and `agy:gemini-4-neon @high` (arena runners seat `fable @high`, `codex:gpt-6.2-sol @xhigh or opus @high`, and `agy:gemini-4-neon @xhigh`), through `cross.mjs --reach`, with a critical finding backed by a code trace or failing repro as the blocking ceiling.
+- Panels seat `fable @high`, `codex:gpt-6.2-sol @xhigh`, and `agy:gemini-4-neon @high` (arena runners seat `fable @high`, `codex:gpt-6.2-sol @xhigh`, and `agy:gemini-4-neon @xhigh`), with no fallback for Sol (skipped when Codex is unavailable or out of quota), through `cross.mjs --reach`, with a critical finding backed by a code trace or failing repro as the blocking ceiling.
 - Principles are read, not named in replies.
 - One writing pass per kind of change, with `deslop` and `no-comments` before any review, each panel round's fixes included.
 - A `codex:gpt-6.2-sol` seat, at the effort the panel gives it, reviews decision trails from Claude Code, and an Opus seat from Codex.
