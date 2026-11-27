@@ -30,7 +30,7 @@
 <!-- # overrides poteto-mode/references/codex-tools.md "Apply poteto-mode's task adjustment to that starting level" -->
 <!-- # overrides poteto-mode/references/codex-tools.md "ask for an explicit role or `default effort` level before dispatching" -->
 <!-- # relies poteto-mode/references/codex-tools.md "scripts/codex-session-effort.mjs" -->
-- **Helper effort.** Each helper starts at the lead session's effort, capped by `maxEffort` when `.agents/pstack.json` sets one (Antigravity defaults to `high`; Claude Code reads `node .agents/pstack/lead.mjs`; Codex reads `codex-session-effort.mjs` then `lead.mjs`; fallback is `maxEffort` or `high`, never ask). Pass effort explicitly on Claude `Agent` (`effort`) and Codex `spawn_agent` (`reasoning_effort`). Swarm workers, panel seats, code delegates and arena runners use their models-sheet level (Codex seats keep their capped sheet or project-rule level); other helpers may run lower for routine work.
+- **Helper effort.** Helpers start at the lead's effort, capped by `maxEffort` (Antigravity defaults to `high`; Claude reads `node .agents/pstack/lead.mjs`; Codex reads `codex-session-effort.mjs` then `lead.mjs`; fallback `maxEffort` or `high`, never ask). Pass effort explicitly on Claude `Agent` (`effort`) and Codex `spawn_agent` (`reasoning_effort`). Use `medium` for routine lanes (`operator`, routine Local CI fixers, docs/registry/changelog/sync, pure evidence/research subagents, `clip`, `video transcripts`), `high` for core coding, plans, verdicts, UI/visual and panel seats, and `xhigh` for `arena runners`, `strongest judgment`, and stuck debugging after `high` fails. Swarm workers, panel seats, code delegates and arena runners use their models-sheet level.
 <!-- if glossary -->
 - Use the words in `{{glossary}}`.
 <!-- end -->
@@ -98,17 +98,17 @@
 <!-- end -->
 <!-- end -->
 <!-- # adds -->
-- **Calls.** Each call the lead makes re-reads the session's whole context, so in a long session the number of calls, not their size, sets the cost. Read several files or line ranges in one command, or as parallel calls in one message, instead of one small read per call. A session that another session started reads `.agents/pstack/rules/linked.md` in full before its first step, and a lead reads it before it starts a session its run waits on.
+- **Calls.** Every lead turn re-reads the full context, so call count and raw payload bloat set the cost. Batch independent reads, searches, and edits in parallel in one message, and route multi-file `read_file` exploration and raw test/CI logs through short-lived subagents (`medium` when pure extraction) so only tight spans and summaries enter the main thread. A session started by another reads `.agents/pstack/rules/linked.md` in full first; a lead reads it before starting a waited-on session.
 <!-- if delivery!=trunk -->
-  Bookkeeping never takes a call of its own: a retitle, a todo update, or a decision-log append goes out in the same message as the next working call, a rename that ends the turn, such as to 🟠 or ⏳, as the Session title rule says, and several decision rows go in one `decisions-check.mjs append <log> --from <rows.tsv>` call (owner's word, 2026-10-17).
+  Never spend a turn on bookkeeping alone: send retitles, todo updates, and batched `decisions-check.mjs append <log> --from <rows.tsv>` calls with the next working call, or end-of-turn renames (🟠/⏳) per `title.md` (owner's word, 2026-10-17).
 <!-- end -->
 <!-- if delivery=trunk -->
-  Bookkeeping never takes a call of its own: a retitle, a todo update, or a decision-log append goes out in the same message as the next working call, a rename that ends the turn, such as to 🟠 or ⏳, as the Session title rule says, and several decision rows go in one append (owner's word, 2026-10-17).
+  Never spend a turn on bookkeeping alone: send retitles, todo updates, and batched decision-log appends with the next working call, or end-of-turn renames (🟠/⏳) per `title.md` (owner's word, 2026-10-17).
 <!-- end -->
 <!-- # overrides arena/SKILL.md "The judge is never from the parent's family" -->
 <!-- # overrides setup-pstack/SKILL.md "An `inherit-parent` or `auto` value never judges." -->
 <!-- # relies how/SKILL.md "that explores and explains in one pass" -->
-- **Extraction.** The session's own model keeps every judgment: plans, design calls, code, synthesis, `how` explainers, judges (except an arena's cross-judge pool), second readers and reflect decisions. Pure evidence lookups run in an evidence subagent (`invoke_subagent`/`delegate_task` in T3 Code; `Agent` on `opus` in Claude Code); signed-in site drives use OpenCode `browse` (`~/.local/bin/browse`) in Chrome, T3's Chrome-imported `preview_*` browser or Claude in Chrome. Verify each evidence seat covered every requested source (rerun once on gaps, report any remaining gap), confirm call sites with `git grep`, and read modified functions and breakable callers in full.
+- **Extraction.** The lead's own model keeps every judgment: plans, design calls, code, synthesis, `how` explainers, judges (except an arena's cross-judge pool), second readers and reflect decisions. Route multi-file `read_file` exploration, raw test/CI logs, and pure evidence lookups to short-lived evidence subagents (`medium` effort when pure extraction; `invoke_subagent`/`delegate_task` in T3 Code, `Agent` on `opus` in Claude Code); signed-in site drives use OpenCode `browse` (`~/.local/bin/browse`), T3 `preview_*` or Claude in Chrome. Verify every requested source was covered (rerun once on gaps, report any remaining gap), confirm call sites with `git grep`, and read modified functions and breakable callers in full.
 <!-- if delivery!=trunk -->
 <!-- # adds -->
 - **Codex workers.** Read `.agents/pstack/rules/codex.md` in full before you write a planned change of more than a few lines or one that needs its own test loop. Read it too before a long run's mechanical slice that a command proves done, such as a codemod, a benchmark protocol run or a fix loop that ends when typecheck or lint passes, and whenever the owner says to have Codex do it. It says when Codex writes the code instead of you.
