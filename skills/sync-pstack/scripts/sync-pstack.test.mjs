@@ -103,8 +103,9 @@ test('apply refuses main checkout of a trunk push clone, writes its worktree, an
   const root = project(dir, 'app', { config: { ...CONFIG, delivery: 'trunk' }, agents: '# App\n', files: { '.gitignore': 'node_modules' } });
   const land = (at) => join(at, '.agents/pstack/land.mjs');
   assert.equal(cli('apply', root).status, 0);
-  assert.equal(read(root, '.gitignore'), 'node_modules\n.claude/*.local.md\n');
+  assert.equal(read(root, '.gitignore'), 'node_modules\n.claude/*.local.md\n.agents/*.local.json\n');
   assert.equal(spawnSync('git', ['-C', root, 'check-ignore', '-q', '.claude/pstack-models.local.md']).status, 0);
+  assert.equal(spawnSync('git', ['-C', root, 'check-ignore', '-q', '.agents/pstack.local.json']).status, 0);
 
   spawnSync('git', ['-C', root, 'add', '-A']);
   spawnSync('git', ['-C', root, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'init']);
@@ -133,7 +134,7 @@ test('switching delivery to trunk and back swaps shared-checkout files for landi
   const pstack = (name) => join(root, '.agents/pstack', name);
   const sharedCheckout = ['codex-build.md', 'rules/close.md', 'rules/codex.md'];
   const landing = ['guard.mjs', 'land.mjs', 'review.mjs', 'setup.mjs', 'rules/land.md'];
-  const everywhere = ['cross.mjs', 'decisions-check.mjs', 'lead.mjs', 'plan-open.mjs', 'plan-page.mjs', 'proof.mjs', 'status.mjs', 'tasks.mjs', 'checkout.mjs', 'rules/autopilot.md', 'rules/chips.md', 'rules/git.md', 'rules/panel.md', 'rules/pages.md', 'rules/title.md', 'rules/trails.md', 'rules/long-runs.md'];
+  const everywhere = ['cross.mjs', 'decisions-check.mjs', 'lead.mjs', 'plan-open.mjs', 'plan-page.mjs', 'proof.mjs', 'status.mjs', 'checkout.mjs', 'rules/autopilot.md', 'rules/git.md', 'rules/panel.md', 'rules/pages.md', 'rules/title.md', 'rules/trails.md', 'rules/long-runs.md'];
   const deliver = (delivery) => {
     writeFileSync(join(root, '.agents/pstack.json'), `${JSON.stringify({ ...readJson(root, '.agents/pstack.json'), delivery }, null, 2)}\n`);
     const res = cli('apply', root);

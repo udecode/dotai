@@ -3,7 +3,7 @@
 
 This file says how a run closes in non-trunk delivery: gate order, subagent replies, counts, and the decision-trail review. The pstack block in `AGENTS.md` points here. Edit its shared source in `udecode/ustack`.
 
-- **Todo list and close.** Close every todo with its proving artifact (skill run, test log, path, commit, or `skip: <reason>`). Re-verify `skip:` reasons if the design changes. Close in order: cheap proofs that can still force code edits, writing passes, panel review and fixes, lint fix, repeated acceptance proof on final bytes, decision-trail review (when triggered), immutable ledger/log records, `/pstack:reflect` (when asked), then `chips` Close.
+- **Todo list and close.** Close every todo with its proving artifact (skill run, test log, path, commit, or `skip: <reason>`). Re-verify `skip:` reasons if the design changes. Close in order: cheap proofs that can still force code edits, writing passes, panel review and fixes, lint fix, repeated acceptance proof on final bytes, decision-trail review (when triggered), immutable log records, then `/pstack:reflect` (when asked).
 <!-- if delivery=push|pr|trunk -->
   Walk the run's commit ledger during the closing reread so every commit has its proof and decision-log row.
 <!-- end -->

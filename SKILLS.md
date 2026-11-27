@@ -1,6 +1,6 @@
 # ustack skills
 
-15 skills: 15 maintained in ustack, plus 0 unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from ustack. Methods load only when relevant; tool access is separate from installation.
+14 skills: 14 maintained in ustack, plus 0 unchanged upstream skills installed with named npx skills add commands. The engineering method (poteto-mode, its playbooks, the principle skills and pstack's review skills) comes from the pstack plugin, not from ustack. Methods load only when relevant; tool access is separate from installation.
 
 ## Review (2)
 
@@ -16,11 +16,10 @@
 | [clip](skills/clip/SKILL.md) | Record, check and render demo clips or stacked before-and-after images/clips for chat, team posts, social posts, or bug repros. Use before recording any app clip or attaching before/after screenshots. |
 | [video-transcripts](skills/video-transcripts/SKILL.md) | Transcribe a supplied local or linked video from one frame per second with Gemini 4 Neon through agy, or with a Claude subagent when agy fails, and check the transcript against the frames, when a recording's contents are needed as evidence, such as a bug recording on an issue, PR or comment, or a question about what a video shows. |
 
-## Workflow (4)
+## Workflow (3)
 
 | Skill | Purpose |
 | --- | --- |
-| [chips](skills/chips/SKILL.md) | Run the project's suggested-task ledger: /chips, /chips all, /chips sync, offer, start, drop, merge duplicates, or settle stale tasks. Use for suggested tasks, open chips, and whenever pstack would file a follow-up or out-of-band PR. |
 | [passwords](skills/passwords/SKILL.md) | Set up unattended 1Password access on a Mac or sign in to websites and apps without repeated human approvals. Use for new-device setup, passwords, authenticator codes, email or SMS verification, passkey alternatives, and blocked logins. |
 | [redo](skills/redo/SKILL.md) | Redo a prior pstack run at a higher effort or stronger model, treating its plan as a draft and rerunning only units below target. Use for \"redo <plan, page or PR>\" or a Babysit levels failure. |
 | [start](skills/start/SKILL.md) | Launch one or more standalone top-level T3 Code worktree threads (`t3_thread_launch` / `create_threads`) from a short prompt or the current chat's agreed plan. Use for /start, /start <task>, or spinning off independent work. |
@@ -55,7 +54,6 @@ Project rules govern testing, native tools and publication; do not fork an uncha
 
 These skills remain installed when a tool is absent; an unavailable live action or independent review is reported, never marked as passed.
 
-- **chips:** Node.js 22+ and Git; the ledger helpers and chips.md rule that sync-pstack installs in .agents/pstack; a suggest tool for cards, with the fallback chips.md gives without one.
 - **cleanup:** Node.js 22+, Git and lsof; a session tool that lists sessions with their folders, or a one-day wait before a worktree counts as unused.
 - **clip:** Bun, ffmpeg and ffprobe; Chromium for playwright-core, which the skill installs on first use.
 - **mac-watchdog:** macOS with launchd, Node.js and the Xcode command line tools for cc; the Claude desktop app to name sessions; sudo once for the fseventsd watchdog.

@@ -5,7 +5,7 @@ This file says how a task works in its own worktree and lands on `{{branch}}` in
 
 <!-- # overrides poteto-mode/playbooks/opening-a-pr.md "Work from a git worktree off trunk" -->
 <!-- # relies poteto-mode/playbooks/feature.md "**Give every file-writing delegate its own worktree**" -->
-- **Worktrees.** Each task works in its own worktree cut from `origin/{{branch}}` when it first needs to run or edit project files, not at intake. Never edit or commit in the main checkout while it is on `{{branch}}` or `{{protected}}`, except under `{{plans}}/artifacts/` (git-ignored, holding the suggested-task ledger and run directories). Keep temporary build/benchmark checkouts in a temp folder and remove them when done. After landing, finish any owed reflect, ask reread, and `chips` Close, merge run directories into the main checkout, and run `scan.mjs --landed <worktree>` (leaving the worktree for cleanup after a quiet day, or locking it if the scan fails). `setup.mjs --hook` on SessionStart copies untracked `.env`/`.env.local` files, runs `--install` in new worktrees, syncs `refs/pstack/ledger`, and fast-forwards the main checkout when safe.
+- **Worktrees.** Each task works in its own worktree cut from `origin/{{branch}}` when it first needs to run or edit project files, not at intake. Never edit or commit in the main checkout while it is on `{{branch}}` or `{{protected}}`, except under `{{plans}}/artifacts/` (git-ignored, holding run directories and local queue artifacts). Keep temporary build/benchmark checkouts in a temp folder and remove them when done. After landing, finish any owed reflect and ask reread, merge run directories into the main checkout, and run `scan.mjs --landed <worktree>` (leaving the worktree for cleanup after a quiet day, or locking it if the scan fails). `setup.mjs --hook` on SessionStart copies untracked `.env`/`.env.local` files, runs `--install` in new worktrees, and fast-forwards the main checkout when safe.
 <!-- # overrides poteto-mode/playbooks/feature.md "Run **Opening a PR**" -->
 <!-- # overrides poteto-mode/playbooks/opening-a-pr.md "Invoked at the end of every other playbook." -->
 <!-- # relies poteto-mode/playbooks/opening-a-pr.md "dropping empty ones: `## Why`" -->
@@ -25,5 +25,5 @@ This file says how a task works in its own worktree and lands on `{{branch}}` in
 <!-- # adds -->
 - **Review.** `land.mjs` appends `Session:`, `Plan:` (when one dated plan changed), and `Lead:` trailers. Review unreviewed commits with `node .agents/pstack/review.mjs` (`--tier internal|all`, `--net <session>`, `--done <session>`, `--mark`, `--revert <session> [--stage]`). List every commit landed this session in the closing reply's link list.
 <!-- if sourceless -->
-  Commits must cite a source (repo/companion issue `<repo>#<N>`, card id `t_...`, or `Plan:` path) unless the GitHub user is in `sourceless`.
+  Commits must cite a source (repo/companion issue `<repo>#<N>` or `Plan:` path) unless the GitHub user is in `sourceless`.
 <!-- end -->

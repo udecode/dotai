@@ -36,7 +36,7 @@ test('decisions-check prints every problem of a long log through a pipe', () => 
   assert.equal(problems.length, 1200);
 });
 
-test('decisions-check validates basic panel rows and rejects chip states outside phase chip', () => {
+test('decisions-check validates basic panel rows', () => {
   const { dir, run } = sandbox();
   const root = project(dir, 'app', { config: CONFIG });
   const append = (phase, decision, result) => run(process.execPath, [join(HELPERS, 'decisions-check.mjs'), 'append', 'log.decisions.tsv', phase, decision, 'why', 'evidence', result], root);
@@ -44,7 +44,6 @@ test('decisions-check validates basic panel rows and rejects chip states outside
   assert.equal(append('panel', 'missing severity', 'applied: fixed').status, 1);
   assert.equal(append('panel', 'critical [opus]: broken check', 'applied').status, 1);
   assert.equal(append('panel', 'critical [opus]: broken check', 'applied: fixed in parser.ts').status, 0);
-  assert.equal(append('build', 'offer task', 'offered').status, 1);
 });
 
 test('decisions-check append --from appends batches atomically and rejects invalid batches', () => {

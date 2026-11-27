@@ -11,7 +11,7 @@ const upstream = JSON.parse(readFileSync(join(root, 'upstream-skills.json'), 'ut
 const groups = {
   'Review': ['skill-audit', 'test-audit'],
   'Communication': ['clip', 'video-transcripts'],
-  'Workflow': ['chips', 'passwords', 'redo', 'start'],
+  'Workflow': ['passwords', 'redo', 'start'],
   'Maintenance': ['cleanup', 'migrate-t3', 'sync-pstack'],
   'Monitoring': ['mac-watchdog', 'pstack-doctor', 'pstack-pulse', 'rca'],
 };
@@ -22,7 +22,6 @@ const requirements = {
   cleanup: ['Node.js 22+, Git and lsof; a session tool that lists sessions with their folders, or a one-day wait before a worktree counts as unused'],
   'mac-watchdog': ['macOS with launchd, Node.js and the Xcode command line tools for cc; the Claude desktop app to name sessions; sudo once for the fseventsd watchdog'],
   'migrate-t3': ['Node.js 22+, T3 Code, the agy (Antigravity) CLI, OpenCode browse (Chrome extension) and cua-driver (macOS); Claude Code and Codex CLIs for UI slices and multi-family panels'],
-  chips: ['Node.js 22+ and Git; the ledger helpers and chips.md rule that sync-pstack installs in .agents/pstack; a suggest tool for cards, with the fallback chips.md gives without one'],
   'pstack-doctor': ['Node.js 22+, Git and ripgrep; pstack-pulse for live session state, Antigravity ACP transcripts for Gemini 4 Neon sessions, and a session tool that lists sessions for the rest'],
   'pstack-pulse': ['macOS with launchd and the Keychain, Node.js 22+ and sqlite3; an ActivitySmith account and key; Tailscale Funnel for the session list'],
   rca: ['A Code session in the Claude desktop app, which alone has its session tools'],

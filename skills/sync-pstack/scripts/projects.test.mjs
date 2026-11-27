@@ -40,14 +40,14 @@ test('smoke runs Claude by default, supports both runtimes without CLAUDECODE, a
   assert.equal(run(['--runtime', 'both'], { EMPTY_CODEX: '1' }).status, 1);
 });
 
-test('corpus diffs installed vs bundled ledger helpers, masks minted ids, and flags absent helpers', () => {
+test('corpus diffs installed vs bundled decision-log helpers and flags absent helpers', () => {
   const { dir, env, cli } = sandbox();
-  const ledger = 'ts\tphase\tdecision\twhy\tevidence\tresult\n2026-10-01T00:00:00Z\tchip\tt_0a1b2c3d Fix the corpus fixture\tA finding\twrites: src/a.ts; topic: corpus-fixture\toffered\n';
-  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n', files: { 'docs/plans/suggested-tasks.decisions.tsv': ledger } });
+  const root = project(dir, 'app', { config: CONFIG, agents: '# App\n' });
   project(dir, 'bare', { agents: '# Bare\n' });
   assert.equal(cli('apply', root).status, 0);
   spawnSync('git', ['-C', root, 'add', '-A']);
   commit(root, 'app');
+  mkdirSync(join(root, 'docs/plans'), { recursive: true });
   writeFileSync(join(root, 'docs/plans/2026-10-01-x.decisions.tsv'), 'ts\tphase\tdecision\twhy\tevidence\tresult\n2026-10-01T00:00:00Z\tbuild\tA decision\tA reason\tsome evidence\tmaybe\n');
   spawnSync('git', ['-C', root, 'add', '-A']);
   commit(root, 'log');
@@ -59,19 +59,14 @@ test('corpus diffs installed vs bundled ledger helpers, masks minted ids, and fl
   assert.match(same.stdout, /^\S+\/app\n {2}no difference$/m);
   assert.match(read(join(dir, 'same'), 'corpus-app-bundled.txt'), /2026-10-01-x\.decisions\.tsv/);
 
-  writeFileSync(installed, "console.log('old', process.argv.slice(2).join(' '), process.cwd());\nif (process.argv[2] === '--all') throw new Error('boom');\n");
+  writeFileSync(installed, "console.log('old', process.argv.slice(2).join(' '));\nif (process.argv[2] === '--all') throw new Error('boom');\n");
   const out = join(dir, 'out');
-  const changed = cli('corpus', '--root', dir, '--session', 'local_1', '--out', out);
+  const changed = cli('corpus', '--root', dir, '--out', out);
   assert.equal(changed.status, 0, changed.stderr);
   assert.doesNotMatch(changed.stdout, /bare/);
-  assert.match(changed.stdout, /^ {2}-old chips --session local_1 <snapshot>\/suggested-tasks\.decisions\.tsv \S+\/app$/m);
-  assert.match(changed.stdout, /^ {2}\+\s+t_0a1b2c3d {2}Fix the corpus fixture/m);
+  assert.match(changed.stdout, /^ {2}-old --all$/m);
   assert.match(read(out, 'corpus-app-installed.txt'), /file:\/\/<helpers>\/decisions-check\.mjs:2/);
   assert.match(cli('corpus', root, '--installed', join(dir, 'baseline')).stdout, /^\S+\/app\n {2}no difference$/m);
-
-  writeFileSync(installed, "import { randomBytes } from 'node:crypto';\nconsole.log(`offer t_${randomBytes(4).toString('hex')} beside t_0a1b2c3d`);\n");
-  assert.equal(cli('corpus', root, '--out', join(dir, 'minted')).status, 0);
-  assert.match(read(join(dir, 'minted'), 'corpus-app-installed.txt'), /^offer t_<new 1> beside t_0a1b2c3d$/mu);
 
   rmSync(installed);
   assert.match(cli('corpus', root).stdout, /^ {2}-absent$/m);

@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { once } from 'node:events';
-import { appendFileSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { readProjectConfig } from '../assets/pstack/lead.mjs';
 import { CONFIG, commit, project } from './test-sandbox.mjs';
 import { sandbox } from './test-cli.mjs';
 
@@ -50,7 +50,7 @@ test("head points origin/HEAD at the working branch named by origin's default br
   assert.equal(origin(), 'refs/remotes/origin/main');
 });
 
-function ledgerRemote(extra = {}) {
+function trunkRemote(extra = {}) {
   const { dir, env, run, cli } = sandbox();
   const origin = join(dir, 'origin.git');
   run('git', ['init', '-q', '--bare', origin]);
@@ -69,36 +69,12 @@ function ledgerRemote(extra = {}) {
     return join(dir, name);
   };
   const setup = (cwd) => run(process.execPath, [join(cwd, '.agents/pstack/setup.mjs')], cwd);
-  const onRef = () => execFileSync('git', ['--git-dir', origin, 'show', 'refs/pstack/ledger:suggested-tasks.decisions.tsv'], { encoding: 'utf8', maxBuffer: 1 << 30 });
-  const next = () => run('git', ['--git-dir', origin, 'rev-parse', 'next']).stdout;
-  return { clone, dir, env, next, onRef, run, seed, setup };
+  return { clone, dir, env, run, seed, setup };
 }
 
-test('setup syncs ignored ledger with refs/pstack/ledger, resolves conflicts to refused.tsv, skips read-only/missing companion, and prints local sheet', () => {
-  const { clone, env, next, onRef, run, seed, setup } = ledgerRemote();
-  const ledger = 'docs/plans/artifacts/suggested-tasks.decisions.tsv';
-  const old = Array.from({ length: 50 }, (_, i) => `old ${i}\n`).join('');
-  const base = next();
+test('setup respects read-only, validates flags, prints local models sheet, and readProjectConfig merges pstack.local.json', () => {
+  const { clone, env, run, setup } = trunkRemote();
   const main = clone('main');
-  mkdirSync(join(main, 'docs/plans/artifacts'), { recursive: true });
-  writeFileSync(join(main, ledger), `${old}row 1\nhalf a ro`);
-
-  assert.match(setup(main).stdout, /pushed 51 ledger row\(s\) to refs\/pstack\/ledger/);
-  assert.equal(onRef(), `${old}row 1\n`);
-
-  const other = clone('other');
-  mkdirSync(join(other, 'docs/plans/artifacts'), { recursive: true });
-  writeFileSync(join(other, ledger), 'row from another clone\n');
-  const elsewhere = setup(other);
-  assert.match(elsewhere.stdout, /added 51 ledger row\(s\) from refs\/pstack\/ledger/);
-  assert.match(elsewhere.stdout, /pushed 1 ledger row\(s\)/);
-
-  writeFileSync(join(main, ledger), `${old}row 1\nhalf a row\n`);
-  const again = setup(main);
-  assert.match(again.stdout, /added 1 ledger row\(s\)/);
-  assert.equal(onRef(), `${old}row 1\nrow from another clone\nhalf a row\n`);
-  assert.equal(setup(main).stdout, '');
-  assert.equal(next(), base);
 
   // Read-only skip and bad CLI flags.
   const ro = spawnSync(process.execPath, [join(main, '.agents/pstack/setup.mjs')], { cwd: main, encoding: 'utf8', env: { ...process.env, PSTACK_READ_ONLY: '1' } });
@@ -116,88 +92,15 @@ test('setup syncs ignored ledger with refs/pstack/ledger, resolves conflicts to 
   const codex = spawnSync(process.execPath, [join(tree, '.agents/pstack/setup.mjs')], { cwd: tree, encoding: 'utf8', env: { ...env, CLAUDE_CODE_SESSION_ID: '', CODEX_THREAD_ID: 'thread' } });
   assert.doesNotMatch(codex.stdout, /pstack-models\.local\.md/u);
 
-  // Missing companion skips ledger sync; present companion syncs ledger to companion origin.
-  const cfg = JSON.parse(readFileSync(join(main, '.agents/pstack.json'), 'utf8'));
-  writeFileSync(join(main, '.agents/pstack.json'), JSON.stringify({ ...cfg, companion: { dir: '.git-private', list: '.gitprivate' } }));
-  assert.match(setup(main).stdout, /^setup\.mjs: skipped the ledger sync, because this clone has no \.git-private yet$/mu);
-  const companion = join(dirname(seed), 'companion.git');
-  run('git', ['init', '-q', '--bare', companion]);
-  run('git', ['-C', main, 'init', '-q', '--bare', '.git-private']);
-  run('git', ['--git-dir', join(main, '.git-private'), 'remote', 'add', 'origin', companion]);
-  assert.match(setup(main).stdout, /pushed \d+ ledger row\(s\)/);
-  assert.match(run('git', ['--git-dir', companion, 'show', 'refs/pstack/ledger:suggested-tasks.decisions.tsv']).stdout, /half a row/);
-});
-
-test('setup moves conflicting ledger rows to refused.tsv and migrates former tracked ledger path', () => {
-  const former = 'docs/plans/suggested-tasks.decisions.tsv';
-  const ledger = 'docs/plans/artifacts/suggested-tasks.decisions.tsv';
-  const { clone, next, onRef, run, seed, setup } = ledgerRemote({ [former]: 'row 0\n' });
-
-  // Former-path migration.
-  const migrated = clone('migrated');
-  writeFileSync(join(migrated, former), 'row 0\nrow 1\n');
-  run('git', ['-C', seed, 'rm', '-q', '--cached', former]);
-  rmSync(join(seed, former));
-  symlinkSync('artifacts/suggested-tasks.decisions.tsv', join(seed, former));
-  run('git', ['-C', seed, 'add', former]);
-  commit(seed, 'move the ledger');
-  run('git', ['-C', seed, 'push', '-q', 'origin', 'next']);
-  const moved = next();
-  assert.match(setup(migrated).stdout, /moved 2 ledger row\(s\)/);
-  assert.ok(lstatSync(join(migrated, former)).isSymbolicLink());
-  assert.equal(onRef(), 'row 0\nrow 1\n');
-  assert.equal(next(), moved);
-
-  // Conflicting chip state row moves to refused.tsv.
-  const conflict = ledgerRemote();
-  const chip = (ts, evidence, result) => `${ts}\tchip\tt_0000000a Keep one ledger order\tclones disagree\t${evidence}\t${result}\n`;
-  const [a, b] = [conflict.clone('a'), conflict.clone('b')];
-  for (const main of [a, b]) {
-    mkdirSync(join(main, 'docs/plans/artifacts'), { recursive: true });
-    writeFileSync(join(main, ledger), `ts\tphase\tdecision\twhy\tevidence\tresult\n${chip('2026-11-01T00:00:00Z', 'writes: README.md; topic: ledger; priority: P1; repro: steps', 'offered')}`);
-  }
-  conflict.setup(a);
-  const dismissed = chip('2026-11-02T00:00:00Z', 'owner declined it', 'dismissed declined');
-  const started = chip('2026-11-03T00:00:00Z', 'session: s1', 'started');
-  appendFileSync(join(a, ledger), dismissed);
-  appendFileSync(join(b, ledger), started);
-  conflict.setup(a);
-  const refused = conflict.setup(b);
-  assert.equal(refused.status, 0, refused.stderr);
-  assert.match(refused.stdout, /refused t_0000000a started: .*t_0000000a is dismissed declined, so it cannot be started/);
-  conflict.setup(a);
-  assert.equal(readFileSync(join(a, ledger), 'utf8'), readFileSync(join(b, ledger), 'utf8'));
-  assert.ok(readFileSync(join(b, 'docs/plans/artifacts/suggested-tasks.refused.tsv'), 'utf8').startsWith(started.trimEnd()));
-});
-
-test('concurrent appends serialize under ledger lock so one topic gets one open design question', async () => {
-  const { clone, env } = ledgerRemote();
-  const ledger = 'docs/plans/artifacts/suggested-tasks.decisions.tsv';
-  const main = clone('main');
-  mkdirSync(join(main, 'docs/plans/artifacts'), { recursive: true });
-  const lock = join(main, '.git', 'pstack-ledger.lock');
-  mkdirSync(lock);
-  const offer = (id) => {
-    const child = spawn(process.execPath, [join(main, '.agents/pstack/decisions-check.mjs'), 'append', ledger, 'chip', `${id} Decide the ledger order`, 'finding', 'writes: README.md; topic: ledger; kind: decide; priority: P1; repro: steps', 'offered'], { cwd: main, env });
-    const output = { stderr: '' };
-    child.stderr.on('data', (chunk) => (output.stderr += chunk));
-    const exited = once(child, 'close').then(([code]) => ({ code, ...output }));
-    const running = new Promise((resolve) => {
-      child.stderr.on('data', () => output.stderr.includes('Waiting for the ledger lock') && resolve());
-      exited.then(resolve);
-    });
-    return { exited, running };
-  };
-  const appends = [offer('t_0000000b'), offer('t_0000000c')];
-  await Promise.all(appends.map((each) => each.running));
-  rmSync(lock, { recursive: true });
-  const results = await Promise.all(appends.map((each) => each.exited));
-  assert.deepEqual(results.map((each) => each.code).sort(), [0, 1], results.map((each) => each.stderr).join('\n'));
-  assert.match(results.find((each) => each.code === 1).stderr, /topic ledger already has the open design question t_0000000[bc]/);
+  // readProjectConfig defaults maxAutoStart to 0 and shallow-merges main checkout's .agents/pstack.local.json.
+  assert.equal(readProjectConfig(tree).maxAutoStart, 0);
+  writeFileSync(join(main, '.agents/pstack.local.json'), JSON.stringify({ maxAutoStart: 15 }));
+  assert.equal(readProjectConfig(tree).maxAutoStart, 15);
+  assert.equal(readProjectConfig(tree).branch, 'next');
 });
 
 test('guard handles native Antigravity PreToolUse payloads and fails open on conflicted .agents/pstack.json', () => {
-  const { clone } = ledgerRemote();
+  const { clone } = trunkRemote();
   const main = clone('main');
   const guard = join(main, '.agents/pstack/guard.mjs');
   const invoke = (payload) => spawnSync(process.execPath, [guard], { cwd: main, encoding: 'utf8', input: JSON.stringify(payload) });

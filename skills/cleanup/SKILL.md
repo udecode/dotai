@@ -17,8 +17,8 @@ Extends pstack's Worktree and simulator cleanup playbook (this skill wins on dif
 
 ## Supporting commands
 
-- `scan.mjs --landed <worktree>`: verifies the main checkout holds all changes and `<plans>/artifacts/` ignored files of a landed card worktree before leaving it for cleanup.
-- `scan.mjs --remove <worktree>...`: used by `/chips` cleanup to stop processes, save unique state, and remove archived card worktrees (skips locked, active, unresolved-merge, or unsafe paths).
+- `scan.mjs --landed <worktree>`: verifies the main checkout holds all changes and `<plans>/artifacts/` ignored files of a landed worktree before leaving it for cleanup.
+- `scan.mjs --remove <worktree>...`: stops processes, saves unique state, and removes archived worktrees (skips locked, active, unresolved-merge, or unsafe paths).
 - `scan.mjs --brief --auto`: optional `SessionStart` hook; runs at most once/day in background removing only `SAFE` items (disable via `auto cleanup: off` in `~/.claude/pstack-models.md`).
 - `machine.mjs [--delete]`: clears `SAFE` global caches (week-old Bun transpiler files, idle npx installs, `uv cache prune`, unused anonymous Docker volumes) and lists `ASK` items (pnpm store, named compose volumes).
 - `daily.mjs install`: installs a 05:30 launchd job running cleanup across `~/git` (logs to `~/Library/Logs/cleanup-daily/`). Lock any pinned worktree with `git worktree lock` so daily runs keep it.

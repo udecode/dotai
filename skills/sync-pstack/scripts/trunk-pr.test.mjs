@@ -47,8 +47,6 @@ function sourceless(fixture) {
   git(clone, 'commit', '--quiet', '-am', 'sourceless');
   git(clone, 'push', '--quiet', 'origin', 'HEAD:next');
   git(clone, 'fetch', '--quiet', 'origin');
-  mkdirSync(join(clone, 'docs/plans/artifacts'), { recursive: true });
-  writeFileSync(join(clone, 'docs/plans/artifacts/suggested-tasks.decisions.tsv'), '2026-10-24T10:00:00Z\tchip\tt_1a2b3c4d Fix a\tWhy a breaks.\twrites: a.txt; topic: a; kind: fix; waits: none\toffered\n');
   const bin = join(dir, 'login-bin');
   mkdirSync(bin);
   writeFileSync(join(bin, 'gh'), '#!/bin/sh\n[ -n "$GH_LOGIN" ] || { echo "not logged in" >&2; exit 1; }\necho "$GH_LOGIN"\n', { mode: 0o755 });
@@ -83,10 +81,11 @@ test('land enforces sourceless policy on public and companion commits', () => {
   assert.match(refused(GOOD, { PATH: '/usr/bin:/bin' }, 'no gh'), /gh api user failed: spawnSync gh ENOENT/);
 
   const owner = basename(dir).toLowerCase();
-  for (const line of ['Repairs remote#12.', `Repairs ${owner}/remote#12.`, 'Runs card t_1a2b3c4d.', `See https://github.com/${owner}/remote/issues/12.`]) {
+  for (const line of ['Repairs remote#12.', `Repairs ${owner}/remote#12.`, `See https://github.com/${owner}/remote/issues/12.`]) {
     assert.equal(helper('land.mjs', clone, ['--message', message(body(line))], as('teammate')).status, 0, line);
     change();
   }
+  mkdirSync(join(clone, 'docs/plans'), { recursive: true });
   writeFileSync(join(clone, 'docs/plans/2026-10-28-x.md'), '# X\n');
   assert.equal(helper('land.mjs', clone, ['--message', message(GOOD)], as('teammate')).status, 0);
   change();

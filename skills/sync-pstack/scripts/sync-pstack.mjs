@@ -24,8 +24,7 @@ import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ask } from '../assets/pstack/cross.mjs';
-import { EFFORTS, LOCAL_SHEET } from '../assets/pstack/lead.mjs';
-import { LEDGER, ledgerPath, TASK_ID } from '../assets/pstack/tasks.mjs';
+import { EFFORTS, LOCAL_CONFIG, LOCAL_SHEET } from '../assets/pstack/lead.mjs';
 
 const SKILL = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const TEMPLATE = join(SKILL, 'assets/block.md');
@@ -49,7 +48,6 @@ const HELPER_FILES = {
   'plan-open.mjs': ['plans'],
   'plan-page.mjs': ['plans'],
   'status.mjs': [],
-  'tasks.mjs': ['plans'],
   'guard.mjs': ['delivery=trunk'],
   'land.mjs': ['delivery=trunk'],
   'review.mjs': ['delivery=trunk'],
@@ -69,6 +67,7 @@ const RETIRED_HELPERS = [
   'levels.mjs',
   'mutate.mjs',
   'reply.mjs',
+  'tasks.mjs',
   'title.mjs',
 ];
 const RULES = join(HELPERS, 'rules');
@@ -77,7 +76,6 @@ export const PROJECT_SHEET = '.claude/pstack-models.md';
 export const RULE_FILES = {
   'autopilot.md': { blockRule: 'Autopilot', gates: [] },
   'browser.md': { blockRule: 'Browser drives', gates: ['browser'] },
-  'chips.md': { blockRule: 'Suggested tasks', gates: ['plans'] },
   'close.md': { blockRule: 'Todo list and close', gates: ['delivery!=trunk'] },
   'fast.md': { blockRule: 'Fast', gates: ['fast'] },
   'codex.md': { blockRule: 'Codex workers', gates: ['delivery!=trunk'] },
@@ -555,6 +553,7 @@ function validate(config) {
   if (config.pushBranches !== undefined && typeof config.pushBranches !== 'boolean') throw new Error('pushBranches must be true or false');
   if (config.pushBranches && config.delivery !== 'user') throw new Error('pushBranches applies only to user delivery');
   if (config.maxEffort !== undefined && !EFFORTS.includes(config.maxEffort)) throw new Error(`maxEffort must be one of ${EFFORTS.join(', ')}`);
+  if (config.maxAutoStart !== undefined && (!Number.isInteger(config.maxAutoStart) || config.maxAutoStart < 0)) throw new Error('maxAutoStart must be a non-negative integer');
   if (config.maxRounds !== undefined && (!Number.isInteger(config.maxRounds) || config.maxRounds < 1)) throw new Error('maxRounds must be a whole number of 1 or more');
   if (config.sourceless !== undefined && (!Array.isArray(config.sourceless) || config.sourceless.length === 0 || config.sourceless.some((login) => typeof login !== 'string' || login === ''))) {
     throw new Error('sourceless must be a list of GitHub logins');
@@ -811,9 +810,15 @@ export function apply(root, { tag, force = false, write = true, dispositions } =
   const settingsSource = existsSync(settingsPath) ? readFileSync(settingsPath, 'utf8') : '';
   const settings = settingsSource ? JSON.parse(settingsSource) : {};
   if (!pinned(settings, config.tag)) changes.push({ path: '.claude/settings.json', text: settingsText(settingsSource, settings, config.tag) });
-  if (config.delivery === 'trunk' && gitRun(root, 'check-ignore', '-q', LOCAL_SHEET).status === 1) {
-    const ignore = existsSync(join(root, '.gitignore')) ? readFileSync(join(root, '.gitignore'), 'utf8') : '';
-    changes.push({ path: '.gitignore', text: `${ignore}${ignore && !ignore.endsWith('\n') ? '\n' : ''}.claude/*.local.md\n` });
+  if (config.delivery === 'trunk') {
+    const missingIgnores = [
+      [LOCAL_SHEET, '.claude/*.local.md'],
+      [LOCAL_CONFIG, '.agents/*.local.json'],
+    ].filter(([sample]) => gitRun(root, 'check-ignore', '-q', sample).status === 1).map(([, line]) => line);
+    if (missingIgnores.length > 0) {
+      const ignore = existsSync(join(root, '.gitignore')) ? readFileSync(join(root, '.gitignore'), 'utf8') : '';
+      changes.push({ path: '.gitignore', text: `${ignore}${ignore && !ignore.endsWith('\n') ? '\n' : ''}${missingIgnores.join('\n')}\n` });
+    }
   }
 
   const same = changes.length === 0 && refusals.length === 0;
@@ -1247,29 +1252,21 @@ export function smoke(root, prompts, { timeout = 900, runtimes = ['claude'] } = 
   );
 }
 
-const corpusRuns = (session, ledger) => [
-  ['decisions-check.mjs', '--all'],
-  ['decisions-check.mjs', 'chips', ...(session ? ['--session', session] : []), ...(ledger ? [ledger] : [])],
-  ['decisions-check.mjs', 'chips', 'stale', ...(ledger ? [ledger] : [])],
-];
+const corpusRuns = () => [['decisions-check.mjs', '--all']];
 
 const maskHelperUrls = (text, dir) =>
   text.replaceAll(`${pathToFileURL(existsSync(dir) ? realpathSync(dir) : dir).href}/`, 'file://<helpers>/').replaceAll(`${pathToFileURL(dir).href}/`, 'file://<helpers>/');
 
-export function corpus(root, { session, installedDir = join(root, HELPER_DIR) } = {}) {
+export function corpus(root, { installedDir = join(root, HELPER_DIR) } = {}) {
   const wholeLogBase = git(root, 'rev-list', '--max-parents=0', 'HEAD')?.split('\n').at(-1);
   const env = { ...process.env, PSTACK_BASE: wholeLogBase };
   if (!wholeLogBase) delete env.PSTACK_BASE;
   const clock = `data:text/javascript,Date.now=()=>${Date.now()}`;
-  const config = existsSync(join(root, CONFIG)) ? readJson(join(root, CONFIG)) : {};
-  const live = join(root, ledgerPath(config.plans || 'docs/plans', config.delivery));
   const scratch = mkdtempSync(join(tmpdir(), 'sync-pstack-corpus-'));
-  const snapshot = existsSync(live) ? join(scratch, LEDGER) : null;
-  if (snapshot) writeFileSync(snapshot, readFileSync(live));
   const sides = { installed: installedDir, bundled: HELPERS };
   const transcripts = { installed: [], bundled: [] };
   const incomplete = [];
-  for (const [helper, ...args] of corpusRuns(session, snapshot)) {
+  for (const [helper, ...args] of corpusRuns()) {
     const header = `--- ${helper} ${args.join(' ')}`;
     for (const [side, dir] of Object.entries(sides)) {
       if (!existsSync(join(dir, helper))) {
@@ -1286,18 +1283,9 @@ export function corpus(root, { session, installedDir = join(root, HELPER_DIR) } 
       transcripts[side].push(maskHelperUrls(`${header}\n${stdout}${stderr}exit ${result.status ?? result.signal}`, dir));
     }
   }
-  const known = snapshot ? readFileSync(snapshot, 'utf8') : '';
   rmSync(scratch, { recursive: true, force: true });
-  const maskMinted = (text) => {
-    const minted = new Map();
-    return text.replace(TASK_ID, (id) => {
-      if (known.includes(id)) return id;
-      if (!minted.has(id)) minted.set(id, `t_<new ${minted.size + 1}>`);
-      return minted.get(id);
-    });
-  };
-  const installed = maskMinted(transcripts.installed.join('\n').replaceAll(scratch, '<snapshot>'));
-  const bundled = maskMinted(transcripts.bundled.join('\n').replaceAll(scratch, '<snapshot>'));
+  const installed = transcripts.installed.join('\n').replaceAll(scratch, '<snapshot>');
+  const bundled = transcripts.bundled.join('\n').replaceAll(scratch, '<snapshot>');
   return { installed, bundled, incomplete, diff: diff(installed, bundled) };
 }
 
@@ -1727,8 +1715,8 @@ const HELP = `Usage: node sync-pstack.mjs <command> [options]
                                    project whose config sets autoSync false unless named.
   playbook <project> <name>        Print each pstack base of .agents/playbooks/<name>.md with its changes applied.
   smoke <project> <prompt>...      Run each prompt read-only in Claude Code from <project>; print the answers.
-  corpus [project...]              Run the project's installed ledger helpers and this skill's copies over its ledger
-                                   and decision logs; print the difference. Every managed project when none are named,
+  corpus [project...]              Run the project's installed decision-log helpers and this skill's copies over its
+                                   decision logs; print the difference. Every managed project when none are named,
                                    except one whose config sets autoSync false.
   user-pin --tag <tag>             Pin the user-scope Claude Code marketplace; print the refresh commands.
   latest                           Newest upstream ${REPO} tag.
@@ -1740,7 +1728,6 @@ const HELP = `Usage: node sync-pstack.mjs <command> [options]
                   from a source older than the project's last sync
   --allow-dirty   sync: write files that have uncommitted edits
   --root <dir>    status, sync and corpus: also scan the repositories directly under <dir>
-  --session <id>  corpus: pass this session's id to chips
   --runtime <claude|codex|both>  smoke: the runtime to run each prompt in, Claude Code by default
   --installed <dir>  corpus: read the old helpers from <dir>, such as a copy saved before an apply, for one project
   --out <dir>     corpus: also write corpus-<project>-installed.txt and corpus-<project>-bundled.txt there

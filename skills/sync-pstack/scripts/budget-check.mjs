@@ -18,7 +18,7 @@ const MAX_RULE_BYTES = 8192;
 const MAX_TOTAL_RULE_BYTES = 80000;
 const MAX_SKILL_BYTES = 16384;
 const MAX_TOTAL_SKILL_BYTES = 100000;
-const MAX_HELPER_FILES = 18;
+const MAX_HELPER_FILES = 17;
 const MAX_HELPER_LINES = 400;
 
 // Existing core engines above 400 lines; ceilings may only shrink, never grow.
@@ -29,7 +29,6 @@ const LEGACY_LINE_CEILINGS = {
   'plan-page.mjs': 744,
   'proof.mjs': 546,
   'status.mjs': 416,
-  'tasks.mjs': 1699,
 };
 
 const failures = [];

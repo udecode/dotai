@@ -44,7 +44,7 @@ test('transcriptTail and lastTypedAt parse Claude transcripts while skipping rem
   assert.equal(transcriptTail(lines, 1).length, 1);
 
   const user = (timestamp, content) => JSON.stringify({ type: 'user', timestamp, message: { content } });
-  const typed = [user('2026-11-02T00:00:00Z', 'go'), user('2026-11-02T01:00:00Z', '<command-name>/chips</command-name>'), user('2026-11-02T02:00:00Z', '<cross-session-message>done</cross-session-message>'), user('2026-11-02T03:00:00Z', [{ type: 'tool_result', content: 'ok' }])];
+  const typed = [user('2026-11-02T00:00:00Z', 'go'), user('2026-11-02T01:00:00Z', '<command-name>/verdict</command-name>'), user('2026-11-02T02:00:00Z', '<cross-session-message>done</cross-session-message>'), user('2026-11-02T03:00:00Z', [{ type: 'tool_result', content: 'ok' }])];
   assert.equal(lastTypedAt(typed), '2026-11-02T01:00:00Z');
   assert.equal(lastTypedAt(typed.slice(2)), null);
 });

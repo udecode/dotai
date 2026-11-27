@@ -20,10 +20,10 @@
 - **T3 orchestration.** Pick the child tier by who owns the result and what model or isolation it needs:
   - `invoke_subagent` (`Model: "inherit"`, never `pro`, `flash`, or `flash_lite`): default for same-provider, same-model child work where the parent waits on and consumes the result (research lanes, package audits, `operator` normal fixes or judges, parallel plan steps, `verdict` exploration).
   - `delegate_task` (`mode: "async"`): parent still owns the result, when needing another provider (`claude-opus-5-5` for UI/visual, `gpt-6.2-astra`/`sol`, `claude-fable-5-2`), higher effort (`gemini-4-neon @xhigh` for stuck debugging, arena, or panels), or T3-managed `isolation: "worktree"`.
-  - `t3_thread_launch`: only for standalone top-level threads that outlive the parent and talk directly to the user in their own worktree (`workspaceStrategy`): launching an independent `chips` card the user picked, a standalone feature thread explicitly spun off, or a pinned daemon (`📌 operator`). Never for subtasks, parallel steps, `verdict`, routine `operator` fixes, or panels.
+  - `t3_thread_launch`: only for standalone top-level threads that outlive the parent and talk directly to the user in their own worktree (`workspaceStrategy`): launching an independent queued task, a standalone feature thread explicitly spun off, or a pinned daemon (`📌 operator`). Never for subtasks, parallel steps, `verdict`, routine `operator` fixes, or panels.
 <!-- if maxEffort -->
 <!-- # adds -->
-- **Effort cap.** No role, seat or suggested-task card runs above `{{maxEffort}}`, the `maxEffort` in `.agents/pstack.json`. `cross.mjs` caps every run it starts and `chips brief` prints each card's capped effort.
+- **Effort cap.** No role or seat runs above `{{maxEffort}}`, the `maxEffort` in `.agents/pstack.json`. `cross.mjs` caps every run it starts.
 <!-- end -->
 <!-- # overrides poteto-mode/SKILL.md "The role's `@level`, or the sheet's `default effort` line, sets its starting level" -->
 <!-- # overrides poteto-mode/SKILL.md "lower it one step for judgment, and two or more steps for routine work" -->
@@ -173,12 +173,6 @@
 <!-- # overrides poteto-mode/playbooks/babysit.md "Declare the mode in your first line, before any poll." -->
 - **Babysit levels.** Before Babysit's first step on a PR (unless read-only review), check each linked plan log's `lead` and `seats` rows against the current session level and models sheet; if any unit ran below target, run `redo` first.
 <!-- end -->
-<!-- # adds -->
-<!-- # overrides poteto-mode/SKILL.md "A correctness or data gap gets a tracked issue" -->
-<!-- # overrides poteto-mode/playbooks/autonomous-run.md "Put out-of-band fixes in their own PR." -->
-<!-- # overrides reflect/SKILL.md "What a lint, script or check could enforce goes to the backlog, not into prose." -->
-<!-- # overrides poteto-mode/playbooks/autopilot-full.md "everything else goes in a follow-up" -->
-- **Suggested tasks.** The `chips` skill and `.agents/pstack/rules/chips.md` own the suggested-task ledger (the project's tracker, replacing pstack's tracked issues, follow-ups, reflect Backlog items and out-of-band PRs). Load `chips` before offering, dropping or closing suggested tasks; a card session logs only its own rows and runs no sweep. Fix blocking discoveries and workflow friction in-run; list other side findings in Open work or offer a chip per `chips.md`.
 <!-- end -->
 <!-- section fast -->
 <!-- # overrides poteto-mode/SKILL.md "Route bulk to subagents, keep summaries in the main thread." -->
@@ -189,7 +183,7 @@
 <!-- # overrides poteto-mode/playbooks/perf-issue.md "If it crosses a function boundary, `architect` first." -->
 <!-- # overrides no-comments/SKILL.md "Spawn comment-sicko. Act on accepted findings." -->
 <!-- # overrides show-me-your-work/SKILL.md "spawn a subagent on a model from another family" -->
-- **Fast.** The owner's word "fast", or a suggested task whose card title ends in "(fast)", runs the request on the main lane, with no subagent or seat. Before you run one that way, read `.agents/pstack/rules/fast.md` in full.
+- **Fast.** The owner's word "fast" runs the request on the main lane, with no subagent or seat. Before you run one that way, read `.agents/pstack/rules/fast.md` in full.
 <!-- end -->
 <!-- section long-runs -->
 <!-- # overrides poteto-mode/playbooks/pause-safely.md "Commit uncommitted edits as one clear `wip:` commit on the current branch so nothing is lost." -->
@@ -235,6 +229,6 @@
 <!-- # overrides reflect/SKILL.md "After approval, copy the skill folder there and edit the copy." -->
 <!-- # overrides reflect/SKILL.md "Never open a PR or push." -->
 <!-- # overrides correct/SKILL.md "fix the most frequent classes now, one commit each" -->
-- **Improve the workflow mid-task.** When a skill, rule, script or helper gets in the way, fix it then, separately from the task's change, and keep working. A card session fixes friction it worked around once its task lands, as chips.md's Landing says. When the user corrects the same mistake a second time, in code or in a shell or tool command a rule already forbade, run `/pstack:correct` on that class, which fixes it with architecture, types or a check before any rule text.
+- **Improve the workflow mid-task.** When a skill, rule, script or helper gets in the way, fix it then, separately from the task's change, and keep working. When the user corrects the same mistake a second time, in code or in a shell or tool command a rule already forbade, run `/pstack:correct` on that class, which fixes it with architecture, types or a check before any rule text.
   Run `/pstack:reflect` only when the owner asks for it, as pstack does (owner's word, 2026-11-20).
   Before `/pstack:reflect`, `/pstack:correct`, a new or changed check, or an edit to an agent file such as a skill, a rule or `AGENTS.md`, read `.agents/pstack/rules/reflect.md` in full; it holds the rest of this rule and the Corrections and Agent files rules.
