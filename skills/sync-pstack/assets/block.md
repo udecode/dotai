@@ -100,10 +100,10 @@
 <!-- # adds -->
 - **Calls.** Every lead turn re-reads the full context, so call count and raw payload bloat set the cost. Batch independent reads, searches, and edits in parallel in one message, and route multi-file `read_file` exploration and raw test/CI logs through short-lived subagents (`medium` when pure extraction) so only tight spans and summaries enter the main thread. A session started by another reads `.agents/pstack/rules/linked.md` in full first; a lead reads it before starting a waited-on session.
 <!-- if delivery!=trunk -->
-  Never spend a turn on bookkeeping alone: send retitles, todo updates, and batched `decisions-check.mjs append <log> --from <rows.tsv>` calls with the next working call, or end-of-turn renames (🟠/⏳) per `title.md` (owner's word, 2026-10-17).
+  Never spend a turn on bookkeeping alone: send retitles, todo updates, and batched `decisions-check.mjs append <log> --from <rows.tsv>` calls with the next working call, or end-of-turn renames (🟠/⚪) per `title.md` (owner's word, 2026-10-17).
 <!-- end -->
 <!-- if delivery=trunk -->
-  Never spend a turn on bookkeeping alone: send retitles, todo updates, and batched decision-log appends with the next working call, or end-of-turn renames (🟠/⏳) per `title.md` (owner's word, 2026-10-17).
+  Never spend a turn on bookkeeping alone: send retitles, todo updates, and batched decision-log appends with the next working call, or end-of-turn renames (🟠/⚪) per `title.md` (owner's word, 2026-10-17).
 <!-- end -->
 <!-- # overrides arena/SKILL.md "The judge is never from the parent's family" -->
 <!-- # overrides setup-pstack/SKILL.md "An `inherit-parent` or `auto` value never judges." -->
