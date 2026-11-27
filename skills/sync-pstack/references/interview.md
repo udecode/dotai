@@ -51,7 +51,7 @@ The owner settled these for every project. Report them as applied.
 
 - The lead writes the code; subagents research, review and fan out read-only, and a Codex worker the owner asks for runs with no sandbox through `cross.mjs --bypass`.
 - External messages, shared quota, and access grants follow `rules/messages.md`; "can we X?" questions get a proposal, not the action.
-- Three lead runtimes: Antigravity (`gemini-4-neon @high`) is the default across all projects (escalating to `xhigh` only for `arena` runners, stuck debugging, or deep architectural pivots), Claude Code runs roles on `opus` (with `fable @high` for `strongest judgment`), and Codex inherits `gpt-6.2-sol`. UI/visual runs on `opus @high`; see `assets/pstack-models.md` for every role.
+- Three lead runtimes: Antigravity (`gemini-4-neon @high`) is the default across all projects (escalating to `xhigh` only for `arena` runners, stuck debugging, or deep architectural pivots), Claude Code runs roles on `opus` (with `agy:gemini-4-neon @xhigh` for `strongest judgment`), and Codex inherits `gpt-6.2-sol`. UI/visual runs on `opus @high`; see `assets/pstack-models.md` for every role.
 - No per-delegate worktrees.
 - Panels seat `opus @high`, `codex:gpt-6.2-sol @xhigh or fable @high`, and `agy:gemini-4-neon @high` (arena runners seat `fable @high`, `codex:gpt-6.2-sol @xhigh or opus @high`, and `agy:gemini-4-neon @xhigh`), through `cross.mjs --reach`, with a critical finding as the blocking ceiling.
 - Principles are read, not named in replies.
