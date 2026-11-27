@@ -12,10 +12,6 @@
       {
         "provider": "codex",
         "model": "gpt-6.2-sol"
-      },
-      {
-        "provider": "antigravity",
-        "model": "gemini-pro-orchestrator-neon"
       }
     ],
     "providerModelPreferences": {

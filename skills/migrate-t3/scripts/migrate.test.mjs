@@ -3,7 +3,7 @@ import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSy
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
-import { convertClaudeMcpServer, runMigration } from './migrate.mjs';
+import { convertClaudeMcpServer, DEFAULT_PSTACK_MODELS, runMigration } from './migrate.mjs';
 
 function makeEnv() {
   const root = mkdtempSync(join(tmpdir(), 'migrate-t3-'));
@@ -27,7 +27,19 @@ test('convertClaudeMcpServer translates http url to serverUrl and preserves stdi
   assert.equal(convertClaudeMcpServer({}), null);
 });
 
-test('apply migrates Claude MCPs, seeds gemini and T3 defaults while preserving local keys, links T3 profile, and is idempotent', () => {
+test('DEFAULT_PSTACK_MODELS matches shared pstack-models lanes and omits Opus fallback for Sol', () => {
+  assert.match(DEFAULT_PSTACK_MODELS, /^interrogate reviewers: fable @high, codex:gpt-6\.2-sol @xhigh, agy:gemini-4-neon @high$/mu);
+  assert.match(DEFAULT_PSTACK_MODELS, /^arena runners: fable @high, codex:gpt-6\.2-sol @xhigh, agy:gemini-4-neon @xhigh$/mu);
+  assert.match(DEFAULT_PSTACK_MODELS, /^swarm workers: inherit @high$/mu);
+  assert.match(DEFAULT_PSTACK_MODELS, /^operator, routine local ci: inherit @medium$/mu);
+  assert.match(DEFAULT_PSTACK_MODELS, /^docs, registry, sync: inherit @medium$/mu);
+  assert.match(DEFAULT_PSTACK_MODELS, /^evidence, research: inherit @medium$/mu);
+  assert.match(DEFAULT_PSTACK_MODELS, /^video transcripts: opus @medium$/mu);
+  assert.match(DEFAULT_PSTACK_MODELS, /^clip: agy:gemini-4-neon @medium$/mu);
+  assert.doesNotMatch(DEFAULT_PSTACK_MODELS, /^(?:arena runners|interrogate reviewers):[^\n]*or opus/mu);
+});
+
+test('apply migrates global Claude MCPs (skipping playwright and project-only MCPs), seeds defaults while preserving local keys, links T3 profile, and is idempotent', () => {
   const { home, repo } = makeEnv();
 
   mkdirSync(join(home, 'Library/Application Support/Claude'), { recursive: true });
@@ -35,6 +47,7 @@ test('apply migrates Claude MCPs, seeds gemini and T3 defaults while preserving 
     join(home, 'Library/Application Support/Claude/claude_desktop_config.json'),
     JSON.stringify({
       mcpServers: {
+        browserAlias: { args: ['-y', '@playwright/mcp@latest'], command: 'npx' },
         linear: { type: 'http', url: 'https://mcp.linear.app/mcp' },
         playwright: { args: ['-y', '@playwright/mcp@latest'], command: 'npx' },
       },
@@ -46,6 +59,7 @@ test('apply migrates Claude MCPs, seeds gemini and T3 defaults while preserving 
       mcpServers: {
         linear: { type: 'http', url: 'https://should-not-override-desktop.example' },
         nango: { type: 'http', url: 'https://mcp.nango.dev/mcp' },
+        playwright: { args: ['run'], command: 'playwright-mcp' },
       },
       projects: {
         [resolve(repo)]: {
@@ -98,6 +112,7 @@ test('apply migrates Claude MCPs, seeds gemini and T3 defaults while preserving 
 
   const auditBefore = runMigration({ apply: false, checkBinaries: false, cwd: repo, home, platform: 'darwin' });
   assert.ok(auditBefore.todo.length >= 6);
+  assert.ok(auditBefore.todo.some((line) => line.includes('AGY_CLI_FORCE_FILE_TOKEN_STORAGE=1')));
 
   const applied = runMigration({ apply: true, checkBinaries: false, cwd: repo, home, platform: 'darwin' });
   assert.deepEqual(applied.todo, []);
@@ -106,6 +121,15 @@ test('apply migrates Claude MCPs, seeds gemini and T3 defaults while preserving 
   const t3Settings = JSON.parse(readFileSync(join(home, '.t3/userdata/settings.json'), 'utf8'));
   assert.deepEqual(t3Settings.defaultModelSelection, { instanceId: 'antigravity', model: 'gemini-4-neon' });
   assert.deepEqual(t3Settings.projectSettingsOverrides, { 'local-proj-uuid': { defaultAutoPull: true } });
+  assert.equal(
+    t3Settings.favorites.some((fav) => fav.model === 'gemini-pro-orchestrator-neon'),
+    false
+  );
+  assert.deepEqual(t3Settings.providerInstances.antigravity, {
+    driver: 'antigravity',
+    enabled: true,
+    environment: [{ name: 'AGY_CLI_FORCE_FILE_TOKEN_STORAGE', value: '1' }],
+  });
 
   const t3Client = JSON.parse(readFileSync(join(home, '.t3/userdata/client-settings.json'), 'utf8'));
   assert.equal(t3Client.followUpBehavior, 'steer');
@@ -117,8 +141,6 @@ test('apply migrates Claude MCPs, seeds gemini and T3 defaults while preserving 
   assert.deepEqual(mcp.mcpServers, {
     linear: { serverUrl: 'https://mcp.linear.app/mcp' },
     nango: { serverUrl: 'https://mcp.nango.dev/mcp' },
-    playwright: { args: ['-y', '@playwright/mcp@latest'], command: 'npx' },
-    projectApi: { serverUrl: 'https://api.example.com/mcp' },
   });
 
   const skills = JSON.parse(readFileSync(join(home, '.gemini/config/skills.json'), 'utf8'));
@@ -128,7 +150,10 @@ test('apply migrates Claude MCPs, seeds gemini and T3 defaults while preserving 
   );
 
   assert.equal(readFileSync(join(home, '.gemini/AGENTS.md'), 'utf8'), '# Global rules\n');
-  assert.match(readFileSync(join(home, '.gemini/config/pstack-models.md'), 'utf8'), /ui, visual: opus @high/u);
+  const modelsMd = readFileSync(join(home, '.gemini/config/pstack-models.md'), 'utf8');
+  assert.match(modelsMd, /ui, visual: opus @high/u);
+  assert.match(modelsMd, /operator, routine local ci: inherit @medium/u);
+  assert.match(modelsMd, /clip: agy:gemini-4-neon @medium/u);
 
   for (const [rel, target] of [
     ['AGENTS.md', join(home, '.gemini/AGENTS.md')],
@@ -144,6 +169,111 @@ test('apply migrates Claude MCPs, seeds gemini and T3 defaults while preserving 
   }
 
   const second = runMigration({ apply: true, checkBinaries: false, cwd: repo, home, platform: 'darwin' });
+  assert.deepEqual(second.changed, []);
+  assert.deepEqual(second.todo, []);
+});
+
+test('providerInstances preserves displayName and environment, adds AGY_CLI_FORCE_FILE_TOKEN_STORAGE across all Antigravity instances, and flags AGY_ACP_FORCE_FILE_STORAGE', () => {
+  const { home, repo } = makeEnv();
+  mkdirSync(join(home, '.t3/userdata'), { recursive: true });
+  writeFileSync(
+    join(home, '.t3/userdata/settings.json'),
+    JSON.stringify({
+      providerInstances: {
+        antigravity: {
+          displayName: 'Work',
+          driver: 'antigravity',
+          enabled: true,
+          environment: [
+            { name: 'AGY_ACP_FORCE_FILE_STORAGE', value: '1' },
+            { name: 'CUSTOM_FLAG', value: 'yes' },
+          ],
+        },
+        'antigravity-personal': {
+          displayName: 'Personal',
+          driver: 'antigravity',
+          enabled: true,
+          environment: [{ name: 'OTHER', value: '2' }],
+        },
+        'antigravity-ready': {
+          displayName: 'Ready',
+          driver: 'antigravity',
+          enabled: true,
+          environment: [{ name: 'AGY_CLI_FORCE_FILE_TOKEN_STORAGE', value: '1' }],
+        },
+        claudeAgent: {
+          displayName: 'Claude',
+          driver: 'claudeAgent',
+          enabled: true,
+          environment: [{ name: 'CLAUDE_FOO', value: '1' }],
+        },
+      },
+    })
+  );
+
+  const check = runMigration({ apply: false, checkBinaries: false, cwd: repo, home, platform: 'darwin', t3Only: true });
+  assert.ok(
+    check.todo.some(
+      (line) =>
+        line.includes('providerInstances.antigravity') &&
+        line.includes('AGY_ACP_FORCE_FILE_STORAGE') &&
+        line.includes('AGY_CLI_FORCE_FILE_TOKEN_STORAGE')
+    )
+  );
+  assert.ok(
+    check.todo.some(
+      (line) =>
+        line.includes('providerInstances.antigravity-personal') &&
+        line.includes('AGY_CLI_FORCE_FILE_TOKEN_STORAGE=1')
+    )
+  );
+  assert.equal(
+    check.todo.some((line) => line.includes('antigravity-ready') || line.includes('claudeAgent')),
+    false
+  );
+
+  const applied = runMigration({ apply: true, checkBinaries: false, cwd: repo, home, platform: 'darwin', t3Only: true });
+  assert.deepEqual(applied.todo, []);
+  assert.ok(
+    applied.changed.some(
+      (line) => line.includes('AGY_ACP_FORCE_FILE_STORAGE') && line.includes('AGY_CLI_FORCE_FILE_TOKEN_STORAGE=1')
+    )
+  );
+
+  const settings = JSON.parse(readFileSync(join(home, '.t3/userdata/settings.json'), 'utf8'));
+  assert.deepEqual(settings.providerInstances.antigravity, {
+    displayName: 'Work',
+    driver: 'antigravity',
+    enabled: true,
+    environment: [
+      { name: 'AGY_ACP_FORCE_FILE_STORAGE', value: '1' },
+      { name: 'CUSTOM_FLAG', value: 'yes' },
+      { name: 'AGY_CLI_FORCE_FILE_TOKEN_STORAGE', value: '1' },
+    ],
+  });
+  assert.deepEqual(settings.providerInstances['antigravity-personal'], {
+    displayName: 'Personal',
+    driver: 'antigravity',
+    enabled: true,
+    environment: [
+      { name: 'OTHER', value: '2' },
+      { name: 'AGY_CLI_FORCE_FILE_TOKEN_STORAGE', value: '1' },
+    ],
+  });
+  assert.deepEqual(settings.providerInstances['antigravity-ready'], {
+    displayName: 'Ready',
+    driver: 'antigravity',
+    enabled: true,
+    environment: [{ name: 'AGY_CLI_FORCE_FILE_TOKEN_STORAGE', value: '1' }],
+  });
+  assert.deepEqual(settings.providerInstances.claudeAgent, {
+    displayName: 'Claude',
+    driver: 'claudeAgent',
+    enabled: true,
+    environment: [{ name: 'CLAUDE_FOO', value: '1' }],
+  });
+
+  const second = runMigration({ apply: true, checkBinaries: false, cwd: repo, home, platform: 'darwin', t3Only: true });
   assert.deepEqual(second.changed, []);
   assert.deepEqual(second.todo, []);
 });

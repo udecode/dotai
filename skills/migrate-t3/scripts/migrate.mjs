@@ -20,15 +20,20 @@ import { fileURLToPath } from 'node:url';
 export const AGY_RULE_SAFE_BYTES = 22_500;
 export const AGY_SKILL_DESC_BUDGET = 16_000;
 
+const AGY_FILE_TOKEN_ENV = 'AGY_CLI_FORCE_FILE_TOKEN_STORAGE';
+const WRONG_AGY_FILE_TOKEN_ENV = 'AGY_ACP_FORCE_FILE_STORAGE';
+
 const T3_DEFAULTS = JSON.parse(
   readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../assets/t3-defaults.json'), 'utf8')
 );
 
 export const DEFAULT_PSTACK_MODELS = `# pstack model configuration (Antigravity)
 
-Antigravity (\`gemini-4-neon @high\`) is the default lead. Native Antigravity subagents (\`invoke_subagent\`) always use \`inherit\`, never \`pro\`, \`flash\`, or \`flash_lite\`. Escalate Neon to \`@xhigh\` only for \`arena runners\`, stuck debugging after \`high\` fails, or deep architectural pivots. Route UI and visual work to Claude Opus (\`opus @high\`).
+Antigravity (\`gemini-4-neon @high\`) is the default lead across all projects. Native Antigravity subagents (\`invoke_subagent\`) always use \`inherit\`, never \`pro\`, \`flash\`, or \`flash_lite\`. Route UI and visual work to Claude Opus (\`opus @high\`).
 
-Panel and arena seats keep multi-family diversity through \`node .agents/pstack/cross.mjs\` when the project has \`sync-pstack\` helpers; otherwise panels run on \`inherit\`. Never dispatch \`pro\`, \`flash\`, \`flash_lite\`, \`sonnet\`, or \`haiku\`.
+Effort tiers: \`medium\` for \`operator\`, routine Local CI fixers, docs/registry/sync, read-only evidence/research, \`clip\`, and \`video transcripts\`; \`high\` for engineering (\`feature\`, \`refactoring\`, \`bug-fix\`, \`perf-issue\`, \`hillclimb\`), plans, verdicts, UI/visual (\`opus @high\`), \`arena cross-judge pool\`, and Fable/Neon \`interrogate reviewers\`; \`xhigh\` for Sol (\`codex:gpt-6.2-sol @xhigh\`, always, with no \`or opus\` fallback), \`arena runners\` (Sol and Neon), \`strongest judgment\`, and stuck debugging after \`high\` fails or deep architectural pivots.
+
+Panel and arena seats keep multi-family diversity through \`node .agents/pstack/cross.mjs\` when the project has \`sync-pstack\` helpers; otherwise panels run on \`inherit\`. When Codex is unavailable, out of quota, or refuses, skip the Sol seat and continue with the answering seats. Never dispatch \`pro\`, \`flash\`, \`flash_lite\`, \`sonnet\`, or \`haiku\`.
 
 feature, refactoring: inherit
 bug-fix: inherit
@@ -39,8 +44,13 @@ strongest judgment: agy:gemini-4-neon @xhigh
 ui, visual: opus @high
 arena runners: fable @high, codex:gpt-6.2-sol @xhigh, agy:gemini-4-neon @xhigh
 arena cross-judge pool: opus @high, agy:gemini-4-neon @high
-swarm workers: inherit
+swarm workers: inherit @high
 interrogate reviewers: fable @high, codex:gpt-6.2-sol @xhigh, agy:gemini-4-neon @high
+operator, routine local ci: inherit @medium
+docs, registry, sync: inherit @medium
+evidence, research: inherit @medium
+video transcripts: opus @medium
+clip: agy:gemini-4-neon @medium
 default effort: high
 session hook: on
 `;
@@ -139,7 +149,15 @@ export function convertClaudeMcpServer(entry) {
   return null;
 }
 
-function collectClaudeMcpServers(home, cwd, platform) {
+function isPlaywrightMcp(name, entry) {
+  if (name.toLowerCase() === 'playwright') return true;
+  const args = Array.isArray(entry?.args) ? entry.args : [];
+  if (args.some((arg) => typeof arg === 'string' && arg.includes('@playwright/mcp'))) return true;
+  if (typeof entry?.command === 'string' && entry.command.includes('@playwright/mcp')) return true;
+  return false;
+}
+
+function collectClaudeMcpServers(home, platform) {
   const sources = [];
   const desktopConfig =
     platform === 'darwin'
@@ -153,14 +171,10 @@ function collectClaudeMcpServers(home, cwd, platform) {
   if (claudeJson?.mcpServers && typeof claudeJson.mcpServers === 'object') {
     sources.push({ label: join(home, '.claude.json'), servers: claudeJson.mcpServers });
   }
-  const projectEntry = claudeJson?.projects?.[resolve(cwd)];
-  if (projectEntry?.mcpServers && typeof projectEntry.mcpServers === 'object') {
-    sources.push({ label: `${join(home, '.claude.json')} (${resolve(cwd)})`, servers: projectEntry.mcpServers });
-  }
   const merged = {};
   for (const { servers } of sources) {
     for (const [name, entry] of Object.entries(servers)) {
-      if (name in merged) continue;
+      if (name in merged || isPlaywrightMcp(name, entry)) continue;
       const converted = convertClaudeMcpServer(entry);
       if (converted) merged[name] = converted;
     }
@@ -229,25 +243,113 @@ function linkIntoProfile({ apply, dst, label, src, isDir = false }) {
   return { status: 'changed', message: `linked ${label} -> ${src}` };
 }
 
-function applyT3Settings({ apply, changed, home, ok, todo }) {
+function hasWorkspacePluginMcp(cwd) {
+  const pluginsDir = join(cwd, '.agents/plugins');
+  if (!existsSync(pluginsDir)) return false;
+  for (const entry of readdirSync(pluginsDir, { withFileTypes: true })) {
+    if (entry.isDirectory() && existsSync(join(pluginsDir, entry.name, 'mcp_config.json'))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function applyT3Settings({ apply, changed, home, manual, ok, todo }) {
   const userdataDir = join(home, '.t3/userdata');
   const settingsPath = join(userdataDir, 'settings.json');
   const clientPath = join(userdataDir, 'client-settings.json');
 
+  const { providerInstances: presetInstances = {}, ...presetSettingsRest } = T3_DEFAULTS.settings;
   const mergedSettings = mergePreset(
     readJson(settingsPath),
-    T3_DEFAULTS.settings,
-    new Set(['providerModelPreferences', 'providerInstances', 'storageCleanup'])
+    presetSettingsRest,
+    new Set(['providerModelPreferences', 'storageCleanup'])
   );
-  if (mergedSettings.updatedKeys.length > 0) {
+  const nextSettings = mergedSettings.next;
+  const updatedKeys = [...mergedSettings.updatedKeys];
+
+  const existingInstances = isPlainObject(nextSettings.providerInstances) ? nextSettings.providerInstances : null;
+  const nextInstances = existingInstances ? { ...existingInstances } : {};
+  let providerInstancesChanged = !existingInstances;
+
+  for (const [id, presetInstance] of Object.entries(presetInstances)) {
+    const currentInstance = nextInstances[id];
+    if (!isPlainObject(currentInstance)) {
+      nextInstances[id] = { ...presetInstance };
+      providerInstancesChanged = true;
+      continue;
+    }
+    const mergedInstance = { ...currentInstance };
+    let instanceChanged = false;
+    for (const [field, value] of Object.entries(presetInstance)) {
+      if (!deepEqual(mergedInstance[field], value)) {
+        mergedInstance[field] = value;
+        instanceChanged = true;
+      }
+    }
+    if (instanceChanged) {
+      nextInstances[id] = mergedInstance;
+      providerInstancesChanged = true;
+    }
+  }
+
+  const missingFileTokenIds = [];
+  const wrongFileTokenIds = [];
+  let antigravityInstanceCount = 0;
+
+  for (const [id, instance] of Object.entries(nextInstances)) {
+    if (!isPlainObject(instance) || instance.driver !== 'antigravity') continue;
+    antigravityInstanceCount += 1;
+    const env = Array.isArray(instance.environment)
+      ? instance.environment.map((entry) => (isPlainObject(entry) ? { ...entry } : entry))
+      : [];
+    const hasCorrect = env.some((entry) => isPlainObject(entry) && entry.name === AGY_FILE_TOKEN_ENV);
+    const hasWrong = env.some((entry) => isPlainObject(entry) && entry.name === WRONG_AGY_FILE_TOKEN_ENV);
+    if (!hasCorrect) {
+      missingFileTokenIds.push(id);
+      if (hasWrong) wrongFileTokenIds.push(id);
+      env.push({ name: AGY_FILE_TOKEN_ENV, value: '1' });
+      nextInstances[id] = { ...instance, environment: env };
+      providerInstancesChanged = true;
+    }
+  }
+
+  if (providerInstancesChanged) {
+    nextSettings.providerInstances = nextInstances;
+    updatedKeys.push('providerInstances');
+  }
+
+  if (updatedKeys.length > 0) {
     if (apply) {
-      writeJson(settingsPath, mergedSettings.next);
-      changed.push(`updated ~/.t3/userdata/settings.json (${mergedSettings.updatedKeys.join(', ')})`);
+      writeJson(settingsPath, nextSettings);
+      changed.push(`updated ~/.t3/userdata/settings.json (${updatedKeys.join(', ')})`);
+      if (wrongFileTokenIds.length > 0) {
+        changed.push(
+          `added ${AGY_FILE_TOKEN_ENV}=1 to providerInstances (${wrongFileTokenIds.join(', ')}) which had ${WRONG_AGY_FILE_TOKEN_ENV} without ${AGY_FILE_TOKEN_ENV}`
+        );
+      }
+      if (missingFileTokenIds.length > 0 && manual) {
+        manual.push(
+          `Sign in once per Antigravity account (${missingFileTokenIds.join(', ')}) after restarting T3 Code so each writes its own antigravity-oauth-token file instead of sharing one macOS Keychain slot.`
+        );
+      }
     } else {
-      todo.push(`apply T3 defaults to ~/.t3/userdata/settings.json (${mergedSettings.updatedKeys.join(', ')})`);
+      todo.push(`apply T3 defaults to ~/.t3/userdata/settings.json (${updatedKeys.join(', ')})`);
+      for (const id of missingFileTokenIds) {
+        if (wrongFileTokenIds.includes(id)) {
+          todo.push(
+            `providerInstances.${id} sets ${WRONG_AGY_FILE_TOKEN_ENV} without ${AGY_FILE_TOKEN_ENV} (Antigravity ignores ${WRONG_AGY_FILE_TOKEN_ENV}); add ${AGY_FILE_TOKEN_ENV}=1`
+          );
+        } else {
+          todo.push(`add ${AGY_FILE_TOKEN_ENV}=1 to providerInstances.${id} in ~/.t3/userdata/settings.json`);
+        }
+      }
     }
   } else {
     ok.push('~/.t3/userdata/settings.json matches curated defaults');
+    if (antigravityInstanceCount > 0) {
+      ok.push(`all ${antigravityInstanceCount} Antigravity provider instance(s) set ${AGY_FILE_TOKEN_ENV}`);
+    }
   }
 
   const mergedClient = mergePreset(readJson(clientPath), T3_DEFAULTS.clientSettings);
@@ -276,7 +378,7 @@ export function runMigration({
   const todo = [];
   const manual = [];
 
-  applyT3Settings({ apply, changed, home, ok, todo });
+  applyT3Settings({ apply, changed, home, manual, ok, todo });
   if (t3Only) return { changed, manual, ok, todo };
 
   const record = (res) => {
@@ -295,7 +397,7 @@ export function runMigration({
   const globalPluginsDir = join(geminiConfig, 'plugins');
   const globalOauthPath = join(geminiDir, 'antigravity-cli/mcp_oauth_tokens.json');
 
-  const claudeServers = collectClaudeMcpServers(home, cwd, platform);
+  const claudeServers = collectClaudeMcpServers(home, platform);
   const existingMcp = readJson(globalMcpPath) ?? {};
   const existingServers = existingMcp.mcpServers && typeof existingMcp.mcpServers === 'object' ? { ...existingMcp.mcpServers } : {};
   const missingServers = Object.keys(claudeServers).filter((name) => !(name in existingServers));
@@ -310,7 +412,7 @@ export function runMigration({
   } else if (Object.keys(existingServers).length > 0) {
     ok.push(`~/.gemini/config/mcp_config.json has ${Object.keys(existingServers).length} server(s)`);
   } else {
-    ok.push('no local Claude Desktop or Claude Code MCP servers found to merge');
+    ok.push('no global Claude Desktop or Claude Code MCP servers found to merge');
   }
 
   const wantedSkillPaths = ['~/.agents/skills'];
@@ -475,8 +577,8 @@ export function runMigration({
     if (repoClaudeSettings?.hooks && !existsSync(join(cwd, '.agents/hooks.json'))) {
       todo.push('repo has .claude/settings.json hooks but no .agents/hooks.json for Antigravity');
     }
-    if (existsSync(join(cwd, '.mcp.json')) && !existsSync(join(cwd, '.agents/mcp_config.json'))) {
-      todo.push('repo has .mcp.json but no .agents/mcp_config.json for Antigravity');
+    if (existsSync(join(cwd, '.mcp.json')) && !existsSync(join(cwd, '.agents/mcp_config.json')) && !hasWorkspacePluginMcp(cwd)) {
+      todo.push('repo has .mcp.json but no .agents/plugins/<name>/mcp_config.json (or .agents/mcp_config.json) for Antigravity');
     }
     const repoSkillsDir = join(cwd, '.agents/skills');
     if (existsSync(repoSkillsDir)) {
