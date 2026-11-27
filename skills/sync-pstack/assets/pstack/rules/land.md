@@ -32,7 +32,7 @@ This file says how a task works in its own worktree and lands on `{{branch}}` in
 <!-- # adds -->
 - **Other people's PRs.** Fix another person's PR in a detached worktree at its head and push `HEAD:<head branch>` if the remote head matches. Keep your PR description (or latest comment on someone else's PR) true to the pushed diff. If maintainer edits are disabled, carry their commits into one commit with `Co-authored-by:` lines, land it, and close their PR linking the replacement.
 <!-- # adds -->
-- **Review.** `land.mjs` appends `Session:`, `Plan:` (when one dated plan changed), and `Lead:` trailers. Review unreviewed commits with `node .agents/pstack/review.mjs` (`--tier internal|all`, `--net <session>`, `--done <session>`, `--mark`, `--revert <session> [--stage]`). List every commit landed this session in the closing reply's link list.
+- **Review.** `land.mjs` appends `Session:`, `Plan:` (when one dated plan changed), and `Lead:` trailers. Review unreviewed commits with `node .agents/pstack/review.mjs` (`--tier internal|all`, `--net <session>`, `--done <session>`, `--mark`, `--revert <session> [--stage]`). List every commit landed in this turn in the reply's link list.
 <!-- if sourceless -->
   Commits must cite a source (repo/companion issue `<repo>#<N>` or `Plan:` path) unless the GitHub user is in `sourceless`.
 <!-- end -->
