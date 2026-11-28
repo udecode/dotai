@@ -77,6 +77,8 @@ test('apply migrates global Claude MCPs (skipping playwright and project-only MC
     join(home, '.gemini/config/plugins/pstack/.antigravity-plugin/plugin.json'),
     JSON.stringify({ name: 'pstack', version: '0.9.145' })
   );
+  mkdirSync(join(home, '.gemini/config/plugins/pstack/agents'), { recursive: true });
+  writeFileSync(join(home, '.gemini/config/plugins/pstack/agents/comment-sicko.md'), '# custom agent\n');
   mkdirSync(join(home, '.gemini/antigravity-cli'), { recursive: true });
   writeFileSync(join(home, '.gemini/antigravity-cli/mcp_oauth_tokens.json'), '{"linear":"tok"}\n');
 
@@ -113,10 +115,12 @@ test('apply migrates global Claude MCPs (skipping playwright and project-only MC
   const auditBefore = runMigration({ apply: false, checkBinaries: false, cwd: repo, home, platform: 'darwin' });
   assert.ok(auditBefore.todo.length >= 6);
   assert.ok(auditBefore.todo.some((line) => line.includes('AGY_CLI_FORCE_FILE_TOKEN_STORAGE=1')));
+  assert.ok(auditBefore.todo.some((line) => line.includes('plugins/pstack/agents')));
 
   const applied = runMigration({ apply: true, checkBinaries: false, cwd: repo, home, platform: 'darwin' });
   assert.deepEqual(applied.todo, []);
   assert.ok(applied.changed.length >= 7);
+  assert.equal(existsSync(join(home, '.gemini/config/plugins/pstack/agents')), false);
 
   const t3Settings = JSON.parse(readFileSync(join(home, '.t3/userdata/settings.json'), 'utf8'));
   assert.deepEqual(t3Settings.defaultModelSelection, { instanceId: 'antigravity', model: 'gemini-4-neon' });

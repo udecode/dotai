@@ -1,6 +1,6 @@
 # Writing
 
-This file owns how every agent writes across all lanes: short messages, public comments, long-form docs, and automated checks. The pstack block in `AGENTS.md` points here. The `sync-pstack` skill renders this file from its shared source in `udecode/ustack`, so change it there.
+This file owns agent writing across all lanes: messages, public comments, docs, and checks. The pstack block in `AGENTS.md` points here. Edit its shared source in `udecode/ustack`.
 
 - **Writing.** Plain, direct, no AI tells (`pstack:unslop` patterns) across every lane.
   - Lead with the answer, result or decision, then the reason. A final reply opens that way too, without the goal restatement poteto-mode asks of a final report.
@@ -44,10 +44,10 @@ This file owns how every agent writes across all lanes: short messages, public c
 <!-- # relies technical-writing/SKILL.md "## Make statements load one at a time (STE rules)" -->
 - **Routing and passes.** A skill the user names wins (`"bro"` runs `pstack:bro` on the last message; catch-ups use `pstack:ketchup`). Run each writing pass once per batch of work, never once per edit, with the skill loaded:
   - **Messages** (chat replies, Slack, Discord, public comments): write clean in Messages mode with no separate `unslop` pass, then run `writing-check.mjs` on anything another person reads.
-  - **Product code:** run `deslop` plus deterministic comment-slop checks and an inline lead self-check on `git diff` once per batch before review or hand-back. Spawn `comment-sicko` (`no-comments`) only when `git diff` adds `>= 5` non-JSDoc comment lines (or on explicit `/no-comments`); in T3 Code, run it via `delegate_task` on the lead's model at `medium` effort (`thought_level: "medium"` for Neon, `effort: "medium"` for Opus) instead of inheriting `@high`.
+  - **Product code:** run `deslop`, deterministic comment-slop lint, and an inline `no-comments` self-check on `git diff` in the main thread once per batch before review or hand-back; never spawn a subagent for comments in routine coding. Only on explicit `/no-comments`, run a 1x default-agent `delegate_task` at `medium` (`thought_level: "medium"` for Neon, `effort: "medium"` for Opus) or built-in `TypeName: "research"` with the `no-comments` rubric path (never custom `TypeName: "comment-sicko"`, which bills 4x on Antigravity 1.5.17+).
   - **Long-form** (docs, plans, agent files, commit bodies, PR text): one `unslop` pass after drafting (skip mechanical bookkeeping). Run writing passes and review fixes before expensive runtime proofs.
 <!-- # adds -->
-- **Check.** `node .agents/pstack/writing-check.mjs [file...]` reads the files, or standard input without one. It prints one row for each rule a line breaks: a long dash, a hyphen used as a dash, a curly quote, the word `seam`, a chatbot opener or sign-off, a filler phrase, or unslop's AI-vocabulary and "is" lists (such as `pivotal` or `serves as`). It exits 1 on findings and 2 on read errors, skipping code spans and closed fenced blocks. Run it on text another person reads before sending (other than a reply to the owner) and fix every line it prints.
+- **Check.** `node .agents/pstack/writing-check.mjs [file...]` checks files or stdin (skipping code spans/fenced blocks) for long dashes, hyphen-dashes, curly quotes, `seam`, chatbot openers/sign-offs, filler, and unslop AI-vocabulary/"is" lists; exits 1 on findings, 2 on read errors. Run it on text another person reads before sending (except replies to the owner) and fix every finding.
 <!-- if delivery=trunk -->
   land.mjs runs it on the commit message and refuses a message that fails.
 <!-- end -->

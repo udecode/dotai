@@ -46,6 +46,7 @@ arena runners: fable @high, codex:gpt-6.2-sol @xhigh, agy:gemini-4-neon @xhigh
 arena cross-judge pool: opus @high, agy:gemini-4-neon @high
 swarm workers: inherit @high
 interrogate reviewers: fable @high, codex:gpt-6.2-sol @xhigh, agy:gemini-4-neon @high
+no-comments reviewer: inherit @medium
 operator, routine local ci: inherit @medium
 docs, registry, sync: inherit @medium
 evidence, research: inherit @medium
@@ -471,18 +472,31 @@ export function runMigration({
 
   const pin = pinnedPstack(cwd);
   const pluginManifest = readJson(join(globalPluginsDir, 'pstack/.antigravity-plugin/plugin.json'));
+  const globalAgentsDir = join(globalPluginsDir, 'pstack/agents');
   if (!pluginManifest) {
     const tag = pin?.ref ?? 'main';
     const repo = pin?.repo ?? 'michael-denyer/pstack-claude';
     todo.push(
-      `install pstack plugin for Antigravity: git clone --depth 1 --branch ${tag} https://github.com/${repo} /tmp/pstack-claude && agy plugin install /tmp/pstack-claude/plugins/pstack && rm -rf /tmp/pstack-claude`
+      `install pstack plugin for Antigravity: git clone --depth 1 --branch ${tag} https://github.com/${repo} /tmp/pstack-claude && agy plugin install /tmp/pstack-claude/plugins/pstack && rm -rf /tmp/pstack-claude ~/.gemini/config/plugins/pstack/agents`
     );
   } else if (pin?.version && pluginManifest.version !== pin.version) {
     todo.push(
-      `update Antigravity pstack plugin from ${pluginManifest.version} to ${pin.version}: git clone --depth 1 --branch ${pin.ref} https://github.com/${pin.repo} /tmp/pstack-claude && agy plugin install /tmp/pstack-claude/plugins/pstack && rm -rf /tmp/pstack-claude`
+      `update Antigravity pstack plugin from ${pluginManifest.version} to ${pin.version}: git clone --depth 1 --branch ${pin.ref} https://github.com/${pin.repo} /tmp/pstack-claude && agy plugin install /tmp/pstack-claude/plugins/pstack && rm -rf /tmp/pstack-claude ~/.gemini/config/plugins/pstack/agents`
     );
   } else {
     ok.push(`Antigravity pstack plugin installed (${pluginManifest.version ?? 'unknown'})`);
+  }
+
+  // Antigravity 1.5.17+ bills custom agents at 4x quota; strip pstack plugin agents/ so sessions stay on 1x built-in/default agents.
+  if (existsSync(globalAgentsDir)) {
+    if (apply) {
+      rmSync(globalAgentsDir, { force: true, recursive: true });
+      changed.push('stripped 4x custom agent files at ~/.gemini/config/plugins/pstack/agents');
+    } else {
+      todo.push('strip 4x custom agent files at ~/.gemini/config/plugins/pstack/agents');
+    }
+  } else if (pluginManifest) {
+    ok.push('Antigravity pstack custom agents stripped (1x quota)');
   }
 
   const t3AgyRoot = join(home, '.t3/userdata/providers/antigravity');
@@ -503,6 +517,15 @@ export function runMigration({
       record(linkIntoProfile({ apply, dst: join(profileDir, 'config/skills.json'), label: `${tag} skills.json`, src: globalSkillsJson }));
       record(linkIntoProfile({ apply, dst: join(profileDir, 'config/pstack-models.md'), label: `${tag} pstack-models.md`, src: globalModelsMd }));
       record(linkIntoProfile({ apply, dst: join(profileDir, 'config/plugins'), isDir: true, label: `${tag} plugins`, src: globalPluginsDir }));
+      const profileAgentsDir = join(profileDir, 'config/plugins/pstack/agents');
+      if (existsSync(profileAgentsDir)) {
+        if (apply) {
+          rmSync(profileAgentsDir, { force: true, recursive: true });
+          changed.push(`stripped 4x custom agent files at ${tag} plugins/pstack/agents`);
+        } else {
+          todo.push(`strip 4x custom agent files at ${tag} plugins/pstack/agents`);
+        }
+      }
       record(
         linkIntoProfile({
           apply,

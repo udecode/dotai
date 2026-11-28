@@ -23,11 +23,12 @@ Let `<skill-dir>` be the directory holding this `SKILL.md`.
    - Copies `~/.claude/CLAUDE.md` to `~/.gemini/AGENTS.md` when missing or empty.
    - Writes `~/.gemini/config/pstack-models.md` (`gemini-4-neon @high`, `inherit` subagents, `ui, visual: opus @high`, `medium` routine lanes, 3-family panels with no Opus fallback for Sol) when missing.
    - Symlinks every `~/.t3/userdata/providers/antigravity/*/` profile to `~/.gemini/AGENTS.md` and `~/.gemini/config/{mcp_config.json,skills.json,pstack-models.md,plugins}` (plus `antigravity-acp/mcp_oauth_tokens.json` when present).
-2. **Install or update the `pstack` Antigravity plugin** if step 1 reported a missing or stale `pstack` pin. Read the pinned tag from `.claude/settings.json` or `.agents/pstack.json` (default `main`), install globally, and re-run `--apply` so the T3 profile links `config/plugins`:
+   - Strips `~/.gemini/config/plugins/pstack/agents/` (custom agent files like `comment-sicko.md` and `poteto-agent.md`) so Antigravity 1.5.17+ sessions never trigger the 4x custom-agent quota multiplier.
+2. **Install or update the `pstack` Antigravity plugin** if step 1 reported a missing or stale `pstack` pin. Read the pinned tag from `.claude/settings.json` or `.agents/pstack.json` (default `main`), install globally, strip its `agents/` folder, and re-run `--apply` so the T3 profile links `config/plugins`:
    ```sh
    git clone --depth 1 --branch <tag> https://github.com/michael-denyer/pstack-claude /tmp/pstack-claude
    agy plugin install /tmp/pstack-claude/plugins/pstack
-   rm -rf /tmp/pstack-claude
+   rm -rf /tmp/pstack-claude ~/.gemini/config/plugins/pstack/agents
    node <skill-dir>/scripts/migrate.mjs --apply
    ```
    Never symlink `.agents/plugins/pstack` inside a repo; `agy` ignores symlinked project plugins.
