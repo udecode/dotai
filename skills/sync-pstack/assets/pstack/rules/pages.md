@@ -13,4 +13,12 @@ This file says how plans and topic files stay structured in git, how hand-back r
   - **1. Plain opening summary.** 2 to 4 short plain-English bullets (per `writing.md`'s Opening bro summary) saying what is broken or what changes for users and apps: zero code symbols, file paths, commit hashes, or test counts.
   - **2. Public API (`diff` block).** Only real public packages, hooks, options, or UI components added, renamed, or deleted, shown in a fenced `diff` code block (`-` before / `+` after), never a Markdown table (so it reads cleanly on mobile). Omit completely when no public API changes.
   - **3. Media and compact links.** Any demo clip or before-and-after image recorded during the run (via `clip` or a plan's `Demo:` step), embedded directly (`![caption](/abs/path/to/clip.mp4)` or `.png` in T3 Code, in addition to any team `shots.md` handoff), plus compact links (plan/topic files, commits, and any brief verdict comparison or proof limit).
-  - **4. Your decisions (always at the very end, right above the reply box).** Only genuine owner calls (`answer` / `look`); omit minor `safe` picks the owner trusts you on. Format one line per call as `1. <Decision> — Default: <pick> (or reply "<short word>" for <alt>).`, ending with `Reply "go" to accept all defaults.` Omit completely when nothing waits on the owner.
+  - **4. Your decisions (always at the very end, right above the reply box).** Only genuine owner calls (`answer` / `look`); omit minor `safe` picks the owner trusts you on. Never cram a decision into one dense line. Format each call as a scannable 4-line bullet block, ending with `Reply "go" to accept all defaults.` (omit this section completely when nothing waits on the owner):
+
+```markdown
+1. **<Short decision title>**
+   - **Before:** <what exists today>
+   - **Pick (default):** <recommended change>
+   - **Why you:** <exact reason it needs owner sign-off: e.g. repeals a Vision rule, breaks N callers, changes visible UX>
+   - **Alt (`<word>`):** <alternative and what it trades off>
+```
